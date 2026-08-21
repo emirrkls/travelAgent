@@ -47,7 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.emirrkls.travelagent.core.data.MockTravelRepository
 import com.emirrkls.travelagent.ui.components.ScorePill
 import com.emirrkls.travelagent.ui.components.CategoryIcon
 import com.emirrkls.travelagent.ui.components.TravelImage
@@ -145,7 +144,7 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
                 Spacer(Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     listOf(
-                        MockTravelRepository.currentUser.avatarUrl,
+                        state.currentUserAvatarUrl,
                         "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
                         "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
                     ).forEach { url -> Box(Modifier.padding(end = 6.dp)) { UserAvatar(url) } }

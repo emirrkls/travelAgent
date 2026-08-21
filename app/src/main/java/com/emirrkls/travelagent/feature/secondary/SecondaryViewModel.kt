@@ -26,12 +26,19 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
     val uiState = _uiState.asStateFlow()
     init {
         viewModelScope.launch {
-            combine(repository.observePlaces(), repository.observeSavedPlaceIds()) { places, saved -> places to saved }.collect { (places, saved) ->
+            _uiState.value = _uiState.value.copy(activity = repository.getActivity())
+        }
+        viewModelScope.launch {
+            combine(
+                repository.observePlaces(),
+                repository.observeSavedPlaceIds(),
+                repository.observeCollections(),
+            ) { places, saved, collections -> Triple(places, saved, collections) }
+                .collect { (places, saved, collections) ->
                 _uiState.value = _uiState.value.copy(
                     places = places,
                     savedPlaceIds = saved,
-                    collections = repository.getCollections(),
-                    activity = repository.getActivity(),
+                    collections = collections,
                 )
             }
         }

@@ -1,9 +1,9 @@
 package com.emirrkls.travelagent.feature.rating
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emirrkls.travelagent.core.data.MockTravelRepository
 import com.emirrkls.travelagent.core.data.TravelRepository
 import com.emirrkls.travelagent.core.model.Place
 import com.emirrkls.travelagent.core.model.Visit
@@ -26,6 +26,7 @@ data class RatingUiState(
     val visitedAt: LocalDate = LocalDate.now(),
     val isPublishing: Boolean = false,
     val published: Boolean = false,
+    val publishError: String? = null,
 )
 
 @HiltViewModel
@@ -50,13 +51,20 @@ class RatingViewModel @Inject constructor(savedStateHandle: SavedStateHandle, pr
     fun publish() {
         val state = _uiState.value
         if (state.place == null || state.isPublishing) return
+        _uiState.update { it.copy(isPublishing = true, publishError = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isPublishing = true) }
-            repository.publishVisit(
-                Visit(UUID.randomUUID().toString(), MockTravelRepository.CURRENT_USER_ID, placeId, state.visitedAt,
-                    state.overall.toDouble(), state.dimensions.mapValues { it.value.toDouble() }, state.review.trim(), state.note.trim())
-            )
-            _uiState.update { it.copy(isPublishing = false, published = true) }
+            try {
+                repository.publishVisit(
+                    Visit(UUID.randomUUID().toString(), repository.currentUser.id, placeId, state.visitedAt,
+                        state.overall.toDouble(), state.dimensions.mapValues { it.value.toDouble() }, state.review.trim(), state.note.trim())
+                )
+                _uiState.update { it.copy(published = true) }
+            } catch (error: Exception) {
+                Log.e("RatingViewModel", "Unable to publish visit", error)
+                _uiState.update { it.copy(publishError = "Couldn’t publish this visit. Please try again.") }
+            } finally {
+                _uiState.update { it.copy(isPublishing = false) }
+            }
         }
     }
 }

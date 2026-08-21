@@ -1,6 +1,8 @@
 package com.emirrkls.travelagent.core.di
 
-import com.emirrkls.travelagent.core.data.MockTravelRepository
+import com.emirrkls.travelagent.core.data.DefaultTravelRepository
+import com.emirrkls.travelagent.core.data.LocalUserStateDataSource
+import com.emirrkls.travelagent.core.data.RoomLocalUserStateDataSource
 import com.emirrkls.travelagent.core.data.TravelRepository
 import dagger.Binds
 import dagger.Module
@@ -13,5 +15,11 @@ import javax.inject.Singleton
 abstract class AppModule {
     @Binds
     @Singleton
-    abstract fun bindTravelRepository(repository: MockTravelRepository): TravelRepository
+    abstract fun bindTravelRepository(repository: DefaultTravelRepository): TravelRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLocalUserStateDataSource(
+        dataSource: RoomLocalUserStateDataSource,
+    ): LocalUserStateDataSource
 }

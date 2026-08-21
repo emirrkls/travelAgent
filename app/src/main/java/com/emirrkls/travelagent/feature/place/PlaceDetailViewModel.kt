@@ -13,7 +13,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class PlaceDetailUiState(val place: Place? = null, val isSaved: Boolean = false)
+data class PlaceDetailUiState(
+    val place: Place? = null,
+    val isSaved: Boolean = false,
+    val currentUserAvatarUrl: String,
+)
 
 @HiltViewModel
 class PlaceDetailViewModel @Inject constructor(
@@ -22,8 +26,13 @@ class PlaceDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val place = MutableStateFlow<Place?>(null)
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
-    val uiState = combine(place, repository.observeSavedPlaceIds()) { current, saved -> PlaceDetailUiState(current, placeId in saved) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaceDetailUiState())
+    val uiState = combine(place, repository.observeSavedPlaceIds()) { current, saved ->
+        PlaceDetailUiState(current, placeId in saved, repository.currentUser.avatarUrl)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        PlaceDetailUiState(currentUserAvatarUrl = repository.currentUser.avatarUrl),
+    )
     init { viewModelScope.launch { place.value = repository.getPlace(placeId) } }
     fun toggleSaved() { viewModelScope.launch { repository.toggleSaved(placeId) } }
 }

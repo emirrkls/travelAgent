@@ -1,46 +1,21 @@
 package com.emirrkls.travelagent.core.data
 
 import com.emirrkls.travelagent.core.model.ActivityItem
-import com.emirrkls.travelagent.core.model.Collection
 import com.emirrkls.travelagent.core.model.Place
 import com.emirrkls.travelagent.core.model.PlaceCategory
 import com.emirrkls.travelagent.core.model.User
-import com.emirrkls.travelagent.core.model.Visit
-import com.emirrkls.travelagent.core.model.Visibility
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import java.time.LocalDate
+import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MockTravelRepository @Inject constructor() : TravelRepository {
-    private val places = MutableStateFlow(mockPlaces)
-    private val visits = MutableStateFlow(
-        listOf(
-            Visit("visit-old-1", CURRENT_USER_ID, "p4", LocalDate.of(2026, 5, 18), 8.8,
-                mapOf("Food" to 9.2, "Service" to 8.1, "Atmosphere" to 9.0),
-                "Breakfast in the courtyard was worth the early start.", "Order the herb omelette."),
-            Visit("visit-old-2", CURRENT_USER_ID, "p7", LocalDate.of(2025, 9, 4), 9.1,
-                mapOf("Scenery" to 9.6, "Access" to 7.8, "Tranquility" to 9.4),
-                "A quiet trail with a cinematic finish.", "Return at sunset."),
-        )
-    )
-    private val savedIds = MutableStateFlow(setOf("p2", "p5", "p8"))
+class MockPlaceCatalogDataSource @Inject constructor() {
+    val currentUser: User = Companion.currentUser
 
-    override fun observePlaces(): Flow<List<Place>> = places.asStateFlow()
-    override fun observeVisits(): Flow<List<Visit>> = visits.asStateFlow()
-    override fun observeSavedPlaceIds(): Flow<Set<String>> = savedIds.asStateFlow()
-    override suspend fun getPlace(id: String): Place? = places.value.firstOrNull { it.id == id }
-    override suspend fun getCollections(): List<Collection> = mockCollections
-    override suspend fun getCollection(id: String): Collection? = mockCollections.firstOrNull { it.id == id }
-    override suspend fun getActivity(): List<ActivityItem> = mockActivity
-    override suspend fun publishVisit(visit: Visit) { visits.update { listOf(visit) + it } }
-    override suspend fun toggleSaved(placeId: String) {
-        savedIds.update { if (placeId in it) it - placeId else it + placeId }
-    }
+    fun observePlaces(): Flow<List<Place>> = flowOf(mockPlaces)
+    suspend fun getPlace(id: String): Place? = mockPlaces.firstOrNull { it.id == id }
+    suspend fun getActivity(): List<ActivityItem> = mockActivity
 
     companion object {
         const val CURRENT_USER_ID = "user-emir"
@@ -49,10 +24,18 @@ class MockTravelRepository @Inject constructor() : TravelRepository {
             CURRENT_USER_ID, "emir.roams", "Emircan Kaya",
             "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300",
             "Chasing clear water, tiny kitchens and roads with no rush.", 18, 6, 1240, 386,
-            listOf("Beach", "Food", "Nature", "Hidden Gems", "Design Hotels")
+            listOf("Beach", "Food", "Nature", "Hidden Gems", "Design Hotels"),
         )
-        private val ahmet = User("u2", "ahmetgoes", "Ahmet Deniz", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200", "Weekend explorer", 11, 4, 542, 318, listOf("Beach", "Nightlife"))
-        private val ece = User("u3", "eceeats", "Ece Aksoy", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200", "Good tables, better stories", 23, 8, 2100, 440, listOf("Food", "Cafe"))
+        private val ahmet = User(
+            "u2", "ahmetgoes", "Ahmet Deniz",
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+            "Weekend explorer", 11, 4, 542, 318, listOf("Beach", "Nightlife"),
+        )
+        private val ece = User(
+            "u3", "eceeats", "Ece Aksoy",
+            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
+            "Good tables, better stories", 23, 8, 2100, 440, listOf("Food", "Cafe"),
+        )
 
         val mockPlaces = listOf(
             place("p1", "Sarnıç Cove", PlaceCategory.BEACH, "Bodrum", "Muğla", 9.2, 9.5, "3 friends loved the sunset", "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200", "A tucked-away cove where pine-covered hills meet glassy Aegean water.", 3, mapOf("Sea" to 9.4, "Atmosphere" to 9.1, "Service" to 8.0, "Cleanliness" to 9.0, "Value" to 7.8, "Crowd" to 8.5)),
@@ -67,13 +50,6 @@ class MockTravelRepository @Inject constructor() : TravelRepository {
             place("p10", "Rüzgâr Sailing", PlaceCategory.ACTIVITY, "Türkbükü", "Muğla", 8.9, 9.2, "Ahmet rated this 9.4", "https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=1200", "An unhurried afternoon sail between quiet northern Bodrum coves.", 4, mapOf("Experience" to 9.4, "Safety" to 9.2, "Guide" to 9.1, "Value" to 7.9)),
         )
 
-        val mockCollections = listOf(
-            Collection("c1", CURRENT_USER_ID, "Bodrum, slowly", "Swims, long lunches and places worth the detour.", listOf("p1", "p2", "p10"), Visibility.PUBLIC, mockPlaces[0].coverImage),
-            Collection("c2", CURRENT_USER_ID, "Want to Go", "The ever-growing shortlist.", listOf("p5", "p8", "p9"), Visibility.PRIVATE, mockPlaces[4].coverImage),
-            Collection("c3", "u3", "Istanbul date tables", "Warm rooms and memorable menus.", listOf("p4", "p3"), Visibility.PUBLIC, mockPlaces[3].coverImage),
-            Collection("c4", CURRENT_USER_ID, "Hidden Aegean", "Quiet finds from İzmir to Kaş.", listOf("p3", "p7", "p8"), Visibility.FRIENDS, mockPlaces[6].coverImage),
-        )
-
         val mockActivity = listOf(
             ActivityItem("a1", ahmet, "rated Rüzgâr Sailing 9.4", "18 min", placeId = "p10"),
             ActivityItem("a2", ece, "created Istanbul date tables", "2 hr", collectionId = "c3"),
@@ -81,10 +57,25 @@ class MockTravelRepository @Inject constructor() : TravelRepository {
             ActivityItem("a4", ece, "rated Mimoza Table 9.2 — “Order everything to share.”", "Tue", placeId = "p2"),
         )
 
-        private fun place(id: String, name: String, category: PlaceCategory, city: String, region: String, score: Double, friends: Double, signal: String, image: String, description: String, price: Int, breakdown: Map<String, Double>) = Place(
-            id, name, description, category, listOf(category.label), 37.03 + id.drop(1).toInt() * .01, 27.42 + id.drop(1).toInt() * .02,
+        private fun place(
+            id: String,
+            name: String,
+            category: PlaceCategory,
+            city: String,
+            region: String,
+            score: Double,
+            friends: Double,
+            signal: String,
+            image: String,
+            description: String,
+            price: Int,
+            breakdown: Map<String, Double>,
+        ) = Place(
+            id, name, description, category, listOf(category.label),
+            37.03 + id.drop(1).toInt() * .01,
+            27.42 + id.drop(1).toInt() * .02,
             city, region, "Türkiye", "$city, $region", image, listOf(image, image), price, score, friends,
-            (score + friends) / 2, 120 + id.drop(1).toInt() * 83, breakdown, signal
+            (score + friends) / 2, 120 + id.drop(1).toInt() * 83, breakdown, signal,
         )
     }
 }

@@ -72,6 +72,14 @@ fun RatingScreen(onBack: () -> Unit, onPublished: (String) -> Unit, viewModel: R
                     ) {
                         if (state.isPublishing) CircularProgressIndicator(Modifier.height(22.dp), strokeWidth = 2.dp) else Text("Publish visit")
                     }
+                    state.publishError?.let { message ->
+                        Text(
+                            message,
+                            Modifier.fillMaxWidth().padding(top = 7.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 }
             }
         },

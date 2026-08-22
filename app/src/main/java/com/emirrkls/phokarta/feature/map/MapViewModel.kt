@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.SavedStateHandle
 import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -46,7 +50,6 @@ data class MapFilters(
     val activeCount: Int
         get() = listOfNotNull(category).size + listOf(
             highlyRatedOnly,
-            trustedOnly,
             visitedOnly,
             wantToGoOnly,
         ).count { it }
@@ -72,6 +75,10 @@ data class MapUiState(
     val userLocation: Pair<Double, Double>? = null,
     val locationMessage: String? = null,
     val cameraRequest: MapCameraRequest? = null,
+    val isLoading: Boolean = false,
+    val boundsErrorMessage: String? = null,
+    val saveErrorMessage: String? = null,
+    val nearbyPlaces: List<NearbyPlace> = emptyList(),
 )
 
 internal fun filterMapPlaces(
@@ -82,8 +89,7 @@ internal fun filterMapPlaces(
     viewport: MapViewport?,
 ): List<Place> = places.filter { place ->
     (filters.category == null || place.category == filters.category) &&
-        (!filters.highlyRatedOnly || place.communityScore >= 9.0) &&
-        (!filters.trustedOnly || place.friendsScore >= 9.0) &&
+        (!filters.highlyRatedOnly || (place.communityScore ?: Double.NEGATIVE_INFINITY) >= 9.0) &&
         (!filters.visitedOnly || place.id in visitedPlaceIds) &&
         (!filters.wantToGoOnly || place.id in savedPlaceIds) &&
         (viewport == null || viewport.contains(place))
@@ -114,13 +120,17 @@ class MapViewModel @Inject constructor(
         MapFilters(
             category = savedStateHandle.get<String>("map.category")?.let(PlaceCategory::valueOf),
             highlyRatedOnly = savedStateHandle["map.highlyRated"] ?: false,
-            trustedOnly = savedStateHandle["map.trusted"] ?: false,
+            trustedOnly = false,
             visitedOnly = savedStateHandle["map.visited"] ?: false,
             wantToGoOnly = savedStateHandle["map.wantToGo"] ?: false,
         ),
     )
     private val appliedViewport = MutableStateFlow(restoredAppliedViewport)
+    private val boundsPlaces = MutableStateFlow<List<Place>>(emptyList())
+    private var hasFetchedBounds = false
     private val requestIds = AtomicLong()
+    private var boundsRequestId = 0L
+    private var boundsRequestJob: Job? = null
     private val _uiState = MutableStateFlow(
         MapUiState(
             filters = filters.value,
@@ -134,7 +144,7 @@ class MapViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                repository.observePlaces(),
+                boundsPlaces,
                 repository.observeVisits(),
                 repository.observeSavedPlaceIds(),
                 filters,
@@ -151,15 +161,19 @@ class MapViewModel @Inject constructor(
                 )
             }.collect { data ->
                 _uiState.update { current ->
+                    val selectedPlaceId = current.selectedPlaceId?.takeIf { selected ->
+                        data.visiblePlaces.any { it.id == selected }
+                    }
+                    if (selectedPlaceId != current.selectedPlaceId) {
+                        savedStateHandle["map.selectedPlaceId"] = selectedPlaceId
+                    }
                     current.copy(
                         allPlaces = data.places,
                         visiblePlaces = data.visiblePlaces,
                         savedPlaceIds = data.savedPlaceIds,
                         visitedPlaceIds = data.visitedPlaceIds,
                         filters = data.filters,
-                        selectedPlaceId = current.selectedPlaceId?.takeIf { selected ->
-                            data.visiblePlaces.any { it.id == selected }
-                        },
+                        selectedPlaceId = selectedPlaceId,
                         appliedViewport = data.viewport,
                     )
                 }
@@ -183,21 +197,32 @@ class MapViewModel @Inject constructor(
 
     fun selectCategory(category: PlaceCategory?) = updateFilters { it.copy(category = category) }
     fun toggleHighlyRated() = updateFilters { it.copy(highlyRatedOnly = !it.highlyRatedOnly) }
-    fun toggleTrusted() = updateFilters { it.copy(trustedOnly = !it.trustedOnly) }
     fun toggleVisited() = updateFilters { it.copy(visitedOnly = !it.visitedOnly) }
     fun toggleWantToGo() = updateFilters { it.copy(wantToGoOnly = !it.wantToGoOnly) }
     fun clearFilters() { updateFilters { MapFilters() } }
 
     fun toggleSaved(placeId: String) {
-        viewModelScope.launch { repository.toggleSaved(placeId) }
+        viewModelScope.launch {
+            when (val result = repository.toggleSaved(placeId)) {
+                is RepositoryResult.Success -> _uiState.update { it.copy(saveErrorMessage = null) }
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(saveErrorMessage = result.error.toUserMessage())
+                }
+            }
+        }
+    }
+
+    fun dismissSaveError() {
+        _uiState.update { it.copy(saveErrorMessage = null) }
     }
 
     fun onCameraIdle(viewport: MapViewport) {
-        if (appliedViewport.value == null) {
+        if (!hasFetchedBounds) {
             appliedViewport.value = viewport
             savedStateHandle.writeViewport("map.applied", viewport)
             savedStateHandle.writeViewport("map.camera", viewport)
             _uiState.update { it.copy(cameraViewport = viewport, showSearchThisArea = false) }
+            fetchBounds(viewport)
             return
         }
         val shouldSearch = viewportMovedEnough(checkNotNull(appliedViewport.value), viewport)
@@ -212,6 +237,7 @@ class MapViewModel @Inject constructor(
         appliedViewport.value = viewport
         savedStateHandle.writeViewport("map.applied", viewport)
         _uiState.update { it.copy(showSearchThisArea = false) }
+        fetchBounds(viewport)
     }
 
     fun onLocationFound(latitude: Double, longitude: Double) {
@@ -226,6 +252,17 @@ class MapViewModel @Inject constructor(
                     zoom = 14.5f,
                 ),
             )
+        }
+        viewModelScope.launch {
+            when (val result = repository.nearby(
+                latitude,
+                longitude,
+                category = filters.value.category,
+                minRating = if (filters.value.highlyRatedOnly) 9.0 else null,
+            )) {
+                is RepositoryResult.Success -> _uiState.update { it.copy(nearbyPlaces = result.value) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(locationMessage = result.error.toUserMessage()) }
+            }
         }
     }
 
@@ -243,14 +280,54 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    fun retryBounds() {
+        appliedViewport.value?.let(::fetchBounds)
+    }
+
     private fun updateFilters(transform: (MapFilters) -> MapFilters) {
-        val updated = transform(filters.value)
+        val previous = filters.value
+        val updated = transform(previous)
         filters.value = updated
         savedStateHandle["map.category"] = updated.category?.name
         savedStateHandle["map.highlyRated"] = updated.highlyRatedOnly
         savedStateHandle["map.trusted"] = updated.trustedOnly
         savedStateHandle["map.visited"] = updated.visitedOnly
         savedStateHandle["map.wantToGo"] = updated.wantToGoOnly
+        if (updated.category != previous.category ||
+            updated.highlyRatedOnly != previous.highlyRatedOnly
+        ) {
+            appliedViewport.value?.let(::fetchBounds)
+        }
+    }
+
+    private fun fetchBounds(viewport: MapViewport) {
+        hasFetchedBounds = true
+        boundsRequestJob?.cancel()
+        val requestId = ++boundsRequestId
+        val requestFilters = filters.value
+        boundsRequestJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, boundsErrorMessage = null) }
+            when (val result = repository.refreshBounds(
+                west = viewport.west,
+                south = viewport.south,
+                east = viewport.east,
+                north = viewport.north,
+                category = requestFilters.category,
+                minRating = if (requestFilters.highlyRatedOnly) 9.0 else null,
+            )) {
+                is RepositoryResult.Success -> {
+                    if (requestId != boundsRequestId) return@launch
+                    boundsPlaces.value = result.value
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+                is RepositoryResult.Failure -> {
+                    if (requestId != boundsRequestId) return@launch
+                    _uiState.update {
+                        it.copy(isLoading = false, boundsErrorMessage = result.error.toUserMessage())
+                    }
+                }
+            }
+        }
     }
 
     private data class MapData(

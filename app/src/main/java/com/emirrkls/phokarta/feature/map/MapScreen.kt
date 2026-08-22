@@ -46,6 +46,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -158,6 +160,19 @@ fun MapScreen(
             viewModel.dismissLocationMessage()
         }
     }
+    state.boundsErrorMessage?.let { message ->
+        LaunchedEffect(message) {
+            if (scaffoldState.snackbarHostState.showSnackbar(message, actionLabel = "Retry") == SnackbarResult.ActionPerformed) {
+                viewModel.retryBounds()
+            }
+        }
+    }
+    state.saveErrorMessage?.let { message ->
+        LaunchedEffect(message) {
+            scaffoldState.snackbarHostState.showSnackbar(message)
+            viewModel.dismissSaveError()
+        }
+    }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -258,7 +273,6 @@ fun MapScreen(
                 onCategoryMenuChange = { categoryMenuOpen = it },
                 onCategory = viewModel::selectCategory,
                 onHighlyRated = viewModel::toggleHighlyRated,
-                onTrusted = viewModel::toggleTrusted,
                 onVisited = viewModel::toggleVisited,
                 onWantToGo = viewModel::toggleWantToGo,
                 onClear = viewModel::clearFilters,
@@ -292,6 +306,9 @@ fun MapScreen(
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
+            }
+            if (state.isLoading) {
+                CircularProgressIndicator(Modifier.align(Alignment.TopEnd).padding(top = 122.dp, end = 18.dp))
             }
         }
     }
@@ -340,7 +357,6 @@ private fun MapControls(
     onCategoryMenuChange: (Boolean) -> Unit,
     onCategory: (PlaceCategory?) -> Unit,
     onHighlyRated: () -> Unit,
-    onTrusted: () -> Unit,
     onVisited: () -> Unit,
     onWantToGo: () -> Unit,
     onClear: () -> Unit,
@@ -406,7 +422,6 @@ private fun MapControls(
                     }
                 }
                 item { MapFilterChip("9+ rated", filters.highlyRatedOnly, onHighlyRated) }
-                item { MapFilterChip("Friends", filters.trustedOnly, onTrusted) }
                 item { MapFilterChip("Visited", filters.visitedOnly, onVisited) }
                 item { MapFilterChip("Want to go", filters.wantToGoOnly, onWantToGo) }
             }
@@ -530,7 +545,7 @@ private fun MapPlaceRow(
                     Text("Tap again to open", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                 }
             }
-            RatingBadge(place.communityScore)
+            place.communityScore?.let { RatingBadge(it) }
             IconButton(onClick = onSave) {
                 Icon(
                     if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
@@ -595,4 +610,5 @@ private fun requestSingleLocation(context: Context, viewModel: MapViewModel) {
         }
 }
 
-private fun formatScore(score: Double): String = String.format(Locale.US, "%.1f", score)
+private fun formatScore(score: Double?): String =
+    score?.let { String.format(Locale.US, "%.1f", it) } ?: "Not rated"

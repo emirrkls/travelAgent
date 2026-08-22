@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.database.entity.VisitEntity
 import com.emirrkls.phokarta.core.database.relation.CollectionWithPlaceIds
 import com.emirrkls.phokarta.core.database.relation.VisitWithDimensions
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.Visibility
@@ -27,7 +28,7 @@ fun Visit.toEntity(createdAtEpochMillis: Long): VisitEntity = VisitEntity(
 fun Visit.toDimensionEntities(): List<VisitDimensionScoreEntity> = ratingDimensions.map { (key, score) ->
     VisitDimensionScoreEntity(
         visitId = id,
-        dimensionKey = key,
+        dimensionKey = key.apiKey,
         score = score,
     )
 }
@@ -38,7 +39,9 @@ fun VisitWithDimensions.toDomain(): Visit = Visit(
     placeId = visit.placeId,
     visitedAt = LocalDate.ofEpochDay(visit.visitedAtEpochDay),
     overallRating = visit.overallRating,
-    ratingDimensions = dimensions.associate { it.dimensionKey to it.score },
+    ratingDimensions = dimensions.mapNotNull { score ->
+        RatingDimension.fromStoredKey(score.dimensionKey)?.let { it to score.score }
+    }.toMap(),
     review = visit.publicReview,
     personalNote = visit.privateMemory,
     visibility = visit.visibility.toVisibility(),

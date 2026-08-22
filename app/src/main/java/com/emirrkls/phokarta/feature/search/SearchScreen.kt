@@ -20,6 +20,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -52,10 +54,19 @@ fun SearchScreen(onBack: () -> Unit, onPlace: (String) -> Unit, viewModel: Searc
             items(PlaceCategory.entries) { category -> CategoryChip(category.label, state.category == category, category.vectorIcon) { viewModel.setCategory(category) } }
         }
         Spacer(Modifier.height(20.dp))
-        Text("${state.results.size} places", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${state.totalElements} places", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+            if (state.isLoading) CircularProgressIndicator()
+        }
+        state.errorMessage?.let { message ->
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(message, Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                Button(onClick = viewModel::retry) { Text("Retry") }
+            }
+        }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(state.results, key = { it.id }) { place -> CompactPlaceCard(place, { onPlace(place.id) }) }
-            if (state.results.isEmpty()) item { Text("No places found. Try a nearby city or a broader category.", Modifier.padding(top = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (state.results.isEmpty() && !state.isLoading && state.errorMessage == null) item { Text("No places found. Try a nearby city or a broader category.", Modifier.padding(top = 40.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

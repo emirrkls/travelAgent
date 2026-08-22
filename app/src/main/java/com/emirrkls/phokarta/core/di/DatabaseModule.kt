@@ -2,8 +2,10 @@ package com.emirrkls.phokarta.core.di
 
 import android.content.Context
 import androidx.room.Room
-import com.emirrkls.phokarta.core.database.DemoDataCallback
+import com.emirrkls.phokarta.core.database.MIGRATION_1_2
+import com.emirrkls.phokarta.core.database.MIGRATION_2_3
 import com.emirrkls.phokarta.core.database.TravelDatabase
+import com.emirrkls.phokarta.core.database.dao.CachedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
@@ -21,7 +23,7 @@ object DatabaseModule {
     @Singleton
     fun provideTravelDatabase(@ApplicationContext context: Context): TravelDatabase =
         Room.databaseBuilder(context, TravelDatabase::class.java, TravelDatabase.NAME)
-            .addCallback(DemoDataCallback())
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides
@@ -32,4 +34,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCollectionDao(database: TravelDatabase): CollectionDao = database.collectionDao()
+
+    @Provides
+    fun provideCachedPlaceDao(database: TravelDatabase): CachedPlaceDao = database.cachedPlaceDao()
 }

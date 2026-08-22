@@ -3,6 +3,7 @@ package com.emirrkls.phokarta
 import android.content.Context
 import androidx.room.Room
 import com.emirrkls.phokarta.core.database.TravelDatabase
+import com.emirrkls.phokarta.core.database.dao.CachedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
@@ -35,4 +36,7 @@ object TestDatabaseModule {
 
     @Provides
     fun provideCollectionDao(database: TravelDatabase): CollectionDao = database.collectionDao()
+
+    @Provides
+    fun provideCachedPlaceDao(database: TravelDatabase): CachedPlaceDao = database.cachedPlaceDao()
 }

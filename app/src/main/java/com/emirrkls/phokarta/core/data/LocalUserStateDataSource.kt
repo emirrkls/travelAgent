@@ -9,9 +9,13 @@ interface LocalUserStateDataSource {
     fun observeSavedPlaceIds(): Flow<Set<String>>
     fun observeCollections(): Flow<List<Collection>>
     suspend fun getCollection(id: String): Collection?
-    suspend fun publishVisit(visit: Visit)
-    suspend fun toggleSaved(placeId: String)
-    suspend fun saveCollection(collection: Collection)
+    suspend fun upsertVisit(visit: Visit)
+    suspend fun upsertVisits(visits: List<Visit>)
+    suspend fun isSaved(placeId: String): Boolean
+    suspend fun setSaved(placeId: String, saved: Boolean)
+    suspend fun replaceSavedPlaceIds(placeIds: Set<String>)
+    suspend fun upsertCollection(collection: Collection)
+    suspend fun replaceCollections(collections: List<Collection>)
     suspend fun addPlaceToCollection(collectionId: String, placeId: String)
     suspend fun removePlaceFromCollection(collectionId: String, placeId: String)
 }

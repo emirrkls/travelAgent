@@ -22,12 +22,21 @@ interface SavedPlaceDao {
     @Query("DELETE FROM saved_places WHERE placeId = :placeId")
     suspend fun deleteSavedPlace(placeId: String)
 
+    @Query("DELETE FROM saved_places")
+    suspend fun deleteAllSavedPlaces()
+
     @Transaction
-    suspend fun toggle(placeId: String, nowEpochMillis: Long) {
-        if (getSavedPlace(placeId) == null) {
+    suspend fun setSaved(placeId: String, saved: Boolean, nowEpochMillis: Long) {
+        if (saved) {
             insertSavedPlace(SavedPlaceEntity(placeId, nowEpochMillis))
         } else {
             deleteSavedPlace(placeId)
         }
+    }
+
+    @Transaction
+    suspend fun replaceSavedPlaceIds(placeIds: Set<String>, nowEpochMillis: Long) {
+        deleteAllSavedPlaces()
+        placeIds.forEach { insertSavedPlace(SavedPlaceEntity(it, nowEpochMillis)) }
     }
 }

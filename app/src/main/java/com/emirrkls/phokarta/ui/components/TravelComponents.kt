@@ -171,8 +171,8 @@ fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave:
                 Text(place.name, color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RatingBadge(place.friendsScore, emphasized = true)
-                    Text("Friends · ${place.city}", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    place.friendsScore?.let { RatingBadge(it, emphasized = true) }
+                    Text(if (place.friendsScore != null) "Friends · ${place.city}" else place.city, color = Color.White, style = MaterialTheme.typography.labelLarge)
                 }
                 place.friendSignal?.let {
                     Spacer(Modifier.height(8.dp))
@@ -205,9 +205,11 @@ fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> U
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RatingBadge(place.friendsScore)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Friends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    place.friendsScore?.let {
+                        RatingBadge(it)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Friends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Spacer(Modifier.weight(1f))
                     Text("${place.ratingCount} ratings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -252,8 +254,10 @@ fun CompactPlaceCard(place: Place, onClick: () -> Unit, modifier: Modifier = Mod
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
                 }
             }
-            RatingBadge(place.friendsScore)
-            Spacer(Modifier.width(8.dp))
+            place.friendsScore?.let {
+                RatingBadge(it)
+                Spacer(Modifier.width(8.dp))
+            }
         }
     }
 }

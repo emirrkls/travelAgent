@@ -29,6 +29,10 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
             _uiState.value = _uiState.value.copy(activity = repository.getActivity())
         }
         viewModelScope.launch {
+            repository.refreshCatalog()
+            repository.refreshCollections()
+        }
+        viewModelScope.launch {
             combine(
                 repository.observePlaces(),
                 repository.observeSavedPlaceIds(),
@@ -44,4 +48,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
         }
     }
     fun toggleSaved(placeId: String) { viewModelScope.launch { repository.toggleSaved(placeId) } }
+    fun refreshCollectionDetail(collectionId: String) {
+        viewModelScope.launch { repository.refreshCollectionDetail(collectionId) }
+    }
 }

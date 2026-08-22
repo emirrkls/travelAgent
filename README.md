@@ -1,138 +1,139 @@
-# Phokarta
+# Phokarta v0.5
 
-Phokarta is a native Kotlin/Jetpack Compose prototype for social travel discovery, personal travel memory, category-aware ratings, and trusted recommendations.
+Phokarta is a native Kotlin/Jetpack Compose prototype for travel discovery, personal travel memory, category-aware ratings, saved places, and collections. Android application ID: `com.emirrkls.phokarta`.
 
-**Android application identity:** `com.emirrkls.phokarta`
+## Stack and architecture
 
-## Run locally
+Android uses JDK 17, Kotlin, Compose, Hilt, Room 2.7.2, Google Maps Compose 6.4.1, Retrofit 3.0.0, OkHttp 4.12.0, and kotlinx serialization 1.8.1. The backend is an independent Java 21/Spring Boot 3.5 service backed by PostgreSQL/PostGIS and Flyway.
 
-1. Open the repository in Android Studio.
-2. Use JDK 17 or the Android Studio bundled runtime.
-3. Let Gradle sync and run the `app` configuration on an Android 8.0+ emulator or device.
+Data flows through one boundary:
 
-### Google Maps API key
+`Remote API (places and synchronized owner data) + Room (device user state) -> TravelRepository -> StateFlow ViewModels -> Compose UI`
 
-The Map tab uses Google Maps Compose (`maps-compose` 6.4.1). API credentials are intentionally excluded from version control.
+- `core/network` owns Retrofit APIs, DTOs, serialization, safe error conversion, and remote data sources.
+- `core/database` owns Room v3 entities, DAOs, mappers, migrations, and exported schemas.
+- `core/data/DefaultTravelRepository` maps and combines remote place data with local visits, saved IDs, and collections.
+- `feature/*` owns screen state. Map viewport, filters, selection, stale-request cancellation, and last-good markers live in `MapViewModel`.
+- Social Activity remains prototype/demo content; social scores are not fabricated from the backend.
 
-1. Enable **Maps SDK for Android** in a Google Cloud project.
-2. Create `secrets.properties` in the repository root (next to `settings.gradle.kts`).
-3. Add your key:
+## Start the backend with demo data
 
-   ```properties
-   MAPS_API_KEY=your_android_maps_key
-   ```
-
-4. Restrict the key to Android apps:
-   - **Package name:** `com.emirrkls.phokarta`
-   - **Certificate:** debug SHA-1 from `./gradlew signingReport` (Windows: `.\gradlew.bat signingReport`)
-   - **API restriction:** Maps SDK for Android
-5. Sync Gradle and run the app. A build without `secrets.properties` still succeeds using the non-secret placeholder in `local.defaults.properties`, but Google map tiles will not authenticate.
-
-Both `secrets.properties` and `local.properties` are ignored. Never commit either file or paste a real key into the manifest, Gradle files, or `local.defaults.properties`.
-
-The prototype uses remote demo photography, so `INTERNET` permission is enabled. Place and social discovery content remain mocked; user-generated state is durable and local.
-
-## Architecture
-
-- `core/model`: backend-compatible domain entities. `Place` and `Visit` are intentionally separate.
-- `core/data`: `DefaultTravelRepository` combines the static mock place catalog with a Room-backed local user-state source.
-- `core/database`: Room v1 entities, normalized relationships, DAOs, domain mappers, and exported schema.
-- `core/di`: Hilt bindings for the database, DAOs, data sources, and repository.
-- `feature/*`: screens and StateFlow ViewModels organized by product capability. The Map feature owns viewport, selection, and filter state while observing Room-backed user state through `TravelRepository`.
-- `ui/components` and `ui/theme`: shared Compose design system.
-
-The Map tab renders the existing mock catalog on Google Maps. Its category, rating, trusted, visited, and Want-to-Go filters are local and deterministic; moving the camera far enough reveals **Search this area**, which applies the visible map bounds without any backend request.
-
-### MapViewModel scope
-
-Bottom navigation uses `popUpTo(startDestination) { saveState = true }` with `restoreState = true`, which removes tab back-stack entries when switching destinations. To preserve map viewport, filters, and selection across tab switches, `MapViewModel` is intentionally scoped to the host `ComponentActivity` via `hiltViewModel(viewModelStoreOwner = LocalActivity.current)`.
-
-This is a deliberate trade-off for the current navigation architecture. Revisit the scope if navigation is refactored to keep Map destinations on the back stack without destroying their ViewModel store.
-
-## Local persistence
-
-Room stores Visits, optional per-Visit rating dimensions, saved/Want-to-Go place IDs, collections, and collection membership. The mock place catalog keeps deterministic IDs and is not copied into the database. Demo user state is inserted only when the database is first created, using stable IDs; social Activity remains mocked. Onboarding completion remains a lightweight application preference.
-
-## Backend v0.4
-
-`backend/` is an independent Java 21/Maven Spring Boot service. It intentionally does not share the Android Gradle build. Its pragmatic layers keep JPA entities in `domain/entity`, database access in `repository`, business behavior in `service`, and public contracts in `api/dto`; controllers never expose persistence entities.
-
-The backend uses Spring Boot 3.5, Spring Web, Spring Data JPA, Hibernate Spatial/JTS, Bean Validation, PostgreSQL/PostGIS, Flyway, springdoc OpenAPI, JUnit 5, and Testcontainers.
-
-### Prerequisites
-
-- Java 21
-- Maven 3.9+
-- Docker Desktop (for local PostGIS and integration tests)
-
-### Start PostGIS
+Prerequisites: Java 21, Maven 3.9+, and Docker Desktop.
 
 ```powershell
 cd backend
 Copy-Item .env.example .env
 docker compose up -d db
-```
-
-The checked-in defaults create a `phokarta` database and user, and bind PostgreSQL only to `127.0.0.1`. Change them through `.env` or environment variables when needed; `.env` is ignored and must not contain production secrets.
-
-Spring Boot reads:
-
-- `PHOKARTA_DB_URL` (default `jdbc:postgresql://localhost:5432/phokarta`)
-- `PHOKARTA_DB_USER` (default `phokarta`)
-- `PHOKARTA_DB_PASSWORD` (default `phokarta`)
-- `SERVER_PORT` (default `8080`)
-
-Flyway runs automatically at startup, enables PostGIS, and creates the schema and spatial indexes. The default profile loads only production-safe schema migrations. The `dev` profile additionally loads deterministic demo data from a separate migration location. Hibernate uses `ddl-auto: validate` and does not create or destroy the schema.
-
-### Run and test
-
-```powershell
-cd backend
-mvn test
 $env:SPRING_PROFILES_ACTIVE = "dev"
 mvn spring-boot:run
 ```
 
-Integration tests activate the `dev` profile and use the real `postgis/postgis:16-3.4` image; H2 is not used and Docker is required. Start without `SPRING_PROFILES_ACTIVE=dev` for a production-style empty database with no demo user or places. Swagger UI is available at `http://localhost:8080/swagger-ui.html` and the OpenAPI document at `http://localhost:8080/v3/api-docs`.
+The `dev` profile is required for deterministic backend seed data. The default profile creates a production-style empty database. Swagger UI is at `http://localhost:8080/swagger-ui.html`.
 
-Demo user ID: `11111111-1111-1111-1111-111111111111`.
+### Android emulator
 
-### API overview
+The debug build defaults to `http://10.0.2.2:8080/`, Android Emulator's alias for the host:
 
-- `GET /api/v1/places` — paginated search/filter/sort
-- `GET /api/v1/places/{placeId}` — detail, community aggregate, dimension breakdown and recent public reviews
-- `GET /api/v1/places/nearby` — radius search ordered by geodesic distance
-- `GET /api/v1/places/bounds` — map viewport discovery
-- `POST /api/v1/visits` — append a Visit; verification is server-controlled and starts as `UNVERIFIED`
-- `GET /api/v1/users/{userId}/visits` — temporary owner-oriented history
-- `GET|POST|DELETE /api/v1/users/{userId}/saved-places[...]`
-- `GET|POST /api/v1/users/{userId}/collections`
-- `GET /api/v1/collections/{collectionId}`
-- `POST|DELETE /api/v1/collections/{collectionId}/places/{placeId}`
+```powershell
+.\gradlew.bat installDebug
+```
 
-Normal lists use `page`, `size`, and a safe `sort` allowlist and return stable pagination metadata including `hasNext`. Map endpoints use a bounded `limit`.
+### Physical device over USB
 
-### Geo convention
+Connect the device with USB debugging enabled, reverse the backend port, and build with the loopback URL:
 
-Coordinates are WGS84/SRID 4326. API parameters use `lat`/`latitude` and `lon`/`longitude`; JTS/PostGIS points are always created in **longitude, latitude** (`x`, `y`) order. Nearby distances are geodesic meters and are calculated by PostGIS with `ST_DWithin`/`ST_Distance`, not in Java. Bounds are `west,south,east,north`; antimeridian-crossing boxes are not supported in v0.4.
+```powershell
+adb reverse tcp:8080 tcp:8080
+.\gradlew.bat installDebug -PPHOKARTA_API_BASE_URL=http://127.0.0.1:8080/
+```
 
-### Authentication boundary
+For a LAN endpoint, the phone must be able to route to the host, the firewall must allow the port, and the URL cannot use `localhost`. Debug cleartext is intentionally allowlisted only for `10.0.2.2`, `127.0.0.1`, and `localhost`; use HTTPS for LAN testing or explicitly add a debug-only host rule. Never broaden production cleartext policy.
 
-There is no authentication in v0.4. Owner-oriented demo endpoints temporarily accept a client-supplied `userId`; this is not authorization.
+Release builds default to a non-routable HTTPS placeholder. CI or the release command must inject the real HTTPS endpoint:
 
-> In the authentication milestone, user identity must come from the authenticated principal, not client-supplied ownership IDs.
+```powershell
+.\gradlew.bat assembleRelease -PPHOKARTA_API_BASE_URL=https://api.example.com/
+```
 
-Public Visit DTOs do not contain `privateMemory`; owner and public responses are separate types. Both response types may expose `verificationStatus`, but create requests cannot set it.
+The network-security manifest overlay exists only in `src/debug`. Production has no cleartext opt-in and therefore keeps the Android platform's HTTPS-only posture.
 
-### Android contract notes
+## Google Maps key
 
-The backend is the API authority, but Android remains on its local mock repository in v0.4. The next milestone must map:
+Enable Maps SDK for Android, then create ignored `secrets.properties` in the repository root:
 
-- Android `communityScore: Double` to backend nullable `averageScore` plus `ratingCount`
-- Android `coverImage`/`review`/`personalNote` to backend `coverImage`, `publicReview`, and `privateMemory`
-- Android title-case rating labels to backend uppercase dimension keys
-- Android map filters to backend category/min-rating/nearby/bounds query parameters
-- Android local IDs and state to backend UUIDs and owner/public Visit DTOs
-- Android-only friends/similar-user scores and social signals to no backend field until those features exist
+```properties
+MAPS_API_KEY=your_android_maps_key
+```
 
-The exact next milestone is **Phokarta Android + Backend v0.5 — authenticated-ready Android API integration and offline cache mapping**, without adding authentication itself unless separately scoped.
+Restrict it to package `com.emirrkls.phokarta`, the signing certificate, and Maps SDK for Android. Obtain the debug SHA-1 with `.\gradlew.bat signingReport`. A placeholder allows compilation without a key, but map tiles will not authenticate. Never commit keys, `.env`, `local.properties`, or `secrets.properties`.
+
+## Remote and local responsibilities
+
+Remote APIs provide the authoritative place catalog, search pages, place detail, bounds, nearby results, owner visits, saved-place synchronization, and collections. Room stores visits and rating dimensions, saved/Want-to-Go IDs, collections, membership, and minimal read-only Place snapshots needed to render that user state after process death.
+
+Offline behavior is intentionally limited:
+
+- Existing Room visits, saved IDs, collections, and previously seen Place summaries remain available after process restart.
+- The Place snapshot table is a display fallback, not an offline query or synchronization engine; online discovery remains backend-authoritative.
+- There is no offline mutation queue.
+- Failed optimistic save mutations roll Room state back. Explore and Map surface the failure; Activity currently only reflects rolled-back state because adding a separate Activity error surface would be disproportionate for v0.5.
+
+Fresh installs do not insert a local mock catalog or mock user-state seed. All newly persisted place references use backend UUIDs.
+
+### Room v1 to v3
+
+`MIGRATION_1_2` is a controlled pre-production data reset. It clears visits, dimensions, saved places, collections, and membership because old `p...` mock IDs have no safe one-to-one mapping to backend UUIDs. The database schema itself is migrated normally; there is no `fallbackToDestructiveMigration`. This makes the loss explicit and testable while ensuring every v2 reference is a canonical backend UUID.
+
+`MIGRATION_2_3` is non-destructive. It preserves canonical user state and adds `cached_places`, a minimal UUID-keyed Place summary table populated only from successful backend responses. This closes the cold-offline rendering gap without introducing mutation queues or conflict resolution.
+
+## Demo identity and authentication boundary
+
+The temporary demo user UUID is centralized in `DemoUserProvider`:
+
+`11111111-1111-1111-1111-111111111111`
+
+There is no authentication in v0.5. Owner endpoints accept this client-supplied UUID, which is not authorization. v0.6 must replace it with identity from an authenticated principal and must not preserve client-selected ownership.
+
+## Contract mapping
+
+- Backend UUID strings map directly to canonical domain and Room IDs.
+- Nullable backend `averageScore` maps to nullable `communityScore`; unrated places stay unrated.
+- Uppercase backend rating dimensions map to typed domain dimensions.
+- `publicReview` maps to the public review; owner-only `privateMemory` maps to the local personal note.
+- `PublicVisitDto` has no `privateMemory`; `CreateVisitDto` and owner responses are the only network types that carry it.
+- Friends/similar-user scores and social signals remain hidden/null because the remote contract has no such fields.
+- Nearby and collection responses use nested place DTOs. List/search/owner endpoints use `content`, `page`, `size`, `totalElements`, `totalPages`, and `hasNext`.
+- Catalog and owner refreshes consume all pages, deduplicate canonical IDs, and publish only after every page succeeds. Search intentionally exposes one page and its metadata.
+- Coordinates are WGS84. Bounds use `west,south,east,north`; nearby distances are meters.
+
+## Implemented flows and errors
+
+Implemented remote-backed flows include Explore catalog, debounced Search, Place Detail, Map bounds with explicit **Search this area**, Nearby, Visit publishing, saved places, and collections. Search and bounds cancel or ignore obsolete responses while retaining last-good results.
+
+Network failures are normalized into offline, timeout, validation, not-found, conflict, server, and unknown categories. Screens use lightweight inline errors or snackbars and retries where appropriate.
+
+## Privacy policy
+
+- Public visit payloads never serialize `privateMemory`.
+- Private memory is sent only in the owner create request and stored in owner-local state.
+- OkHttp debug logging is `BASIC` only: request/response bodies and headers are never logged.
+- Application code must not log DTOs, reviews, private memory, API keys, credentials, or full user payloads.
+- Release builds do not install the debug logging interceptor.
+
+## Build and test
+
+Run from the repository root:
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleDebug
+.\gradlew.bat compileDebugAndroidTestKotlin
+git diff --check
+```
+
+Backend tests:
+
+```powershell
+cd backend
+mvn test
+```

@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.core.data
 import com.emirrkls.phokarta.core.model.ActivityItem
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.User
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -75,7 +76,8 @@ class MockPlaceCatalogDataSource @Inject constructor() {
             37.03 + id.drop(1).toInt() * .01,
             27.42 + id.drop(1).toInt() * .02,
             city, region, "Türkiye", "$city, $region", image, listOf(image, image), price, score, friends,
-            (score + friends) / 2, 120 + id.drop(1).toInt() * 83, breakdown, signal,
+            (score + friends) / 2, 120 + id.drop(1).toInt() * 83,
+            breakdown.mapKeys { RatingDimension.fromStoredKey(it.key)!! }, signal,
         )
     }
 }

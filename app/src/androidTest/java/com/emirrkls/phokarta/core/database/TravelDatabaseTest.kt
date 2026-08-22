@@ -40,8 +40,8 @@ class TravelDatabaseTest {
         val visitA = visit("visit-a", "p1", createdAt = 100L)
         val visitB = visit("visit-b", "p1", createdAt = 200L)
 
-        dao.insertVisitWithDimensions(visitA, emptyList())
-        dao.insertVisitWithDimensions(visitB, emptyList())
+        dao.upsertVisitWithDimensions(visitA, emptyList())
+        dao.upsertVisitWithDimensions(visitB, emptyList())
 
         val stored = dao.getVisitsForPlace("p1")
         assertEquals(2, stored.size)
@@ -52,7 +52,7 @@ class TravelDatabaseTest {
     fun visitDimensionsReloadAndMissingDimensionsStayMissing() = runBlocking {
         val dao = database.visitDao()
         val scoredVisit = visit("visit-scored", "p2", createdAt = 100L)
-        dao.insertVisitWithDimensions(
+        dao.upsertVisitWithDimensions(
             scoredVisit,
             listOf(
                 VisitDimensionScoreEntity(scoredVisit.id, "Food", 9.1),
@@ -60,7 +60,7 @@ class TravelDatabaseTest {
                 VisitDimensionScoreEntity(scoredVisit.id, "Value", 7.8),
             ),
         )
-        dao.insertVisitWithDimensions(visit("visit-no-scores", "p3", createdAt = 200L), emptyList())
+        dao.upsertVisitWithDimensions(visit("visit-no-scores", "p3", createdAt = 200L), emptyList())
 
         val scored = dao.getVisitsForPlace("p2").single()
         val unscored = dao.getVisitsForPlace("p3").single()
@@ -72,10 +72,10 @@ class TravelDatabaseTest {
     fun savedPlaceTogglePersistsAndRemoves() = runBlocking {
         val dao = database.savedPlaceDao()
 
-        dao.toggle("p4", nowEpochMillis = 100L)
+        dao.setSaved("p4", saved = true, nowEpochMillis = 100L)
         assertEquals(setOf("p4"), dao.observeSavedPlaceIds().first().toSet())
 
-        dao.toggle("p4", nowEpochMillis = 200L)
+        dao.setSaved("p4", saved = false, nowEpochMillis = 200L)
         assertNull(dao.getSavedPlace("p4"))
         assertEquals(emptyList<String>(), dao.observeSavedPlaceIds().first())
     }
@@ -98,7 +98,7 @@ class TravelDatabaseTest {
     fun deletingVisitCascadesToDimensionScores() = runBlocking {
         val dao = database.visitDao()
         val visit = visit("visit-delete", "p5", createdAt = 100L)
-        dao.insertVisitWithDimensions(
+        dao.upsertVisitWithDimensions(
             visit,
             listOf(VisitDimensionScoreEntity(visit.id, "Room", 8.9)),
         )

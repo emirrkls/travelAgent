@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -176,6 +177,7 @@ fun CollectionsScreen(onBack: () -> Unit, onCollection: (String) -> Unit, viewMo
 @Composable
 fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (String) -> Unit, viewModel: SecondaryViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(collectionId) { viewModel.refreshCollectionDetail(collectionId) }
     val collection = state.collections.firstOrNull { it.id == collectionId }
     val places = state.places.filter { it.id in (collection?.placeIds ?: emptyList()) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {

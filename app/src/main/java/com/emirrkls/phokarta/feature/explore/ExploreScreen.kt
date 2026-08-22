@@ -22,6 +22,8 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,11 +56,11 @@ fun ExploreScreen(
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 110.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = TravelSpacing.md, vertical = TravelSpacing.md), verticalAlignment = Alignment.CenterVertically) {
-                UserAvatar("https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300", 46)
+                UserAvatar(state.currentUser?.avatarUrl.orEmpty(), 46)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("GOOD EVENING", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
-                    Text("Where to next, Emircan?", style = MaterialTheme.typography.titleLarge)
+                    Text("Where to next, ${state.currentUser?.displayName?.substringBefore(' ').orEmpty()}?", style = MaterialTheme.typography.titleLarge)
                 }
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     IconButton(onClick = {}) { Icon(Icons.Outlined.Notifications, "Notifications") }
@@ -73,6 +75,21 @@ fun ExploreScreen(
                 }
             }
             Spacer(Modifier.height(30.dp))
+        }
+        if (state.isLoading) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+        state.errorMessage?.let { message ->
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                    Button(onClick = viewModel::retry) { Text("Retry") }
+                }
+            }
         }
         if (selectedCategory != null) {
             item { PlaceSection("${selectedCategory.label} picks", state.filteredPlaces, state.savedPlaceIds, onPlace, viewModel::toggleSaved) }

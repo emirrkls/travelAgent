@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class VisitedPlace(val visit: Visit, val place: Place)
@@ -22,6 +23,15 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(private val repository: TravelRepository) : ViewModel() {
+    init {
+        viewModelScope.launch {
+            repository.refreshCatalog()
+            repository.refreshOwnerVisits()
+            repository.refreshSaved()
+            repository.refreshCollections()
+        }
+    }
+
     val uiState = combine(
         repository.observeVisits(),
         repository.observePlaces(),

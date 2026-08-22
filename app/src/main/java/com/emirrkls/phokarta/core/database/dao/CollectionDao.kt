@@ -36,6 +36,9 @@ interface CollectionDao {
     @Query("DELETE FROM collection_places WHERE collectionId = :collectionId")
     suspend fun deleteCollectionPlaces(collectionId: String)
 
+    @Query("DELETE FROM collections")
+    suspend fun deleteAllCollections()
+
     @Query("SELECT COUNT(*) FROM collection_places WHERE collectionId = :collectionId")
     suspend fun countCollectionPlaces(collectionId: String): Int
 
@@ -64,5 +67,20 @@ interface CollectionDao {
         upsertCollection(collection)
         deleteCollectionPlaces(collection.id)
         insertCollectionPlaces(placeIds.distinct().map { CollectionPlaceCrossRef(collection.id, it) })
+    }
+
+    @Transaction
+    suspend fun replaceCollectionsWithPlaces(
+        collections: List<CollectionEntity>,
+        memberships: Map<String, List<String>>,
+    ) {
+        deleteAllCollections()
+        collections.forEach { collection ->
+            upsertCollection(collection)
+            insertCollectionPlaces(
+                memberships[collection.id].orEmpty().distinct()
+                    .map { CollectionPlaceCrossRef(collection.id, it) },
+            )
+        }
     }
 }

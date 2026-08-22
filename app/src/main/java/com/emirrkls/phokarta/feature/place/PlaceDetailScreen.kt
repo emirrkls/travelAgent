@@ -58,7 +58,16 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val place = state.place
     if (place == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            if (state.isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Text(if (state.isNotFound) "Place not found" else state.errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = viewModel::retry) { Text("Retry") }
+                Button(onClick = onBack) { Text("Back") }
+            }
+        }
         return
     }
     Scaffold(
@@ -100,7 +109,15 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
                 Spacer(Modifier.height(8.dp))
                 Text(place.name, style = MaterialTheme.typography.headlineLarge)
                 Text(place.address, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                state.saveErrorMessage?.let {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(it, Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = viewModel::toggleSaved) { Text("Retry") }
+                    }
+                }
                 Spacer(Modifier.height(22.dp))
+                place.similarUsersScore?.let { personalizedScore ->
                 Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(22.dp)) {
                     Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -108,13 +125,16 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
                             Spacer(Modifier.height(3.dp))
                             Text("Highly recommended for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
-                        Text(String.format("%.1f", place.similarUsersScore), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(String.format("%.1f", personalizedScore), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ScorePill("Friends", place.friendsScore, modifier = Modifier.weight(1f))
-                    ScorePill("Community", place.communityScore, modifier = Modifier.weight(1f))
+                    place.friendsScore?.let { ScorePill("Friends", it, modifier = Modifier.weight(1f)) }
+                    place.communityScore?.let {
+                        ScorePill("Community", it, modifier = Modifier.weight(1f))
+                    } ?: Text("Community · Not rated yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -130,15 +150,16 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
                 Spacer(Modifier.height(28.dp))
                 Text("The scores", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(14.dp))
-                place.ratingBreakdown.forEach { (name, score) ->
+                place.ratingBreakdown.forEach { (dimension, score) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Text(dimension.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                         Box(Modifier.weight(1.5f).height(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
                             Box(Modifier.fillMaxWidth((score / 10).toFloat()).height(7.dp).background(MaterialTheme.colorScheme.secondary))
                         }
                         Text(String.format("%.1f", score), Modifier.width(42.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, fontWeight = FontWeight.Bold)
                     }
                 }
+                place.friendSignal?.let { friendSignal ->
                 Spacer(Modifier.height(28.dp))
                 Text("Friends who visited", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(14.dp))
@@ -148,7 +169,8 @@ fun PlaceDetailScreen(onBack: () -> Unit, onRate: () -> Unit, viewModel: PlaceDe
                         "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
                         "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
                     ).forEach { url -> Box(Modifier.padding(end = 6.dp)) { UserAvatar(url) } }
-                    Text(place.friendSignal ?: "Friends recommend this", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
+                    Text(friendSignal, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
+                }
                 }
                 Spacer(Modifier.height(28.dp))
                 Text("Traveler notes", style = MaterialTheme.typography.titleLarge)

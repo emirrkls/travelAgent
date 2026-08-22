@@ -55,7 +55,16 @@ fun RatingScreen(onBack: () -> Unit, onPublished: (String) -> Unit, viewModel: R
     LaunchedEffect(state.published) { if (state.published) onPublished(state.place?.name.orEmpty()) }
     val place = state.place
     if (place == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            if (state.isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Text(if (state.isNotFound) "Place not found" else state.loadError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = viewModel::retryLoad) { Text("Retry") }
+                Button(onClick = onBack) { Text("Back") }
+            }
+        }
         return
     }
     val haptics = LocalHapticFeedback.current
@@ -124,16 +133,16 @@ fun RatingScreen(onBack: () -> Unit, onPublished: (String) -> Unit, viewModel: R
             Text("What stood out?", style = MaterialTheme.typography.titleLarge)
             Text("Optional · add only the scores you care about", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(12.dp))
-            place.category.ratingDimensions.forEach { name ->
-                val value = state.dimensions[name]
+            place.category.ratingDimensions.forEach { dimension ->
+                val value = state.dimensions[dimension]
                 if (value == null) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { viewModel.enableDimension(name) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { viewModel.enableDimension(dimension) },
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         shape = RoundedCornerShape(16.dp),
                     ) {
                         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(name, Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                            Text(dimension.label, Modifier.weight(1f), fontWeight = FontWeight.Medium)
                             Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary)
                             Text("Add score", Modifier.padding(start = 5.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                         }
@@ -146,13 +155,13 @@ fun RatingScreen(onBack: () -> Unit, onPublished: (String) -> Unit, viewModel: R
                     ) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                Text(dimension.label, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                                 Text(String.format("%.1f", value), fontWeight = FontWeight.Bold)
-                                IconButton(onClick = { viewModel.removeDimension(name) }) { Icon(Icons.Rounded.Close, "Remove $name score") }
+                                IconButton(onClick = { viewModel.removeDimension(dimension) }) { Icon(Icons.Rounded.Close, "Remove ${dimension.label} score") }
                             }
                             RatingControl(
                                 value = value,
-                                onValueChange = { viewModel.setDimension(name, it) },
+                                onValueChange = { viewModel.setDimension(dimension, it) },
                                 compact = true,
                                 onValueChangeFinished = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
                             )

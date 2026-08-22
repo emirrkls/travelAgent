@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("androidx.room")
@@ -16,16 +17,30 @@ android {
         applicationId = "com.emirrkls.phokarta"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "com.emirrkls.phokarta.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
+        debug {
+            val baseUrl = providers.gradleProperty("PHOKARTA_API_BASE_URL")
+                .orNull
+                ?.trim()
+                ?.takeIf(String::isNotEmpty)
+                ?: "http://10.0.2.2:8080/"
+            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"${baseUrl.trimEnd('/')}/\"")
+        }
         release {
             isMinifyEnabled = false
+            val baseUrl = providers.gradleProperty("PHOKARTA_API_BASE_URL")
+                .orNull
+                ?.trim()
+                ?.takeIf(String::isNotEmpty)
+                ?: "https://api.phokarta.invalid/"
+            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"${baseUrl.trimEnd('/')}/\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -78,6 +93,11 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:3.0.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
@@ -85,6 +105,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.room:room-testing:$roomVersion")
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     androidTestImplementation("androidx.test.ext:junit-ktx:1.3.0")

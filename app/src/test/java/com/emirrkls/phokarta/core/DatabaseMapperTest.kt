@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.database.mapper.toDomain
 import com.emirrkls.phokarta.core.database.mapper.toEntity
 import com.emirrkls.phokarta.core.database.relation.VisitWithDimensions
 import com.emirrkls.phokarta.core.model.VerificationStatus
+import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.Visibility
 import org.junit.Assert.assertEquals
@@ -22,7 +23,7 @@ class DatabaseMapperTest {
             placeId = "p1",
             visitedAt = LocalDate.of(2026, 8, 22),
             overallRating = 9.4,
-            ratingDimensions = mapOf("Sea" to 9.7, "Value" to 8.2),
+            ratingDimensions = mapOf(RatingDimension.SEA to 9.7, RatingDimension.VALUE to 8.2),
             review = "Clear water.",
             personalNote = "Return before noon.",
             visibility = Visibility.FRIENDS,
@@ -34,6 +35,7 @@ class DatabaseMapperTest {
             dimensions = visit.toDimensionEntities(),
         )
 
+        assertEquals(listOf("SEA", "VALUE"), stored.dimensions.map { it.dimensionKey })
         assertEquals(visit, stored.toDomain())
     }
 
@@ -55,6 +57,19 @@ class DatabaseMapperTest {
             dimensions = emptyList<VisitDimensionScoreEntity>(),
         )
 
-        assertEquals(emptyMap<String, Double>(), stored.toDomain().ratingDimensions)
+        assertEquals(emptyMap<RatingDimension, Double>(), stored.toDomain().ratingDimensions)
+    }
+
+    @Test
+    fun `legacy title case dimension key is tolerated on read`() {
+        val stored = VisitWithDimensions(
+            visit = VisitEntity(
+                "visit-legacy", "user-1", "p2", LocalDate.now().toEpochDay(), 8.0,
+                "", "", Visibility.PUBLIC.name, VerificationStatus.UNVERIFIED.name, 123L,
+            ),
+            dimensions = listOf(VisitDimensionScoreEntity("visit-legacy", "Sea", 8.5)),
+        )
+
+        assertEquals(mapOf(RatingDimension.SEA to 8.5), stored.toDomain().ratingDimensions)
     }
 }

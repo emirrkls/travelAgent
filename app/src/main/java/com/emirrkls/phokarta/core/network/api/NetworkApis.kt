@@ -1,0 +1,132 @@
+package com.emirrkls.phokarta.core.network.api
+
+import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
+import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
+import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
+import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
+import com.emirrkls.phokarta.core.network.model.PageResponseDto
+import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
+import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
+import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PublicVisitDto
+import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
+
+interface PlaceApi {
+    @GET("api/v1/places")
+    suspend fun list(
+        @Query("category") category: PlaceCategoryDto? = null,
+        @Query("city") city: String? = null,
+        @Query("search") search: String? = null,
+        @Query("minRating") minRating: Double? = null,
+        @Query("sort") sort: String = "averageScore,desc",
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<PlaceSummaryDto>>
+
+    @GET("api/v1/places/nearby")
+    suspend fun nearby(
+        @Query("lat") latitude: Double,
+        @Query("lon") longitude: Double,
+        @Query("radiusMeters") radiusMeters: Double = 5_000.0,
+        @Query("category") category: PlaceCategoryDto? = null,
+        @Query("minRating") minRating: Double? = null,
+        @Query("limit") limit: Int = 50,
+    ): Response<List<NearbyPlaceDto>>
+
+    @GET("api/v1/places/bounds")
+    suspend fun bounds(
+        @Query("west") west: Double,
+        @Query("south") south: Double,
+        @Query("east") east: Double,
+        @Query("north") north: Double,
+        @Query("category") category: PlaceCategoryDto? = null,
+        @Query("minRating") minRating: Double? = null,
+        @Query("limit") limit: Int = 50,
+    ): Response<List<PlaceSummaryDto>>
+
+    @GET("api/v1/places/{id}")
+    suspend fun detail(@Path("id") id: String): Response<PlaceDetailDto>
+}
+
+interface VisitApi {
+    @POST("api/v1/visits")
+    suspend fun create(@Body request: CreateVisitDto): Response<VisitOwnerDto>
+
+    @GET("api/v1/users/{userId}/visits")
+    suspend fun ownerVisits(
+        @Path("userId") userId: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<VisitOwnerDto>>
+
+    @GET("api/v1/places/{placeId}/reviews")
+    suspend fun publicReviews(
+        @Path("placeId") placeId: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<PublicVisitDto>>
+}
+
+interface SavedPlaceApi {
+    @GET("api/v1/users/{userId}/saved-places")
+    suspend fun list(
+        @Path("userId") userId: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<SavedPlaceDto>>
+
+    @POST("api/v1/users/{userId}/saved-places/{placeId}")
+    suspend fun save(
+        @Path("userId") userId: String,
+        @Path("placeId") placeId: String,
+    ): Response<SavedPlaceDto>
+
+    @DELETE("api/v1/users/{userId}/saved-places/{placeId}")
+    suspend fun remove(
+        @Path("userId") userId: String,
+        @Path("placeId") placeId: String,
+    ): Response<Unit>
+}
+
+interface CollectionApi {
+    @GET("api/v1/users/{userId}/collections")
+    suspend fun list(
+        @Path("userId") userId: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<CollectionSummaryDto>>
+
+    @POST("api/v1/users/{userId}/collections")
+    suspend fun create(
+        @Path("userId") userId: String,
+        @Body request: CreateCollectionDto,
+    ): Response<CollectionDetailDto>
+
+    @GET("api/v1/collections/{collectionId}")
+    suspend fun detail(
+        @Path("collectionId") collectionId: String,
+    ): Response<CollectionDetailDto>
+
+    @POST("api/v1/collections/{collectionId}/places/{placeId}")
+    suspend fun addPlace(
+        @Path("collectionId") collectionId: String,
+        @Path("placeId") placeId: String,
+        @Query("userId") userId: String,
+    ): Response<CollectionDetailDto>
+
+    @DELETE("api/v1/collections/{collectionId}/places/{placeId}")
+    suspend fun removePlace(
+        @Path("collectionId") collectionId: String,
+        @Path("placeId") placeId: String,
+        @Query("userId") userId: String,
+    ): Response<Unit>
+}

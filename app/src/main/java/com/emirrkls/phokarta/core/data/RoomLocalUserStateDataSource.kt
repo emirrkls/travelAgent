@@ -30,18 +30,32 @@ class RoomLocalUserStateDataSource @Inject constructor(
 
     override suspend fun getCollection(id: String): Collection? = collectionDao.getCollectionWithPlaceIds(id)?.toDomain()
 
-    override suspend fun publishVisit(visit: Visit) {
-        visitDao.insertVisitWithDimensions(
+    override suspend fun upsertVisit(visit: Visit) {
+        visitDao.upsertVisitWithDimensions(
             visit = visit.toEntity(System.currentTimeMillis()),
             scores = visit.toDimensionEntities(),
         )
     }
 
-    override suspend fun toggleSaved(placeId: String) {
-        savedPlaceDao.toggle(placeId, System.currentTimeMillis())
+    override suspend fun upsertVisits(visits: List<Visit>) {
+        val now = System.currentTimeMillis()
+        visitDao.upsertVisitsWithDimensions(
+            visits = visits.map { it.toEntity(now) },
+            scores = visits.flatMap { it.toDimensionEntities() },
+        )
     }
 
-    override suspend fun saveCollection(collection: Collection) {
+    override suspend fun isSaved(placeId: String): Boolean = savedPlaceDao.getSavedPlace(placeId) != null
+
+    override suspend fun setSaved(placeId: String, saved: Boolean) {
+        savedPlaceDao.setSaved(placeId, saved, System.currentTimeMillis())
+    }
+
+    override suspend fun replaceSavedPlaceIds(placeIds: Set<String>) {
+        savedPlaceDao.replaceSavedPlaceIds(placeIds, System.currentTimeMillis())
+    }
+
+    override suspend fun upsertCollection(collection: Collection) {
         val now = System.currentTimeMillis()
         val createdAt = collectionDao.getCollectionWithPlaceIds(collection.id)
             ?.collection
@@ -50,6 +64,14 @@ class RoomLocalUserStateDataSource @Inject constructor(
         collectionDao.upsertCollectionWithPlaces(
             collection.toEntity(createdAtEpochMillis = createdAt, updatedAtEpochMillis = now),
             collection.placeIds,
+        )
+    }
+
+    override suspend fun replaceCollections(collections: List<Collection>) {
+        val now = System.currentTimeMillis()
+        collectionDao.replaceCollectionsWithPlaces(
+            collections = collections.map { it.toEntity(now, now) },
+            memberships = collections.associate { it.id to it.placeIds },
         )
     }
 

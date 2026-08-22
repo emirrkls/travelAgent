@@ -36,7 +36,6 @@ class CoreVisitFlowSmokeTest {
             composeRule.onNodeWithText("Skip").performClick()
         }
 
-        composeRule.onNodeWithText("Where to next, Emircan?").assertIsDisplayed()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
         }

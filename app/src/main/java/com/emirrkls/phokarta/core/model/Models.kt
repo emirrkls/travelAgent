@@ -2,6 +2,33 @@ package com.emirrkls.phokarta.core.model
 
 import java.time.LocalDate
 
+enum class RatingDimension(val apiKey: String, val label: String) {
+    SEA("SEA", "Sea"),
+    ATMOSPHERE("ATMOSPHERE", "Atmosphere"),
+    SERVICE("SERVICE", "Service"),
+    CLEANLINESS("CLEANLINESS", "Cleanliness"),
+    VALUE("VALUE", "Value"),
+    CROWD("CROWD", "Crowd"),
+    FOOD("FOOD", "Food"),
+    PRESENTATION("PRESENTATION", "Presentation"),
+    LOCATION("LOCATION", "Location"),
+    ROOM("ROOM", "Room"),
+    BREAKFAST("BREAKFAST", "Breakfast"),
+    DRINKS("DRINKS", "Drinks"),
+    MUSIC("MUSIC", "Music"),
+    EXPERIENCE("EXPERIENCE", "Experience"),
+    ACCESS("ACCESS", "Access"),
+    SAFETY("SAFETY", "Safety"),
+    GUIDE("GUIDE", "Guide"),
+    SCENERY("SCENERY", "Scenery"),
+    TRANQUILITY("TRANQUILITY", "Tranquility");
+
+    companion object {
+        fun fromStoredKey(key: String): RatingDimension? =
+            entries.firstOrNull { it.apiKey == key.uppercase() || it.label.equals(key, ignoreCase = true) }
+    }
+}
+
 enum class PlaceCategory(val label: String) {
     BEACH("Beach"),
     RESTAURANT("Food"),
@@ -13,15 +40,15 @@ enum class PlaceCategory(val label: String) {
     ACTIVITY("Activity"),
     NATURE("Nature");
 
-    val ratingDimensions: List<String>
+    val ratingDimensions: List<RatingDimension>
         get() = when (this) {
-            BEACH -> listOf("Sea", "Atmosphere", "Service", "Cleanliness", "Value", "Crowd")
-            RESTAURANT, CAFE -> listOf("Food", "Service", "Atmosphere", "Value", "Presentation")
-            HOTEL -> listOf("Cleanliness", "Location", "Room", "Service", "Breakfast", "Value")
-            BAR, NIGHTLIFE -> listOf("Drinks", "Music", "Atmosphere", "Service", "Value")
-            ATTRACTION -> listOf("Experience", "Access", "Atmosphere", "Value")
-            ACTIVITY -> listOf("Experience", "Safety", "Guide", "Value")
-            NATURE -> listOf("Scenery", "Access", "Cleanliness", "Tranquility")
+            BEACH -> listOf(RatingDimension.SEA, RatingDimension.ATMOSPHERE, RatingDimension.SERVICE, RatingDimension.CLEANLINESS, RatingDimension.VALUE, RatingDimension.CROWD)
+            RESTAURANT, CAFE -> listOf(RatingDimension.FOOD, RatingDimension.SERVICE, RatingDimension.ATMOSPHERE, RatingDimension.VALUE, RatingDimension.PRESENTATION)
+            HOTEL -> listOf(RatingDimension.CLEANLINESS, RatingDimension.LOCATION, RatingDimension.ROOM, RatingDimension.SERVICE, RatingDimension.BREAKFAST, RatingDimension.VALUE)
+            BAR, NIGHTLIFE -> listOf(RatingDimension.DRINKS, RatingDimension.MUSIC, RatingDimension.ATMOSPHERE, RatingDimension.SERVICE, RatingDimension.VALUE)
+            ATTRACTION -> listOf(RatingDimension.EXPERIENCE, RatingDimension.ACCESS, RatingDimension.ATMOSPHERE, RatingDimension.VALUE)
+            ACTIVITY -> listOf(RatingDimension.EXPERIENCE, RatingDimension.SAFETY, RatingDimension.GUIDE, RatingDimension.VALUE)
+            NATURE -> listOf(RatingDimension.SCENERY, RatingDimension.ACCESS, RatingDimension.CLEANLINESS, RatingDimension.TRANQUILITY)
         }
 }
 
@@ -53,12 +80,17 @@ data class Place(
     val coverImage: String,
     val photos: List<String>,
     val priceLevel: Int,
-    val communityScore: Double,
-    val friendsScore: Double,
-    val similarUsersScore: Double,
+    val communityScore: Double?,
+    val friendsScore: Double?,
+    val similarUsersScore: Double?,
     val ratingCount: Int,
-    val ratingBreakdown: Map<String, Double>,
+    val ratingBreakdown: Map<RatingDimension, Double>,
     val friendSignal: String? = null,
+)
+
+data class NearbyPlace(
+    val place: Place,
+    val distanceMeters: Double,
 )
 
 enum class Visibility { PRIVATE, FRIENDS, PUBLIC }
@@ -70,7 +102,7 @@ data class Visit(
     val placeId: String,
     val visitedAt: LocalDate,
     val overallRating: Double,
-    val ratingDimensions: Map<String, Double>,
+    val ratingDimensions: Map<RatingDimension, Double>,
     val review: String,
     val personalNote: String,
     val photos: List<String> = emptyList(),

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TravelAgent"
+rootProject.name = "Phokarta"
 include(":app")

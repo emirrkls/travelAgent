@@ -5,20 +5,21 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("androidx.room")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
-    namespace = "com.emirrkls.travelagent"
+    namespace = "com.emirrkls.phokarta"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.emirrkls.travelagent"
+        applicationId = "com.emirrkls.phokarta"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.emirrkls.phokarta.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -35,12 +36,20 @@ android {
     }
     kotlinOptions.jvmTarget = "17"
 
-    buildFeatures.compose = true
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
 }
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+secrets {
+    propertiesFileName = "secrets.properties"
+    defaultPropertiesFileName = "local.defaults.properties"
 }
 
 dependencies {
@@ -72,12 +81,17 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    implementation("com.google.maps.android:maps-compose:6.4.1")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.room:room-testing:$roomVersion")
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     androidTestImplementation("androidx.test.ext:junit-ktx:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.55")
+    kspAndroidTest("com.google.dagger:hilt-compiler:2.55")
 }
 
 ksp {

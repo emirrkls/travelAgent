@@ -1,0 +1,14 @@
+spring:
+  flyway:
+    locations: classpath:db/migration/schema,classpath:db/migration/dev
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    com.emirrkls.phokarta.backend: DEBUG
+    org.flywaydb: INFO

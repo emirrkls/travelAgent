@@ -1,4 +1,4 @@
-# Phokarta — Android native prototype
+# Phokarta
 
 Phokarta is a native Kotlin/Jetpack Compose prototype for social travel discovery, personal travel memory, category-aware ratings, and trusted recommendations.
 
@@ -52,3 +52,87 @@ This is a deliberate trade-off for the current navigation architecture. Revisit 
 ## Local persistence
 
 Room stores Visits, optional per-Visit rating dimensions, saved/Want-to-Go place IDs, collections, and collection membership. The mock place catalog keeps deterministic IDs and is not copied into the database. Demo user state is inserted only when the database is first created, using stable IDs; social Activity remains mocked. Onboarding completion remains a lightweight application preference.
+
+## Backend v0.4
+
+`backend/` is an independent Java 21/Maven Spring Boot service. It intentionally does not share the Android Gradle build. Its pragmatic layers keep JPA entities in `domain/entity`, database access in `repository`, business behavior in `service`, and public contracts in `api/dto`; controllers never expose persistence entities.
+
+The backend uses Spring Boot 3.5, Spring Web, Spring Data JPA, Hibernate Spatial/JTS, Bean Validation, PostgreSQL/PostGIS, Flyway, springdoc OpenAPI, JUnit 5, and Testcontainers.
+
+### Prerequisites
+
+- Java 21
+- Maven 3.9+
+- Docker Desktop (for local PostGIS and integration tests)
+
+### Start PostGIS
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+docker compose up -d db
+```
+
+The checked-in defaults create a `phokarta` database and user, and bind PostgreSQL only to `127.0.0.1`. Change them through `.env` or environment variables when needed; `.env` is ignored and must not contain production secrets.
+
+Spring Boot reads:
+
+- `PHOKARTA_DB_URL` (default `jdbc:postgresql://localhost:5432/phokarta`)
+- `PHOKARTA_DB_USER` (default `phokarta`)
+- `PHOKARTA_DB_PASSWORD` (default `phokarta`)
+- `SERVER_PORT` (default `8080`)
+
+Flyway runs automatically at startup, enables PostGIS, and creates the schema and spatial indexes. The default profile loads only production-safe schema migrations. The `dev` profile additionally loads deterministic demo data from a separate migration location. Hibernate uses `ddl-auto: validate` and does not create or destroy the schema.
+
+### Run and test
+
+```powershell
+cd backend
+mvn test
+$env:SPRING_PROFILES_ACTIVE = "dev"
+mvn spring-boot:run
+```
+
+Integration tests activate the `dev` profile and use the real `postgis/postgis:16-3.4` image; H2 is not used and Docker is required. Start without `SPRING_PROFILES_ACTIVE=dev` for a production-style empty database with no demo user or places. Swagger UI is available at `http://localhost:8080/swagger-ui.html` and the OpenAPI document at `http://localhost:8080/v3/api-docs`.
+
+Demo user ID: `11111111-1111-1111-1111-111111111111`.
+
+### API overview
+
+- `GET /api/v1/places` — paginated search/filter/sort
+- `GET /api/v1/places/{placeId}` — detail, community aggregate, dimension breakdown and recent public reviews
+- `GET /api/v1/places/nearby` — radius search ordered by geodesic distance
+- `GET /api/v1/places/bounds` — map viewport discovery
+- `POST /api/v1/visits` — append a Visit; verification is server-controlled and starts as `UNVERIFIED`
+- `GET /api/v1/users/{userId}/visits` — temporary owner-oriented history
+- `GET|POST|DELETE /api/v1/users/{userId}/saved-places[...]`
+- `GET|POST /api/v1/users/{userId}/collections`
+- `GET /api/v1/collections/{collectionId}`
+- `POST|DELETE /api/v1/collections/{collectionId}/places/{placeId}`
+
+Normal lists use `page`, `size`, and a safe `sort` allowlist and return stable pagination metadata including `hasNext`. Map endpoints use a bounded `limit`.
+
+### Geo convention
+
+Coordinates are WGS84/SRID 4326. API parameters use `lat`/`latitude` and `lon`/`longitude`; JTS/PostGIS points are always created in **longitude, latitude** (`x`, `y`) order. Nearby distances are geodesic meters and are calculated by PostGIS with `ST_DWithin`/`ST_Distance`, not in Java. Bounds are `west,south,east,north`; antimeridian-crossing boxes are not supported in v0.4.
+
+### Authentication boundary
+
+There is no authentication in v0.4. Owner-oriented demo endpoints temporarily accept a client-supplied `userId`; this is not authorization.
+
+> In the authentication milestone, user identity must come from the authenticated principal, not client-supplied ownership IDs.
+
+Public Visit DTOs do not contain `privateMemory`; owner and public responses are separate types. Both response types may expose `verificationStatus`, but create requests cannot set it.
+
+### Android contract notes
+
+The backend is the API authority, but Android remains on its local mock repository in v0.4. The next milestone must map:
+
+- Android `communityScore: Double` to backend nullable `averageScore` plus `ratingCount`
+- Android `coverImage`/`review`/`personalNote` to backend `coverImage`, `publicReview`, and `privateMemory`
+- Android title-case rating labels to backend uppercase dimension keys
+- Android map filters to backend category/min-rating/nearby/bounds query parameters
+- Android local IDs and state to backend UUIDs and owner/public Visit DTOs
+- Android-only friends/similar-user scores and social signals to no backend field until those features exist
+
+The exact next milestone is **Phokarta Android + Backend v0.5 — authenticated-ready Android API integration and offline cache mapping**, without adding authentication itself unless separately scoped.

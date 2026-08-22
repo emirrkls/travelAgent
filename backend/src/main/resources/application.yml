@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: phokarta-backend
+  datasource:
+    url: ${PHOKARTA_DB_URL:jdbc:postgresql://localhost:5432/phokarta}
+    username: ${PHOKARTA_DB_USER:phokarta}
+    password: ${PHOKARTA_DB_PASSWORD:phokarta}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/schema
+    baseline-on-migrate: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+phokarta:
+  demo-user-id: 11111111-1111-1111-1111-111111111111
+  geo:
+    max-radius-meters: 50000
+    default-radius-meters: 5000
+    max-map-limit: 200
+    default-map-limit: 50
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: false
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn

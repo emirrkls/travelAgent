@@ -10,10 +10,12 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.mapper.toDomain
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
+import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
@@ -48,6 +50,7 @@ private const val PLACE_ID = "22222222-2222-2222-2222-222222222222"
 private const val VISIT_ID = "33333333-3333-3333-3333-333333333333"
 private const val SECOND_PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val SECOND_VISIT_ID = "55555555-5555-5555-5555-555555555555"
+private const val COLLECTION_ID = "66666666-6666-6666-6666-666666666666"
 
 class DefaultTravelRepositoryTest {
     @Test
@@ -73,6 +76,66 @@ class DefaultTravelRepositoryTest {
         assertNull(place.communityScore)
         assertNull(place.friendsScore)
         assertNull(place.similarUsersScore)
+    }
+
+    @Test
+    fun `create collection persists into observed state`() = runBlocking {
+        val local = FakeLocal()
+        val detail = collectionDetail()
+        val collections = FakeCollections(createResult = RemoteResult.Success(detail))
+        val repository = repository(local = local, collections = collections)
+
+        val result = repository.saveCollection(
+            Collection(
+                id = "ignored",
+                userId = USER_ID,
+                title = "Bodrum Summer",
+                description = "Sea days",
+                placeIds = emptyList(),
+                visibility = Visibility.PRIVATE,
+                coverImage = "https://example.com/cover.jpg",
+            ),
+        )
+
+        assertTrue(result is RepositoryResult.Success)
+        assertEquals(listOf(COLLECTION_ID), local.collections.value.map { it.id })
+        assertEquals("Bodrum Summer", local.collections.value.single().title)
+    }
+
+    @Test
+    fun `add place to collection and duplicate conflict`() = runBlocking {
+        val local = FakeLocal().apply {
+            collections.value = listOf(
+                Collection(COLLECTION_ID, USER_ID, "List", "", emptyList(), Visibility.PRIVATE, "cover"),
+            )
+        }
+        val collections = FakeCollections(
+            addResult = RemoteResult.Success(collectionDetail(placeIds = listOf(PLACE_ID))),
+        )
+        val repository = repository(local = local, collections = collections)
+
+        val added = repository.addPlaceToCollection(COLLECTION_ID, PLACE_ID)
+        assertTrue(added is RepositoryResult.Success)
+        assertEquals(listOf(PLACE_ID), local.collections.value.single().placeIds)
+
+        collections.addResult = RemoteResult.Failure(NetworkError.Conflict(null))
+        val duplicate = repository.addPlaceToCollection(COLLECTION_ID, PLACE_ID)
+        assertTrue(duplicate is RepositoryResult.Failure)
+    }
+
+    @Test
+    fun `remove place from collection updates local membership`() = runBlocking {
+        val local = FakeLocal().apply {
+            collections.value = listOf(
+                Collection(COLLECTION_ID, USER_ID, "List", "", listOf(PLACE_ID), Visibility.PRIVATE, "cover"),
+            )
+        }
+        val collections = FakeCollections(removeResult = RemoteResult.Success(Unit))
+        val repository = repository(local = local, collections = collections)
+
+        val result = repository.removePlaceFromCollection(COLLECTION_ID, PLACE_ID)
+        assertTrue(result is RepositoryResult.Success)
+        assertEquals(emptyList<String>(), local.collections.value.single().placeIds)
     }
 
     @Test
@@ -202,6 +265,7 @@ private fun repository(
     places: FakePlaces = FakePlaces(page()),
     visits: FakeVisits = FakeVisits(),
     saved: FakeSaved = FakeSaved(),
+    collections: FakeCollections = FakeCollections(),
     placeCache: PlaceCacheDataSource = FakePlaceCache(),
 ) = DefaultTravelRepository(
     MockPlaceCatalogDataSource(),
@@ -209,7 +273,7 @@ private fun repository(
     places,
     visits,
     saved,
-    FakeCollections(),
+    collections,
     testSessionManager(USER_ID),
     placeCache,
 )
@@ -265,8 +329,24 @@ private class FakeLocal : LocalUserStateDataSource {
         collections.value = collections.value.filterNot { it.id == collection.id } + collection
     }
     override suspend fun replaceCollections(collections: List<Collection>) { this.collections.value = collections }
-    override suspend fun addPlaceToCollection(collectionId: String, placeId: String) = Unit
-    override suspend fun removePlaceFromCollection(collectionId: String, placeId: String) = Unit
+    override suspend fun addPlaceToCollection(collectionId: String, placeId: String) {
+        collections.value = collections.value.map { collection ->
+            if (collection.id == collectionId && placeId !in collection.placeIds) {
+                collection.copy(placeIds = collection.placeIds + placeId)
+            } else {
+                collection
+            }
+        }
+    }
+    override suspend fun removePlaceFromCollection(collectionId: String, placeId: String) {
+        collections.value = collections.value.map { collection ->
+            if (collection.id == collectionId) {
+                collection.copy(placeIds = collection.placeIds - placeId)
+            } else {
+                collection
+            }
+        }
+    }
 }
 
 private class FakePlaceCache(initial: List<Place> = emptyList()) : PlaceCacheDataSource {
@@ -319,14 +399,33 @@ private class FakeSaved(
     override suspend fun remove(placeId: String) = removeResult
 }
 
-private class FakeCollections : CollectionRemoteDataSource {
+private class FakeCollections(
+    var createResult: RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.Connection),
+    var detailResult: RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.NotFound(null)),
+    var addResult: RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.Connection),
+    var removeResult: RemoteResult<Unit> = RemoteResult.Failure(NetworkError.Connection),
+) : CollectionRemoteDataSource {
     override suspend fun list(page: Int, size: Int): RemoteResult<PageResponseDto<CollectionSummaryDto>> = page()
-    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> =
-        RemoteResult.Failure(NetworkError.Connection)
-    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> =
-        RemoteResult.Failure(NetworkError.NotFound(null))
-    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> =
-        RemoteResult.Failure(NetworkError.Connection)
-    override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> =
-        RemoteResult.Failure(NetworkError.Connection)
+    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> = createResult
+    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> = detailResult
+    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> = addResult
+    override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> = removeResult
 }
+
+private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(
+    id = COLLECTION_ID,
+    userId = USER_ID,
+    title = "Bodrum Summer",
+    description = "Sea days",
+    visibility = VisibilityDto.PRIVATE,
+    coverImage = "https://example.com/cover.jpg",
+    createdAt = "2026-08-22T10:00:00Z",
+    updatedAt = "2026-08-22T10:00:00Z",
+    places = placeIds.mapIndexed { index, id ->
+        CollectionPlaceDto(
+            place = summary().copy(id = id),
+            displayOrder = index,
+            addedAt = "2026-08-22T10:00:00Z",
+        )
+    },
+)

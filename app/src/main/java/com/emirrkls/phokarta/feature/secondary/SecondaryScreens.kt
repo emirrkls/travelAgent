@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,33 +22,41 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.emirrkls.phokarta.core.model.ActivityItem
+import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.Place
+import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
+import com.emirrkls.phokarta.feature.collections.visibilityLabel
 import com.emirrkls.phokarta.ui.components.CategoryIcon
-import com.emirrkls.phokarta.ui.components.CollectionCard
+import com.emirrkls.phokarta.ui.components.CollectionListCard
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
-import com.emirrkls.phokarta.core.model.ActivityItem
-import com.emirrkls.phokarta.core.model.Collection
-import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.ui.theme.Coral
 
 @Composable
@@ -163,13 +170,106 @@ private fun CollectionActivityCard(item: ActivityItem, collection: Collection, p
 private fun activityScore(message: String): Double? = Regex("""\b\d{1,2}\.\d\b""").find(message)?.value?.toDoubleOrNull()
 
 @Composable
-fun CollectionsScreen(onBack: () -> Unit, onCollection: (String) -> Unit, viewModel: SecondaryViewModel = hiltViewModel()) {
+fun CollectionsScreen(
+    onBack: () -> Unit,
+    onCollection: (String) -> Unit,
+    onCreateCollection: (() -> Unit)? = null,
+    viewModel: SecondaryViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showCreate by remember { mutableStateOf(false) }
+    var awaitingCreateSuccess by remember { mutableStateOf(false) }
+
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }; Text("Curated collections", style = MaterialTheme.typography.titleLarge) }
-        Text("Shortlists with a point of view", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.headlineLarge)
-        LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(state.collections, key = { it.id }) { collection -> CollectionCard(collection, collection.placeIds.size, { onCollection(collection.id) }, Modifier.fillMaxWidth()) }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+            Text("Curated collections", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            TextButton(
+                onClick = {
+                    if (onCreateCollection != null) onCreateCollection() else showCreate = true
+                },
+            ) {
+                Text("+ New")
+            }
+        }
+        Text(
+            "Shortlists with a point of view",
+            Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.headlineLarge,
+        )
+        state.collectionsError?.let { error ->
+            Text(
+                error,
+                Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (state.collections.isEmpty()) {
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 28.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Start your first shortlist", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Save places you want to remember together.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(18.dp))
+                TextButton(
+                    onClick = {
+                        if (onCreateCollection != null) onCreateCollection() else showCreate = true
+                    },
+                ) {
+                    Text("+ New collection")
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(state.collections, key = { it.id }) { collection ->
+                    CollectionListCard(
+                        collection = collection,
+                        placeCount = collection.placeIds.size,
+                        visibilityLabel = visibilityLabel(collection.visibility),
+                        onClick = { onCollection(collection.id) },
+                    )
+                }
+            }
+        }
+    }
+
+    if (showCreate && onCreateCollection == null) {
+        CreateCollectionSheet(
+            onDismiss = {
+                showCreate = false
+                awaitingCreateSuccess = false
+                viewModel.clearCreateCollectionError()
+            },
+            isSubmitting = state.isCreatingCollection,
+            errorMessage = state.createCollectionError,
+            onSubmit = { title, description, visibility ->
+                awaitingCreateSuccess = true
+                viewModel.createCollection(title, description, visibility)
+            },
+        )
+        LaunchedEffect(state.isCreatingCollection, state.createCollectionError, state.createdCollectionId) {
+            val createdId = state.createdCollectionId
+            if (awaitingCreateSuccess && !state.isCreatingCollection && state.createCollectionError == null && createdId != null) {
+                awaitingCreateSuccess = false
+                showCreate = false
+                viewModel.clearCreatedCollectionId()
+                onCollection(createdId)
+            }
         }
     }
 }
@@ -180,15 +280,84 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
     LaunchedEffect(collectionId) { viewModel.refreshCollectionDetail(collectionId) }
     val collection = state.collections.firstOrNull { it.id == collectionId }
     val places = state.places.filter { it.id in (collection?.placeIds ?: emptyList()) }
+
+    if (state.detailNotFound && collection == null) {
+        Column(
+            Modifier.fillMaxSize().padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text("Collection not found", style = MaterialTheme.typography.headlineSmall)
+            state.detailError?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(16.dp))
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+        }
+        return
+    }
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 30.dp)) {
         item {
             Box {
                 AsyncImage(collection?.coverImage, collection?.title, Modifier.fillMaxWidth().height(285.dp), contentScale = ContentScale.Crop)
-                IconButton(onClick = onBack, Modifier.padding(16.dp).background(Color.White.copy(.92f), CircleShape)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.Black) }
+                IconButton(onClick = onBack, Modifier.padding(16.dp).background(Color.White.copy(.92f), CircleShape)) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.Black)
+                }
             }
-            Column(Modifier.padding(20.dp)) { Text(collection?.title.orEmpty(), style = MaterialTheme.typography.headlineLarge); Text(collection?.description.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge); Spacer(Modifier.height(6.dp)); Text("${places.size} places · ${collection?.visibility?.name?.lowercase()}", color = Coral, style = MaterialTheme.typography.labelLarge) }
+            Column(Modifier.padding(20.dp)) {
+                Text(collection?.title.orEmpty(), style = MaterialTheme.typography.headlineLarge)
+                val description = collection?.description.orEmpty()
+                if (description.isNotBlank()) {
+                    Text(
+                        description,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "${places.size} ${if (places.size == 1) "place" else "places"} · ${collection?.visibility?.let { visibilityLabel(it) }.orEmpty()}",
+                    color = Coral,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                state.detailError?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                state.membershipError?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
-        items(places, key = { it.id }) { place -> CompactPlaceCard(place, { onPlace(place.id) }, Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) }
+        if (places.isEmpty()) {
+            item {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No places here yet", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Add places from any Place page.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            items(places, key = { it.id }) { place ->
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CompactPlaceCard(place, { onPlace(place.id) }, Modifier.weight(1f))
+                    IconButton(onClick = { viewModel.removePlaceFromCollection(collectionId, place.id) }) {
+                        Icon(Icons.Rounded.Clear, "Remove ${place.name} from collection")
+                    }
+                }
+            }
+        }
     }
 }
 

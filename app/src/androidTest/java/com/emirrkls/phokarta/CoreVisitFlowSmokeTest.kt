@@ -28,28 +28,24 @@ class CoreVisitFlowSmokeTest {
 
     @Test
     fun exploreToPublishShowsVisitOnProfile() {
-        composeRule.waitUntil(timeoutMillis = 6_000) {
-            composeRule.onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Where to next, Emircan?").fetchSemanticsNodes().isNotEmpty()
-        }
-        if (composeRule.onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty()) {
-            composeRule.onNodeWithText("Skip").performClick()
-        }
+        composeRule.skipOnboardingIfNeeded()
+        composeRule.signInIfNeeded()
+        composeRule.waitForExplore()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
-        }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
         composeRule.onNodeWithText("Been here · Rate this place").performClick()
-        composeRule.onNodeWithText("Record a visit").assertIsDisplayed()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Publish visit").assertIsDisplayed()
         composeRule.onNodeWithText("Publish visit").performClick()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
+        composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithText("Visit published").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("See it on your profile").performClick()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
+        composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Your visits").assertIsDisplayed()

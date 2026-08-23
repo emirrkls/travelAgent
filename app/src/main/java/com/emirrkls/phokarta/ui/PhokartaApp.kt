@@ -210,6 +210,8 @@ fun PhokartaApp() {
         AddActionSheet(
             onDismiss = { showAddSheet = false },
             onRate = { showAddSheet = false; navController.navigate(Route.Search) },
+            onWantToGo = { showAddSheet = false; navController.navigate(Route.Search) },
+            onCreateCollection = { showAddSheet = false; navController.navigate(Route.Collections) },
         )
     }
 }
@@ -247,7 +249,12 @@ private fun androidx.compose.foundation.layout.RowScope.BottomItem(destination: 
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun AddActionSheet(onDismiss: () -> Unit, onRate: () -> Unit) {
+private fun AddActionSheet(
+    onDismiss: () -> Unit,
+    onRate: () -> Unit,
+    onWantToGo: () -> Unit,
+    onCreateCollection: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(
             Modifier
@@ -264,10 +271,10 @@ private fun AddActionSheet(onDismiss: () -> Unit, onRate: () -> Unit) {
             Text("Capture a plan or a memory.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
             AddAction(Icons.Rounded.AddLocationAlt, "Rate a place", "Record a visit and what stood out", onRate)
-            AddAction(Icons.Rounded.BookmarkAdd, "Add to Want to Go", "Save a place for later") {}
+            AddAction(Icons.Rounded.BookmarkAdd, "Add to Want to Go", "Save a place for later", onWantToGo)
             AddAction(Icons.Outlined.Explore, "Check in", "Mark where you are now") {}
             AddAction(Icons.AutoMirrored.Rounded.Notes, "Add travel note", "Keep a private memory") {}
-            AddAction(Icons.Rounded.FolderCopy, "Create collection", "Curate places around an idea") {}
+            AddAction(Icons.Rounded.FolderCopy, "Create collection", "Curate places around an idea", onCreateCollection)
         }
     }
 }

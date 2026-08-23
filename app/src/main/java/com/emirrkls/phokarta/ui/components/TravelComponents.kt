@@ -277,6 +277,55 @@ fun CollectionCard(collection: Collection, placeCount: Int, onClick: () -> Unit,
 }
 
 @Composable
+fun CollectionListCard(
+    collection: Collection,
+    placeCount: Int,
+    visibilityLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TravelImage(
+                collection.coverImage,
+                collection.title,
+                Modifier.size(width = 100.dp, height = 96.dp).clip(RoundedCornerShape(16.dp)),
+            )
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 4.dp)) {
+                Text(
+                    collection.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (collection.description.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        collection.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "$placeCount ${if (placeCount == 1) "place" else "places"} · $visibilityLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun UserAvatar(url: String, size: Int = 36) {
     TravelImage(url, "Traveler avatar", Modifier.size(size.dp).clip(CircleShape))
 }

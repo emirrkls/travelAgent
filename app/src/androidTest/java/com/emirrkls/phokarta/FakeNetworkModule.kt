@@ -1,11 +1,13 @@
 package com.emirrkls.phokarta
 
+import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.NetworkModule
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
+import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
@@ -32,12 +34,14 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import java.util.UUID
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import retrofit2.Response
 
 private const val USER_ID = "11111111-1111-1111-1111-111111111111"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
+private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkModule::class])
@@ -85,12 +89,11 @@ private class FakeVisits : VisitRemoteDataSource {
     private val visits = mutableListOf<VisitOwnerDto>()
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         val visit = VisitOwnerDto(
-            "33333333-3333-3333-3333-333333333333", summary, request.visitedAt,
+            UUID.randomUUID().toString(), summary, request.visitedAt,
             request.overallRating, request.dimensions.orEmpty(), request.publicReview.orEmpty(),
             request.privateMemory.orEmpty(), request.photos.orEmpty(), request.visibility,
             VerificationStatusDto.UNVERIFIED,
         )
-        visits.removeAll { it.id == visit.id }
         visits += visit
         return RemoteResult.Success(visit)
     }
@@ -102,10 +105,10 @@ private class FakeVisits : VisitRemoteDataSource {
 private class FakeSaved : SavedPlaceRemoteDataSource {
     private val saved = linkedSetOf<String>()
     override suspend fun list(page: Int, size: Int) =
-        RemoteResult.Success(page(if (PLACE_ID in saved) listOf(SavedPlaceDto(summary, "2026-08-22T10:00:00Z")) else emptyList()))
+        RemoteResult.Success(page(if (PLACE_ID in saved) listOf(SavedPlaceDto(summary, TIMESTAMP)) else emptyList()))
     override suspend fun save(placeId: String): RemoteResult<SavedPlaceDto> {
         saved += placeId
-        return RemoteResult.Success(SavedPlaceDto(summary, "2026-08-22T10:00:00Z"))
+        return RemoteResult.Success(SavedPlaceDto(summary, TIMESTAMP))
     }
     override suspend fun remove(placeId: String): RemoteResult<Unit> {
         saved -= placeId
@@ -114,11 +117,72 @@ private class FakeSaved : SavedPlaceRemoteDataSource {
 }
 
 private class FakeCollections : CollectionRemoteDataSource {
-    override suspend fun list(page: Int, size: Int) = RemoteResult.Success(page(emptyList<CollectionSummaryDto>()))
-    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> = error("Not used")
-    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> = error("Not used")
-    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> = error("Not used")
-    override suspend fun removePlace(collectionId: String, placeId: String) = RemoteResult.Success(Unit)
+    private val collections = linkedMapOf<String, CollectionDetailDto>()
+
+    override suspend fun list(page: Int, size: Int) =
+        RemoteResult.Success(page(collections.values.map { it.toSummary() }))
+
+    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> {
+        val detail = CollectionDetailDto(
+            id = UUID.randomUUID().toString(),
+            userId = USER_ID,
+            title = request.title,
+            description = request.description.orEmpty(),
+            visibility = request.visibility,
+            coverImage = request.coverImage,
+            createdAt = TIMESTAMP,
+            updatedAt = TIMESTAMP,
+            places = emptyList(),
+        )
+        collections[detail.id] = detail
+        return RemoteResult.Success(detail)
+    }
+
+    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> =
+        collections[collectionId]?.let { RemoteResult.Success(it) }
+            ?: RemoteResult.Failure(NetworkError.NotFound(null))
+
+    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> {
+        val current = collections[collectionId]
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        if (current.places.any { it.place.id == placeId }) {
+            return RemoteResult.Failure(NetworkError.Conflict(null))
+        }
+        if (placeId != PLACE_ID) {
+            return RemoteResult.Failure(NetworkError.NotFound(null))
+        }
+        val updated = current.copy(
+            places = current.places + CollectionPlaceDto(
+                place = summary,
+                displayOrder = current.places.size,
+                addedAt = TIMESTAMP,
+            ),
+            updatedAt = TIMESTAMP,
+        )
+        collections[collectionId] = updated
+        return RemoteResult.Success(updated)
+    }
+
+    override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> {
+        val current = collections[collectionId]
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        collections[collectionId] = current.copy(
+            places = current.places.filterNot { it.place.id == placeId },
+            updatedAt = TIMESTAMP,
+        )
+        return RemoteResult.Success(Unit)
+    }
+
+    private fun CollectionDetailDto.toSummary() = CollectionSummaryDto(
+        id = id,
+        userId = userId,
+        title = title,
+        description = description,
+        visibility = visibility,
+        coverImage = coverImage,
+        placeCount = places.size.toLong(),
+        updatedAt = updatedAt,
+    )
 }
 
 private class FakeAuthApi : AuthApi {

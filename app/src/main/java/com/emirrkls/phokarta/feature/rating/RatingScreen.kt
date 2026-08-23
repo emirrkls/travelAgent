@@ -98,11 +98,21 @@ fun RatingScreen(onBack: () -> Unit, onPublished: (String) -> Unit, viewModel: R
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                Text("Record a visit", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    if (state.hasExistingVisits) "Rate another visit" else "Record a visit",
+                    style = MaterialTheme.typography.titleLarge,
+                )
             }
             Spacer(Modifier.height(12.dp))
             Text("How was ${place.name}?", style = MaterialTheme.typography.headlineLarge)
-            Text("Start with one score. Add detail only if it helps tell the story.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (state.hasExistingVisits) {
+                    "Add a new visit — previous ones stay on your profile."
+                } else {
+                    "Start with one score. Add detail only if it helps tell the story."
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(26.dp))
             Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(26.dp)) {
                 Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -34,6 +34,7 @@ data class RatingUiState(
     val isLoading: Boolean = true,
     val loadError: String? = null,
     val isNotFound: Boolean = false,
+    val hasExistingVisits: Boolean = false,
 )
 
 @HiltViewModel
@@ -41,7 +42,14 @@ class RatingViewModel @Inject constructor(savedStateHandle: SavedStateHandle, pr
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val _uiState = MutableStateFlow(RatingUiState())
     val uiState = _uiState.asStateFlow()
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            repository.observeVisits().collect { visits ->
+                _uiState.update { it.copy(hasExistingVisits = visits.any { visit -> visit.placeId == placeId }) }
+            }
+        }
+    }
     fun retryLoad() = load()
     private fun load() {
         viewModelScope.launch {

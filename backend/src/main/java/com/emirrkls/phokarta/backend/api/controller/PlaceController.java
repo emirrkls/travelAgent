@@ -31,6 +31,9 @@ public class PlaceController {
         this.service = service;
     }
 
+    @Operation(summary = "List / search places",
+            description = "averageScore, ratingCount, minRating, and rating sorts use PUBLIC Visit "
+                    + "ratings only (Community discovery). FRIENDS/PRIVATE Visits never contribute.")
     @GetMapping
     public PageResponse<PlaceSummaryResponse> list(
             @RequestParam(required = false) PlaceCategory category,
@@ -46,7 +49,8 @@ public class PlaceController {
 
     @Operation(summary = "Find places near a coordinate",
             description = "Coordinates are latitude/longitude parameters. PostGIS receives lon/lat. "
-                    + "Results are sorted by ascending geodesic distance in meters.")
+                    + "Results are sorted by ascending geodesic distance in meters. "
+                    + "Scores and minRating use PUBLIC Visit ratings only.")
     @GetMapping("/nearby")
     public List<NearbyPlaceResponse> nearby(
             @RequestParam @DecimalMin("-90") @DecimalMax("90") double lat,
@@ -62,7 +66,8 @@ public class PlaceController {
 
     @Operation(summary = "Find places in map bounds",
             description = "Uses west,south,east,north in longitude/latitude degrees. "
-                    + "Antimeridian-crossing boxes (west >= east) are rejected.")
+                    + "Antimeridian-crossing boxes (west >= east) are rejected. "
+                    + "Ordering and minRating use PUBLIC Community scores only.")
     @GetMapping("/bounds")
     public List<PlaceSummaryResponse> bounds(
             @RequestParam @DecimalMin("-180") @DecimalMax("180") double west,
@@ -76,6 +81,9 @@ public class PlaceController {
         return service.bounds(west, south, east, north, category, minRating, limit);
     }
 
+    @Operation(summary = "Place detail",
+            description = "averageScore / ratingCount / dimensionScores are Community aggregates "
+                    + "from PUBLIC Visits only.")
     @GetMapping("/{id}")
     public PlaceDetailResponse detail(@PathVariable UUID id) {
         return service.detail(id);

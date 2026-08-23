@@ -36,13 +36,17 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
         long getRatingCount();
     }
 
+    /**
+     * Place discovery list/search. averageScore / ratingCount / minRating / rating sorts
+     * use PUBLIC Visit ratings only (Community semantics).
+     */
     @Query(value = """
             SELECT p.id, p.name, p.category, p.cover_image AS "coverImage",
                    p.city, p.region, p.country, ST_Y(p.location) AS latitude,
                    ST_X(p.location) AS longitude, p.price_level AS "priceLevel",
                    AVG(v.overall_rating) AS "averageScore", COUNT(v.id) AS "ratingCount"
             FROM places p
-            LEFT JOIN visits v ON v.place_id = p.id
+            LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
               AND (CAST(:city AS varchar) IS NULL OR LOWER(p.city) = LOWER(CAST(:city AS varchar)))
               AND (CAST(:search AS varchar) IS NULL
@@ -70,7 +74,8 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
                    OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS varchar), '%'))
                    OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS varchar), '%')))
               AND (CAST(:minRating AS double precision) IS NULL OR COALESCE(
-                    (SELECT AVG(v.overall_rating) FROM visits v WHERE v.place_id = p.id), -1)
+                    (SELECT AVG(v.overall_rating) FROM visits v
+                     WHERE v.place_id = p.id AND v.visibility = 'PUBLIC'), -1)
                     >= CAST(:minRating AS double precision))
             """, nativeQuery = true)
     Page<SummaryRow> search(@Param("category") String category, @Param("city") String city,
@@ -85,7 +90,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
                    ST_Distance(p.location::geography,
                      ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS "distanceMeters"
             FROM places p
-            LEFT JOIN visits v ON v.place_id = p.id
+            LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE ST_DWithin(p.location::geography,
                      ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
               AND (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
@@ -106,7 +111,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
                    ST_X(p.location) AS longitude, p.price_level AS "priceLevel",
                    AVG(v.overall_rating) AS "averageScore", COUNT(v.id) AS "ratingCount"
             FROM places p
-            LEFT JOIN visits v ON v.place_id = p.id
+            LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE p.location && ST_MakeEnvelope(:west, :south, :east, :north, 4326)
               AND ST_Intersects(p.location, ST_MakeEnvelope(:west, :south, :east, :north, 4326))
               AND (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
@@ -121,9 +126,11 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
                                   @Param("category") String category,
                                   @Param("minRating") Double minRating, @Param("limit") int limit);
 
+    /** Batch Community aggregates for embedded place summaries (PUBLIC ratings only). */
     @Query(value = """
             SELECT p.id, AVG(v.overall_rating) AS "averageScore", COUNT(v.id) AS "ratingCount"
-            FROM places p LEFT JOIN visits v ON v.place_id = p.id
+            FROM places p
+            LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE p.id IN :ids GROUP BY p.id
             """, nativeQuery = true)
     List<RatingAggregate> aggregateByIds(@Param("ids") List<UUID> ids);

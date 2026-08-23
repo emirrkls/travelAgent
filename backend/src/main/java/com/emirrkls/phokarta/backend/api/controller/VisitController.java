@@ -47,8 +47,9 @@ public class VisitController {
     }
 
     @Operation(summary = "Public reviews for a place",
-            description = "Returns PUBLIC visits only. scope=community (default) is public; "
-                    + "scope=friends requires auth and returns mutual-friend Visits only. "
+            description = "Always PUBLIC Visit visibility. scope=community (default) is all public "
+                    + "reviews; scope=friends requires auth and returns mutual friends' PUBLIC "
+                    + "Visits only (FRIENDS/PRIVATE Visit visibility never appears). "
                     + "privateMemory is never included.")
     @GetMapping("/places/{placeId}/reviews")
     public PageResponse<PublicVisitResponse> publicReviews(
@@ -60,9 +61,9 @@ public class VisitController {
     }
 
     @Operation(summary = "Friends discovery summary for a place",
-            description = "Authenticated viewer-relative summary: user-weighted friends score, "
-                    + "unique friends visited, and a small preview ordered by latest Visit. "
-                    + "Does not pollute the public Place detail response.")
+            description = "Authenticated viewer-relative summary from mutual friends' PUBLIC Visits: "
+                    + "user-weighted friends score, unique friends visited, and a small preview "
+                    + "ordered by latest Visit. FRIENDS/PRIVATE Visit visibility is excluded.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/places/{placeId}/friends-summary")
     public FriendPlaceSummaryResponse friendsSummary(@PathVariable UUID placeId) {
@@ -70,8 +71,9 @@ public class VisitController {
     }
 
     @Operation(summary = "Activity feed",
-            description = "Cross-place PUBLIC visit events, newest first. "
-                    + "scope=community (default, public) or scope=friends (auth, mutual friends only). "
+            description = "Cross-place PUBLIC Visit events, newest first. "
+                    + "scope=community (default, public) or scope=friends (auth, mutual friends' "
+                    + "PUBLIC Visits only). FRIENDS/PRIVATE Visit visibility never appears. "
                     + "privateMemory and private user fields are never included.")
     @GetMapping("/activity")
     public PageResponse<PublicActivityResponse> publicActivity(

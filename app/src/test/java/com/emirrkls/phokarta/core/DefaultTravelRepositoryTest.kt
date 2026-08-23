@@ -91,6 +91,19 @@ class DefaultTravelRepositoryTest {
     }
 
     @Test
+    fun `catalog refresh replaces stale community score in place cache`() = runBlocking {
+        val cache = FakePlaceCache(listOf(summary(score = 9.5).toDomain()))
+        val places = FakePlaces(page(summary(score = 7.0)))
+        val repository = repository(places = places, placeCache = cache)
+
+        repository.refreshCatalog()
+
+        val refreshed = repository.observePlaces().first().single()
+        assertEquals(7.0, refreshed.communityScore)
+        assertEquals(7.0, cache.getAll().single().communityScore)
+    }
+
+    @Test
     fun `create collection persists into observed state`() = runBlocking {
         val local = FakeLocal()
         val detail = collectionDetail()

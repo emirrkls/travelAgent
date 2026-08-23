@@ -92,9 +92,15 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
         long getCount();
     }
 
+    /**
+     * Community aggregate: PUBLIC Visit overall ratings only.
+     * FRIENDS/PRIVATE visits never contribute. Null average when count is 0.
+     */
     @Query("""
             select avg(v.overallRating) as average, count(v) as count
-            from Visit v where v.place.id = :placeId
+            from Visit v
+            where v.place.id = :placeId
+              and v.visibility = com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC
             """)
     ScoreAggregate aggregate(@Param("placeId") UUID placeId);
 

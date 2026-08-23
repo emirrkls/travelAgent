@@ -19,10 +19,15 @@ public interface VisitDimensionScoreRepository
         double getAverage();
     }
 
+    /**
+     * Community dimension averages from PUBLIC Visits only.
+     */
     @Query("""
             select s.id.dimensionKey as dimensionKey, avg(s.score) as average
             from VisitDimensionScore s
             where s.visit.place.id = :placeId
+              and s.visit.visibility =
+                  com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC
             group by s.id.dimensionKey
             order by s.id.dimensionKey
             """)

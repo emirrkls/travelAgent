@@ -114,10 +114,11 @@ class PostgisIntegrationTest {
     }
 
     @Test
-    void boundsReturnsOnlyIntersectingPlacesInCommunityScoreOrder() {
+    void boundsOrdersByPublicCommunityScoreIgnoringPrivateRatings() {
         UUID high = insertPlace("High Score", PlaceCategory.BEACH, 10.20, 10.20);
         UUID low = insertPlace("Low Score", PlaceCategory.BEACH, 10.10, 10.10);
         insertPlace("Outside Bounds", PlaceCategory.BEACH, 11.0, 11.0);
+        // PRIVATE must not rank "high" above a PUBLIC-rated place
         insertVisit(UUID.randomUUID(), high, 9.1, Visibility.PRIVATE, "", "");
         insertVisit(UUID.randomUUID(), low, 7.2, Visibility.PUBLIC, "", "");
 
@@ -125,11 +126,12 @@ class PostgisIntegrationTest {
                 PlaceCategory.BEACH.name(), null, 10).stream()
                 .map(PlaceRepository.SummaryRow::getId).toList();
 
-        assertThat(ids).containsExactly(high, low);
+        // Public community score: low=7.2, high=null → low first
+        assertThat(ids).containsExactly(low, high);
     }
 
     @Test
-    void allVisitsAreAggregatedAndUnratedAverageIsNull() {
+    void communityAggregateUsesPublicVisitsOnlyAndUnratedAverageIsNull() {
         UUID rated = insertPlace("Rated", PlaceCategory.ATTRACTION, 15.0, 15.0);
         UUID unrated = insertPlace("Unrated", PlaceCategory.ATTRACTION, 16.0, 16.0);
         insertVisit(UUID.randomUUID(), rated, 6.0, Visibility.PUBLIC, "public one", "");
@@ -140,8 +142,8 @@ class PostgisIntegrationTest {
         var unratedDetail = placeService.detail(unrated);
         VisitRepository.ScoreAggregate unratedAggregate = visits.aggregate(unrated);
 
-        assertThat(detail.averageScore()).isEqualTo(17.0 / 3.0);
-        assertThat(detail.ratingCount()).isEqualTo(3);
+        assertThat(detail.averageScore()).isEqualTo(8.0);
+        assertThat(detail.ratingCount()).isEqualTo(2);
         assertThat(unratedAggregate.getCount()).isZero();
         assertThat(unratedAggregate.getAverage()).isNull();
         assertThat(unratedDetail.averageScore()).isNull();

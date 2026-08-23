@@ -153,6 +153,8 @@ private fun NetworkError.toAuthMessage(): String = when (this) {
         "The request took too long. Please try again."
     is NetworkError.Validation ->
         apiError?.message ?: "That request could not be completed."
+    is NetworkError.Forbidden ->
+        apiError?.message ?: "This content isn't available."
     is NetworkError.NotFound ->
         apiError?.message ?: "We couldn’t find what you were looking for."
     is NetworkError.Conflict ->

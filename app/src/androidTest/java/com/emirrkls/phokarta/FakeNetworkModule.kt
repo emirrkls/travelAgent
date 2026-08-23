@@ -24,25 +24,32 @@ import com.emirrkls.phokarta.core.network.model.PublicActivityPlaceDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
+import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
+import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
+import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import retrofit2.Response
 
 private const val USER_ID = "11111111-1111-1111-1111-111111111111"
+private const val OTHER_USER_ID = "22222222-2222-2222-2222-222222222222"
+private const val THIRD_USER_ID = "33333333-3333-3333-3333-333333333333"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 
@@ -57,6 +64,7 @@ object FakeNetworkModule {
     @Provides @Singleton fun visits(): VisitRemoteDataSource = FakeVisits()
     @Provides @Singleton fun saved(): SavedPlaceRemoteDataSource = FakeSaved()
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
+    @Provides @Singleton fun social(): SocialRemoteDataSource = FakeSocial()
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
     @Provides @Singleton fun meApi(): MeApi = FakeMeApi()
 }
@@ -341,6 +349,91 @@ private class FakeMeApi : MeApi {
         Response.success(
             UserProfileDto(USER_ID, "demo@phokarta.local", "emir_demo", "Emir Kaya", "bio", null),
         )
+
+    override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
+        Response.success(page(emptyList()))
+
+    override suspend fun following(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
+        Response.success(page(emptyList()))
+
+    override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
+        Response.success(page(emptyList()))
+}
+
+private class FakeSocial : SocialRemoteDataSource {
+    private val following = ConcurrentHashMap.newKeySet<String>()
+    private val followsYou = setOf(OTHER_USER_ID)
+
+    private val users = listOf(
+        summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz"),
+        summary(THIRD_USER_ID, "selinmaps", "Selin Maps"),
+    )
+
+    override suspend fun search(query: String, page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> {
+        val matched = users.filter {
+            it.username.contains(query, true) || it.displayName.contains(query, true)
+        }.map { it.withRelationship() }
+        return RemoteResult.Success(page(matched))
+    }
+
+    override suspend fun profile(userId: String): RemoteResult<PublicUserProfileDto> {
+        val user = users.firstOrNull { it.id == userId }
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        val isFollowing = userId in following
+        val inbound = userId in followsYou
+        return RemoteResult.Success(
+            PublicUserProfileDto(
+                id = user.id,
+                username = user.username,
+                displayName = user.displayName,
+                avatarUrl = null,
+                bio = "Travel notes",
+                cityCount = 4,
+                countryCount = 2,
+                followerCount = if (isFollowing) 12 else 11,
+                followingCount = 5,
+                friendCount = if (isFollowing && inbound) 1 else 0,
+                relationship = RelationshipStateDto(isFollowing, inbound, isFollowing && inbound),
+            ),
+        )
+    }
+
+    override suspend fun follow(userId: String): RemoteResult<Unit> {
+        following += userId
+        return RemoteResult.Success(Unit)
+    }
+
+    override suspend fun unfollow(userId: String): RemoteResult<Unit> {
+        following -= userId
+        return RemoteResult.Success(Unit)
+    }
+
+    override suspend fun followers(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
+        RemoteResult.Success(page(listOf(summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz").withRelationship())))
+
+    override suspend fun following(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
+        RemoteResult.Success(
+            page(
+                following.mapNotNull { id -> users.firstOrNull { it.id == id }?.withRelationship() },
+            ),
+        )
+
+    override suspend fun friends(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
+        RemoteResult.Success(
+            page(
+                following.filter { it in followsYou }
+                    .mapNotNull { id -> users.firstOrNull { it.id == id }?.withRelationship() },
+            ),
+        )
+
+    private fun summary(id: String, username: String, displayName: String) =
+        UserSummaryDto(id, username, displayName, null, null)
+
+    private fun UserSummaryDto.withRelationship(): UserSummaryDto {
+        val isFollowing = id in following
+        val inbound = id in followsYou
+        return copy(relationship = RelationshipStateDto(isFollowing, inbound, isFollowing && inbound))
+    }
 }
 
 private fun demoSession(email: String, username: String, displayName: String) = AuthSessionDto(

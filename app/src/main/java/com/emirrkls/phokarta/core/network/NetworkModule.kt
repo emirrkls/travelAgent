@@ -8,14 +8,17 @@ import com.emirrkls.phokarta.core.network.api.CollectionApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
+import com.emirrkls.phokarta.core.network.api.UserApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.RetrofitCollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.RetrofitPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.RetrofitSavedPlaceRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.RetrofitSocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.RetrofitVisitRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import dagger.Module
 import dagger.Provides
@@ -101,6 +104,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideUserApi(retrofit: Retrofit): UserApi =
+        retrofit.create(UserApi::class.java)
+
+    @Provides
+    @Singleton
     fun providePlaceRemoteDataSource(
         source: RetrofitPlaceRemoteDataSource,
     ): PlaceRemoteDataSource = source
@@ -122,4 +130,10 @@ object NetworkModule {
     fun provideCollectionRemoteDataSource(
         source: RetrofitCollectionRemoteDataSource,
     ): CollectionRemoteDataSource = source
+
+    @Provides
+    @Singleton
+    fun provideSocialRemoteDataSource(
+        source: RetrofitSocialRemoteDataSource,
+    ): SocialRemoteDataSource = source
 }

@@ -33,15 +33,18 @@ public class CollectionService {
     private final CollectionPlaceRepository memberships;
     private final PlaceRepository places;
     private final UserRepository users;
+    private final SocialService socialService;
     private final PlaceMapper mapper;
 
     public CollectionService(CollectionRepository collections,
                              CollectionPlaceRepository memberships, PlaceRepository places,
-                             UserRepository users, PlaceMapper mapper) {
+                             UserRepository users, SocialService socialService,
+                             PlaceMapper mapper) {
         this.collections = collections;
         this.memberships = memberships;
         this.places = places;
         this.users = users;
+        this.socialService = socialService;
         this.mapper = mapper;
     }
 
@@ -140,8 +143,8 @@ public class CollectionService {
     }
 
     /**
-     * Visibility rules until social graph (v0.7):
-     * PUBLIC — anyone; PRIVATE — owner only; FRIENDS — owner only (friends unresolved).
+     * Visibility: PUBLIC — anyone; PRIVATE — owner only;
+     * FRIENDS — owner or mutual-follow friend of owner.
      */
     private void assertReadable(Collection collection, UUID viewerUserId, UUID collectionId) {
         UUID ownerId = collection.getUser().getId();
@@ -150,8 +153,14 @@ public class CollectionService {
             case PUBLIC -> {
                 // readable by anyone
             }
-            case PRIVATE, FRIENDS -> {
+            case PRIVATE -> {
                 if (!isOwner) {
+                    throw ApiException.forbidden("Collection is not visible");
+                }
+            }
+            case FRIENDS -> {
+                if (!isOwner && (viewerUserId == null
+                        || !socialService.areFriends(viewerUserId, ownerId))) {
                     throw ApiException.forbidden("Collection is not visible");
                 }
             }

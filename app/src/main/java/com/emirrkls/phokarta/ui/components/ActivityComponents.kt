@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +42,7 @@ fun ActivityEventCard(
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onOpenPlace: () -> Unit,
+    onOpenAuthor: ((String) -> Unit)? = null,
     previewMaxLines: Int = 3,
     modifier: Modifier = Modifier,
 ) {
@@ -80,8 +82,27 @@ fun ActivityEventCard(
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                UserAvatar(event.author.avatarUrl.orEmpty(), size = 42)
-                Column(Modifier.padding(start = 11.dp).weight(1f)) {
+                Box(
+                    modifier = if (onOpenAuthor != null) {
+                        Modifier.clickable { onOpenAuthor(event.author.userId) }
+                    } else {
+                        Modifier
+                    },
+                ) {
+                    UserAvatar(event.author.avatarUrl.orEmpty(), size = 42)
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(start = 11.dp)
+                        .weight(1f)
+                        .then(
+                            if (onOpenAuthor != null) {
+                                Modifier.clickable { onOpenAuthor(event.author.userId) }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
                     Text(
                         text = "$authorLabel visited",
                         style = MaterialTheme.typography.labelLarge,

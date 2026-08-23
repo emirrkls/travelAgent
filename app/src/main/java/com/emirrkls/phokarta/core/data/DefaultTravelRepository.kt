@@ -8,7 +8,9 @@ import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
+import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.User
+import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.core.network.RemoteResult
@@ -22,6 +24,7 @@ import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +43,7 @@ class DefaultTravelRepository @Inject constructor(
     private val visitsRemote: VisitRemoteDataSource,
     private val savedRemote: SavedPlaceRemoteDataSource,
     private val collectionsRemote: CollectionRemoteDataSource,
+    private val socialRemote: SocialRemoteDataSource,
     private val sessionManager: SessionManager,
     private val activityFeedInvalidator: ActivityFeedInvalidator,
     private val placeCache: PlaceCacheDataSource = NoOpPlaceCacheDataSource,
@@ -438,6 +442,76 @@ class DefaultTravelRepository @Inject constructor(
             localUserState.removePlaceFromCollection(ids.first, ids.second)
             RepositoryResult.Success(Unit)
         }
+        }
+    }
+
+    override suspend fun followUser(userId: String): RepositoryResult<Unit> = mapOrValidation {
+        val id = userId.toCanonicalUuid()
+        when (val result = socialRemote.follow(id)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(Unit)
+        }
+    }
+
+    override suspend fun unfollowUser(userId: String): RepositoryResult<Unit> = mapOrValidation {
+        val id = userId.toCanonicalUuid()
+        when (val result = socialRemote.unfollow(id)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(Unit)
+        }
+    }
+
+    override suspend fun searchUsers(query: String, page: Int, size: Int): RepositoryResult<UserPage> =
+        when (val result = socialRemote.search(query, page, size)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> mapOrValidation {
+                val selfId = currentUser.id
+                RepositoryResult.Success(
+                    UserPage(
+                        items = result.value.content.map { it.toDomain() }.filter { it.id != selfId },
+                        page = result.value.page,
+                        totalPages = result.value.totalPages,
+                        totalElements = result.value.totalElements,
+                        hasNext = result.value.hasNext,
+                    ),
+                )
+            }
+        }
+
+    override suspend fun loadPublicProfile(userId: String): RepositoryResult<PublicUserProfile> =
+        mapOrValidation {
+            val id = userId.toCanonicalUuid()
+            when (val result = socialRemote.profile(id)) {
+                is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+                is RemoteResult.Success -> RepositoryResult.Success(result.value.toDomain())
+            }
+        }
+
+    override suspend fun loadFollowers(page: Int, size: Int): RepositoryResult<UserPage> =
+        loadSocialPage(page, size) { socialRemote.followers(it, size) }
+
+    override suspend fun loadFollowing(page: Int, size: Int): RepositoryResult<UserPage> =
+        loadSocialPage(page, size) { socialRemote.following(it, size) }
+
+    override suspend fun loadFriends(page: Int, size: Int): RepositoryResult<UserPage> =
+        loadSocialPage(page, size) { socialRemote.friends(it, size) }
+
+    private suspend fun loadSocialPage(
+        page: Int,
+        size: Int,
+        request: suspend (Int) -> RemoteResult<com.emirrkls.phokarta.core.network.model.PageResponseDto<com.emirrkls.phokarta.core.network.model.UserSummaryDto>>,
+    ): RepositoryResult<UserPage> = when (val result = request(page)) {
+        is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+        is RemoteResult.Success -> mapOrValidation {
+            RepositoryResult.Success(
+                UserPage(
+                    items = result.value.content.map { it.toDomain() },
+                    page = result.value.page,
+                    totalPages = result.value.totalPages,
+                    totalElements = result.value.totalElements,
+                    hasNext = result.value.hasNext,
+                ),
+            )
         }
     }
 

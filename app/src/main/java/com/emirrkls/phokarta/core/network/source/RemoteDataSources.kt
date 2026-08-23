@@ -2,8 +2,10 @@ package com.emirrkls.phokarta.core.network.source
 
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.CollectionApi
+import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
+import com.emirrkls.phokarta.core.network.api.UserApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
@@ -15,8 +17,10 @@ import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
+import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.safeApiCall
 import com.emirrkls.phokarta.core.network.safeUnitApiCall
@@ -196,4 +200,46 @@ class RetrofitCollectionRemoteDataSource @Inject constructor(
 
     override suspend fun removePlace(collectionId: String, placeId: String) =
         safeUnitApiCall(json) { api.removePlace(collectionId, placeId) }
+}
+
+interface SocialRemoteDataSource {
+    suspend fun search(
+        query: String,
+        page: Int = 0,
+        size: Int = 20,
+    ): RemoteResult<PageResponseDto<UserSummaryDto>>
+
+    suspend fun profile(userId: String): RemoteResult<PublicUserProfileDto>
+    suspend fun follow(userId: String): RemoteResult<Unit>
+    suspend fun unfollow(userId: String): RemoteResult<Unit>
+    suspend fun followers(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
+    suspend fun following(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
+    suspend fun friends(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
+}
+
+class RetrofitSocialRemoteDataSource @Inject constructor(
+    private val userApi: UserApi,
+    private val meApi: MeApi,
+    private val json: Json,
+) : SocialRemoteDataSource {
+    override suspend fun search(query: String, page: Int, size: Int) =
+        safeApiCall(json) { userApi.search(query, page, size) }
+
+    override suspend fun profile(userId: String) =
+        safeApiCall(json) { userApi.profile(userId) }
+
+    override suspend fun follow(userId: String) =
+        safeUnitApiCall(json) { userApi.follow(userId) }
+
+    override suspend fun unfollow(userId: String) =
+        safeUnitApiCall(json) { userApi.unfollow(userId) }
+
+    override suspend fun followers(page: Int, size: Int) =
+        safeApiCall(json) { meApi.followers(page, size) }
+
+    override suspend fun following(page: Int, size: Int) =
+        safeApiCall(json) { meApi.following(page, size) }
+
+    override suspend fun friends(page: Int, size: Int) =
+        safeApiCall(json) { meApi.friends(page, size) }
 }

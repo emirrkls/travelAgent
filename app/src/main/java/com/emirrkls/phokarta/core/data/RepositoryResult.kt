@@ -13,6 +13,7 @@ sealed interface TravelError {
     data class Offline(override val message: String? = null) : TravelError
     data class Timeout(override val message: String? = null) : TravelError
     data class Validation(override val message: String? = null) : TravelError
+    data class Forbidden(override val message: String? = null) : TravelError
     data class NotFound(override val message: String? = null) : TravelError
     data class Conflict(override val message: String? = null) : TravelError
     data class Server(val status: Int, override val message: String? = null) : TravelError
@@ -23,6 +24,7 @@ internal fun NetworkError.toTravelError(): TravelError = when (this) {
     NetworkError.Connection -> TravelError.Offline()
     NetworkError.Timeout -> TravelError.Timeout()
     is NetworkError.Validation -> TravelError.Validation(apiError?.message)
+    is NetworkError.Forbidden -> TravelError.Forbidden(apiError?.message)
     is NetworkError.NotFound -> TravelError.NotFound(apiError?.message)
     is NetworkError.Conflict -> TravelError.Conflict(apiError?.message)
     is NetworkError.Server -> TravelError.Server(status, apiError?.message)

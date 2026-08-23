@@ -31,8 +31,7 @@ public class CollectionController {
             description = """
                     PUBLIC collections are readable without authentication.
                     PRIVATE collections require the owner.
-                    FRIENDS visibility is not resolved until the social graph (v0.7); \
-                    non-owners are denied access.
+                    FRIENDS collections are readable by the owner or a mutual-follow friend.
                     """)
     @GetMapping("/collections/{collectionId}")
     public CollectionDetailResponse detail(@PathVariable UUID collectionId) {

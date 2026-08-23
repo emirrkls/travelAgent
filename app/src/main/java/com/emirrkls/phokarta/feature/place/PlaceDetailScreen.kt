@@ -84,6 +84,7 @@ fun PlaceDetailScreen(
     onBack: () -> Unit,
     onRate: () -> Unit,
     onSeeAllReviews: () -> Unit = {},
+    onAuthor: (String) -> Unit = {},
     visitPublished: Boolean = false,
     onVisitPublishedConsumed: () -> Unit = {},
     viewModel: PlaceDetailViewModel = hiltViewModel(),
@@ -406,6 +407,7 @@ fun PlaceDetailScreen(
                                 currentUserId = state.currentUserId,
                                 expanded = review.id in state.communityReviews.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
+                                onOpenAuthor = onAuthor,
                             )
                             Spacer(Modifier.height(10.dp))
                         }

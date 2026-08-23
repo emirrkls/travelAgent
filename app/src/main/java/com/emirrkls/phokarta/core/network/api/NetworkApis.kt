@@ -13,12 +13,14 @@ import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
+import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
+import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -45,6 +47,42 @@ interface AuthApi {
 interface MeApi {
     @GET("api/v1/me")
     suspend fun profile(): Response<UserProfileDto>
+
+    @GET("api/v1/me/followers")
+    suspend fun followers(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<UserSummaryDto>>
+
+    @GET("api/v1/me/following")
+    suspend fun following(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<UserSummaryDto>>
+
+    @GET("api/v1/me/friends")
+    suspend fun friends(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<UserSummaryDto>>
+}
+
+interface UserApi {
+    @GET("api/v1/users/search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<UserSummaryDto>>
+
+    @GET("api/v1/users/{userId}")
+    suspend fun profile(@Path("userId") userId: String): Response<PublicUserProfileDto>
+
+    @POST("api/v1/users/{userId}/follow")
+    suspend fun follow(@Path("userId") userId: String): Response<Unit>
+
+    @DELETE("api/v1/users/{userId}/follow")
+    suspend fun unfollow(@Path("userId") userId: String): Response<Unit>
 }
 
 interface PlaceApi {

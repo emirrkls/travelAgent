@@ -12,9 +12,14 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewPage
+import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.RelationshipState
 import com.emirrkls.phokarta.core.model.User
+import com.emirrkls.phokarta.core.model.UserPage
+import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
+import com.emirrkls.phokarta.core.data.TravelError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -105,4 +110,87 @@ open class TestTravelRepository : TravelRepository {
     override suspend fun addPlaceToCollection(collectionId: String, placeId: String): RepositoryResult<Collection> =
         RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
     override suspend fun removePlaceFromCollection(collectionId: String, placeId: String): RepositoryResult<Unit> = RepositoryResult.Success(Unit)
+
+    val publicProfiles = mutableMapOf<String, PublicUserProfile>()
+    val searchableUsers = mutableListOf<UserSummary>()
+    val followers = mutableListOf<UserSummary>()
+    val following = mutableListOf<UserSummary>()
+    val friends = mutableListOf<UserSummary>()
+    var followError: TravelError? = null
+    var searchError: TravelError? = null
+    var profileError: TravelError? = null
+    var socialListError: TravelError? = null
+    val followCalls = mutableListOf<String>()
+    val unfollowCalls = mutableListOf<String>()
+
+    override suspend fun followUser(userId: String): RepositoryResult<Unit> {
+        followError?.let { return RepositoryResult.Failure(it) }
+        followCalls += userId
+        publicProfiles[userId]?.let { profile ->
+            val rel = profile.relationship ?: RelationshipState(false, false)
+            publicProfiles[userId] = profile.copy(
+                relationship = RelationshipState(
+                    isFollowing = true,
+                    followsYou = rel.followsYou,
+                ),
+                followerCount = profile.followerCount + if (!rel.isFollowing) 1 else 0,
+            )
+        }
+        return RepositoryResult.Success(Unit)
+    }
+
+    override suspend fun unfollowUser(userId: String): RepositoryResult<Unit> {
+        followError?.let { return RepositoryResult.Failure(it) }
+        unfollowCalls += userId
+        publicProfiles[userId]?.let { profile ->
+            val rel = profile.relationship ?: RelationshipState(false, false)
+            publicProfiles[userId] = profile.copy(
+                relationship = RelationshipState(
+                    isFollowing = false,
+                    followsYou = rel.followsYou,
+                ),
+                followerCount = (profile.followerCount - if (rel.isFollowing) 1 else 0).coerceAtLeast(0),
+            )
+        }
+        return RepositoryResult.Success(Unit)
+    }
+
+    override suspend fun searchUsers(query: String, page: Int, size: Int): RepositoryResult<UserPage> {
+        searchError?.let { return RepositoryResult.Failure(it) }
+        val matched = searchableUsers.filter {
+            it.id != currentUser.id &&
+                (it.username.contains(query, true) || it.displayName.contains(query, true))
+        }
+        return pageUsers(matched, page, size)
+    }
+
+    override suspend fun loadPublicProfile(userId: String): RepositoryResult<PublicUserProfile> {
+        profileError?.let { return RepositoryResult.Failure(it) }
+        return publicProfiles[userId]?.let { RepositoryResult.Success(it) }
+            ?: RepositoryResult.Failure(TravelError.NotFound())
+    }
+
+    override suspend fun loadFollowers(page: Int, size: Int): RepositoryResult<UserPage> =
+        socialListError?.let { RepositoryResult.Failure(it) } ?: pageUsers(followers, page, size)
+
+    override suspend fun loadFollowing(page: Int, size: Int): RepositoryResult<UserPage> =
+        socialListError?.let { RepositoryResult.Failure(it) } ?: pageUsers(following, page, size)
+
+    override suspend fun loadFriends(page: Int, size: Int): RepositoryResult<UserPage> =
+        socialListError?.let { RepositoryResult.Failure(it) } ?: pageUsers(friends, page, size)
+
+    private fun pageUsers(all: List<UserSummary>, page: Int, size: Int): RepositoryResult<UserPage> {
+        val from = (page * size).coerceAtMost(all.size)
+        val to = (from + size).coerceAtMost(all.size)
+        val totalPages = if (all.isEmpty()) 0 else ((all.size + size - 1) / size)
+        return RepositoryResult.Success(
+            UserPage(
+                items = all.subList(from, to),
+                page = page,
+                totalPages = totalPages,
+                totalElements = all.size.toLong(),
+                hasNext = to < all.size,
+            ),
+        )
+    }
 }

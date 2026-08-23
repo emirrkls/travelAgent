@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun ActivityScreen(
     onPlace: (String) -> Unit,
+    onAuthor: (String) -> Unit = {},
     viewModel: ActivityViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -127,6 +128,7 @@ fun ActivityScreen(
                                 expanded = event.visitId in state.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(event.visitId) },
                                 onOpenPlace = { onPlace(event.place.id) },
+                                onOpenAuthor = onAuthor,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
                             )
                         }

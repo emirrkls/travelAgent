@@ -6,11 +6,13 @@ import com.emirrkls.phokarta.backend.api.dto.CreateCollectionRequest;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.SavedPlaceResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserProfileResponse;
+import com.emirrkls.phokarta.backend.api.dto.UserSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.AuthService;
 import com.emirrkls.phokarta.backend.service.CollectionService;
 import com.emirrkls.phokarta.backend.service.SavedPlaceService;
+import com.emirrkls.phokarta.backend.service.SocialService;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -42,13 +44,16 @@ public class MeController {
     private final VisitService visitService;
     private final SavedPlaceService savedPlaceService;
     private final CollectionService collectionService;
+    private final SocialService socialService;
 
     public MeController(AuthService authService, VisitService visitService,
-                        SavedPlaceService savedPlaceService, CollectionService collectionService) {
+                        SavedPlaceService savedPlaceService, CollectionService collectionService,
+                        SocialService socialService) {
         this.authService = authService;
         this.visitService = visitService;
         this.savedPlaceService = savedPlaceService;
         this.collectionService = collectionService;
+        this.socialService = socialService;
     }
 
     @GetMapping
@@ -93,5 +98,29 @@ public class MeController {
     public CollectionDetailResponse createCollection(
             @Valid @RequestBody CreateCollectionRequest request) {
         return collectionService.create(SecurityUtils.requireCurrentUserId(), request);
+    }
+
+    @Operation(summary = "Users who follow the current user (newest first)")
+    @GetMapping("/followers")
+    public PageResponse<UserSummaryResponse> followers(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return socialService.followers(SecurityUtils.requireCurrentUserId(), page, size);
+    }
+
+    @Operation(summary = "Users the current user follows (newest first)")
+    @GetMapping("/following")
+    public PageResponse<UserSummaryResponse> following(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return socialService.following(SecurityUtils.requireCurrentUserId(), page, size);
+    }
+
+    @Operation(summary = "Mutual follows (friends), alphabetical by display name")
+    @GetMapping("/friends")
+    public PageResponse<UserSummaryResponse> friends(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return socialService.friends(SecurityUtils.requireCurrentUserId(), page, size);
     }
 }

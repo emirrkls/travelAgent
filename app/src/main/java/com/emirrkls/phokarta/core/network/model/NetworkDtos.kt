@@ -267,3 +267,34 @@ data class AuthSessionDto(
     val expiresIn: Long = 0L,
     val accessTokenExpiresAt: String? = null,
 )
+
+@Serializable
+data class RelationshipStateDto(
+    val isFollowing: Boolean,
+    val followsYou: Boolean,
+    val isFriend: Boolean,
+)
+
+@Serializable
+data class PublicUserProfileDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val bio: String? = null,
+    val cityCount: Int = 0,
+    val countryCount: Int = 0,
+    val followerCount: Long = 0,
+    val followingCount: Long = 0,
+    val friendCount: Long = 0,
+    val relationship: RelationshipStateDto? = null,
+)
+
+@Serializable
+data class UserSummaryDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val relationship: RelationshipStateDto? = null,
+)

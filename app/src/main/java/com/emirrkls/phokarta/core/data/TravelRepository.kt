@@ -6,7 +6,9 @@ import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
+import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.User
+import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
 import kotlinx.coroutines.flow.Flow
 
@@ -68,4 +70,11 @@ interface TravelRepository {
     suspend fun saveCollection(collection: Collection): RepositoryResult<Collection>
     suspend fun addPlaceToCollection(collectionId: String, placeId: String): RepositoryResult<Collection>
     suspend fun removePlaceFromCollection(collectionId: String, placeId: String): RepositoryResult<Unit>
+    suspend fun followUser(userId: String): RepositoryResult<Unit>
+    suspend fun unfollowUser(userId: String): RepositoryResult<Unit>
+    suspend fun searchUsers(query: String, page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
+    suspend fun loadPublicProfile(userId: String): RepositoryResult<PublicUserProfile>
+    suspend fun loadFollowers(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
+    suspend fun loadFollowing(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
+    suspend fun loadFriends(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
 }

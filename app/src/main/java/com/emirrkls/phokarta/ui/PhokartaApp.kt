@@ -81,6 +81,9 @@ import com.emirrkls.phokarta.feature.secondary.ActivityScreen
 import com.emirrkls.phokarta.feature.secondary.CollectionDetailScreen
 import com.emirrkls.phokarta.feature.secondary.CollectionsScreen
 import com.emirrkls.phokarta.feature.secondary.SuccessScreen
+import com.emirrkls.phokarta.feature.social.PublicProfileScreen
+import com.emirrkls.phokarta.feature.social.SocialListScreen
+import com.emirrkls.phokarta.feature.social.UserSearchScreen
 import com.emirrkls.phokarta.feature.splash.AppStartViewModel
 import com.emirrkls.phokarta.ui.theme.Coral
 
@@ -96,6 +99,9 @@ private object Route {
     const val Profile = "profile"
     const val Collections = "collections"
     const val WantToGo = "want-to-go"
+    const val UserSearch = "user-search"
+    const val PublicProfile = "user/{userId}"
+    const val SocialList = "social/{kind}"
     const val Place = "place/{placeId}"
     const val PlaceReviews = "place/{placeId}/reviews"
     const val Rating = "rating/{placeId}"
@@ -206,12 +212,45 @@ fun PhokartaApp() {
                 }
                 composable(Route.Search) { SearchScreen({ navController.popBackStack() }, { navController.navigate("place/$it") }) }
                 composable(Route.Map) { MapScreen(onPlace = { navController.navigate("place/$it") }) }
-                composable(Route.Activity) { ActivityScreen({ navController.navigate("place/$it") }) }
+                composable(Route.Activity) {
+                    ActivityScreen(
+                        onPlace = { navController.navigate("place/$it") },
+                        onAuthor = { userId -> navController.navigateToUser(userId, authState) },
+                    )
+                }
                 composable(Route.Profile) {
                     ProfileScreen(
                         onPlace = { navController.navigate("place/$it") },
                         onCollection = { navController.navigate("collection/$it") },
                         onWantToGo = { navController.navigate(Route.WantToGo) },
+                        onUserSearch = { navController.navigate(Route.UserSearch) },
+                        onFollowers = { navController.navigate("social/followers") },
+                        onFollowing = { navController.navigate("social/following") },
+                        onFriends = { navController.navigate("social/friends") },
+                    )
+                }
+                composable(Route.UserSearch) {
+                    UserSearchScreen(
+                        onBack = { navController.popBackStack() },
+                        onUser = { userId -> navController.navigateToUser(userId, authState) },
+                    )
+                }
+                composable(
+                    Route.PublicProfile,
+                    arguments = listOf(navArgument("userId") { type = NavType.StringType }),
+                ) {
+                    PublicProfileScreen(
+                        onBack = { navController.popBackStack() },
+                        onSocialList = { kind -> navController.navigate("social/${kind.routeValue}") },
+                    )
+                }
+                composable(
+                    Route.SocialList,
+                    arguments = listOf(navArgument("kind") { type = NavType.StringType }),
+                ) {
+                    SocialListScreen(
+                        onBack = { navController.popBackStack() },
+                        onUser = { userId -> navController.navigateToUser(userId, authState) },
                     )
                 }
                 composable(Route.WantToGo) {
@@ -228,12 +267,16 @@ fun PhokartaApp() {
                         onBack = { navController.popBackStack() },
                         onRate = { navController.navigate("rating/$placeId") },
                         onSeeAllReviews = { navController.navigate("place/$placeId/reviews") },
+                        onAuthor = { userId -> navController.navigateToUser(userId, authState) },
                         visitPublished = backStackEntry.savedStateHandle.get<Boolean>("visitPublished") == true,
                         onVisitPublishedConsumed = { backStackEntry.savedStateHandle["visitPublished"] = false },
                     )
                 }
                 composable(Route.PlaceReviews, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
-                    PlaceReviewsScreen(onBack = { navController.popBackStack() })
+                    PlaceReviewsScreen(
+                        onBack = { navController.popBackStack() },
+                        onAuthor = { userId -> navController.navigateToUser(userId, authState) },
+                    )
                 }
                 composable(Route.Rating, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
                     RatingScreen(
@@ -272,6 +315,15 @@ private fun TravelBottomBar(currentRoute: String?, navController: NavHostControl
             label = { Text("Add") }, colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
         )
         bottomDestinations.drop(2).forEach { destination -> BottomItem(destination, currentRoute, navController) }
+    }
+}
+
+private fun NavHostController.navigateToUser(userId: String, authState: AuthState) {
+    val currentId = (authState as? AuthState.Authenticated)?.user?.id
+    if (currentId != null && currentId.equals(userId, ignoreCase = true)) {
+        navigate(Route.Profile) { launchSingleTop = true }
+    } else {
+        navigate("user/$userId")
     }
 }
 

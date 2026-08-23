@@ -62,6 +62,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/collections/{collectionId}")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/{userId}").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
@@ -72,6 +74,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/visits").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/collections/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/collections/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users/*/follow").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/*/follow")
                         .authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

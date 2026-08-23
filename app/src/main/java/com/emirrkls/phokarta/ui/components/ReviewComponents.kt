@@ -142,6 +142,7 @@ fun CommunityReviewCard(
     currentUserId: String?,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
+    onOpenAuthor: ((String) -> Unit)? = null,
     previewMaxLines: Int = 3,
     modifier: Modifier = Modifier,
 ) {
@@ -167,7 +168,14 @@ fun CommunityReviewCard(
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (onOpenAuthor != null) {
+                    Modifier.clickable { onOpenAuthor(review.author.userId) }
+                } else {
+                    Modifier
+                },
+            ) {
                 UserAvatar(review.author.avatarUrl.orEmpty(), size = 36)
                 Column(Modifier.padding(start = 10.dp).weight(1f)) {
                     Text(authorLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

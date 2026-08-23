@@ -8,7 +8,10 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewAuthor
+import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.Visibility
@@ -18,8 +21,11 @@ import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
+import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
+import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
+import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
 import java.time.LocalDate
@@ -174,4 +180,32 @@ fun Collection.toCreateDto(): CreateCollectionDto = CreateCollectionDto(
     description = description.takeIf { it.isNotBlank() },
     visibility = visibility.toDto(),
     coverImage = coverImage,
+)
+
+fun RelationshipStateDto.toDomain(): RelationshipState = RelationshipState(
+    isFollowing = isFollowing,
+    followsYou = followsYou,
+    isFriend = isFriend,
+)
+
+fun UserSummaryDto.toDomain(): UserSummary = UserSummary(
+    id = id.toCanonicalUuid(),
+    displayName = displayName.ifBlank { username.ifBlank { "Traveler" } },
+    username = username,
+    avatarUrl = avatarUrl.orEmpty(),
+    relationship = relationship?.toDomain(),
+)
+
+fun PublicUserProfileDto.toDomain(): PublicUserProfile = PublicUserProfile(
+    id = id.toCanonicalUuid(),
+    username = username,
+    displayName = displayName.ifBlank { username.ifBlank { "Traveler" } },
+    avatarUrl = avatarUrl.orEmpty(),
+    bio = bio.orEmpty(),
+    cityCount = cityCount,
+    countryCount = countryCount,
+    followerCount = followerCount,
+    followingCount = followingCount,
+    friendCount = friendCount,
+    relationship = relationship?.toDomain(),
 )

@@ -34,7 +34,7 @@ class ProductionMigrationIntegrationTest {
                 "select count(*) from flyway_schema_history where success", Integer.class);
         Long userCount = jdbc.queryForObject("select count(*) from users", Long.class);
 
-        assertThat(migrationCount).isEqualTo(3);
+        assertThat(migrationCount).isEqualTo(4);
         assertThat(userCount).isZero();
         Integer emailColumn = jdbc.queryForObject("""
                 select count(*) from information_schema.columns

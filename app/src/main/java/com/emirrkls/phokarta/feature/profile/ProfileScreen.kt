@@ -27,11 +27,13 @@ import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.PersonSearch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -60,6 +62,10 @@ fun ProfileScreen(
     onPlace: (String) -> Unit,
     onCollection: (String) -> Unit,
     onWantToGo: () -> Unit,
+    onUserSearch: () -> Unit = {},
+    onFollowers: () -> Unit = {},
+    onFollowing: () -> Unit = {},
+    onFriends: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,6 +75,7 @@ fun ProfileScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = onUserSearch) { Icon(Icons.Rounded.PersonSearch, "Find people") }
                 IconButton(onClick = {}) { Icon(Icons.Rounded.IosShare, "Share profile") }
                 IconButton(onClick = viewModel::logout) { Icon(Icons.Rounded.MoreHoriz, "Sign out") }
             }
@@ -97,10 +104,12 @@ fun ProfileScreen(
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 52.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                ProfileStat(compactCount(state.user.followersCount), "Followers")
+            Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceAround) {
+                ProfileStat(compactCount(state.user.followersCount), "Followers", onClick = onFollowers)
                 Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                ProfileStat(state.user.followingCount.toString(), "Following")
+                ProfileStat(state.user.followingCount.toString(), "Following", onClick = onFollowing)
+                Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                TextButton(onClick = onFriends) { Text("Friends") }
             }
             Spacer(Modifier.height(26.dp))
             Text("Travel taste", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge)
@@ -285,5 +294,22 @@ private fun ProfileSummaryChip(label: String) {
     }
 }
 
-@Composable private fun ProfileStat(value: String, label: String, prominent: Boolean = false) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, fontWeight = FontWeight.Bold, style = if (prominent) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium); Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) } }
+@Composable private fun ProfileStat(
+    value: String,
+    label: String,
+    prominent: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+    ) {
+        Text(
+            value,
+            fontWeight = FontWeight.Bold,
+            style = if (prominent) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+        )
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+    }
+}
 private fun compactCount(count: Int): String = if (count >= 1000) String.format("%.1fk", count / 1000f) else count.toString()

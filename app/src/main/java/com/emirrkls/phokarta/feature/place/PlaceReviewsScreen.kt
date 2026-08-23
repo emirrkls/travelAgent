@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun PlaceReviewsScreen(
     onBack: () -> Unit,
+    onAuthor: (String) -> Unit = {},
     viewModel: PlaceReviewsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -144,6 +145,7 @@ fun PlaceReviewsScreen(
                                 currentUserId = state.currentUserId,
                                 expanded = review.id in state.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
+                                onOpenAuthor = onAuthor,
                                 previewMaxLines = Int.MAX_VALUE,
                             )
                         }

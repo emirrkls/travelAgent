@@ -31,6 +31,7 @@ class CollectionServiceTest {
     @Mock private CollectionPlaceRepository memberships;
     @Mock private PlaceRepository places;
     @Mock private UserRepository users;
+    @Mock private SocialService socialService;
     @Mock private PlaceMapper mapper;
     @Mock private Collection collection;
     @Mock private User owner;
@@ -46,7 +47,7 @@ class CollectionServiceTest {
         when(memberships.existsById(new CollectionPlaceId(collectionId, placeId))).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, mapper);
+                new CollectionService(collections, memberships, places, users, socialService, mapper);
 
         assertThatThrownBy(() -> service.add(collectionId, userId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -69,7 +70,7 @@ class CollectionServiceTest {
         when(owner.getId()).thenReturn(ownerId);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, mapper);
+                new CollectionService(collections, memberships, places, users, socialService, mapper);
 
         assertThatThrownBy(() -> service.add(collectionId, otherUserId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -91,7 +92,7 @@ class CollectionServiceTest {
         when(memberships.existsById(membershipId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, mapper);
+                new CollectionService(collections, memberships, places, users, socialService, mapper);
 
         service.remove(collectionId, userId, placeId);
 

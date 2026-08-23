@@ -72,11 +72,17 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
             when (val result = repository.refreshCollectionDetail(collectionId)) {
                 is RepositoryResult.Success -> _uiState.update { it.copy(detailError = null, detailNotFound = false) }
                 is RepositoryResult.Failure -> {
-                    val cached = repository.getCollection(collectionId)
+                    val inaccessible = result.error is TravelError.NotFound ||
+                        result.error is TravelError.Forbidden
                     _uiState.update {
                         it.copy(
                             detailError = result.error.toUserMessage(),
-                            detailNotFound = result.error is TravelError.NotFound && cached == null,
+                            detailNotFound = inaccessible,
+                            collections = if (inaccessible) {
+                                it.collections.filterNot { collection -> collection.id == collectionId }
+                            } else {
+                                it.collections
+                            },
                         )
                     }
                 }

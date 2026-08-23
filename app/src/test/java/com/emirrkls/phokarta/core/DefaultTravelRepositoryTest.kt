@@ -27,15 +27,18 @@ import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
+import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -313,6 +316,7 @@ private fun repository(
     visits: FakeVisits = FakeVisits(),
     saved: FakeSaved = FakeSaved(),
     collections: FakeCollections = FakeCollections(),
+    social: FakeSocial = FakeSocial(),
     placeCache: PlaceCacheDataSource = FakePlaceCache(),
 ) = DefaultTravelRepository(
     MockPlaceCatalogDataSource(),
@@ -321,6 +325,7 @@ private fun repository(
     visits,
     saved,
     collections,
+    social,
     testSessionManager(USER_ID),
     ActivityFeedInvalidator(),
     placeCache,
@@ -476,6 +481,16 @@ private class FakeCollections(
     override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> = detailResult
     override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> = addResult
     override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> = removeResult
+}
+
+private class FakeSocial : SocialRemoteDataSource {
+    override suspend fun search(query: String, page: Int, size: Int) = page<UserSummaryDto>()
+    override suspend fun profile(userId: String) = RemoteResult.Failure(NetworkError.NotFound(null))
+    override suspend fun follow(userId: String) = RemoteResult.Success(Unit)
+    override suspend fun unfollow(userId: String) = RemoteResult.Success(Unit)
+    override suspend fun followers(page: Int, size: Int) = page<UserSummaryDto>()
+    override suspend fun following(page: Int, size: Int) = page<UserSummaryDto>()
+    override suspend fun friends(page: Int, size: Int) = page<UserSummaryDto>()
 }
 
 private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(

@@ -86,6 +86,19 @@ class SocialGraphIntegrationTest {
                 .andExpect(jsonPath("$.followerCount").value(1))
                 .andExpect(jsonPath("$.followingCount").value(0));
 
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(0))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.friendCount").value(0));
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + b.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(1))
+                .andExpect(jsonPath("$.followingCount").value(0))
+                .andExpect(jsonPath("$.friendCount").value(0));
+
         mockMvc.perform(get("/api/v1/me/following")
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isOk())
@@ -113,6 +126,19 @@ class SocialGraphIntegrationTest {
                 .andExpect(jsonPath("$.relationship.followsYou").value(true))
                 .andExpect(jsonPath("$.relationship.isFriend").value(true));
 
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(1))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.friendCount").value(1));
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + b.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(1))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.friendCount").value(1));
+
         mockMvc.perform(get("/api/v1/me/friends")
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isOk())
@@ -136,6 +162,11 @@ class SocialGraphIntegrationTest {
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followingCount").value(2))
+                .andExpect(jsonPath("$.friendCount").value(1));
 
         mockMvc.perform(delete("/api/v1/users/" + b.id + "/follow")
                         .header("Authorization", "Bearer " + a.access))
@@ -159,6 +190,18 @@ class SocialGraphIntegrationTest {
                         .header("Authorization", "Bearer " + b.access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(1))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.friendCount").value(0));
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + b.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.followerCount").value(0))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.friendCount").value(0));
 
         String searchBody = mockMvc.perform(get("/api/v1/users/search")
                         .param("q", "bob")

@@ -64,9 +64,10 @@ object FakeNetworkModule {
     @Provides @Singleton fun visits(): VisitRemoteDataSource = FakeVisits()
     @Provides @Singleton fun saved(): SavedPlaceRemoteDataSource = FakeSaved()
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
-    @Provides @Singleton fun social(): SocialRemoteDataSource = FakeSocial()
+    @Provides @Singleton fun fakeSocial(): FakeSocial = FakeSocial()
+    @Provides @Singleton fun social(fake: FakeSocial): SocialRemoteDataSource = fake
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
-    @Provides @Singleton fun meApi(): MeApi = FakeMeApi()
+    @Provides @Singleton fun meApi(fake: FakeSocial): MeApi = FakeMeApi(fake)
 }
 
 private val summary = PlaceSummaryDto(
@@ -344,10 +345,22 @@ private class FakeAuthApi : AuthApi {
         Response.success(Unit)
 }
 
-private class FakeMeApi : MeApi {
+private class FakeMeApi(
+    private val social: FakeSocial,
+) : MeApi {
     override suspend fun profile(): Response<UserProfileDto> =
         Response.success(
-            UserProfileDto(USER_ID, "demo@phokarta.local", "emir_demo", "Emir Kaya", "bio", null),
+            UserProfileDto(
+                USER_ID,
+                "demo@phokarta.local",
+                "emir_demo",
+                "Emir Kaya",
+                "bio",
+                null,
+                social.ownerFollowerCount(),
+                social.ownerFollowingCount(),
+                social.ownerFriendCount(),
+            ),
         )
 
     override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
@@ -360,7 +373,7 @@ private class FakeMeApi : MeApi {
         Response.success(page(emptyList()))
 }
 
-private class FakeSocial : SocialRemoteDataSource {
+class FakeSocial : SocialRemoteDataSource {
     private val following = ConcurrentHashMap.newKeySet<String>()
     private val followsYou = setOf(OTHER_USER_ID)
 
@@ -368,6 +381,14 @@ private class FakeSocial : SocialRemoteDataSource {
         summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz"),
         summary(THIRD_USER_ID, "selinmaps", "Selin Maps"),
     )
+
+    fun ownerFollowerCount(): Long = followsYou.size.toLong()
+    fun ownerFollowingCount(): Long = following.size.toLong()
+    fun ownerFriendCount(): Long = following.count { it in followsYou }.toLong()
+
+    fun reset() {
+        following.clear()
+    }
 
     override suspend fun search(query: String, page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> {
         val matched = users.filter {
@@ -426,6 +447,21 @@ private class FakeSocial : SocialRemoteDataSource {
             ),
         )
 
+    override suspend fun meProfile(): RemoteResult<UserProfileDto> =
+        RemoteResult.Success(
+            UserProfileDto(
+                USER_ID,
+                "demo@phokarta.local",
+                "emir_demo",
+                "Emir Kaya",
+                "bio",
+                null,
+                ownerFollowerCount(),
+                ownerFollowingCount(),
+                ownerFriendCount(),
+            ),
+        )
+
     private fun summary(id: String, username: String, displayName: String) =
         UserSummaryDto(id, username, displayName, null, null)
 
@@ -437,7 +473,7 @@ private class FakeSocial : SocialRemoteDataSource {
 }
 
 private fun demoSession(email: String, username: String, displayName: String) = AuthSessionDto(
-    user = UserProfileDto(USER_ID, email, username, displayName, null, null),
+    user = UserProfileDto(USER_ID, email, username, displayName, null, null, 0, 0, 0),
     accessToken = "access-token",
     refreshToken = "refresh-token",
 )

@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.core.data
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
+import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
@@ -77,4 +78,5 @@ interface TravelRepository {
     suspend fun loadFollowers(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
     suspend fun loadFollowing(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
     suspend fun loadFriends(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
+    suspend fun loadOwnerSocialCounts(): RepositoryResult<OwnerSocialCounts>
 }

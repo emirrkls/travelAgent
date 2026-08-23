@@ -247,6 +247,9 @@ data class UserProfileDto(
     val displayName: String,
     val bio: String? = null,
     val avatarUrl: String? = null,
+    val followerCount: Long = 0,
+    val followingCount: Long = 0,
+    val friendCount: Long = 0,
 )
 
 @Serializable

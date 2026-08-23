@@ -33,7 +33,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,10 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.CollectionCard
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
@@ -69,6 +72,9 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshSocialCounts()
+    }
     var tab by remember { mutableIntStateOf(0) }
     var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
     var selectedPlaceName by remember { mutableStateOf("") }
@@ -105,11 +111,11 @@ fun ProfileScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                ProfileStat(compactCount(state.user.followersCount), "Followers", onClick = onFollowers)
+                ProfileStat(compactCount(state.followerCount), "Followers", onClick = onFollowers)
                 Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                ProfileStat(state.user.followingCount.toString(), "Following", onClick = onFollowing)
+                ProfileStat(state.followingCount.toString(), "Following", onClick = onFollowing)
                 Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                TextButton(onClick = onFriends) { Text("Friends") }
+                ProfileStat(state.friendCount.toString(), "Friends", onClick = onFriends)
             }
             Spacer(Modifier.height(26.dp))
             Text("Travel taste", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge)
@@ -302,7 +308,9 @@ private fun ProfileSummaryChip(label: String) {
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        modifier = Modifier
+            .semantics { contentDescription = "$value $label" }
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Text(
             value,
@@ -312,4 +320,6 @@ private fun ProfileSummaryChip(label: String) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
 }
-private fun compactCount(count: Int): String = if (count >= 1000) String.format("%.1fk", count / 1000f) else count.toString()
+private fun compactCount(count: Long): String =
+    if (count >= 1000) String.format("%.1fk", count / 1000f) else count.toString()
+private fun compactCount(count: Int): String = compactCount(count.toLong())

@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.auth.AuthRepository
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class VisitedPlace(val visit: Visit, val place: Place)
@@ -25,6 +27,9 @@ enum class ProfilePlacesSegment { VISITS, SAVED }
 
 data class ProfileUiState(
     val user: User,
+    val followerCount: Long = 0,
+    val followingCount: Long = 0,
+    val friendCount: Long = 0,
     val visitedPlaces: List<VisitedPlace> = emptyList(),
     val visitSummary: VisitStateLogic.ProfileVisitSummary = VisitStateLogic.ProfileVisitSummary(0, 0, null),
     val placeVisitCounts: Map<String, Int> = emptyMap(),
@@ -43,6 +48,7 @@ class ProfileViewModel @Inject constructor(
 ) : ViewModel() {
     private val placesSegment = MutableStateFlow(ProfilePlacesSegment.VISITS)
     private val saveError = MutableStateFlow<String?>(null)
+    private val socialCounts = MutableStateFlow(OwnerSocialCounts(0, 0, 0))
 
     init {
         viewModelScope.launch {
@@ -50,6 +56,16 @@ class ProfileViewModel @Inject constructor(
             repository.refreshOwnerVisits()
             repository.refreshSaved()
             repository.refreshCollections()
+        }
+        refreshSocialCounts()
+    }
+
+    fun refreshSocialCounts() {
+        viewModelScope.launch {
+            when (val result = repository.loadOwnerSocialCounts()) {
+                is RepositoryResult.Success -> socialCounts.value = result.value
+                is RepositoryResult.Failure -> Unit
+            }
         }
     }
 
@@ -84,17 +100,20 @@ class ProfileViewModel @Inject constructor(
         CatalogSnapshot(visits, places, collections, saved, visited)
     }
 
-    val uiState = combine(catalogState, placesSegment, saveError) { catalog, segment, error ->
+    val uiState = combine(catalogState, placesSegment, saveError, socialCounts) { catalog, segment, error, counts ->
         val byId = catalog.places.associateBy { it.id }
         val sortedVisits = VisitStateLogic.sortedNewestFirst(catalog.visits)
-        val counts = sortedVisits.groupingBy { it.placeId }.eachCount()
+        val visitCounts = sortedVisits.groupingBy { it.placeId }.eachCount()
         ProfileUiState(
             user = repository.currentUser,
+            followerCount = counts.followerCount,
+            followingCount = counts.followingCount,
+            friendCount = counts.friendCount,
             visitedPlaces = sortedVisits.mapNotNull { visit ->
                 byId[visit.placeId]?.let { VisitedPlace(visit, it) }
             },
             visitSummary = VisitStateLogic.profileSummary(catalog.visits),
-            placeVisitCounts = counts,
+            placeVisitCounts = visitCounts,
             savedPlaces = catalog.saved.toList().mapNotNull { byId[it] },
             savedPlaceIds = catalog.saved,
             visitedPlaceIds = catalog.visited,

@@ -20,6 +20,7 @@ import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.safeApiCall
@@ -215,6 +216,7 @@ interface SocialRemoteDataSource {
     suspend fun followers(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
     suspend fun following(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
     suspend fun friends(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
+    suspend fun meProfile(): RemoteResult<UserProfileDto>
 }
 
 class RetrofitSocialRemoteDataSource @Inject constructor(
@@ -242,4 +244,7 @@ class RetrofitSocialRemoteDataSource @Inject constructor(
 
     override suspend fun friends(page: Int, size: Int) =
         safeApiCall(json) { meApi.friends(page, size) }
+
+    override suspend fun meProfile() =
+        safeApiCall(json) { meApi.profile() }
 }

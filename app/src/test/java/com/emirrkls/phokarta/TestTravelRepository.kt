@@ -13,6 +13,7 @@ import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.RelationshipState
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
@@ -178,6 +179,14 @@ open class TestTravelRepository : TravelRepository {
 
     override suspend fun loadFriends(page: Int, size: Int): RepositoryResult<UserPage> =
         socialListError?.let { RepositoryResult.Failure(it) } ?: pageUsers(friends, page, size)
+
+    var ownerSocialCounts = OwnerSocialCounts(0, 0, 0)
+    var ownerSocialCountsError: TravelError? = null
+
+    override suspend fun loadOwnerSocialCounts(): RepositoryResult<OwnerSocialCounts> {
+        ownerSocialCountsError?.let { return RepositoryResult.Failure(it) }
+        return RepositoryResult.Success(ownerSocialCounts)
+    }
 
     private fun pageUsers(all: List<UserSummary>, page: Int, size: Int): RepositoryResult<UserPage> {
         val from = (page * size).coerceAtMost(all.size)

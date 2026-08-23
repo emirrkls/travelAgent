@@ -1,6 +1,5 @@
 package com.emirrkls.phokarta.backend.api.dto;
 
-import java.time.Instant;
 import java.util.UUID;
 
 public record UserProfileResponse(
@@ -9,5 +8,8 @@ public record UserProfileResponse(
         String username,
         String displayName,
         String bio,
-        String avatarUrl) {
+        String avatarUrl,
+        long followerCount,
+        long followingCount,
+        long friendCount) {
 }

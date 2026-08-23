@@ -100,6 +100,26 @@ class PublicProfileViewModelTest {
         assertTrue(viewModel.uiState.value.actionErrorMessage != null)
     }
 
+    @Test
+    fun followDoesNotReplacePublicProfileCountSource() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.publicProfiles[userId] = profile(
+            RelationshipState(isFollowing = false, followsYou = true, isFriend = false),
+        )
+        val viewModel = PublicProfileViewModel(SavedStateHandle(mapOf("userId" to userId)), repository)
+        advanceUntilIdle()
+
+        assertEquals(10L, viewModel.uiState.value.profile!!.followerCount)
+        assertEquals(2L, viewModel.uiState.value.profile!!.followingCount)
+
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+
+        // Public profile still mutates its own loaded counters, not owner /me overlay.
+        assertEquals(11L, viewModel.uiState.value.profile!!.followerCount)
+        assertEquals(2L, viewModel.uiState.value.profile!!.followingCount)
+    }
+
     private fun profile(relationship: RelationshipState) = PublicUserProfile(
         id = userId,
         username = "ahmetgoes",

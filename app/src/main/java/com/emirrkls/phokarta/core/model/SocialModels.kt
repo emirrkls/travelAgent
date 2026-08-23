@@ -50,3 +50,9 @@ enum class SocialListKind {
             entries.first { it.routeValue == value.lowercase() }
     }
 }
+
+data class OwnerSocialCounts(
+    val followerCount: Long,
+    val followingCount: Long,
+    val friendCount: Long,
+)

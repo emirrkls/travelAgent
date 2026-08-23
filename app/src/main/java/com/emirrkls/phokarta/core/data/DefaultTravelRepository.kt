@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
+import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
@@ -495,6 +496,18 @@ class DefaultTravelRepository @Inject constructor(
 
     override suspend fun loadFriends(page: Int, size: Int): RepositoryResult<UserPage> =
         loadSocialPage(page, size) { socialRemote.friends(it, size) }
+
+    override suspend fun loadOwnerSocialCounts(): RepositoryResult<OwnerSocialCounts> =
+        when (val result = socialRemote.meProfile()) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(
+                OwnerSocialCounts(
+                    followerCount = result.value.followerCount,
+                    followingCount = result.value.followingCount,
+                    friendCount = result.value.friendCount,
+                ),
+            )
+        }
 
     private suspend fun loadSocialPage(
         page: Int,

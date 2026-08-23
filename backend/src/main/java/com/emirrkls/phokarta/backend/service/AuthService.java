@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.backend.domain.entity.RefreshSession;
 import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.domain.model.AuthProvider;
 import com.emirrkls.phokarta.backend.repository.AuthIdentityRepository;
+import com.emirrkls.phokarta.backend.repository.UserFollowRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.security.JwtService;
 import com.emirrkls.phokarta.backend.security.RefreshTokenService;
@@ -30,15 +31,17 @@ import java.util.UUID;
 public class AuthService {
     private final UserRepository users;
     private final AuthIdentityRepository identities;
+    private final UserFollowRepository follows;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokens;
 
     public AuthService(UserRepository users, AuthIdentityRepository identities,
-                       PasswordEncoder passwordEncoder, JwtService jwtService,
-                       RefreshTokenService refreshTokens) {
+                       UserFollowRepository follows, PasswordEncoder passwordEncoder,
+                       JwtService jwtService, RefreshTokenService refreshTokens) {
         this.users = users;
         this.identities = identities;
+        this.follows = follows;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokens = refreshTokens;
@@ -132,9 +135,18 @@ public class AuthService {
                 jwtService.accessTokenExpiresInSeconds(), jwtService.accessTokenExpiresAt());
     }
 
-    public static UserProfileResponse toProfile(User user) {
-        return new UserProfileResponse(user.getId(), user.getEmail(), user.getUsername(),
-                user.getDisplayName(), user.getBio(), user.getAvatarUrl());
+    public UserProfileResponse toProfile(User user) {
+        UUID id = user.getId();
+        return new UserProfileResponse(
+                id,
+                user.getEmail(),
+                user.getUsername(),
+                user.getDisplayName(),
+                user.getBio(),
+                user.getAvatarUrl(),
+                follows.countFollowers(id),
+                follows.countFollowing(id),
+                follows.countFriends(id));
     }
 
     static String normalizeEmail(String email) {

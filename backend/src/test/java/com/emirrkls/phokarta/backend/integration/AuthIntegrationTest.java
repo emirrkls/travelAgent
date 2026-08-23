@@ -76,7 +76,10 @@ class AuthIntegrationTest {
 
         mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(email.toLowerCase()));
+                .andExpect(jsonPath("$.email").value(email.toLowerCase()))
+                .andExpect(jsonPath("$.followerCount").value(0))
+                .andExpect(jsonPath("$.followingCount").value(0))
+                .andExpect(jsonPath("$.friendCount").value(0));
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)

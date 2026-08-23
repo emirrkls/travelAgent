@@ -31,6 +31,7 @@ import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
@@ -298,6 +299,24 @@ class DefaultTravelRepositoryTest {
     }
 
     @Test
+    fun `loadOwnerSocialCounts maps authenticated me profile`() = runBlocking {
+        val repository = repository(
+            social = FakeSocial(
+                meProfile = RemoteResult.Success(
+                    UserProfileDto(USER_ID, "demo@phokarta.local", "emir_demo", "Emir", null, null, 4, 9, 2),
+                ),
+            ),
+        )
+
+        val result = repository.loadOwnerSocialCounts()
+        assertTrue(result is RepositoryResult.Success)
+        val counts = (result as RepositoryResult.Success).value
+        assertEquals(4L, counts.followerCount)
+        assertEquals(9L, counts.followingCount)
+        assertEquals(2L, counts.friendCount)
+    }
+
+    @Test
     fun `cold offline refresh exposes cached places while reporting remote failure`() = runBlocking {
         val cache = FakePlaceCache(listOf(summary().toDomain()))
         val repository = repository(
@@ -483,7 +502,11 @@ private class FakeCollections(
     override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> = removeResult
 }
 
-private class FakeSocial : SocialRemoteDataSource {
+private class FakeSocial(
+    private val meProfile: RemoteResult<UserProfileDto> = RemoteResult.Success(
+        UserProfileDto(USER_ID, "demo@phokarta.local", "emir_demo", "Emir", null, null, 0, 0, 0),
+    ),
+) : SocialRemoteDataSource {
     override suspend fun search(query: String, page: Int, size: Int) = page<UserSummaryDto>()
     override suspend fun profile(userId: String) = RemoteResult.Failure(NetworkError.NotFound(null))
     override suspend fun follow(userId: String) = RemoteResult.Success(Unit)
@@ -491,6 +514,7 @@ private class FakeSocial : SocialRemoteDataSource {
     override suspend fun followers(page: Int, size: Int) = page<UserSummaryDto>()
     override suspend fun following(page: Int, size: Int) = page<UserSummaryDto>()
     override suspend fun friends(page: Int, size: Int) = page<UserSummaryDto>()
+    override suspend fun meProfile() = meProfile
 }
 
 private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(

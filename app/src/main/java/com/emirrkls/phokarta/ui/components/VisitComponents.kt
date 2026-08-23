@@ -25,11 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
+import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
+import com.emirrkls.phokarta.feature.rating.visibilityIcon
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -60,6 +63,7 @@ fun OwnerVisitDetailSheet(
 ) {
     val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
     val scoreLabel = VisitDraftLogic.scoreLabel(visit.overallRating.toFloat())
+    val visibilityLabel = VisitVisibilityCopy.label(visit.visibility)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -81,6 +85,30 @@ fun OwnerVisitDetailSheet(
             )
             Text(scoreLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Text(dateLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.testTag("owner_visit_visibility"),
+            ) {
+                Icon(
+                    visibilityIcon(visit.visibility),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column {
+                    Text("Visibility", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        visibilityLabel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.semantics {
+                            contentDescription = VisitVisibilityCopy.contentDescription(visit.visibility)
+                        },
+                    )
+                }
+            }
             if (visit.ratingDimensions.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
                 visit.ratingDimensions.entries.sortedByDescending { it.value }.forEach { (dimension, score) ->
@@ -92,8 +120,12 @@ fun OwnerVisitDetailSheet(
             }
             if (visit.review.isNotBlank()) {
                 Spacer(Modifier.height(20.dp))
-                Text("Public review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text("Visible to others", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                Text("Review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    VisitVisibilityCopy.reviewHelper(visit.visibility),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(visit.review, style = MaterialTheme.typography.bodyLarge)
             }
@@ -123,17 +155,26 @@ fun VisitHistoryRow(
     modifier: Modifier = Modifier,
 ) {
     val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+    val scoreText = String.format("%.1f", visit.overallRating)
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("owner_visit_row"),
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(18.dp),
         tonalElevation = 1.dp,
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(
+            Modifier
+                .padding(16.dp)
+                .semantics {
+                    contentDescription = "Your visit $scoreText on $dateLabel"
+                },
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    String.format("%.1f", visit.overallRating),
+                    scoreText,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )

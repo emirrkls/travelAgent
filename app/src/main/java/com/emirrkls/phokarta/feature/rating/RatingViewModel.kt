@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,6 +38,7 @@ data class RatingUiState(
     val review: String get() = draft.publicReview
     val note: String get() = draft.privateMemory
     val visitedAt: LocalDate get() = draft.visitDate
+    val visibility: Visibility get() = draft.visibility
     val dimensionsExpanded: Boolean get() = draft.dimensionsExpanded
     val canPublish: Boolean get() = VisitDraftLogic.canPublish(draft) && !isPublishing
 }
@@ -107,6 +109,8 @@ class RatingViewModel @Inject constructor(
     fun setReview(value: String) = updateDraft { it.copy(publicReview = value) }
 
     fun setNote(value: String) = updateDraft { it.copy(privateMemory = value) }
+
+    fun setVisibility(value: Visibility) = updateDraft { it.copy(visibility = value) }
 
     fun setVisitedAt(value: LocalDate) {
         val error = VisitDraftLogic.validateDate(value)

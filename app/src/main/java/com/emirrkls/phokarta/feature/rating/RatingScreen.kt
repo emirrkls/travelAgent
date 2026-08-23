@@ -86,6 +86,14 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     }
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var showVisibilitySheet by remember { mutableStateOf(false) }
+    if (showVisibilitySheet) {
+        VisitVisibilitySheet(
+            selectedVisibility = state.visibility,
+            onSelect = viewModel::setVisibility,
+            onDismiss = { showVisibilitySheet = false },
+        )
+    }
     if (showDatePicker) {
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = state.visitedAt.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
@@ -249,17 +257,21 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 }
             }
             Spacer(Modifier.height(22.dp))
-            Text("Public review", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Visible to others", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+            Text("Review", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                VisitVisibilityCopy.reviewHelper(state.visibility),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
             Spacer(Modifier.height(9.dp))
             OutlinedTextField(
                 state.review,
                 viewModel::setReview,
                 Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Public review input" },
-                label = { Text("Public review") },
-                placeholder = { Text("What should friends know?") },
+                    .semantics { contentDescription = "Review input" },
+                label = { Text("Review") },
+                placeholder = { Text("What stood out?") },
                 minLines = 3,
                 shape = RoundedCornerShape(18.dp),
             )
@@ -301,6 +313,11 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     }
                 }
             }
+            Spacer(Modifier.height(18.dp))
+            VisitVisibilityRow(
+                visibility = state.visibility,
+                onClick = { showVisibilitySheet = true },
+            )
             Spacer(Modifier.height(26.dp))
         }
     }

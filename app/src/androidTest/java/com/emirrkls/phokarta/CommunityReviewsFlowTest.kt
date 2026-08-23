@@ -45,9 +45,9 @@ class CommunityReviewsFlowTest {
         val publicReviewText = "Great atmosphere and very good service."
         val privateMemoryText = "SECRET_PRIVATE_MEMORY_DO_NOT_SHOW"
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithContentDescription("Public review input").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithContentDescription("Review input").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithContentDescription("Public review input")
+        composeRule.onNodeWithContentDescription("Review input")
             .performScrollTo()
             .performTextInput(publicReviewText)
         composeRule.onNodeWithContentDescription("Private memory input")

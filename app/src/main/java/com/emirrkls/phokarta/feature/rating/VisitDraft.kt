@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.feature.rating
 
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import java.time.LocalDate
 import java.util.UUID
@@ -12,8 +13,50 @@ data class VisitDraft(
     val publicReview: String = "",
     val privateMemory: String = "",
     val visitDate: LocalDate = LocalDate.now(),
+    val visibility: Visibility = Visibility.PUBLIC,
     val dimensionsExpanded: Boolean = false,
 )
+
+/**
+ * User-facing copy for visit visibility.
+ *
+ * FRIENDS is stored by the backend but is not friend-readable today — Social v2
+ * discovery/feeds/scores use PUBLIC visits only. Copy must stay truthful.
+ */
+object VisitVisibilityCopy {
+    val selectionOrder: List<Visibility> = listOf(
+        Visibility.PUBLIC,
+        Visibility.FRIENDS,
+        Visibility.PRIVATE,
+    )
+
+    fun label(visibility: Visibility): String = when (visibility) {
+        Visibility.PUBLIC -> "Public"
+        Visibility.FRIENDS -> "Friends"
+        Visibility.PRIVATE -> "Private"
+    }
+
+    fun sheetDescription(visibility: Visibility): String = when (visibility) {
+        Visibility.PUBLIC -> "Share it with the Phokarta community"
+        Visibility.FRIENDS -> "Keep this limited for now — not shown in community discovery"
+        Visibility.PRIVATE -> "Keep this visit only for yourself"
+    }
+
+    fun reviewHelper(visibility: Visibility): String = when (visibility) {
+        Visibility.PUBLIC -> "Shared with the community"
+        Visibility.FRIENDS -> "Not shown in community reviews"
+        Visibility.PRIVATE -> "Only you can see this review"
+    }
+
+    fun impactHint(visibility: Visibility): String = when (visibility) {
+        Visibility.PUBLIC -> "This visit can contribute to community discovery."
+        Visibility.FRIENDS -> "This won't affect community discovery."
+        Visibility.PRIVATE -> "This won't affect community or friends scores."
+    }
+
+    fun contentDescription(visibility: Visibility): String =
+        "Visibility, ${label(visibility)}"
+}
 
 object VisitDraftLogic {
     fun scoreLabel(score: Float): String = when {
@@ -46,6 +89,7 @@ object VisitDraftLogic {
         ratingDimensions = draft.dimensions.mapValues { it.value.roundToTenth().toDouble() },
         review = draft.publicReview.trim(),
         personalNote = draft.privateMemory.trim(),
+        visibility = draft.visibility,
     )
 }
 

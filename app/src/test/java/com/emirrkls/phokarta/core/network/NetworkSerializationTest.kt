@@ -90,6 +90,28 @@ class NetworkSerializationTest {
     }
 
     @Test
+    fun `create visit serializes each visibility enum as uppercase API value`() {
+        listOf(
+            VisibilityDto.PUBLIC to "PUBLIC",
+            VisibilityDto.FRIENDS to "FRIENDS",
+            VisibilityDto.PRIVATE to "PRIVATE",
+        ).forEach { (visibility, expected) ->
+            val request = CreateVisitDto(
+                placeId = "20000000-0000-0000-0000-000000000001",
+                visitedAt = "2026-08-22",
+                overallRating = 8.0,
+                dimensions = null,
+                publicReview = null,
+                privateMemory = null,
+                photos = null,
+                visibility = visibility,
+            )
+            val encoded = json.parseToJsonElement(json.encodeToString(request)).jsonObject
+            assertEquals(expected, encoded.getValue("visibility").jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun `public visit serialization cannot expose private memory while create request can carry it`() {
         val publicVisit = PublicVisitDto(
             id = "30000000-0000-0000-0000-000000000001",

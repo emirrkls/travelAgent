@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.backend.api.dto;
 
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -21,7 +22,13 @@ public record CreateVisitRequest(
         @Size(max = 4000) String publicReview,
         @Size(max = 4000) String privateMemory,
         @Size(max = 20) List<@NotBlank @Size(max = 500) String> photos,
-        @NotNull Visibility visibility) {
+        @NotNull
+        @Schema(description = "Visit audience. PUBLIC participates in community discovery, "
+                + "community reviews, community activity, and friends discovery aggregates. "
+                + "FRIENDS is stored for the owner but is currently excluded from community and "
+                + "friends discovery surfaces. PRIVATE is owner-only and never appears in "
+                + "discovery. Required; clients must send an explicit value.")
+        Visibility visibility) {
 
     public record DimensionScore(
             @NotBlank @Size(max = 40) String key,

@@ -52,6 +52,29 @@ class DatabaseMapperTest {
     }
 
     @Test
+    fun `owner visit visibility round-trips for each enum value`() {
+        listOf(Visibility.PUBLIC, Visibility.FRIENDS, Visibility.PRIVATE).forEach { visibility ->
+            val visit = Visit(
+                id = "visit-$visibility",
+                userId = "user-1",
+                placeId = "p1",
+                visitedAt = LocalDate.of(2026, 8, 22),
+                overallRating = 8.0,
+                ratingDimensions = emptyMap(),
+                review = "Review text",
+                personalNote = "Memory",
+                visibility = visibility,
+            )
+            val stored = VisitWithDimensions(
+                visit = visit.toEntity(createdAtEpochMillis = 1L),
+                dimensions = emptyList(),
+            )
+            assertEquals(visibility.name, stored.visit.visibility)
+            assertEquals(visibility, stored.toDomain().visibility)
+        }
+    }
+
+    @Test
     fun `missing dimension rows remain missing`() {
         val stored = VisitWithDimensions(
             visit = VisitEntity(

@@ -150,9 +150,9 @@ class ActivityFeedFlowTest {
         val publicReviewText = "Activity feed public review text."
         val privateMemoryText = "SECRET_ACTIVITY_PRIVATE_MEMORY"
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Public review input").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithContentDescription("Review input").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithContentDescription("Public review input")
+        composeRule.onNodeWithContentDescription("Review input")
             .performScrollTo()
             .performTextInput(publicReviewText)
         composeRule.waitUntil(timeoutMillis = 10_000) {

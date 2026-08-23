@@ -202,6 +202,21 @@ class DefaultTravelRepositoryTest {
         assertEquals(RatingDimensionDto.SEA, remote.lastCreate?.dimensions?.single()?.key)
         assertEquals("Public", remote.lastCreate?.publicReview)
         assertEquals("Private", remote.lastCreate?.privateMemory)
+        assertEquals(VisibilityDto.PUBLIC, remote.lastCreate?.visibility)
+    }
+
+    @Test
+    fun `publish request maps each visit visibility to matching DTO`() = runBlocking {
+        listOf(
+            Visibility.PUBLIC to VisibilityDto.PUBLIC,
+            Visibility.FRIENDS to VisibilityDto.FRIENDS,
+            Visibility.PRIVATE to VisibilityDto.PRIVATE,
+        ).forEach { (domain, dto) ->
+            val remote = FakeVisits(createResult = RemoteResult.Failure(NetworkError.Connection))
+            val repository = repository(visits = remote)
+            repository.publishVisit(visit().copy(visibility = domain))
+            assertEquals(dto, remote.lastCreate?.visibility)
+        }
     }
 
     @Test

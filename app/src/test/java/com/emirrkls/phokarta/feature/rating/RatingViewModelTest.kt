@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
+import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,16 @@ class RatingViewModelTest {
     }
 
     @Test
+    fun newVisitDefaultsVisibilityToPublic() = runTest(dispatcher) {
+        val placeId = com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource.mockPlaces.first().id
+        val repository = TestTravelRepository()
+        val viewModel = createViewModel(placeId, repository)
+        advanceUntilIdle()
+
+        assertEquals(Visibility.PUBLIC, viewModel.uiState.value.visibility)
+    }
+
+    @Test
     fun publishAppendsVisitAndMarksPublished() = runTest(dispatcher) {
         val placeId = com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource.mockPlaces.first().id
         val repository = TestTravelRepository()
@@ -51,21 +62,43 @@ class RatingViewModelTest {
         assertTrue(viewModel.uiState.value.published)
         assertEquals(1, repository.visits.value.size)
         assertEquals(placeId, repository.visits.value.single().placeId)
+        assertEquals(Visibility.PUBLIC, repository.visits.value.single().visibility)
     }
 
     @Test
-    fun publishFailurePreservesDraft() = runTest(dispatcher) {
+    fun publishPrivateSucceedsAndNextDraftDefaultsPublic() = runTest(dispatcher) {
+        val placeId = com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource.mockPlaces.first().id
+        val repository = TestTravelRepository()
+        val viewModel = createViewModel(placeId, repository)
+        advanceUntilIdle()
+
+        viewModel.setVisibility(Visibility.PRIVATE)
+        viewModel.publish()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.published)
+        assertEquals(Visibility.PRIVATE, repository.visits.value.single().visibility)
+
+        val next = createViewModel(placeId, repository)
+        advanceUntilIdle()
+        assertEquals(Visibility.PUBLIC, next.uiState.value.visibility)
+    }
+
+    @Test
+    fun publishFailurePreservesDraftIncludingVisibility() = runTest(dispatcher) {
         val placeId = com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource.mockPlaces.first().id
         val repository = FailingRepository()
         val viewModel = createViewModel(placeId, repository)
         advanceUntilIdle()
 
         viewModel.setReview("Keep this note")
+        viewModel.setVisibility(Visibility.PRIVATE)
         viewModel.publish()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.published)
         assertEquals("Keep this note", viewModel.uiState.value.review)
+        assertEquals(Visibility.PRIVATE, viewModel.uiState.value.visibility)
         assertTrue(viewModel.uiState.value.publishError != null)
     }
 

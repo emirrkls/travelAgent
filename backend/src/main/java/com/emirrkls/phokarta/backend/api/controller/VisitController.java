@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.backend.api.controller;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
+import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
@@ -51,5 +52,15 @@ public class VisitController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return service.publicReviews(placeId, page, size);
+    }
+
+    @Operation(summary = "Public community activity feed",
+            description = "Cross-place PUBLIC visit events, newest first. "
+                    + "privateMemory and private user fields are never included.")
+    @GetMapping("/activity")
+    public PageResponse<PublicActivityResponse> publicActivity(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return service.publicActivity(page, size);
     }
 }

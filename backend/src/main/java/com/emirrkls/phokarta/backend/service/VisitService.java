@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.backend.service;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
+import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.api.error.ApiException;
@@ -119,6 +120,14 @@ public class VisitService {
         return PageResponse.from(visits
                 .findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
                 placeId, Visibility.PUBLIC, PageRequest.of(page, size)), mapper::toPublic);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PublicActivityResponse> publicActivity(int page, int size) {
+        return PageResponse.from(
+                visits.findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                        Visibility.PUBLIC, PageRequest.of(page, size)),
+                mapper::toActivity);
     }
 
     private List<VisitOwnerResponse.DimensionScoreResponse> toDimensionResponses(

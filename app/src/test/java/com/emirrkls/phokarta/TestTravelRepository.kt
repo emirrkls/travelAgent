@@ -4,7 +4,8 @@ import com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource
 import com.emirrkls.phokarta.core.data.PlacePage
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
-import com.emirrkls.phokarta.core.model.ActivityItem
+import com.emirrkls.phokarta.core.model.ActivityEvent
+import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
@@ -24,7 +25,11 @@ open class TestTravelRepository : TravelRepository {
     val saved = MutableStateFlow<Set<String>>(emptySet())
     val collections = MutableStateFlow<List<Collection>>(emptyList())
     val publicReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
+    val activityItems = MutableStateFlow<List<ActivityEvent>>(emptyList())
     var publicReviewsError: com.emirrkls.phokarta.core.data.TravelError? = null
+    var activityError: com.emirrkls.phokarta.core.data.TravelError? = null
+    var activityLoadMoreError: com.emirrkls.phokarta.core.data.TravelError? = null
+    val requestedActivityPages = mutableListOf<Int>()
     override val currentUser: User = MockPlaceCatalogDataSource().currentUser
 
     override fun observePlaces(): Flow<List<Place>> = places
@@ -34,7 +39,28 @@ open class TestTravelRepository : TravelRepository {
     override fun observeCollections(): Flow<List<Collection>> = collections
     override suspend fun getPlace(id: String) = places.value.firstOrNull { it.id == id }
     override suspend fun getCollection(id: String) = collections.value.firstOrNull { it.id == id }
-    override suspend fun getActivity(): List<ActivityItem> = emptyList()
+    override suspend fun loadActivityPage(page: Int, size: Int): RepositoryResult<ActivityFeedPage> {
+        requestedActivityPages += page
+        if (page == 0) {
+            activityError?.let { return RepositoryResult.Failure(it) }
+        } else {
+            activityLoadMoreError?.let { return RepositoryResult.Failure(it) }
+        }
+        val all = activityItems.value
+        val from = (page * size).coerceAtMost(all.size)
+        val to = (from + size).coerceAtMost(all.size)
+        val slice = all.subList(from, to)
+        val totalPages = if (all.isEmpty()) 0 else ((all.size + size - 1) / size)
+        return RepositoryResult.Success(
+            ActivityFeedPage(
+                items = slice,
+                page = page,
+                totalPages = totalPages,
+                totalElements = all.size.toLong(),
+                hasNext = to < all.size,
+            ),
+        )
+    }
     override suspend fun listPlaces(category: PlaceCategory?, city: String?, search: String?, minRating: Double?, sort: String, page: Int, size: Int): RepositoryResult<PlacePage> =
         RepositoryResult.Success(PlacePage(places.value, page, 1, places.value.size.toLong(), false))
     override suspend fun refreshCatalog() = listPlaces(size = 100)

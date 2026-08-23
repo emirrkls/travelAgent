@@ -119,12 +119,3 @@ data class Collection(
     val visibility: Visibility,
     val coverImage: String,
 )
-
-data class ActivityItem(
-    val id: String,
-    val user: User,
-    val message: String,
-    val timeLabel: String,
-    val placeId: String? = null,
-    val collectionId: String? = null,
-)

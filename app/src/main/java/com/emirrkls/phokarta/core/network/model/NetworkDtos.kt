@@ -91,6 +91,33 @@ data class PublicVisitDto(
 )
 
 @Serializable
+data class PublicActivityDto(
+    val visitId: String,
+    val author: PublicActivityAuthorDto,
+    val place: PublicActivityPlaceDto,
+    val overallScore: Double,
+    val publicReview: String,
+    val visitedAt: String,
+)
+
+@Serializable
+data class PublicActivityAuthorDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String?,
+)
+
+@Serializable
+data class PublicActivityPlaceDto(
+    val id: String,
+    val name: String,
+    val category: PlaceCategoryDto,
+    val city: String,
+    val coverImage: String,
+)
+
+@Serializable
 data class VisitOwnerDto(
     val id: String,
     val place: PlaceSummaryDto,

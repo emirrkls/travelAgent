@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
@@ -99,6 +100,12 @@ interface VisitApi {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<PublicVisitDto>>
+
+    @GET("api/v1/activity")
+    suspend fun publicActivity(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<PublicActivityDto>>
 }
 
 interface SavedPlaceApi {

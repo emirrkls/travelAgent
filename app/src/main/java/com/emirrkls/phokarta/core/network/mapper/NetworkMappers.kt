@@ -1,5 +1,8 @@
 package com.emirrkls.phokarta.core.network.mapper
 
+import com.emirrkls.phokarta.core.model.ActivityAuthor
+import com.emirrkls.phokarta.core.model.ActivityEvent
+import com.emirrkls.phokarta.core.model.ActivityPlaceSummary
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
@@ -14,6 +17,7 @@ import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
@@ -115,6 +119,26 @@ fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(
     visitDate = visitedAt.toLocalDateSafely(),
     photos = photos,
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
+)
+
+fun PublicActivityDto.toActivityEvent(): ActivityEvent = ActivityEvent(
+    visitId = visitId.toCanonicalUuid(),
+    author = ActivityAuthor(
+        userId = author.id.toCanonicalUuid(),
+        username = author.username,
+        displayName = author.displayName.ifBlank { author.username.ifBlank { "Traveler" } },
+        avatarUrl = author.avatarUrl,
+    ),
+    place = ActivityPlaceSummary(
+        id = place.id.toCanonicalUuid(),
+        name = place.name,
+        category = PlaceCategory.valueOf(place.category.name),
+        city = place.city,
+        coverImage = place.coverImage,
+    ),
+    overallScore = overallScore,
+    publicReview = publicReview,
+    visitDate = visitedAt.toLocalDateSafely(),
 )
 
 fun Visit.toCreateDto(): CreateVisitDto = CreateVisitDto(

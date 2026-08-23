@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.core
 
 import com.emirrkls.phokarta.core.auth.testSessionManager
+import com.emirrkls.phokarta.core.data.ActivityFeedInvalidator
 import com.emirrkls.phokarta.core.data.DefaultTravelRepository
 import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource
@@ -25,6 +26,7 @@ import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
@@ -320,6 +322,7 @@ private fun repository(
     saved,
     collections,
     testSessionManager(USER_ID),
+    ActivityFeedInvalidator(),
     placeCache,
 )
 
@@ -428,10 +431,12 @@ private class FakeVisits(
     var ownerResults: Map<Int, RemoteResult<PageResponseDto<VisitOwnerDto>>>? = null,
     var publicResult: RemoteResult<PageResponseDto<PublicVisitDto>> = page(),
     var publicResults: Map<Int, RemoteResult<PageResponseDto<PublicVisitDto>>>? = null,
+    var activityResult: RemoteResult<PageResponseDto<PublicActivityDto>> = page(),
 ) : VisitRemoteDataSource {
     var lastCreate: CreateVisitDto? = null
     val requestedOwnerPages = mutableListOf<Int>()
     val requestedPublicPages = mutableListOf<Int>()
+    val requestedActivityPages = mutableListOf<Int>()
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         lastCreate = request
         return createResult
@@ -443,6 +448,10 @@ private class FakeVisits(
     override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> {
         requestedPublicPages += page
         return publicResults?.get(page) ?: publicResult
+    }
+    override suspend fun publicActivity(page: Int, size: Int): RemoteResult<PageResponseDto<PublicActivityDto>> {
+        requestedActivityPages += page
+        return activityResult
     }
 }
 

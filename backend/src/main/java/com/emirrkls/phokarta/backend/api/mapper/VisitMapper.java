@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.backend.api.mapper;
 
+import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.domain.entity.Visit;
@@ -21,6 +22,25 @@ public class VisitMapper {
                 visit.getUser().getDisplayName(), visit.getUser().getAvatarUrl(),
                 visit.getVisitedAt(), visit.getOverallRating(), visit.getPublicReview(),
                 visit.getPhotos(), visit.getVerificationStatus());
+    }
+
+    public PublicActivityResponse toActivity(Visit visit) {
+        return new PublicActivityResponse(
+                visit.getId(),
+                new PublicActivityResponse.PublicAuthor(
+                        visit.getUser().getId(),
+                        visit.getUser().getUsername(),
+                        visit.getUser().getDisplayName(),
+                        visit.getUser().getAvatarUrl()),
+                new PublicActivityResponse.ActivityPlace(
+                        visit.getPlace().getId(),
+                        visit.getPlace().getName(),
+                        visit.getPlace().getCategory(),
+                        visit.getPlace().getCity(),
+                        visit.getPlace().getCoverImage()),
+                visit.getOverallRating(),
+                visit.getPublicReview(),
+                visit.getVisitedAt());
     }
 
     public VisitOwnerResponse toOwner(

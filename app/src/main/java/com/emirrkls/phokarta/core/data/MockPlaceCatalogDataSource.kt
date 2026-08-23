@@ -1,6 +1,5 @@
 package com.emirrkls.phokarta.core.data
 
-import com.emirrkls.phokarta.core.model.ActivityItem
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.RatingDimension
@@ -16,7 +15,6 @@ class MockPlaceCatalogDataSource @Inject constructor() {
 
     fun observePlaces(): Flow<List<Place>> = flowOf(mockPlaces)
     suspend fun getPlace(id: String): Place? = mockPlaces.firstOrNull { it.id == id }
-    suspend fun getActivity(): List<ActivityItem> = mockActivity
 
     companion object {
         const val CURRENT_USER_ID = "user-emir"
@@ -26,16 +24,6 @@ class MockPlaceCatalogDataSource @Inject constructor() {
             "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300",
             "Chasing clear water, tiny kitchens and roads with no rush.", 18, 6, 1240, 386,
             listOf("Beach", "Food", "Nature", "Hidden Gems", "Design Hotels"),
-        )
-        private val ahmet = User(
-            "u2", "ahmetgoes", "Ahmet Deniz",
-            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-            "Weekend explorer", 11, 4, 542, 318, listOf("Beach", "Nightlife"),
-        )
-        private val ece = User(
-            "u3", "eceeats", "Ece Aksoy",
-            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-            "Good tables, better stories", 23, 8, 2100, 440, listOf("Food", "Cafe"),
         )
 
         val mockPlaces = listOf(
@@ -49,13 +37,6 @@ class MockPlaceCatalogDataSource @Inject constructor() {
             place("p8", "Kelebek Bay Club", PlaceCategory.BEACH, "Kaş", "Antalya", 8.7, 9.0, "Saved by 7 friends", "https://images.unsplash.com/photo-1473116763249-2faaef81ccda?w=1200", "A relaxed swimming deck and small kitchen hidden below the coastal road.", 3, mapOf("Sea" to 9.3, "Atmosphere" to 8.9, "Service" to 8.2, "Cleanliness" to 8.8, "Value" to 7.6, "Crowd" to 8.1)),
             place("p9", "Perge After Hours", PlaceCategory.ATTRACTION, "Antalya", "Antalya", 9.1, 8.9, "A hidden-gem pick", "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=1200", "A small-group twilight walk through the ancient city's monumental streets.", 2, mapOf("Experience" to 9.5, "Access" to 8.3, "Atmosphere" to 9.6, "Value" to 8.5)),
             place("p10", "Rüzgâr Sailing", PlaceCategory.ACTIVITY, "Türkbükü", "Muğla", 8.9, 9.2, "Ahmet rated this 9.4", "https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=1200", "An unhurried afternoon sail between quiet northern Bodrum coves.", 4, mapOf("Experience" to 9.4, "Safety" to 9.2, "Guide" to 9.1, "Value" to 7.9)),
-        )
-
-        val mockActivity = listOf(
-            ActivityItem("a1", ahmet, "rated Rüzgâr Sailing 9.4", "18 min", placeId = "p10"),
-            ActivityItem("a2", ece, "created Istanbul date tables", "2 hr", collectionId = "c3"),
-            ActivityItem("a3", ahmet, "saved Sarnıç Cove for summer", "Yesterday", placeId = "p1"),
-            ActivityItem("a4", ece, "rated Mimoza Table 9.2 — “Order everything to share.”", "Tue", placeId = "p2"),
         )
 
         private fun place(

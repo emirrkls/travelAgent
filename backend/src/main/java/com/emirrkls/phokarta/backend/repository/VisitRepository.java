@@ -21,6 +21,10 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     Page<Visit> findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
             UUID placeId, Visibility visibility, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "place"})
+    Page<Visit> findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+            Visibility visibility, Pageable pageable);
+
     @Query("""
             select v from Visit v join fetch v.user join fetch v.place
             where v.place.id = :placeId and v.visibility = :visibility

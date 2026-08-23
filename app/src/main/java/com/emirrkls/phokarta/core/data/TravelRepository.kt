@@ -1,6 +1,6 @@
 package com.emirrkls.phokarta.core.data
 
-import com.emirrkls.phokarta.core.model.ActivityItem
+import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
@@ -27,7 +27,7 @@ interface TravelRepository {
     fun observeCollections(): Flow<List<Collection>>
     suspend fun getPlace(id: String): Place?
     suspend fun getCollection(id: String): Collection?
-    suspend fun getActivity(): List<ActivityItem>
+    suspend fun loadActivityPage(page: Int = 0, size: Int = 20): RepositoryResult<ActivityFeedPage>
     suspend fun listPlaces(
         category: com.emirrkls.phokarta.core.model.PlaceCategory? = null,
         city: String? = null,

@@ -2,7 +2,7 @@ package com.emirrkls.phokarta.core.data
 
 import com.emirrkls.phokarta.core.auth.AuthState
 import com.emirrkls.phokarta.core.auth.SessionManager
-import com.emirrkls.phokarta.core.model.ActivityItem
+import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.core.network.RemoteResult
+import com.emirrkls.phokarta.core.network.mapper.toActivityEvent
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
 import com.emirrkls.phokarta.core.network.mapper.toDomain
@@ -40,6 +41,7 @@ class DefaultTravelRepository @Inject constructor(
     private val savedRemote: SavedPlaceRemoteDataSource,
     private val collectionsRemote: CollectionRemoteDataSource,
     private val sessionManager: SessionManager,
+    private val activityFeedInvalidator: ActivityFeedInvalidator,
     private val placeCache: PlaceCacheDataSource = NoOpPlaceCacheDataSource,
 ) : TravelRepository {
     private val remotePlaces = MutableStateFlow<List<Place>>(emptyList())
@@ -77,7 +79,27 @@ class DefaultTravelRepository @Inject constructor(
     override suspend fun getCollection(id: String): Collection? =
         (refreshCollectionDetail(id) as? RepositoryResult.Success)?.value
             ?: localUserState.getCollection(id)
-    override suspend fun getActivity(): List<ActivityItem> = activityDemo.getActivity()
+
+    override suspend fun loadActivityPage(page: Int, size: Int): RepositoryResult<ActivityFeedPage> =
+        try {
+            when (val result = visitsRemote.publicActivity(page, size)) {
+                is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+                is RemoteResult.Success -> mapOrValidation {
+                    val response = result.value
+                    RepositoryResult.Success(
+                        ActivityFeedPage(
+                            items = response.content.map { it.toActivityEvent() },
+                            page = response.page,
+                            totalPages = response.totalPages,
+                            totalElements = response.totalElements,
+                            hasNext = response.hasNext,
+                        ),
+                    )
+                }
+            }
+        } catch (error: IllegalArgumentException) {
+            RepositoryResult.Failure(TravelError.Validation(error.message))
+        }
 
     override suspend fun listPlaces(
         category: PlaceCategory?,
@@ -333,6 +355,9 @@ class DefaultTravelRepository @Inject constructor(
                 val canonical = result.value.toDomain(requireUserId())
                 mergePlaces(listOf(result.value.place.toDomain()))
                 localUserState.upsertVisit(canonical)
+                if (canonical.visibility == com.emirrkls.phokarta.core.model.Visibility.PUBLIC) {
+                    activityFeedInvalidator.markDirty()
+                }
                 RepositoryResult.Success(canonical)
             }
         }

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
-import com.emirrkls.phokarta.core.model.ActivityItem
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.Visibility
@@ -21,7 +20,6 @@ import javax.inject.Inject
 
 data class SecondaryUiState(
     val collections: List<Collection> = emptyList(),
-    val activity: List<ActivityItem> = emptyList(),
     val places: List<Place> = emptyList(),
     val savedPlaceIds: Set<String> = emptySet(),
     val collectionsError: String? = null,
@@ -39,9 +37,6 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
     val uiState = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            _uiState.update { it.copy(activity = repository.getActivity()) }
-        }
         viewModelScope.launch {
             repository.refreshCatalog()
             when (val result = repository.refreshCollections()) {

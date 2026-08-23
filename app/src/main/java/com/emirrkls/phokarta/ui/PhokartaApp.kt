@@ -206,7 +206,7 @@ fun PhokartaApp() {
                 }
                 composable(Route.Search) { SearchScreen({ navController.popBackStack() }, { navController.navigate("place/$it") }) }
                 composable(Route.Map) { MapScreen(onPlace = { navController.navigate("place/$it") }) }
-                composable(Route.Activity) { ActivityScreen({ navController.navigate("place/$it") }, { navController.navigate("collection/$it") }) }
+                composable(Route.Activity) { ActivityScreen({ navController.navigate("place/$it") }) }
                 composable(Route.Profile) {
                     ProfileScreen(
                         onPlace = { navController.navigate("place/$it") },

@@ -15,122 +15,135 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.emirrkls.phokarta.core.model.ActivityItem
 import com.emirrkls.phokarta.core.model.Collection
-import com.emirrkls.phokarta.core.model.Place
+import com.emirrkls.phokarta.feature.activity.ActivityViewModel
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
 import com.emirrkls.phokarta.feature.collections.visibilityLabel
-import com.emirrkls.phokarta.ui.components.CategoryIcon
+import com.emirrkls.phokarta.ui.components.ActivityEmptyState
+import com.emirrkls.phokarta.ui.components.ActivityErrorState
+import com.emirrkls.phokarta.ui.components.ActivityEventCard
+import com.emirrkls.phokarta.ui.components.ActivityLoadingIndicator
 import com.emirrkls.phokarta.ui.components.CollectionListCard
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
-import com.emirrkls.phokarta.ui.components.RatingBadge
-import com.emirrkls.phokarta.ui.components.TravelImage
-import com.emirrkls.phokarta.ui.components.UserAvatar
-import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import com.emirrkls.phokarta.ui.theme.Coral
+import kotlinx.coroutines.flow.distinctUntilChanged
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActivityScreen(onPlace: (String) -> Unit, onCollection: (String) -> Unit, viewModel: SecondaryViewModel = hiltViewModel()) {
+fun ActivityScreen(
+    onPlace: (String) -> Unit,
+    viewModel: ActivityViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
-        item { Column(Modifier.padding(20.dp)) { Text("From your people", style = MaterialTheme.typography.headlineLarge); Text("Fresh reasons to discover somewhere new.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-        items(state.activity, key = { it.id }) { item ->
-            val place = state.places.firstOrNull { it.id == item.placeId }
-            val collection = state.collections.firstOrNull { it.id == item.collectionId }
-            when {
-                place != null -> PlaceActivityCard(
-                    item = item,
-                    place = place,
-                    saved = place.id in state.savedPlaceIds,
-                    onOpen = { onPlace(place.id) },
-                    onSave = { viewModel.toggleSaved(place.id) },
-                )
-                collection != null -> CollectionActivityCard(
-                    item = item,
-                    collection = collection,
-                    previewPlaces = state.places.filter { it.id in collection.placeIds }.take(3),
-                    onOpen = { onCollection(collection.id) },
-                )
+    val listState = rememberLazyListState()
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onScreenResumed()
+    }
+
+    LaunchedEffect(listState, state.hasNext, state.isLoadingMore, state.isLoadingInitial) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val total = info.totalItemsCount
+            lastVisible >= total - 3 && total > 0
+        }
+            .distinctUntilChanged()
+            .collect { nearEnd ->
+                if (nearEnd && state.hasNext && !state.isLoadingMore && !state.isLoadingInitial) {
+                    viewModel.loadNextPage()
+                }
             }
-        }
     }
-}
 
-@Composable
-private fun ActivityHeader(item: ActivityItem) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        UserAvatar(item.user.avatarUrl, 42)
-        Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
-            Text(item.user.displayName, style = MaterialTheme.typography.labelLarge)
-            Text(item.message, style = MaterialTheme.typography.bodyMedium)
-        }
-        Text(item.timeLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-    }
-}
-
-@Composable
-private fun PlaceActivityCard(item: ActivityItem, place: Place, saved: Boolean, onOpen: () -> Unit, onSave: () -> Unit) {
-    Surface(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(24.dp),
-        tonalElevation = 1.dp,
+    PullToRefreshBox(
+        isRefreshing = state.isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        Column(Modifier.padding(14.dp)) {
-            ActivityHeader(item)
-            Spacer(Modifier.height(12.dp))
-            Surface(Modifier.fillMaxWidth().clickable(onClick = onOpen), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(18.dp)) {
-                Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TravelImage(place.coverImage, place.name, Modifier.size(78.dp).clip(RoundedCornerShape(14.dp)))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(place.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            CategoryIcon(place.category, size = 15.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${place.category.label} · ${place.city}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                        }
-                        activityScore(item.message)?.let { score ->
-                            Spacer(Modifier.height(7.dp))
-                            RatingBadge(score)
+        when {
+            state.isLoadingInitial && state.items.isEmpty() -> {
+                Column(Modifier.fillMaxSize()) {
+                    ActivityHeader()
+                    ActivityLoadingIndicator()
+                }
+            }
+            state.errorMessage != null && state.items.isEmpty() -> {
+                Column(Modifier.fillMaxSize()) {
+                    ActivityHeader()
+                    ActivityErrorState(
+                        message = state.errorMessage.orEmpty(),
+                        onRetry = viewModel::retry,
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 110.dp),
+                ) {
+                    item { ActivityHeader() }
+                    if (state.items.isEmpty()) {
+                        item { ActivityEmptyState() }
+                    } else {
+                        items(state.items, key = { it.visitId }) { event ->
+                            ActivityEventCard(
+                                event = event,
+                                currentUserId = state.currentUserId,
+                                expanded = event.visitId in state.expandedReviewIds,
+                                onToggleExpand = { viewModel.toggleReviewExpanded(event.visitId) },
+                                onOpenPlace = { onPlace(event.place.id) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                            )
                         }
                     }
-                    IconButton(onClick = onSave) {
-                        Icon(
-                            if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            WantToGoCopy.saveContentDescription(saved),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                    state.loadMoreErrorMessage?.let { error ->
+                        item {
+                            Column(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = viewModel::retryLoadMore) { Text("Retry") }
+                            }
+                        }
+                    }
+                    if (state.isLoadingMore) {
+                        item { ActivityLoadingIndicator() }
                     }
                 }
             }
@@ -139,40 +152,15 @@ private fun PlaceActivityCard(item: ActivityItem, place: Place, saved: Boolean, 
 }
 
 @Composable
-private fun CollectionActivityCard(item: ActivityItem, collection: Collection, previewPlaces: List<Place>, onOpen: () -> Unit) {
-    Surface(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(24.dp),
-        tonalElevation = 1.dp,
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            ActivityHeader(item)
-            Spacer(Modifier.height(12.dp))
-            Surface(Modifier.fillMaxWidth().clickable(onClick = onOpen), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(18.dp)) {
-                Column {
-                    Row(Modifier.fillMaxWidth().height(76.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        val previews = previewPlaces.ifEmpty { emptyList() }
-                        if (previews.isEmpty()) {
-                            TravelImage(collection.coverImage, collection.title, Modifier.fillMaxSize())
-                        } else {
-                            previews.forEach { place -> TravelImage(place.coverImage, place.name, Modifier.weight(1f).height(76.dp)) }
-                        }
-                    }
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(collection.title, style = MaterialTheme.typography.titleMedium)
-                            Text("${collection.placeIds.size} places", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Open collection", tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
+private fun ActivityHeader() {
+    Column(Modifier.padding(20.dp)) {
+        Text("Community activity", style = MaterialTheme.typography.headlineLarge)
+        Text(
+            "Recent public visits from travelers.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
-
-private fun activityScore(message: String): Double? = Regex("""\b\d{1,2}\.\d\b""").find(message)?.value?.toDoubleOrNull()
 
 @Composable
 fun CollectionsScreen(

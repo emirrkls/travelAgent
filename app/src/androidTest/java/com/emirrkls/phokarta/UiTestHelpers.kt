@@ -38,8 +38,11 @@ fun AndroidComposeTestRule<*, *>.signInIfNeeded() {
 }
 
 fun AndroidComposeTestRule<*, *>.waitForExplore() {
-    waitUntil(timeoutMillis = 10_000) {
+    waitUntil(timeoutMillis = 20_000) {
         onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty() ||
             onAllNodesWithText("Where to next", substring = true).fetchSemanticsNodes().isNotEmpty()
+    }
+    waitUntil(timeoutMillis = 10_000) {
+        onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
     }
 }

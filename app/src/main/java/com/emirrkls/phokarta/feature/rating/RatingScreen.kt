@@ -255,7 +255,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             OutlinedTextField(
                 state.review,
                 viewModel::setReview,
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Public review input" },
                 label = { Text("Public review") },
                 placeholder = { Text("What should friends know?") },
                 minLines = 3,
@@ -268,7 +270,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             OutlinedTextField(
                 state.note,
                 viewModel::setNote,
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Private memory input" },
                 label = { Text("Private memory") },
                 placeholder = { Text("A detail only you need") },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null) },

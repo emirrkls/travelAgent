@@ -3,54 +3,71 @@ package com.emirrkls.phokarta.feature.rating
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
-import com.emirrkls.phokarta.core.model.Visit
-import com.emirrkls.phokarta.core.data.RepositoryResult
-import com.emirrkls.phokarta.core.data.TravelError
+import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.util.UUID
-import javax.inject.Inject
-import kotlin.math.roundToInt
 
 data class RatingUiState(
     val place: Place? = null,
-    val overall: Float = 8f,
-    val dimensions: Map<RatingDimension, Float> = emptyMap(),
-    val review: String = "",
-    val note: String = "",
-    val visitedAt: LocalDate = LocalDate.now(),
+    val draft: VisitDraft = VisitDraft(),
     val isPublishing: Boolean = false,
     val published: Boolean = false,
     val publishError: String? = null,
+    val dateError: String? = null,
     val isLoading: Boolean = true,
     val loadError: String? = null,
     val isNotFound: Boolean = false,
     val hasExistingVisits: Boolean = false,
-)
+    val existingVisitCount: Int = 0,
+) {
+    val overall: Float get() = draft.overallScore
+    val dimensions: Map<RatingDimension, Float> get() = draft.dimensions
+    val review: String get() = draft.publicReview
+    val note: String get() = draft.privateMemory
+    val visitedAt: LocalDate get() = draft.visitDate
+    val dimensionsExpanded: Boolean get() = draft.dimensionsExpanded
+    val canPublish: Boolean get() = VisitDraftLogic.canPublish(draft) && !isPublishing
+}
 
 @HiltViewModel
-class RatingViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val repository: TravelRepository) : ViewModel() {
+class RatingViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val repository: TravelRepository,
+) : ViewModel() {
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val _uiState = MutableStateFlow(RatingUiState())
     val uiState = _uiState.asStateFlow()
+    private var publishInFlight = false
+
     init {
         load()
         viewModelScope.launch {
             repository.observeVisits().collect { visits ->
-                _uiState.update { it.copy(hasExistingVisits = visits.any { visit -> visit.placeId == placeId }) }
+                val count = VisitStateLogic.visitCount(visits, placeId)
+                _uiState.update {
+                    it.copy(
+                        hasExistingVisits = count > 0,
+                        existingVisitCount = count,
+                    )
+                }
             }
         }
     }
+
     fun retryLoad() = load()
+
     private fun load() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, loadError = null, isNotFound = false) }
@@ -70,41 +87,69 @@ class RatingViewModel @Inject constructor(savedStateHandle: SavedStateHandle, pr
             }
         }
     }
-    fun setOverall(value: Float) = _uiState.update { it.copy(overall = value.roundToTenth()) }
-    fun enableDimension(name: RatingDimension) = _uiState.update { state ->
-        if (name in state.dimensions) state else state.copy(dimensions = state.dimensions + (name to state.overall))
+
+    fun setOverall(value: Float) = updateDraft { it.copy(overallScore = value.roundToTenth()) }
+
+    fun toggleDimensionsExpanded() = updateDraft { it.copy(dimensionsExpanded = !it.dimensionsExpanded) }
+
+    fun enableDimension(name: RatingDimension) = updateDraft { draft ->
+        if (name in draft.dimensions) draft else draft.copy(dimensions = draft.dimensions + (name to draft.overallScore))
     }
-    fun setDimension(name: RatingDimension, value: Float) = _uiState.update { it.copy(dimensions = it.dimensions + (name to value.roundToTenth())) }
-    fun removeDimension(name: RatingDimension) = _uiState.update { it.copy(dimensions = it.dimensions - name) }
-    fun setReview(value: String) = _uiState.update { it.copy(review = value) }
-    fun setNote(value: String) = _uiState.update { it.copy(note = value) }
-    fun setVisitedAt(value: LocalDate) = _uiState.update { it.copy(visitedAt = value) }
+
+    fun setDimension(name: RatingDimension, value: Float) = updateDraft {
+        it.copy(dimensions = it.dimensions + (name to value.roundToTenth()))
+    }
+
+    fun removeDimension(name: RatingDimension) = updateDraft {
+        it.copy(dimensions = it.dimensions - name)
+    }
+
+    fun setReview(value: String) = updateDraft { it.copy(publicReview = value) }
+
+    fun setNote(value: String) = updateDraft { it.copy(privateMemory = value) }
+
+    fun setVisitedAt(value: LocalDate) {
+        val error = VisitDraftLogic.validateDate(value)
+        updateDraft { it.copy(visitDate = value) }
+        _uiState.update { it.copy(dateError = error) }
+    }
+
+    fun resetVisitedAtToToday() = setVisitedAt(LocalDate.now())
+
     fun publish() {
         val state = _uiState.value
-        if (state.place == null || state.isPublishing) return
+        if (state.place == null || !state.canPublish || publishInFlight) return
+        publishInFlight = true
         _uiState.update { it.copy(isPublishing = true, publishError = null) }
         viewModelScope.launch {
             val result = repository.publishVisit(
-                Visit(
-                    UUID.randomUUID().toString(),
-                    repository.currentUser.id,
-                    placeId,
-                    state.visitedAt,
-                    state.overall.toDouble(),
-                    state.dimensions.mapValues { it.value.toDouble() },
-                    state.review.trim(),
-                    state.note.trim(),
+                VisitDraftLogic.toVisit(
+                    draft = state.draft,
+                    placeId = placeId,
+                    userId = repository.currentUser.id,
                 ),
             )
             when (result) {
-                is RepositoryResult.Success -> _uiState.update { it.copy(published = true) }
+                is RepositoryResult.Success -> {
+                    repository.refreshOwnerVisits()
+                    _uiState.update { it.copy(published = true) }
+                }
                 is RepositoryResult.Failure -> {
                     _uiState.update { it.copy(publishError = result.error.toUserMessage()) }
                 }
             }
+            publishInFlight = false
             _uiState.update { it.copy(isPublishing = false) }
         }
     }
-}
 
-private fun Float.roundToTenth(): Float = (this * 10).roundToInt() / 10f
+    private fun updateDraft(transform: (VisitDraft) -> VisitDraft) {
+        _uiState.update { state ->
+            val nextDraft = transform(state.draft)
+            state.copy(
+                draft = nextDraft,
+                dateError = VisitDraftLogic.validateDate(nextDraft.visitDate),
+            )
+        }
+    }
+}

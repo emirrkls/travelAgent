@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -25,8 +26,11 @@ enum class ProfilePlacesSegment { VISITS, SAVED }
 data class ProfileUiState(
     val user: User,
     val visitedPlaces: List<VisitedPlace> = emptyList(),
+    val visitSummary: VisitStateLogic.ProfileVisitSummary = VisitStateLogic.ProfileVisitSummary(0, 0, null),
+    val placeVisitCounts: Map<String, Int> = emptyMap(),
     val savedPlaces: List<Place> = emptyList(),
     val savedPlaceIds: Set<String> = emptySet(),
+    val visitedPlaceIds: Set<String> = emptySet(),
     val collections: List<Collection> = emptyList(),
     val placesSegment: ProfilePlacesSegment = ProfilePlacesSegment.VISITS,
     val saveErrorMessage: String? = null,
@@ -75,19 +79,25 @@ class ProfileViewModel @Inject constructor(
         repository.observePlaces(),
         repository.observeCollections(),
         repository.observeSavedPlaceIds(),
-    ) { visits, places, collections, saved ->
-        CatalogSnapshot(visits, places, collections, saved)
+        repository.observeVisitedPlaceIds(),
+    ) { visits, places, collections, saved, visited ->
+        CatalogSnapshot(visits, places, collections, saved, visited)
     }
 
     val uiState = combine(catalogState, placesSegment, saveError) { catalog, segment, error ->
         val byId = catalog.places.associateBy { it.id }
+        val sortedVisits = VisitStateLogic.sortedNewestFirst(catalog.visits)
+        val counts = sortedVisits.groupingBy { it.placeId }.eachCount()
         ProfileUiState(
             user = repository.currentUser,
-            visitedPlaces = catalog.visits.mapNotNull { visit ->
+            visitedPlaces = sortedVisits.mapNotNull { visit ->
                 byId[visit.placeId]?.let { VisitedPlace(visit, it) }
             },
+            visitSummary = VisitStateLogic.profileSummary(catalog.visits),
+            placeVisitCounts = counts,
             savedPlaces = catalog.saved.toList().mapNotNull { byId[it] },
             savedPlaceIds = catalog.saved,
+            visitedPlaceIds = catalog.visited,
             collections = catalog.collections,
             placesSegment = segment,
             saveErrorMessage = error,
@@ -103,5 +113,6 @@ class ProfileViewModel @Inject constructor(
         val places: List<Place>,
         val collections: List<Collection>,
         val saved: Set<String>,
+        val visited: Set<String>,
     )
 }

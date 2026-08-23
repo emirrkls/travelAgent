@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.LocationSearching
@@ -335,15 +336,25 @@ private fun TravelMapMarker(place: Place, selected: Boolean, saved: Boolean, vis
         ) {
             CategoryIcon(place.category, size = if (selected) 17.dp else 14.dp, tint = content)
             Text(formatScore(place.communityScore), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-            if (visited || saved) {
-                Box(
-                    Modifier
-                        .size(6.dp)
-                        .background(
-                            if (selected) content else MaterialTheme.colorScheme.secondary,
-                            CircleShape,
-                        ),
-                )
+            if (saved || visited) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (saved) {
+                        Icon(
+                            Icons.Outlined.BookmarkBorder,
+                            contentDescription = "Saved",
+                            modifier = Modifier.size(if (selected) 11.dp else 9.dp),
+                            tint = if (selected) content else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (visited) {
+                        Icon(
+                            Icons.Rounded.CheckCircle,
+                            contentDescription = "Visited",
+                            modifier = Modifier.size(if (selected) 11.dp else 9.dp),
+                            tint = if (selected) content else MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                }
             }
         }
     }

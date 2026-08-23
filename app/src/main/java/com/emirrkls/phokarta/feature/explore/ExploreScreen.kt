@@ -101,16 +101,17 @@ fun ExploreScreen(
                     onPlace = onPlace,
                     onSave = viewModel::toggleSaved,
                     onSeeAll = onWantToGo,
+                    visited = state.visitedPlaceIds,
                 )
                 Spacer(Modifier.height(34.dp))
             }
         }
         if (selectedCategory != null) {
-            item { PlaceSection("${selectedCategory.label} picks", state.filteredPlaces, state.savedPlaceIds, onPlace, viewModel::toggleSaved) }
+            item { PlaceSection("${selectedCategory.label} picks", state.filteredPlaces, state.savedPlaceIds, state.visitedPlaceIds, onPlace, viewModel::toggleSaved) }
         } else {
-            item { FeaturedSection("Picked by people you trust", state.places.take(5), state.savedPlaceIds, onPlace, viewModel::toggleSaved) }
-            item { Spacer(Modifier.height(34.dp)); PlaceSection("Hidden gems", state.places.drop(5).take(4), state.savedPlaceIds, onPlace, viewModel::toggleSaved) }
-            item { Spacer(Modifier.height(34.dp)); PlaceSection("Aegean summer", state.places.filter { it.category == PlaceCategory.BEACH }, state.savedPlaceIds, onPlace, viewModel::toggleSaved) }
+            item { FeaturedSection("Picked by people you trust", state.places.take(5), state.savedPlaceIds, state.visitedPlaceIds, onPlace, viewModel::toggleSaved) }
+            item { Spacer(Modifier.height(34.dp)); PlaceSection("Hidden gems", state.places.drop(5).take(4), state.savedPlaceIds, state.visitedPlaceIds, onPlace, viewModel::toggleSaved) }
+            item { Spacer(Modifier.height(34.dp)); PlaceSection("Aegean summer", state.places.filter { it.category == PlaceCategory.BEACH }, state.savedPlaceIds, state.visitedPlaceIds, onPlace, viewModel::toggleSaved) }
             item {
                 Spacer(Modifier.height(30.dp))
                 Surface(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clickable(onClick = onCollections), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(24.dp)) {
@@ -139,6 +140,7 @@ private fun PlaceSection(
     title: String,
     places: List<Place>,
     saved: Set<String>,
+    visited: Set<String>,
     onPlace: (String) -> Unit,
     onSave: (String) -> Unit,
     onSeeAll: (() -> Unit)? = null,
@@ -149,18 +151,22 @@ private fun PlaceSection(
         }
         Spacer(Modifier.height(14.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(places, key = { it.id }) { place -> PlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }) }
+            items(places, key = { it.id }) { place ->
+                PlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }, place.id in visited)
+            }
         }
     }
 }
 
 @Composable
-private fun FeaturedSection(title: String, places: List<Place>, saved: Set<String>, onPlace: (String) -> Unit, onSave: (String) -> Unit) {
+private fun FeaturedSection(title: String, places: List<Place>, saved: Set<String>, visited: Set<String>, onPlace: (String) -> Unit, onSave: (String) -> Unit) {
     Column {
         Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader(title, "See all") }
         Spacer(Modifier.height(14.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(places, key = { it.id }) { place -> FeaturedPlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }) }
+            items(places, key = { it.id }) { place ->
+                FeaturedPlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }, place.id in visited)
+            }
         }
     }
 }

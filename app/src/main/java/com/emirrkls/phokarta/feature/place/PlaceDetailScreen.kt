@@ -39,9 +39,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,7 +64,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitStateLogic
+import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
+import com.emirrkls.phokarta.ui.components.VisitHistoryRow
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.feature.collections.CollectionPickerSheet
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
@@ -78,22 +81,30 @@ import java.time.format.DateTimeFormatter
 fun PlaceDetailScreen(
     onBack: () -> Unit,
     onRate: () -> Unit,
+    visitPublished: Boolean = false,
+    onVisitPublishedConsumed: () -> Unit = {},
     viewModel: PlaceDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val place = state.place
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val snackbarHostState = remember { SnackbarHostState() }
     var showPicker by remember { mutableStateOf(false) }
     var showCreate by remember { mutableStateOf(false) }
     var awaitingCreateSuccess by remember { mutableStateOf(false) }
-    var selectedVisit by remember { mutableStateOf<Visit?>(null) }
+    var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
     val hasVisited = state.visits.isNotEmpty()
+    val visitCount = state.visits.size
+    val latestVisit = state.visits.firstOrNull()
     val inAnyList = state.collections.any { place?.id in it.placeIds }
-    val rateLabel = if (hasVisited) {
-        "Been here · Rate another visit"
-    } else {
-        "Been here · Rate this place"
+    val rateLabel = if (hasVisited) "Rate another visit" else "Been here"
+
+    LaunchedEffect(visitPublished) {
+        if (visitPublished) {
+            snackbarHostState.showSnackbar("Visit added")
+            onVisitPublishedConsumed()
+        }
     }
 
     LaunchedEffect(state.shareText) {
@@ -124,6 +135,7 @@ fun PlaceDetailScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Surface(shadowElevation = 12.dp) {
                 Button(
@@ -255,7 +267,27 @@ fun PlaceDetailScreen(
                     place.friendsScore?.let { ScorePill("Friends", it, modifier = Modifier.weight(1f)) }
                     place.communityScore?.let {
                         ScorePill("Community", it, modifier = Modifier.weight(1f))
-                    } ?: Text("Community · Not rated yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } ?: Text("Community · Not rated", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                }
+                latestVisit?.let { visit ->
+                    Spacer(Modifier.height(12.dp))
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Text("Your latest visit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "${String.format("%.1f", visit.overallRating)} · ${visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMM yyyy"))}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (visitCount > 1) {
+                                Text(
+                                    VisitStateLogic.repeatVisitLabel(visitCount).orEmpty(),
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -306,10 +338,21 @@ fun PlaceDetailScreen(
                 }
                 if (state.visits.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
-                    Text("Your visits", style = MaterialTheme.typography.titleLarge)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Your visits", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        Text(
+                            if (visitCount == 1) "1 visit" else "$visitCount visits",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     state.visits.forEach { visit ->
-                        VisitHistoryRow(visit = visit, onClick = { selectedVisit = visit })
+                        VisitHistoryRow(
+                            visit = visit,
+                            repeatLabel = if (visitCount > 1 && visit.id == latestVisit?.id) "Most recent" else null,
+                            onClick = { selectedVisit = visit },
+                        )
                         Spacer(Modifier.height(10.dp))
                     }
                 }
@@ -450,106 +493,11 @@ fun PlaceDetailScreen(
     }
 
     selectedVisit?.let { visit ->
-        VisitDetailSheet(
+        OwnerVisitDetailSheet(
             placeName = place.name,
             visit = visit,
             onDismiss = { selectedVisit = null },
         )
-    }
-}
-
-@Composable
-private fun VisitHistoryRow(visit: Visit, onClick: () -> Unit) {
-    val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("MMM yyyy"))
-    val highlights = visit.ratingDimensions.entries
-        .sortedByDescending { it.value }
-        .take(3)
-        .joinToString(" · ") { "${it.key.label} ${String.format("%.1f", it.value)}" }
-    Surface(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 1.dp,
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "$dateLabel — ${String.format("%.1f", visit.overallRating)}",
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            if (highlights.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    highlights,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (visit.review.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    visit.review,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun VisitDetailSheet(placeName: String, visit: Visit, onDismiss: () -> Unit) {
-    val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
-        ) {
-            Text(placeName, style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "$dateLabel · ${String.format("%.1f", visit.overallRating)}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (visit.review.isNotBlank()) {
-                Spacer(Modifier.height(16.dp))
-                Text("Review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                Text(visit.review, style = MaterialTheme.typography.bodyLarge)
-            }
-            if (visit.personalNote.isNotBlank()) {
-                Spacer(Modifier.height(18.dp))
-                Text("Private memory", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    visit.personalNote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            } else {
-                Spacer(Modifier.height(18.dp))
-                Text(
-                    "No private memory for this visit.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
     }
 }
 

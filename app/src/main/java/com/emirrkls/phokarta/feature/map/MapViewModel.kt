@@ -145,12 +145,11 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 boundsPlaces,
-                repository.observeVisits(),
+                repository.observeVisitedPlaceIds(),
                 repository.observeSavedPlaceIds(),
                 filters,
                 appliedViewport,
-            ) { places, visits, saved, currentFilters, viewport ->
-                val visited = visits.mapTo(mutableSetOf()) { it.placeId }
+            ) { places, visited, saved, currentFilters, viewport ->
                 MapData(
                     places = places,
                     visiblePlaces = filterMapPlaces(places, currentFilters, visited, saved, viewport),

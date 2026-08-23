@@ -154,7 +154,7 @@ fun SectionHeader(title: String, action: String? = null, onAction: (() -> Unit)?
 }
 
 @Composable
-fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> Unit) {
+fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> Unit, visited: Boolean = false) {
     Card(
         modifier = Modifier.width(316.dp).height(336.dp).clickable(onClick = onClick),
         shape = CardShape,
@@ -184,6 +184,9 @@ fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave:
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     place.friendsScore?.let { RatingBadge(it, emphasized = true) }
                     Text(if (place.friendsScore != null) "Friends · ${place.city}" else place.city, color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    if (visited) {
+                        VisitedBadge()
+                    }
                 }
                 place.friendSignal?.let {
                     Spacer(Modifier.height(8.dp))
@@ -195,7 +198,7 @@ fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave:
 }
 
 @Composable
-fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> Unit) {
+fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> Unit, visited: Boolean = false) {
     Card(
         modifier = Modifier.width(254.dp).clickable(onClick = onClick),
         shape = CardShape,
@@ -220,6 +223,10 @@ fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> U
                         RatingBadge(it)
                         Spacer(Modifier.width(8.dp))
                         Text("Friends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (visited) {
+                        VisitedBadge()
+                        Spacer(Modifier.width(8.dp))
                     }
                     Spacer(Modifier.weight(1f))
                     Text("${place.ratingCount} ratings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -278,7 +285,7 @@ fun CompactPlaceCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CommunityRatingLabel(place.communityScore)
                     if (visited) {
-                        Text("Visited", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                        VisitedBadge()
                     }
                 }
             }

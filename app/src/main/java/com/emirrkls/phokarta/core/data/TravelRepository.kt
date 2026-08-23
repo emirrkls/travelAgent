@@ -21,6 +21,7 @@ interface TravelRepository {
     val currentUser: User
     fun observePlaces(): Flow<List<Place>>
     fun observeVisits(): Flow<List<Visit>>
+    fun observeVisitedPlaceIds(): Flow<Set<String>>
     fun observeSavedPlaceIds(): Flow<Set<String>>
     fun observeCollections(): Flow<List<Collection>>
     suspend fun getPlace(id: String): Place?

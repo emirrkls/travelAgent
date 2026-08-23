@@ -11,8 +11,10 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitStateLogic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 open class TestTravelRepository : TravelRepository {
     val places = MutableStateFlow(MockPlaceCatalogDataSource.mockPlaces.take(4))
@@ -23,6 +25,7 @@ open class TestTravelRepository : TravelRepository {
 
     override fun observePlaces(): Flow<List<Place>> = places
     override fun observeVisits(): Flow<List<Visit>> = visits
+    override fun observeVisitedPlaceIds(): Flow<Set<String>> = visits.map(VisitStateLogic::visitedPlaceIds)
     override fun observeSavedPlaceIds(): Flow<Set<String>> = saved
     override fun observeCollections(): Flow<List<Collection>> = collections
     override suspend fun getPlace(id: String) = places.value.firstOrNull { it.id == id }
@@ -42,7 +45,10 @@ open class TestTravelRepository : TravelRepository {
     override suspend fun refreshCollections(page: Int, size: Int): RepositoryResult<List<Collection>> = RepositoryResult.Success(collections.value)
     override suspend fun refreshCollectionDetail(id: String): RepositoryResult<Collection> =
         getCollection(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
-    override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> = RepositoryResult.Success(visit)
+    override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> {
+        visits.value = visits.value + visit
+        return RepositoryResult.Success(visit)
+    }
     override suspend fun toggleSaved(placeId: String): RepositoryResult<Boolean> {
         val value = placeId !in saved.value
         saved.value = if (value) saved.value + placeId else saved.value - placeId

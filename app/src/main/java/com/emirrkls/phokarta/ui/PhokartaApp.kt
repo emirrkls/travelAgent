@@ -219,8 +219,26 @@ fun PhokartaApp() {
                     )
                 }
                 composable(Route.Collections) { CollectionsScreen({ navController.popBackStack() }, { navController.navigate("collection/$it") }) }
-                composable(Route.Place, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) { PlaceDetailScreen({ navController.popBackStack() }, { navController.navigate("rating/${it.arguments?.getString("placeId")}") }) }
-                composable(Route.Rating, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) { RatingScreen({ navController.popBackStack() }, { name -> navController.navigate("success/${android.net.Uri.encode(name)}") { popUpTo(Route.Explore) } }) }
+                composable(Route.Place, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
+                    val backStackEntry = it
+                    PlaceDetailScreen(
+                        onBack = { navController.popBackStack() },
+                        onRate = { navController.navigate("rating/${backStackEntry.arguments?.getString("placeId")}") },
+                        visitPublished = backStackEntry.savedStateHandle.get<Boolean>("visitPublished") == true,
+                        onVisitPublishedConsumed = { backStackEntry.savedStateHandle["visitPublished"] = false },
+                    )
+                }
+                composable(Route.Rating, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
+                    RatingScreen(
+                        onBack = { navController.popBackStack() },
+                        onPublished = {
+                            navController.previousBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("visitPublished", true)
+                            navController.popBackStack()
+                        },
+                    )
+                }
                 composable(Route.Collection, arguments = listOf(navArgument("collectionId") { type = NavType.StringType })) { entry -> CollectionDetailScreen(checkNotNull(entry.arguments?.getString("collectionId")), { navController.popBackStack() }, { navController.navigate("place/$it") }) }
                 composable(Route.Success, arguments = listOf(navArgument("placeName") { type = NavType.StringType })) { entry -> SuccessScreen(entry.arguments?.getString("placeName").orEmpty(), { navController.navigate(Route.Profile) { popUpTo(Route.Explore); launchSingleTop = true } }, { navController.navigate(Route.Explore) { popUpTo(Route.Explore) { inclusive = true } } }) }
             }

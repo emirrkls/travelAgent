@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
@@ -21,6 +22,7 @@ import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,6 +64,8 @@ class DefaultTravelRepository @Inject constructor(
 
     override fun observePlaces(): Flow<List<Place>> = remotePlaces
     override fun observeVisits(): Flow<List<Visit>> = localUserState.observeVisits()
+    override fun observeVisitedPlaceIds(): Flow<Set<String>> =
+        observeVisits().map(VisitStateLogic::visitedPlaceIds)
     override fun observeSavedPlaceIds(): Flow<Set<String>> = localUserState.observeSavedPlaceIds()
     override fun observeCollections(): Flow<List<Collection>> = localUserState.observeCollections()
     override suspend fun getPlace(id: String): Place? =

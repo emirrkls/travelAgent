@@ -98,45 +98,30 @@ class CollectionsAndVisitHistoryFlowTest {
 
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Been here · Rate this place").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Been here · Rate this place").performClick()
+        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Visit published").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Back to Explore").performClick()
-
-        composeRule.waitForExplore()
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Your visits").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Been here · Rate another visit").performClick()
+        composeRule.onNodeWithText("Rate another visit").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Visit published").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Back to Explore").performClick()
-
-        composeRule.waitForExplore()
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-
-        composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Your visits").assertIsDisplayed()
-        composeRule.onNodeWithText("Been here · Rate another visit").assertIsDisplayed()
+        composeRule.onNodeWithText("Rate another visit").assertIsDisplayed()
     }
 }

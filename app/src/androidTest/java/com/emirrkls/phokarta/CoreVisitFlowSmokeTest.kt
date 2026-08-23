@@ -33,7 +33,7 @@ class CoreVisitFlowSmokeTest {
         composeRule.waitForExplore()
 
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onNodeWithText("Been here · Rate this place").performClick()
+        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
@@ -41,10 +41,16 @@ class CoreVisitFlowSmokeTest {
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Visit published").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Visit added").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("See it on your profile").performClick()
 
+        composeRule.runOnUiThread {
+            composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        }
+        composeRule.waitForExplore()
+        composeRule.onNodeWithText("Profile").performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }

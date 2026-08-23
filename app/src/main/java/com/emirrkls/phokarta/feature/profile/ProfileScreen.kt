@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,8 +49,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.CollectionCard
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
+import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.SectionHeader
 import com.emirrkls.phokarta.ui.components.TravelImage
+import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.theme.Coral
 
 @Composable
@@ -61,6 +64,8 @@ fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
+    var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
+    var selectedPlaceName by remember { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
@@ -158,15 +163,33 @@ fun ProfileScreen(
                 }
                 if (state.placesSegment == ProfilePlacesSegment.VISITS) {
                     item {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            ProfileSummaryChip("${state.visitSummary.totalVisits} visits")
+                            ProfileSummaryChip("${state.visitSummary.placesVisited} places")
+                            state.visitSummary.averageGivenScore?.let {
+                                ProfileSummaryChip(String.format("Avg %.1f", it))
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    item {
                         Box(Modifier.padding(horizontal = 16.dp)) {
-                            SectionHeader("Your visits", "${state.visitedPlaces.size} total")
+                            SectionHeader("Your visits", "${state.visitSummary.totalVisits} total")
                         }
                     }
                     items(state.visitedPlaces, key = { it.visit.id }) { visited ->
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
                             CompactPlaceCard(
                                 place = visited.place,
-                                onClick = { onPlace(visited.place.id) },
+                                onClick = {
+                                    selectedPlaceName = visited.place.name
+                                    selectedVisit = visited.visit
+                                },
                                 saved = visited.place.id in state.savedPlaceIds,
                                 visited = true,
                                 onSave = { viewModel.toggleSaved(visited.place.id) },
@@ -174,14 +197,20 @@ fun ProfileScreen(
                             Row(
                                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                Column {
+                                    Text(
+                                        visited.visit.visitedAt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    VisitStateLogic.repeatVisitLabel(state.placeVisitCounts[visited.place.id] ?: 1)?.let { label ->
+                                        Text(label, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
                                 Text(
-                                    visited.visit.visitedAt.toString(),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                Text(
-                                    String.format("Your score %.1f", visited.visit.overallRating),
+                                    String.format("%.1f", visited.visit.overallRating),
                                     color = Coral,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.bodyMedium,
@@ -239,6 +268,20 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+    selectedVisit?.let { visit ->
+        OwnerVisitDetailSheet(
+            placeName = selectedPlaceName,
+            visit = visit,
+            onDismiss = { selectedVisit = null },
+        )
+    }
+}
+
+@Composable
+private fun ProfileSummaryChip(label: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(50)) {
+        Text(label, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
     }
 }
 

@@ -22,6 +22,7 @@ data class ExploreUiState(
     val savedPlaces: List<Place> = emptyList(),
     val selectedCategory: PlaceCategory? = null,
     val savedPlaceIds: Set<String> = emptySet(),
+    val visitedPlaceIds: Set<String> = emptySet(),
     val currentUser: User? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
@@ -37,8 +38,9 @@ class ExploreViewModel @Inject constructor(private val repository: TravelReposit
         repository.observePlaces(),
         selectedCategory,
         repository.observeSavedPlaceIds(),
+        repository.observeVisitedPlaceIds(),
         refreshState,
-    ) { places, category, saved, refresh ->
+    ) { places, category, saved, visited, refresh ->
         val savedOrder = saved.toList()
         val byId = places.associateBy { it.id }
         ExploreUiState(
@@ -46,6 +48,7 @@ class ExploreViewModel @Inject constructor(private val repository: TravelReposit
             savedPlaces = savedOrder.mapNotNull { byId[it] },
             selectedCategory = category,
             savedPlaceIds = saved,
+            visitedPlaceIds = visited,
             currentUser = repository.currentUser,
             isLoading = refresh.first,
             errorMessage = refresh.second,

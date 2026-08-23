@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.core.data
 
+import com.emirrkls.phokarta.core.auth.AuthState
+import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
@@ -8,27 +10,62 @@ import com.emirrkls.phokarta.core.database.mapper.toDomain
 import com.emirrkls.phokarta.core.database.mapper.toEntity
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Visit
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 @Singleton
+@OptIn(ExperimentalCoroutinesApi::class)
 class RoomLocalUserStateDataSource @Inject constructor(
     private val visitDao: VisitDao,
     private val savedPlaceDao: SavedPlaceDao,
     private val collectionDao: CollectionDao,
+    private val sessionManager: SessionManager,
 ) : LocalUserStateDataSource {
-    override fun observeVisits(): Flow<List<Visit>> = visitDao.observeVisitsWithDimensions()
-        .map { visits -> visits.map { it.toDomain() } }
+    private fun ownerIdOrNull(): String? = sessionManager.currentUserId()
 
-    override fun observeSavedPlaceIds(): Flow<Set<String>> = savedPlaceDao.observeSavedPlaceIds()
-        .map { it.toSet() }
+    override fun observeVisits(): Flow<List<Visit>> =
+        sessionManager.state.flatMapLatest { state ->
+            val ownerId = (state as? AuthState.Authenticated)?.user?.id
+            if (ownerId == null) {
+                flowOf(emptyList())
+            } else {
+                visitDao.observeVisitsWithDimensions(ownerId).map { visits ->
+                    visits.map { it.toDomain() }
+                }
+            }
+        }
 
-    override fun observeCollections(): Flow<List<Collection>> = collectionDao.observeCollectionsWithPlaceIds()
-        .map { collections -> collections.map { it.toDomain() } }
+    override fun observeSavedPlaceIds(): Flow<Set<String>> =
+        sessionManager.state.flatMapLatest { state ->
+            val ownerId = (state as? AuthState.Authenticated)?.user?.id
+            if (ownerId == null) {
+                flowOf(emptySet())
+            } else {
+                savedPlaceDao.observeSavedPlaceIds(ownerId).map { it.toSet() }
+            }
+        }
 
-    override suspend fun getCollection(id: String): Collection? = collectionDao.getCollectionWithPlaceIds(id)?.toDomain()
+    override fun observeCollections(): Flow<List<Collection>> =
+        sessionManager.state.flatMapLatest { state ->
+            val ownerId = (state as? AuthState.Authenticated)?.user?.id
+            if (ownerId == null) {
+                flowOf(emptyList())
+            } else {
+                collectionDao.observeCollectionsWithPlaceIds(ownerId).map { collections ->
+                    collections.map { it.toDomain() }
+                }
+            }
+        }
+
+    override suspend fun getCollection(id: String): Collection? {
+        val ownerId = ownerIdOrNull() ?: return null
+        return collectionDao.getCollectionWithPlaceIds(ownerId, id)?.toDomain()
+    }
 
     override suspend fun upsertVisit(visit: Visit) {
         visitDao.upsertVisitWithDimensions(
@@ -45,19 +82,25 @@ class RoomLocalUserStateDataSource @Inject constructor(
         )
     }
 
-    override suspend fun isSaved(placeId: String): Boolean = savedPlaceDao.getSavedPlace(placeId) != null
+    override suspend fun isSaved(placeId: String): Boolean {
+        val ownerId = ownerIdOrNull() ?: return false
+        return savedPlaceDao.getSavedPlace(ownerId, placeId) != null
+    }
 
     override suspend fun setSaved(placeId: String, saved: Boolean) {
-        savedPlaceDao.setSaved(placeId, saved, System.currentTimeMillis())
+        val ownerId = ownerIdOrNull() ?: return
+        savedPlaceDao.setSaved(ownerId, placeId, saved, System.currentTimeMillis())
     }
 
     override suspend fun replaceSavedPlaceIds(placeIds: Set<String>) {
-        savedPlaceDao.replaceSavedPlaceIds(placeIds, System.currentTimeMillis())
+        val ownerId = ownerIdOrNull() ?: return
+        savedPlaceDao.replaceSavedPlaceIds(ownerId, placeIds, System.currentTimeMillis())
     }
 
     override suspend fun upsertCollection(collection: Collection) {
+        val ownerId = ownerIdOrNull() ?: return
         val now = System.currentTimeMillis()
-        val createdAt = collectionDao.getCollectionWithPlaceIds(collection.id)
+        val createdAt = collectionDao.getCollectionWithPlaceIds(ownerId, collection.id)
             ?.collection
             ?.createdAtEpochMillis
             ?: now
@@ -68,8 +111,10 @@ class RoomLocalUserStateDataSource @Inject constructor(
     }
 
     override suspend fun replaceCollections(collections: List<Collection>) {
+        val ownerId = ownerIdOrNull() ?: return
         val now = System.currentTimeMillis()
         collectionDao.replaceCollectionsWithPlaces(
+            ownerUserId = ownerId,
             collections = collections.map { it.toEntity(now, now) },
             memberships = collections.associate { it.id to it.placeIds },
         )

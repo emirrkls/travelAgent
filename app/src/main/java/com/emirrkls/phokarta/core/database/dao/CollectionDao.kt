@@ -14,12 +14,21 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CollectionDao {
     @Transaction
-    @Query("SELECT * FROM collections ORDER BY updatedAtEpochMillis DESC, title ASC")
-    fun observeCollectionsWithPlaceIds(): Flow<List<CollectionWithPlaceIds>>
+    @Query(
+        """
+        SELECT * FROM collections
+        WHERE userId = :ownerUserId
+        ORDER BY updatedAtEpochMillis DESC, title ASC
+        """,
+    )
+    fun observeCollectionsWithPlaceIds(ownerUserId: String): Flow<List<CollectionWithPlaceIds>>
 
     @Transaction
-    @Query("SELECT * FROM collections WHERE id = :collectionId")
-    suspend fun getCollectionWithPlaceIds(collectionId: String): CollectionWithPlaceIds?
+    @Query("SELECT * FROM collections WHERE id = :collectionId AND userId = :ownerUserId")
+    suspend fun getCollectionWithPlaceIds(
+        ownerUserId: String,
+        collectionId: String,
+    ): CollectionWithPlaceIds?
 
     @Upsert
     suspend fun upsertCollection(collection: CollectionEntity)
@@ -36,8 +45,8 @@ interface CollectionDao {
     @Query("DELETE FROM collection_places WHERE collectionId = :collectionId")
     suspend fun deleteCollectionPlaces(collectionId: String)
 
-    @Query("DELETE FROM collections")
-    suspend fun deleteAllCollections()
+    @Query("DELETE FROM collections WHERE userId = :ownerUserId")
+    suspend fun deleteCollectionsForOwner(ownerUserId: String)
 
     @Query("SELECT COUNT(*) FROM collection_places WHERE collectionId = :collectionId")
     suspend fun countCollectionPlaces(collectionId: String): Int
@@ -71,10 +80,11 @@ interface CollectionDao {
 
     @Transaction
     suspend fun replaceCollectionsWithPlaces(
+        ownerUserId: String,
         collections: List<CollectionEntity>,
         memberships: Map<String, List<String>>,
     ) {
-        deleteAllCollections()
+        deleteCollectionsForOwner(ownerUserId)
         collections.forEach { collection ->
             upsertCollection(collection)
             insertCollectionPlaces(

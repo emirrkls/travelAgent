@@ -52,9 +52,9 @@ public class VisitService {
     }
 
     @Transactional
-    public VisitOwnerResponse create(CreateVisitRequest request) {
-        User user = users.findById(request.userId())
-                .orElseThrow(() -> ApiException.notFound("User", request.userId()));
+    public VisitOwnerResponse create(UUID userId, CreateVisitRequest request) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> ApiException.notFound("User", userId));
         Place place = places.findById(request.placeId())
                 .orElseThrow(() -> ApiException.notFound("Place", request.placeId()));
         Map<String, Double> dimensions = new LinkedHashMap<>();

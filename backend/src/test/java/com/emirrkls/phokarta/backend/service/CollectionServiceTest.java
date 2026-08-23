@@ -59,6 +59,27 @@ class CollectionServiceTest {
     }
 
     @Test
+    void rejectsNonOwnerAddingPlaceWithForbidden() {
+        UUID collectionId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        when(collections.findByIdForUpdate(collectionId)).thenReturn(Optional.of(collection));
+        when(collection.getUser()).thenReturn(owner);
+        when(owner.getId()).thenReturn(ownerId);
+
+        CollectionService service =
+                new CollectionService(collections, memberships, places, users, mapper);
+
+        assertThatThrownBy(() -> service.add(collectionId, otherUserId, placeId))
+                .isInstanceOfSatisfying(ApiException.class, exception -> {
+                    assertThat(exception.status().value()).isEqualTo(403);
+                    assertThat(exception.code()).isEqualTo("FORBIDDEN");
+                });
+        verify(memberships, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void removingAPlaceLocksAndTouchesTheCollection() {
         UUID collectionId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();

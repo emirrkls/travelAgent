@@ -112,7 +112,6 @@ data class DimensionScoreDto(
 
 @Serializable
 data class CreateVisitDto(
-    val userId: String,
     val placeId: String,
     val visitedAt: String,
     val overallRating: Double,
@@ -187,4 +186,57 @@ data class ApiErrorDto(
     val message: String,
     val path: String,
     val fieldErrors: Map<String, String>,
+)
+
+@Serializable
+data class RegisterRequestDto(
+    val email: String,
+    val username: String,
+    val displayName: String,
+    val password: String,
+)
+
+@Serializable
+data class LoginRequestDto(
+    val identifier: String,
+    val password: String,
+)
+
+@Serializable
+data class RefreshRequestDto(
+    val refreshToken: String,
+)
+
+@Serializable
+data class LogoutRequestDto(
+    val refreshToken: String,
+)
+
+@Serializable
+data class UserProfileDto(
+    val id: String,
+    val email: String,
+    val username: String,
+    val displayName: String,
+    val bio: String? = null,
+    val avatarUrl: String? = null,
+)
+
+@Serializable
+data class TokenPairDto(
+    val accessToken: String,
+    val refreshToken: String,
+    val tokenType: String = "Bearer",
+    val expiresIn: Long = 0L,
+    val accessTokenExpiresAt: String? = null,
+)
+
+@Serializable
+data class AuthSessionDto(
+    val user: UserProfileDto,
+    val accessToken: String,
+    val refreshToken: String,
+    val tokenType: String = "Bearer",
+    val expiresIn: Long = 0L,
+    val accessTokenExpiresAt: String? = null,
 )

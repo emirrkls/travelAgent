@@ -1,7 +1,11 @@
 package com.emirrkls.phokarta.core.network
 
 import com.emirrkls.phokarta.BuildConfig
+import com.emirrkls.phokarta.core.auth.AuthInterceptor
+import com.emirrkls.phokarta.core.auth.TokenAuthenticator
+import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.CollectionApi
+import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
@@ -38,17 +42,21 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator,
+    ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
             .callTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(authInterceptor)
+            .authenticator(tokenAuthenticator)
 
         if (BuildConfig.DEBUG) {
             builder.addInterceptor(
                 HttpLoggingInterceptor().apply {
-                    // BASIC only: never log request/response headers or bodies.
                     level = HttpLoggingInterceptor.Level.BASIC
                 },
             )
@@ -64,6 +72,14 @@ object NetworkModule {
             .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
+
+    @Provides
+    @Singleton
+    fun provideAuthApi(retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideMeApi(retrofit: Retrofit): MeApi = retrofit.create(MeApi::class.java)
 
     @Provides
     @Singleton
@@ -106,8 +122,4 @@ object NetworkModule {
     fun provideCollectionRemoteDataSource(
         source: RetrofitCollectionRemoteDataSource,
     ): CollectionRemoteDataSource = source
-
-    @Provides
-    @Singleton
-    fun provideDemoUserProvider(): DemoUserProvider = DefaultDemoUserProvider()
 }

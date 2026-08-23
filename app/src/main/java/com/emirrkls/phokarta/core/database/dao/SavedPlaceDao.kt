@@ -10,33 +10,50 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SavedPlaceDao {
-    @Query("SELECT placeId FROM saved_places ORDER BY savedAtEpochMillis DESC")
-    fun observeSavedPlaceIds(): Flow<List<String>>
+    @Query(
+        """
+        SELECT placeId FROM saved_places
+        WHERE ownerUserId = :ownerUserId
+        ORDER BY savedAtEpochMillis DESC
+        """,
+    )
+    fun observeSavedPlaceIds(ownerUserId: String): Flow<List<String>>
 
-    @Query("SELECT * FROM saved_places WHERE placeId = :placeId")
-    suspend fun getSavedPlace(placeId: String): SavedPlaceEntity?
+    @Query("SELECT * FROM saved_places WHERE ownerUserId = :ownerUserId AND placeId = :placeId")
+    suspend fun getSavedPlace(ownerUserId: String, placeId: String): SavedPlaceEntity?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSavedPlace(savedPlace: SavedPlaceEntity)
 
-    @Query("DELETE FROM saved_places WHERE placeId = :placeId")
-    suspend fun deleteSavedPlace(placeId: String)
+    @Query("DELETE FROM saved_places WHERE ownerUserId = :ownerUserId AND placeId = :placeId")
+    suspend fun deleteSavedPlace(ownerUserId: String, placeId: String)
 
-    @Query("DELETE FROM saved_places")
-    suspend fun deleteAllSavedPlaces()
+    @Query("DELETE FROM saved_places WHERE ownerUserId = :ownerUserId")
+    suspend fun deleteSavedPlacesForOwner(ownerUserId: String)
 
     @Transaction
-    suspend fun setSaved(placeId: String, saved: Boolean, nowEpochMillis: Long) {
+    suspend fun setSaved(
+        ownerUserId: String,
+        placeId: String,
+        saved: Boolean,
+        nowEpochMillis: Long,
+    ) {
         if (saved) {
-            insertSavedPlace(SavedPlaceEntity(placeId, nowEpochMillis))
+            insertSavedPlace(SavedPlaceEntity(ownerUserId, placeId, nowEpochMillis))
         } else {
-            deleteSavedPlace(placeId)
+            deleteSavedPlace(ownerUserId, placeId)
         }
     }
 
     @Transaction
-    suspend fun replaceSavedPlaceIds(placeIds: Set<String>, nowEpochMillis: Long) {
-        deleteAllSavedPlaces()
-        placeIds.forEach { insertSavedPlace(SavedPlaceEntity(it, nowEpochMillis)) }
+    suspend fun replaceSavedPlaceIds(
+        ownerUserId: String,
+        placeIds: Set<String>,
+        nowEpochMillis: Long,
+    ) {
+        deleteSavedPlacesForOwner(ownerUserId)
+        placeIds.forEach {
+            insertSavedPlace(SavedPlaceEntity(ownerUserId, it, nowEpochMillis))
+        }
     }
 }

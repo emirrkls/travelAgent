@@ -1,19 +1,27 @@
 package com.emirrkls.phokarta
 
-import com.emirrkls.phokarta.core.network.DemoUserProvider
 import com.emirrkls.phokarta.core.network.NetworkModule
 import com.emirrkls.phokarta.core.network.RemoteResult
+import com.emirrkls.phokarta.core.network.api.AuthApi
+import com.emirrkls.phokarta.core.network.api.MeApi
+import com.emirrkls.phokarta.core.network.model.AuthSessionDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.LoginRequestDto
+import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
+import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
+import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.TokenPairDto
+import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
@@ -25,6 +33,8 @@ import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import javax.inject.Singleton
+import kotlinx.serialization.json.Json
+import retrofit2.Response
 
 private const val USER_ID = "11111111-1111-1111-1111-111111111111"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
@@ -32,13 +42,16 @@ private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkModule::class])
 object FakeNetworkModule {
+    @Provides @Singleton fun json(): Json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = true
+    }
     @Provides @Singleton fun places(): PlaceRemoteDataSource = FakePlaces()
     @Provides @Singleton fun visits(): VisitRemoteDataSource = FakeVisits()
     @Provides @Singleton fun saved(): SavedPlaceRemoteDataSource = FakeSaved()
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
-    @Provides @Singleton fun user(): DemoUserProvider = object : DemoUserProvider {
-        override val userId = USER_ID
-    }
+    @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
+    @Provides @Singleton fun meApi(): MeApi = FakeMeApi()
 }
 
 private val summary = PlaceSummaryDto(
@@ -81,29 +94,53 @@ private class FakeVisits : VisitRemoteDataSource {
         visits += visit
         return RemoteResult.Success(visit)
     }
-    override suspend fun ownerVisits(userId: String, page: Int, size: Int) = RemoteResult.Success(page(visits.toList()))
+    override suspend fun ownerVisits(page: Int, size: Int) = RemoteResult.Success(page(visits.toList()))
     override suspend fun publicReviews(placeId: String, page: Int, size: Int) =
         RemoteResult.Success(page(emptyList<PublicVisitDto>()))
 }
 
 private class FakeSaved : SavedPlaceRemoteDataSource {
     private val saved = linkedSetOf<String>()
-    override suspend fun list(userId: String, page: Int, size: Int) =
+    override suspend fun list(page: Int, size: Int) =
         RemoteResult.Success(page(if (PLACE_ID in saved) listOf(SavedPlaceDto(summary, "2026-08-22T10:00:00Z")) else emptyList()))
-    override suspend fun save(userId: String, placeId: String): RemoteResult<SavedPlaceDto> {
+    override suspend fun save(placeId: String): RemoteResult<SavedPlaceDto> {
         saved += placeId
         return RemoteResult.Success(SavedPlaceDto(summary, "2026-08-22T10:00:00Z"))
     }
-    override suspend fun remove(userId: String, placeId: String): RemoteResult<Unit> {
+    override suspend fun remove(placeId: String): RemoteResult<Unit> {
         saved -= placeId
         return RemoteResult.Success(Unit)
     }
 }
 
 private class FakeCollections : CollectionRemoteDataSource {
-    override suspend fun list(userId: String, page: Int, size: Int) = RemoteResult.Success(page(emptyList<CollectionSummaryDto>()))
-    override suspend fun create(userId: String, request: CreateCollectionDto): RemoteResult<CollectionDetailDto> = error("Not used")
+    override suspend fun list(page: Int, size: Int) = RemoteResult.Success(page(emptyList<CollectionSummaryDto>()))
+    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> = error("Not used")
     override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> = error("Not used")
-    override suspend fun addPlace(collectionId: String, placeId: String, userId: String): RemoteResult<CollectionDetailDto> = error("Not used")
-    override suspend fun removePlace(collectionId: String, placeId: String, userId: String) = RemoteResult.Success(Unit)
+    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> = error("Not used")
+    override suspend fun removePlace(collectionId: String, placeId: String) = RemoteResult.Success(Unit)
 }
+
+private class FakeAuthApi : AuthApi {
+    override suspend fun register(request: RegisterRequestDto): Response<AuthSessionDto> =
+        Response.success(demoSession(request.email, request.username, request.displayName))
+    override suspend fun login(request: LoginRequestDto): Response<AuthSessionDto> =
+        Response.success(demoSession("demo@phokarta.local", "emir_demo", "Emir Kaya"))
+    override suspend fun refresh(request: RefreshRequestDto): Response<TokenPairDto> =
+        Response.success(TokenPairDto("access-refreshed", "refresh-rotated"))
+    override suspend fun logout(request: LogoutRequestDto): Response<Unit> =
+        Response.success(Unit)
+}
+
+private class FakeMeApi : MeApi {
+    override suspend fun profile(): Response<UserProfileDto> =
+        Response.success(
+            UserProfileDto(USER_ID, "demo@phokarta.local", "emir_demo", "Emir Kaya", "bio", null),
+        )
+}
+
+private fun demoSession(email: String, username: String, displayName: String) = AuthSessionDto(
+    user = UserProfileDto(USER_ID, email, username, displayName, null, null),
+    accessToken = "access-token",
+    refreshToken = "refresh-token",
+)

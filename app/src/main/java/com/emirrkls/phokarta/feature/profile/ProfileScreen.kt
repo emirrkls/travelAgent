@@ -60,7 +60,7 @@ fun ProfileScreen(onPlace: (String) -> Unit, onCollection: (String) -> Unit, vie
         item {
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = {}) { Icon(Icons.Rounded.IosShare, "Share profile") }
-                IconButton(onClick = {}) { Icon(Icons.Rounded.MoreHoriz, "More") }
+                IconButton(onClick = viewModel::logout) { Icon(Icons.Rounded.MoreHoriz, "Sign out") }
             }
             val identityContainer = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.secondaryContainer
             Surface(

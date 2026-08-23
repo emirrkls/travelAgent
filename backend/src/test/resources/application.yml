@@ -1,0 +1,5 @@
+phokarta:
+  jwt:
+    secret: phokarta-test-jwt-secret-do-not-use-elsewhere-32
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d

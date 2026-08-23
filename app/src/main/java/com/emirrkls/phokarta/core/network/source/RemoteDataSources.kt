@@ -98,7 +98,6 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
 interface VisitRemoteDataSource {
     suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto>
     suspend fun ownerVisits(
-        userId: String,
         page: Int = 0,
         size: Int = 20,
     ): RemoteResult<PageResponseDto<VisitOwnerDto>>
@@ -117,8 +116,8 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
     override suspend fun create(request: CreateVisitDto) =
         safeApiCall(json) { api.create(request) }
 
-    override suspend fun ownerVisits(userId: String, page: Int, size: Int) =
-        safeApiCall(json) { api.ownerVisits(userId, page, size) }
+    override suspend fun ownerVisits(page: Int, size: Int) =
+        safeApiCall(json) { api.ownerVisits(page, size) }
 
     override suspend fun publicReviews(placeId: String, page: Int, size: Int) =
         safeApiCall(json) { api.publicReviews(placeId, page, size) }
@@ -126,38 +125,35 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
 
 interface SavedPlaceRemoteDataSource {
     suspend fun list(
-        userId: String,
         page: Int = 0,
         size: Int = 20,
     ): RemoteResult<PageResponseDto<SavedPlaceDto>>
 
-    suspend fun save(userId: String, placeId: String): RemoteResult<SavedPlaceDto>
-    suspend fun remove(userId: String, placeId: String): RemoteResult<Unit>
+    suspend fun save(placeId: String): RemoteResult<SavedPlaceDto>
+    suspend fun remove(placeId: String): RemoteResult<Unit>
 }
 
 class RetrofitSavedPlaceRemoteDataSource @Inject constructor(
     private val api: SavedPlaceApi,
     private val json: Json,
 ) : SavedPlaceRemoteDataSource {
-    override suspend fun list(userId: String, page: Int, size: Int) =
-        safeApiCall(json) { api.list(userId, page, size) }
+    override suspend fun list(page: Int, size: Int) =
+        safeApiCall(json) { api.list(page, size) }
 
-    override suspend fun save(userId: String, placeId: String) =
-        safeApiCall(json) { api.save(userId, placeId) }
+    override suspend fun save(placeId: String) =
+        safeApiCall(json) { api.save(placeId) }
 
-    override suspend fun remove(userId: String, placeId: String) =
-        safeUnitApiCall(json) { api.remove(userId, placeId) }
+    override suspend fun remove(placeId: String) =
+        safeUnitApiCall(json) { api.remove(placeId) }
 }
 
 interface CollectionRemoteDataSource {
     suspend fun list(
-        userId: String,
         page: Int = 0,
         size: Int = 20,
     ): RemoteResult<PageResponseDto<CollectionSummaryDto>>
 
     suspend fun create(
-        userId: String,
         request: CreateCollectionDto,
     ): RemoteResult<CollectionDetailDto>
 
@@ -165,13 +161,11 @@ interface CollectionRemoteDataSource {
     suspend fun addPlace(
         collectionId: String,
         placeId: String,
-        userId: String,
     ): RemoteResult<CollectionDetailDto>
 
     suspend fun removePlace(
         collectionId: String,
         placeId: String,
-        userId: String,
     ): RemoteResult<Unit>
 }
 
@@ -179,18 +173,18 @@ class RetrofitCollectionRemoteDataSource @Inject constructor(
     private val api: CollectionApi,
     private val json: Json,
 ) : CollectionRemoteDataSource {
-    override suspend fun list(userId: String, page: Int, size: Int) =
-        safeApiCall(json) { api.list(userId, page, size) }
+    override suspend fun list(page: Int, size: Int) =
+        safeApiCall(json) { api.list(page, size) }
 
-    override suspend fun create(userId: String, request: CreateCollectionDto) =
-        safeApiCall(json) { api.create(userId, request) }
+    override suspend fun create(request: CreateCollectionDto) =
+        safeApiCall(json) { api.create(request) }
 
     override suspend fun detail(collectionId: String) =
         safeApiCall(json) { api.detail(collectionId) }
 
-    override suspend fun addPlace(collectionId: String, placeId: String, userId: String) =
-        safeApiCall(json) { api.addPlace(collectionId, placeId, userId) }
+    override suspend fun addPlace(collectionId: String, placeId: String) =
+        safeApiCall(json) { api.addPlace(collectionId, placeId) }
 
-    override suspend fun removePlace(collectionId: String, placeId: String, userId: String) =
-        safeUnitApiCall(json) { api.removePlace(collectionId, placeId, userId) }
+    override suspend fun removePlace(collectionId: String, placeId: String) =
+        safeUnitApiCall(json) { api.removePlace(collectionId, placeId) }
 }

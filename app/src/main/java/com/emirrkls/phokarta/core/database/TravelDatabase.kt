@@ -22,7 +22,7 @@ import com.emirrkls.phokarta.core.database.entity.VisitEntity
         CollectionPlaceCrossRef::class,
         CachedPlaceEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class TravelDatabase : RoomDatabase() {

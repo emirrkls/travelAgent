@@ -114,7 +114,6 @@ fun PublicVisitDto.toDomain(): Visit = Visit(
 )
 
 fun Visit.toCreateDto(): CreateVisitDto = CreateVisitDto(
-    userId = userId.toCanonicalUuid(),
     placeId = placeId.toCanonicalUuid(),
     visitedAt = visitedAt.toString(),
     overallRating = overallRating,

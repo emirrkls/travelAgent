@@ -1,10 +1,10 @@
 package com.emirrkls.phokarta.core.database.entity
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
-@Entity(tableName = "saved_places")
+@Entity(tableName = "saved_places", primaryKeys = ["ownerUserId", "placeId"])
 data class SavedPlaceEntity(
-    @PrimaryKey val placeId: String,
+    val ownerUserId: String,
+    val placeId: String,
     val savedAtEpochMillis: Long,
 )

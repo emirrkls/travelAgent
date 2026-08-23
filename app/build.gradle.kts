@@ -17,8 +17,8 @@ android {
         applicationId = "com.emirrkls.phokarta"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.6.0"
 
         testInstrumentationRunner = "com.emirrkls.phokarta.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
@@ -101,6 +101,7 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.google.maps.android:maps-compose:6.4.1")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 

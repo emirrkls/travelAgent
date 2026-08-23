@@ -72,8 +72,9 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public CollectionDetailResponse detail(UUID collectionId) {
+    public CollectionDetailResponse detail(UUID collectionId, UUID viewerUserId) {
         Collection collection = require(collectionId);
+        assertReadable(collection, viewerUserId, collectionId);
         List<CollectionPlace> collectionPlaces =
                 memberships.findByCollectionIdOrderByDisplayOrder(collectionId);
         List<UUID> placeIds = collectionPlaces.stream().map(cp -> cp.getPlace().getId()).toList();
@@ -113,7 +114,7 @@ public class CollectionService {
         int order = memberships.maxDisplayOrder(collectionId) + 1;
         memberships.save(new CollectionPlace(collection, place, order, now));
         collection.touch(now);
-        return detail(collectionId);
+        return detail(collectionId, userId);
     }
 
     @Transactional
@@ -125,12 +126,6 @@ public class CollectionService {
         collection.touch(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
-    private Collection requireOwned(UUID id, UUID userId) {
-        Collection collection = require(id);
-        requireOwner(collection, userId, id);
-        return collection;
-    }
-
     private Collection requireOwnedForUpdate(UUID id, UUID userId) {
         Collection collection = collections.findByIdForUpdate(id)
                 .orElseThrow(() -> ApiException.notFound("Collection", id));
@@ -140,7 +135,26 @@ public class CollectionService {
 
     private void requireOwner(Collection collection, UUID userId, UUID id) {
         if (!collection.getUser().getId().equals(userId)) {
-            throw ApiException.notFound("Collection", id);
+            throw ApiException.forbidden("You do not own this collection");
+        }
+    }
+
+    /**
+     * Visibility rules until social graph (v0.7):
+     * PUBLIC — anyone; PRIVATE — owner only; FRIENDS — owner only (friends unresolved).
+     */
+    private void assertReadable(Collection collection, UUID viewerUserId, UUID collectionId) {
+        UUID ownerId = collection.getUser().getId();
+        boolean isOwner = viewerUserId != null && ownerId.equals(viewerUserId);
+        switch (collection.getVisibility()) {
+            case PUBLIC -> {
+                // readable by anyone
+            }
+            case PRIVATE, FRIENDS -> {
+                if (!isOwner) {
+                    throw ApiException.forbidden("Collection is not visible");
+                }
+            }
         }
     }
 

@@ -64,8 +64,8 @@ class VisitServiceTest {
         when(place.getCategory()).thenReturn(PlaceCategory.BEACH);
         when(visits.save(any(Visit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.create(request);
-        service.create(request);
+        service.create(userId, request);
+        service.create(userId, request);
 
         ArgumentCaptor<Visit> captor = ArgumentCaptor.forClass(Visit.class);
         verify(visits, org.mockito.Mockito.times(2)).save(captor.capture());
@@ -84,7 +84,7 @@ class VisitServiceTest {
                 new CreateVisitRequest.DimensionScore("SEA", 9.0),
                 new CreateVisitRequest.DimensionScore("SEA", 8.0));
 
-        assertThatThrownBy(() -> service.create(request(duplicate)))
+        assertThatThrownBy(() -> service.create(userId, request(duplicate)))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
                     assertThat(exception.status().value()).isEqualTo(400);
                     assertThat(exception.getMessage()).contains("Duplicate dimension key: SEA");
@@ -99,14 +99,14 @@ class VisitServiceTest {
         when(place.getCategory()).thenReturn(PlaceCategory.BEACH);
         when(visits.save(any(Visit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.create(request(List.of()));
+        service.create(userId, request(List.of()));
 
         verify(visits).save(any(Visit.class));
         verify(scores).saveAll(List.of());
     }
 
     private CreateVisitRequest request(List<CreateVisitRequest.DimensionScore> dimensions) {
-        return new CreateVisitRequest(userId, placeId, LocalDate.of(2025, 8, 1), 8.5,
+        return new CreateVisitRequest(placeId, LocalDate.of(2025, 8, 1), 8.5,
                 dimensions, "review", "memory", List.of(), Visibility.PUBLIC);
     }
 

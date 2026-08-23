@@ -19,11 +19,20 @@ public class User {
     @Id
     private UUID id;
 
+    @Column(nullable = false, length = 320)
+    private String email;
+
     @Column(nullable = false, unique = true, length = 40)
     private String username;
 
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
+
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
@@ -56,9 +65,29 @@ public class User {
     protected User() {
     }
 
+    public User(UUID id, String email, String username, String displayName, String passwordHash,
+                OffsetDateTime now) {
+        this.id = id;
+        this.email = email;
+        this.username = username;
+        this.displayName = displayName;
+        this.passwordHash = passwordHash;
+        this.enabled = true;
+        this.cityCount = 0;
+        this.countryCount = 0;
+        this.followersCount = 0;
+        this.followingCount = 0;
+        this.travelTaste = new ArrayList<>();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
     public UUID getId() { return id; }
+    public String getEmail() { return email; }
     public String getUsername() { return username; }
     public String getDisplayName() { return displayName; }
+    public String getPasswordHash() { return passwordHash; }
+    public boolean isEnabled() { return enabled; }
     public String getAvatarUrl() { return avatarUrl; }
     public String getBio() { return bio; }
     public int getCityCount() { return cityCount; }

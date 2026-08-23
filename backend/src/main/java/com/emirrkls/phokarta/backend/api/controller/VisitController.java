@@ -4,8 +4,10 @@ import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
+import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -33,22 +35,16 @@ public class VisitController {
     }
 
     @Operation(summary = "Append a visit",
-            description = "Visits are append-only. userId is explicitly supplied temporarily; "
-                    + "there is no authentication in v0.4.")
+            description = "Visits are append-only. Ownership is taken from the authenticated principal.")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/visits")
     @ResponseStatus(HttpStatus.CREATED)
     public VisitOwnerResponse create(@Valid @RequestBody CreateVisitRequest request) {
-        return service.create(request);
+        return service.create(SecurityUtils.requireCurrentUserId(), request);
     }
 
-    @GetMapping("/users/{userId}/visits")
-    public PageResponse<VisitOwnerResponse> ownerVisits(
-            @PathVariable UUID userId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.ownerVisits(userId, page, size);
-    }
-
+    @Operation(summary = "Public reviews for a place",
+            description = "Returns PUBLIC visits only. privateMemory is never included.")
     @GetMapping("/places/{placeId}/reviews")
     public PageResponse<PublicVisitResponse> publicReviews(
             @PathVariable UUID placeId,

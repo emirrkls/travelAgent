@@ -153,8 +153,8 @@ class PostgisIntegrationTest {
         UUID placeId = insertPlace("Repeat Beach", PlaceCategory.BEACH, 20.0, 20.0);
         CreateVisitRequest request = beachVisitRequest(placeId, "first private memory");
 
-        VisitOwnerResponse first = visitService.create(request);
-        VisitOwnerResponse second = visitService.create(request);
+        VisitOwnerResponse first = visitService.create(DEMO_USER, request);
+        VisitOwnerResponse second = visitService.create(DEMO_USER, request);
 
         Long count = jdbc.queryForObject(
                 "select count(*) from visits where user_id = ? and place_id = ?",
@@ -202,7 +202,7 @@ class PostgisIntegrationTest {
         UUID placeId = insertPlace("Public Review Place", PlaceCategory.BEACH,
                 21.0, 21.0);
         String secret = "never serialize this private memory";
-        visitService.create(beachVisitRequest(placeId, secret));
+        visitService.create(DEMO_USER, beachVisitRequest(placeId, secret));
 
         assertThat(Arrays.stream(
                 com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse.class
@@ -266,7 +266,7 @@ class PostgisIntegrationTest {
         List<CreateVisitRequest.DimensionScore> dimensions = List.of(
                 new CreateVisitRequest.DimensionScore("SEA", 9.0),
                 new CreateVisitRequest.DimensionScore("ATMOSPHERE", 8.0));
-        return new CreateVisitRequest(DEMO_USER, placeId, LocalDate.of(2025, 8, 1), 8.5,
+        return new CreateVisitRequest(placeId, LocalDate.of(2025, 8, 1), 8.5,
                 dimensions, "public review", privateMemory, List.of(), Visibility.PUBLIC);
     }
 }

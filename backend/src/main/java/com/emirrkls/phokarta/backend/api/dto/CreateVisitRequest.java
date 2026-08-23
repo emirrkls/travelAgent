@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateVisitRequest(
-        @NotNull UUID userId,
         @NotNull UUID placeId,
         @NotNull @PastOrPresent LocalDate visitedAt,
         @NotNull @DecimalMin("0.0") @DecimalMax("10.0") Double overallRating,

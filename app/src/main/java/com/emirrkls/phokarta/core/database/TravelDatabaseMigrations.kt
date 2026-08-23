@@ -37,3 +37,21 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         )
     }
 }
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Prior saved_places had no owner column (single demo-user era). Drop and recreate
+        // with composite ownership key; orphaned demo rows are not attributed to any account.
+        db.execSQL("DROP TABLE IF EXISTS `saved_places`")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `saved_places` (
+                `ownerUserId` TEXT NOT NULL,
+                `placeId` TEXT NOT NULL,
+                `savedAtEpochMillis` INTEGER NOT NULL,
+                PRIMARY KEY(`ownerUserId`, `placeId`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

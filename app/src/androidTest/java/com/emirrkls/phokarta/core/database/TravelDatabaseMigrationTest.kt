@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,7 +41,7 @@ class TravelDatabaseMigrationTest {
                 assertEquals("$table should be empty", 0, rowCount(table))
             }
 
-            insertCanonicalState()
+            insertCanonicalStateV2()
 
             USER_STATE_TABLES.forEach { table ->
                 assertEquals("$table should accept canonical rows", 1, rowCount(table))
@@ -52,7 +53,7 @@ class TravelDatabaseMigrationTest {
     @Test
     fun migration2To3PreservesUserStateAndAddsPlaceCache() {
         helper.createDatabase(TEST_DATABASE, 2).apply {
-            insertCanonicalState()
+            insertCanonicalStateV2()
             close()
         }
 
@@ -68,6 +69,46 @@ class TravelDatabaseMigrationTest {
                             'Bodrum', 'Muğla', 'Türkiye', 37.0, 27.4, 2, NULL, 0, 200)""".trimIndent(),
             )
             assertEquals(1, rowCount("cached_places"))
+            close()
+        }
+    }
+
+    @Test
+    fun migration3To4RecreatesSavedPlacesWithOwnerCompositeKey() {
+        helper.createDatabase(TEST_DATABASE, 3).apply {
+            insertCanonicalStateV2()
+            execSQL(
+                """INSERT INTO cached_places
+                    (id, name, category, coverImage, city, region, country, latitude, longitude,
+                     priceLevel, averageScore, ratingCount, updatedAtEpochMillis)
+                    VALUES ('30000000-0000-4000-8000-000000000003', 'Cached place', 'BEACH', '',
+                            'Bodrum', 'Muğla', 'Türkiye', 37.0, 27.4, 2, NULL, 0, 200)""".trimIndent(),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 4, true, MIGRATION_3_4).apply {
+            assertEquals(0, rowCount("saved_places"))
+            assertEquals(1, rowCount("visits"))
+            assertEquals(1, rowCount("collections"))
+            assertEquals(1, rowCount("cached_places"))
+
+            val ownerId = "20000000-0000-4000-8000-000000000002"
+            val placeId = "30000000-0000-4000-8000-000000000003"
+            execSQL(
+                "INSERT INTO saved_places (ownerUserId, placeId, savedAtEpochMillis) VALUES (?, ?, 300)",
+                arrayOf<Any>(ownerId, placeId),
+            )
+            assertEquals(1, rowCount("saved_places"))
+
+            query("PRAGMA table_info(saved_places)").use { cursor ->
+                val columns = mutableListOf<String>()
+                while (cursor.moveToNext()) {
+                    columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+                }
+                assertEquals(listOf("ownerUserId", "placeId", "savedAtEpochMillis"), columns)
+            }
+            assertFalse(hasColumn("saved_places", "userId"))
             close()
         }
     }
@@ -94,7 +135,7 @@ class TravelDatabaseMigrationTest {
         execSQL("INSERT INTO collection_places (collectionId, placeId) VALUES ('c1', 'p1')")
     }
 
-    private fun SupportSQLiteDatabase.insertCanonicalState() {
+    private fun SupportSQLiteDatabase.insertCanonicalStateV2() {
         val visitId = "10000000-0000-4000-8000-000000000001"
         val userId = "20000000-0000-4000-8000-000000000002"
         val placeId = "30000000-0000-4000-8000-000000000003"
@@ -133,6 +174,15 @@ class TravelDatabaseMigrationTest {
         query("SELECT COUNT(*) FROM $table").use { cursor ->
             cursor.moveToFirst()
             cursor.getInt(0)
+        }
+
+    private fun SupportSQLiteDatabase.hasColumn(table: String, column: String): Boolean =
+        query("PRAGMA table_info($table)").use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) return true
+            }
+            false
         }
 
     companion object {

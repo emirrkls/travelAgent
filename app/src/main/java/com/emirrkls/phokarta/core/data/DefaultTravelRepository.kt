@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.core.data
 
+import com.emirrkls.phokarta.core.auth.AuthState
+import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.model.ActivityItem
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
@@ -7,7 +9,6 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
-import com.emirrkls.phokarta.core.network.DemoUserProvider
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
@@ -34,11 +35,30 @@ class DefaultTravelRepository @Inject constructor(
     private val visitsRemote: VisitRemoteDataSource,
     private val savedRemote: SavedPlaceRemoteDataSource,
     private val collectionsRemote: CollectionRemoteDataSource,
-    private val demoUserProvider: DemoUserProvider,
+    private val sessionManager: SessionManager,
     private val placeCache: PlaceCacheDataSource = NoOpPlaceCacheDataSource,
 ) : TravelRepository {
     private val remotePlaces = MutableStateFlow<List<Place>>(emptyList())
-    override val currentUser: User = activityDemo.currentUser.copy(id = demoUserProvider.userId)
+
+    override val currentUser: User
+        get() {
+            val auth = sessionManager.state.value as? AuthState.Authenticated
+            return if (auth != null) {
+                activityDemo.currentUser.copy(
+                    id = auth.user.id,
+                    username = auth.user.username,
+                    displayName = auth.user.displayName,
+                    avatarUrl = auth.user.avatarUrl.ifBlank { activityDemo.currentUser.avatarUrl },
+                    bio = auth.user.bio.ifBlank { activityDemo.currentUser.bio },
+                )
+            } else {
+                activityDemo.currentUser
+            }
+        }
+
+    private fun requireUserId(): String =
+        sessionManager.currentUserId()
+            ?: error("Authenticated user required")
 
     override fun observePlaces(): Flow<List<Place>> = remotePlaces
     override fun observeVisits(): Flow<List<Visit>> = localUserState.observeVisits()
@@ -190,7 +210,7 @@ class DefaultTravelRepository @Inject constructor(
         var nextPage = page
         var pagesFetched = 0
         do {
-            val response = when (val result = visitsRemote.ownerVisits(demoUserProvider.userId, nextPage, size)) {
+            val response = when (val result = visitsRemote.ownerVisits(nextPage, size)) {
                 is RemoteResult.Failure -> return RepositoryResult.Failure(result.error.toTravelError())
                 is RemoteResult.Success -> result.value
             }
@@ -203,7 +223,7 @@ class DefaultTravelRepository @Inject constructor(
         } while (response.hasNext)
 
         return mapOrValidation {
-            val visits = visitDtos.map { it.toDomain(demoUserProvider.userId) }.distinctBy { it.id }
+            val visits = visitDtos.map { it.toDomain(requireUserId()) }.distinctBy { it.id }
             val places = visitDtos.map { it.place.toDomain() }.distinctBy { it.id }
             mergePlaces(places)
             localUserState.upsertVisits(visits)
@@ -215,7 +235,7 @@ class DefaultTravelRepository @Inject constructor(
         val savedDtos = mutableListOf<com.emirrkls.phokarta.core.network.model.SavedPlaceDto>()
         var nextPage = page
         do {
-            val response = when (val result = savedRemote.list(demoUserProvider.userId, nextPage, size)) {
+            val response = when (val result = savedRemote.list(nextPage, size)) {
                 is RemoteResult.Failure -> return RepositoryResult.Failure(result.error.toTravelError())
                 is RemoteResult.Success -> result.value
             }
@@ -236,7 +256,7 @@ class DefaultTravelRepository @Inject constructor(
         val summaries = mutableListOf<com.emirrkls.phokarta.core.network.model.CollectionSummaryDto>()
         var nextPage = page
         do {
-            val response = when (val result = collectionsRemote.list(demoUserProvider.userId, nextPage, size)) {
+            val response = when (val result = collectionsRemote.list(nextPage, size)) {
                 is RemoteResult.Failure -> return RepositoryResult.Failure(result.error.toTravelError())
                 is RemoteResult.Success -> result.value
             }
@@ -271,14 +291,14 @@ class DefaultTravelRepository @Inject constructor(
 
     override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> {
         val request = try {
-            visit.copy(userId = demoUserProvider.userId).toCreateDto()
+            visit.copy(userId = requireUserId()).toCreateDto()
         } catch (error: IllegalArgumentException) {
             return RepositoryResult.Failure(TravelError.Validation(error.message))
         }
         return when (val result = visitsRemote.create(request)) {
             is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
             is RemoteResult.Success -> mapOrValidation {
-                val canonical = result.value.toDomain(demoUserProvider.userId)
+                val canonical = result.value.toDomain(requireUserId())
                 mergePlaces(listOf(result.value.place.toDomain()))
                 localUserState.upsertVisit(canonical)
                 RepositoryResult.Success(canonical)
@@ -296,7 +316,7 @@ class DefaultTravelRepository @Inject constructor(
         val target = !wasSaved
         localUserState.setSaved(canonicalPlaceId, target)
         if (target) {
-            return when (val result = savedRemote.save(demoUserProvider.userId, canonicalPlaceId)) {
+            return when (val result = savedRemote.save(canonicalPlaceId)) {
                 is RemoteResult.Failure -> {
                     localUserState.setSaved(canonicalPlaceId, wasSaved)
                     RepositoryResult.Failure(result.error.toTravelError())
@@ -310,7 +330,7 @@ class DefaultTravelRepository @Inject constructor(
                 }
             }
         }
-        return when (val result = savedRemote.remove(demoUserProvider.userId, canonicalPlaceId)) {
+        return when (val result = savedRemote.remove(canonicalPlaceId)) {
             is RemoteResult.Failure -> {
                 localUserState.setSaved(canonicalPlaceId, wasSaved)
                 RepositoryResult.Failure(result.error.toTravelError())
@@ -321,11 +341,11 @@ class DefaultTravelRepository @Inject constructor(
 
     override suspend fun saveCollection(collection: Collection): RepositoryResult<Collection> {
         val request = try {
-            collection.copy(userId = demoUserProvider.userId).toCreateDto()
+            collection.copy(userId = requireUserId()).toCreateDto()
         } catch (error: IllegalArgumentException) {
             return RepositoryResult.Failure(TravelError.Validation(error.message))
         }
-        return when (val result = collectionsRemote.create(demoUserProvider.userId, request)) {
+        return when (val result = collectionsRemote.create(request)) {
             is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
             is RemoteResult.Success -> persistCollectionDetail(result.value)
         }
@@ -340,7 +360,7 @@ class DefaultTravelRepository @Inject constructor(
         } catch (error: IllegalArgumentException) {
             return RepositoryResult.Failure(TravelError.Validation(error.message))
         }
-        return when (val result = collectionsRemote.addPlace(ids.first, ids.second, demoUserProvider.userId)) {
+        return when (val result = collectionsRemote.addPlace(ids.first, ids.second)) {
         is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
         is RemoteResult.Success -> persistCollectionDetail(result.value)
         }
@@ -355,7 +375,7 @@ class DefaultTravelRepository @Inject constructor(
         } catch (error: IllegalArgumentException) {
             return RepositoryResult.Failure(TravelError.Validation(error.message))
         }
-        return when (val result = collectionsRemote.removePlace(ids.first, ids.second, demoUserProvider.userId)) {
+        return when (val result = collectionsRemote.removePlace(ids.first, ids.second)) {
         is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
         is RemoteResult.Success -> {
             localUserState.removePlaceFromCollection(ids.first, ids.second)

@@ -44,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -62,6 +64,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.emirrkls.phokarta.core.auth.AuthState
+import com.emirrkls.phokarta.feature.auth.LoginScreen
+import com.emirrkls.phokarta.feature.auth.RegisterScreen
 import com.emirrkls.phokarta.feature.explore.ExploreScreen
 import com.emirrkls.phokarta.feature.map.MapScreen
 import com.emirrkls.phokarta.feature.onboarding.OnboardingScreen
@@ -80,6 +85,8 @@ import com.emirrkls.phokarta.ui.theme.Coral
 private object Route {
     const val Splash = "splash"
     const val Onboarding = "onboarding"
+    const val Login = "login"
+    const val Register = "register"
     const val Explore = "explore"
     const val Search = "search"
     const val Map = "map"
@@ -104,10 +111,37 @@ private val bottomDestinations = listOf(
 fun PhokartaApp() {
     val navController = rememberNavController()
     val startViewModel: AppStartViewModel = hiltViewModel()
+    val authState by startViewModel.authState.collectAsStateWithLifecycle()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBottomBar = currentRoute in bottomDestinations.map { it.route }
     var showAddSheet by remember { mutableStateOf(false) }
+    var splashFinished by remember { mutableStateOf(false) }
+
+    LaunchedEffect(authState, splashFinished) {
+        if (!splashFinished) return@LaunchedEffect
+        when (authState) {
+            AuthState.Loading -> Unit
+            AuthState.LoggedOut -> {
+                val onAuth = currentRoute == Route.Login || currentRoute == Route.Register ||
+                    currentRoute == Route.Onboarding || currentRoute == Route.Splash
+                if (!onAuth) {
+                    navController.navigate(Route.Login) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                }
+            }
+            is AuthState.Authenticated -> {
+                if (currentRoute == Route.Login || currentRoute == Route.Register ||
+                    currentRoute == Route.Splash || currentRoute == Route.Onboarding
+                ) {
+                    navController.navigate(Route.Explore) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -124,14 +158,39 @@ fun PhokartaApp() {
             ) {
                 composable(Route.Splash) {
                     SplashScreen {
-                        navController.navigate(if (startViewModel.isOnboardingComplete()) Route.Explore else Route.Onboarding) { popUpTo(Route.Splash) { inclusive = true } }
+                        splashFinished = true
+                        when {
+                            !startViewModel.isOnboardingComplete() ->
+                                navController.navigate(Route.Onboarding) {
+                                    popUpTo(Route.Splash) { inclusive = true }
+                                }
+                            authState is AuthState.Authenticated ->
+                                navController.navigate(Route.Explore) {
+                                    popUpTo(Route.Splash) { inclusive = true }
+                                }
+                            authState is AuthState.LoggedOut ->
+                                navController.navigate(Route.Login) {
+                                    popUpTo(Route.Splash) { inclusive = true }
+                                }
+                            else -> {
+                                // Still restoring session — stay briefly; LaunchedEffect will route.
+                            }
+                        }
                     }
                 }
                 composable(Route.Onboarding) {
                     OnboardingScreen {
                         startViewModel.completeOnboarding()
-                        navController.navigate(Route.Explore) { popUpTo(Route.Onboarding) { inclusive = true } }
+                        navController.navigate(Route.Login) {
+                            popUpTo(Route.Onboarding) { inclusive = true }
+                        }
                     }
+                }
+                composable(Route.Login) {
+                    LoginScreen(onCreateAccount = { navController.navigate(Route.Register) })
+                }
+                composable(Route.Register) {
+                    RegisterScreen(onHaveAccount = { navController.popBackStack() })
                 }
                 composable(Route.Explore) { ExploreScreen({ navController.navigate(Route.Search) }, { navController.navigate("place/$it") }, { navController.navigate(Route.Collections) }) }
                 composable(Route.Search) { SearchScreen({ navController.popBackStack() }, { navController.navigate("place/$it") }) }

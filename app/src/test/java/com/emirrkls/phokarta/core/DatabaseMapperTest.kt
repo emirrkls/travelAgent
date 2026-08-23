@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.core
 
+import com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity
 import com.emirrkls.phokarta.core.database.entity.VisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.VisitEntity
 import com.emirrkls.phokarta.core.database.mapper.toDimensionEntities
@@ -15,6 +16,17 @@ import org.junit.Test
 import java.time.LocalDate
 
 class DatabaseMapperTest {
+    @Test
+    fun `saved place entity carries composite owner and place keys`() {
+        val saved = SavedPlaceEntity(
+            ownerUserId = "user-1",
+            placeId = "p1",
+            savedAtEpochMillis = 100L,
+        )
+        assertEquals("user-1", saved.ownerUserId)
+        assertEquals("p1", saved.placeId)
+    }
+
     @Test
     fun `visit maps through Room boundary without losing domain data`() {
         val visit = Visit(

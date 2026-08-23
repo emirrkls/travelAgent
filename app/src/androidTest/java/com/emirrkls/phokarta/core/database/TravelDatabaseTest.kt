@@ -43,7 +43,7 @@ class TravelDatabaseTest {
         dao.upsertVisitWithDimensions(visitA, emptyList())
         dao.upsertVisitWithDimensions(visitB, emptyList())
 
-        val stored = dao.getVisitsForPlace("p1")
+        val stored = dao.getVisitsForPlace(OWNER_USER_ID, "p1")
         assertEquals(2, stored.size)
         assertEquals(setOf("visit-a", "visit-b"), stored.map { it.visit.id }.toSet())
     }
@@ -62,8 +62,8 @@ class TravelDatabaseTest {
         )
         dao.upsertVisitWithDimensions(visit("visit-no-scores", "p3", createdAt = 200L), emptyList())
 
-        val scored = dao.getVisitsForPlace("p2").single()
-        val unscored = dao.getVisitsForPlace("p3").single()
+        val scored = dao.getVisitsForPlace(OWNER_USER_ID, "p2").single()
+        val unscored = dao.getVisitsForPlace(OWNER_USER_ID, "p3").single()
         assertEquals(mapOf("Food" to 9.1, "Service" to 8.4, "Value" to 7.8), scored.dimensions.associate { it.dimensionKey to it.score })
         assertEquals(emptyList<VisitDimensionScoreEntity>(), unscored.dimensions)
     }
@@ -72,12 +72,12 @@ class TravelDatabaseTest {
     fun savedPlaceTogglePersistsAndRemoves() = runBlocking {
         val dao = database.savedPlaceDao()
 
-        dao.setSaved("p4", saved = true, nowEpochMillis = 100L)
-        assertEquals(setOf("p4"), dao.observeSavedPlaceIds().first().toSet())
+        dao.setSaved(OWNER_USER_ID, "p4", saved = true, nowEpochMillis = 100L)
+        assertEquals(setOf("p4"), dao.observeSavedPlaceIds(OWNER_USER_ID).first().toSet())
 
-        dao.setSaved("p4", saved = false, nowEpochMillis = 200L)
-        assertNull(dao.getSavedPlace("p4"))
-        assertEquals(emptyList<String>(), dao.observeSavedPlaceIds().first())
+        dao.setSaved(OWNER_USER_ID, "p4", saved = false, nowEpochMillis = 200L)
+        assertNull(dao.getSavedPlace(OWNER_USER_ID, "p4"))
+        assertEquals(emptyList<String>(), dao.observeSavedPlaceIds(OWNER_USER_ID).first())
     }
 
     @Test
@@ -89,7 +89,7 @@ class TravelDatabaseTest {
         dao.insertCollectionPlace(CollectionPlaceCrossRef("collection-a", "p2"))
         dao.insertCollectionPlace(CollectionPlaceCrossRef("collection-a", "p1"))
 
-        val stored = dao.getCollectionWithPlaceIds("collection-a")
+        val stored = dao.getCollectionWithPlaceIds(OWNER_USER_ID, "collection-a")
         assertEquals(setOf("p1", "p2"), stored?.placeIds?.toSet())
         assertEquals(2, dao.countCollectionPlaces("collection-a"))
     }
@@ -105,12 +105,32 @@ class TravelDatabaseTest {
 
         dao.deleteVisit(visit)
 
-        assertEquals(emptyList<Any>(), dao.getVisitsForPlace("p5"))
+        assertEquals(emptyList<Any>(), dao.getVisitsForPlace(OWNER_USER_ID, "p5"))
+    }
+
+    @Test
+    fun replaceCollectionsWithPlacesScopesByOwner() = runBlocking {
+        val dao = database.collectionDao()
+        dao.upsertCollection(collection("keep-other", userId = "other-user"))
+        dao.replaceCollectionsWithPlaces(
+            OWNER_USER_ID,
+            listOf(collection("collection-b")),
+            mapOf("collection-b" to listOf("p1", "p2")),
+        )
+
+        assertEquals(
+            setOf("p1", "p2"),
+            dao.getCollectionWithPlaceIds(OWNER_USER_ID, "collection-b")?.placeIds?.toSet(),
+        )
+        assertEquals(
+            "keep-other",
+            dao.getCollectionWithPlaceIds("other-user", "keep-other")?.collection?.id,
+        )
     }
 
     private fun visit(id: String, placeId: String, createdAt: Long) = VisitEntity(
         id = id,
-        userId = "user-test",
+        userId = OWNER_USER_ID,
         placeId = placeId,
         visitedAtEpochDay = 20_000L,
         overallRating = 8.5,
@@ -121,9 +141,9 @@ class TravelDatabaseTest {
         createdAtEpochMillis = createdAt,
     )
 
-    private fun collection(id: String) = CollectionEntity(
+    private fun collection(id: String, userId: String = OWNER_USER_ID) = CollectionEntity(
         id = id,
-        userId = "user-test",
+        userId = userId,
         title = "Test collection",
         description = "",
         visibility = "PRIVATE",
@@ -131,4 +151,8 @@ class TravelDatabaseTest {
         createdAtEpochMillis = 100L,
         updatedAtEpochMillis = 100L,
     )
+
+    companion object {
+        private const val OWNER_USER_ID = "user-test"
+    }
 }

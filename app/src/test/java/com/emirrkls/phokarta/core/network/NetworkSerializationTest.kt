@@ -65,7 +65,6 @@ class NetworkSerializationTest {
     @Test
     fun `create visit serializes exact names date and uppercase typed values`() {
         val request = CreateVisitDto(
-            userId = "11111111-1111-1111-1111-111111111111",
             placeId = "20000000-0000-0000-0000-000000000001",
             visitedAt = "2026-08-22",
             overallRating = 9.1,
@@ -78,6 +77,7 @@ class NetworkSerializationTest {
 
         val encoded = json.parseToJsonElement(json.encodeToString(request)).jsonObject
 
+        assertFalse(encoded.containsKey("userId"))
         assertEquals("2026-08-22", encoded.getValue("visitedAt").jsonPrimitive.content)
         assertEquals("Public note", encoded.getValue("publicReview").jsonPrimitive.content)
         assertEquals("Private note", encoded.getValue("privateMemory").jsonPrimitive.content)
@@ -106,7 +106,6 @@ class NetworkSerializationTest {
             verificationStatus = VerificationStatusDto.UNVERIFIED,
         )
         val createRequest = CreateVisitDto(
-            userId = publicVisit.userId,
             placeId = publicVisit.placeId,
             visitedAt = publicVisit.visitedAt,
             overallRating = publicVisit.overallRating,
@@ -121,6 +120,7 @@ class NetworkSerializationTest {
         val createJson = json.parseToJsonElement(json.encodeToString(createRequest)).jsonObject
 
         assertFalse(publicJson.containsKey("privateMemory"))
+        assertFalse(createJson.containsKey("userId"))
         assertEquals("Visible review", publicJson.getValue("publicReview").jsonPrimitive.content)
         assertEquals("Owner-only memory", createJson.getValue("privateMemory").jsonPrimitive.content)
     }

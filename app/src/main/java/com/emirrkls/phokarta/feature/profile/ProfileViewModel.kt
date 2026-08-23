@@ -22,7 +22,10 @@ data class ProfileUiState(
 )
 
 @HiltViewModel
-class ProfileViewModel @Inject constructor(private val repository: TravelRepository) : ViewModel() {
+class ProfileViewModel @Inject constructor(
+    private val repository: TravelRepository,
+    private val authRepository: com.emirrkls.phokarta.core.auth.AuthRepository,
+) : ViewModel() {
     init {
         viewModelScope.launch {
             repository.refreshCatalog()
@@ -30,6 +33,10 @@ class ProfileViewModel @Inject constructor(private val repository: TravelReposit
             repository.refreshSaved()
             repository.refreshCollections()
         }
+    }
+
+    fun logout() {
+        viewModelScope.launch { authRepository.logout() }
     }
 
     val uiState = combine(

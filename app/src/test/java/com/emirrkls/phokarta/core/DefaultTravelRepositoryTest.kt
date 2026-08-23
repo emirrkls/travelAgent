@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.core
 
+import com.emirrkls.phokarta.core.auth.testSessionManager
 import com.emirrkls.phokarta.core.data.DefaultTravelRepository
 import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource
@@ -9,8 +10,6 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visit
-import com.emirrkls.phokarta.core.model.Visibility
-import com.emirrkls.phokarta.core.network.DemoUserProvider
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.mapper.toDomain
@@ -211,9 +210,7 @@ private fun repository(
     visits,
     saved,
     FakeCollections(),
-    object : DemoUserProvider {
-        override val userId: String = USER_ID
-    },
+    testSessionManager(USER_ID),
     placeCache,
 )
 
@@ -305,7 +302,7 @@ private class FakeVisits(
         lastCreate = request
         return createResult
     }
-    override suspend fun ownerVisits(userId: String, page: Int, size: Int): RemoteResult<PageResponseDto<VisitOwnerDto>> {
+    override suspend fun ownerVisits(page: Int, size: Int): RemoteResult<PageResponseDto<VisitOwnerDto>> {
         requestedOwnerPages += page
         return ownerResults?.get(page) ?: ownerResult
     }
@@ -317,15 +314,19 @@ private class FakeSaved(
     var saveResult: RemoteResult<SavedPlaceDto> = RemoteResult.Success(SavedPlaceDto(summary(), "2026-08-22T10:00:00Z")),
     var removeResult: RemoteResult<Unit> = RemoteResult.Success(Unit),
 ) : SavedPlaceRemoteDataSource {
-    override suspend fun list(userId: String, page: Int, size: Int) = listResult
-    override suspend fun save(userId: String, placeId: String) = saveResult
-    override suspend fun remove(userId: String, placeId: String) = removeResult
+    override suspend fun list(page: Int, size: Int) = listResult
+    override suspend fun save(placeId: String) = saveResult
+    override suspend fun remove(placeId: String) = removeResult
 }
 
 private class FakeCollections : CollectionRemoteDataSource {
-    override suspend fun list(userId: String, page: Int, size: Int): RemoteResult<PageResponseDto<CollectionSummaryDto>> = page()
-    override suspend fun create(userId: String, request: CreateCollectionDto): RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.Connection)
-    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.NotFound(null))
-    override suspend fun addPlace(collectionId: String, placeId: String, userId: String): RemoteResult<CollectionDetailDto> = RemoteResult.Failure(NetworkError.Connection)
-    override suspend fun removePlace(collectionId: String, placeId: String, userId: String): RemoteResult<Unit> = RemoteResult.Failure(NetworkError.Connection)
+    override suspend fun list(page: Int, size: Int): RemoteResult<PageResponseDto<CollectionSummaryDto>> = page()
+    override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> =
+        RemoteResult.Failure(NetworkError.Connection)
+    override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> =
+        RemoteResult.Failure(NetworkError.NotFound(null))
+    override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> =
+        RemoteResult.Failure(NetworkError.Connection)
+    override suspend fun removePlace(collectionId: String, placeId: String): RemoteResult<Unit> =
+        RemoteResult.Failure(NetworkError.Connection)
 }

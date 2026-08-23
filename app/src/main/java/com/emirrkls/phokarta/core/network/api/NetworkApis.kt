@@ -1,16 +1,23 @@
 package com.emirrkls.phokarta.core.network.api
 
+import com.emirrkls.phokarta.core.network.model.AuthSessionDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.LoginRequestDto
+import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
+import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
+import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
+import com.emirrkls.phokarta.core.network.model.TokenPairDto
+import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -19,6 +26,25 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+
+interface AuthApi {
+    @POST("api/v1/auth/register")
+    suspend fun register(@Body request: RegisterRequestDto): Response<AuthSessionDto>
+
+    @POST("api/v1/auth/login")
+    suspend fun login(@Body request: LoginRequestDto): Response<AuthSessionDto>
+
+    @POST("api/v1/auth/refresh")
+    suspend fun refresh(@Body request: RefreshRequestDto): Response<TokenPairDto>
+
+    @POST("api/v1/auth/logout")
+    suspend fun logout(@Body request: LogoutRequestDto): Response<Unit>
+}
+
+interface MeApi {
+    @GET("api/v1/me")
+    suspend fun profile(): Response<UserProfileDto>
+}
 
 interface PlaceApi {
     @GET("api/v1/places")
@@ -61,9 +87,8 @@ interface VisitApi {
     @POST("api/v1/visits")
     suspend fun create(@Body request: CreateVisitDto): Response<VisitOwnerDto>
 
-    @GET("api/v1/users/{userId}/visits")
+    @GET("api/v1/me/visits")
     suspend fun ownerVisits(
-        @Path("userId") userId: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<VisitOwnerDto>>
@@ -77,37 +102,32 @@ interface VisitApi {
 }
 
 interface SavedPlaceApi {
-    @GET("api/v1/users/{userId}/saved-places")
+    @GET("api/v1/me/saved-places")
     suspend fun list(
-        @Path("userId") userId: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<SavedPlaceDto>>
 
-    @POST("api/v1/users/{userId}/saved-places/{placeId}")
+    @POST("api/v1/me/saved-places/{placeId}")
     suspend fun save(
-        @Path("userId") userId: String,
         @Path("placeId") placeId: String,
     ): Response<SavedPlaceDto>
 
-    @DELETE("api/v1/users/{userId}/saved-places/{placeId}")
+    @DELETE("api/v1/me/saved-places/{placeId}")
     suspend fun remove(
-        @Path("userId") userId: String,
         @Path("placeId") placeId: String,
     ): Response<Unit>
 }
 
 interface CollectionApi {
-    @GET("api/v1/users/{userId}/collections")
+    @GET("api/v1/me/collections")
     suspend fun list(
-        @Path("userId") userId: String,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<CollectionSummaryDto>>
 
-    @POST("api/v1/users/{userId}/collections")
+    @POST("api/v1/me/collections")
     suspend fun create(
-        @Path("userId") userId: String,
         @Body request: CreateCollectionDto,
     ): Response<CollectionDetailDto>
 
@@ -120,13 +140,11 @@ interface CollectionApi {
     suspend fun addPlace(
         @Path("collectionId") collectionId: String,
         @Path("placeId") placeId: String,
-        @Query("userId") userId: String,
     ): Response<CollectionDetailDto>
 
     @DELETE("api/v1/collections/{collectionId}/places/{placeId}")
     suspend fun removePlace(
         @Path("collectionId") collectionId: String,
         @Path("placeId") placeId: String,
-        @Query("userId") userId: String,
     ): Response<Unit>
 }

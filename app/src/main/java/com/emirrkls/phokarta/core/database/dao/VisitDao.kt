@@ -14,12 +14,24 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VisitDao {
     @Transaction
-    @Query("SELECT * FROM visits ORDER BY visitedAtEpochDay DESC, createdAtEpochMillis DESC")
-    fun observeVisitsWithDimensions(): Flow<List<VisitWithDimensions>>
+    @Query(
+        """
+        SELECT * FROM visits
+        WHERE userId = :ownerUserId
+        ORDER BY visitedAtEpochDay DESC, createdAtEpochMillis DESC
+        """,
+    )
+    fun observeVisitsWithDimensions(ownerUserId: String): Flow<List<VisitWithDimensions>>
 
     @Transaction
-    @Query("SELECT * FROM visits WHERE placeId = :placeId ORDER BY visitedAtEpochDay DESC, createdAtEpochMillis DESC")
-    suspend fun getVisitsForPlace(placeId: String): List<VisitWithDimensions>
+    @Query(
+        """
+        SELECT * FROM visits
+        WHERE userId = :ownerUserId AND placeId = :placeId
+        ORDER BY visitedAtEpochDay DESC, createdAtEpochMillis DESC
+        """,
+    )
+    suspend fun getVisitsForPlace(ownerUserId: String, placeId: String): List<VisitWithDimensions>
 
     @Upsert
     suspend fun upsertVisit(visit: VisitEntity)

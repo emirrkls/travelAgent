@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Community discovery aggregates/filters use PUBLIC Visits only.
- * Friends discovery stays mutual + PUBLIC. Owner history keeps all visibilities.
+ * Friends discovery uses mutual + friend-readable (PUBLIC or FRIENDS).
+ * Owner history keeps all visibilities.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -257,28 +258,28 @@ class DiscoveryVisibilityIntegrationTest {
     }
 
     @Test
-    void friendsDiscoveryIgnoresHiddenVisitsAndStaysUserWeighted() throws Exception {
+    void friendsDiscoveryIncludesFriendsVisitsExcludesPrivateAndStaysUserWeighted() throws Exception {
         RegisteredUser a = register("visA");
         RegisteredUser b = register("visB");
         follow(a, b);
         follow(b, a);
 
-        UUID place = insertPlace("Friends Hidden Mix", PlaceCategory.RESTAURANT, 30.7, 40.7);
+        UUID place = insertPlace("Friends Readable Mix", PlaceCategory.RESTAURANT, 30.7, 40.7);
         visitService.create(b.id, visit(place, LocalDate.of(2026, 7, 1), 8.0,
                 Visibility.PUBLIC, "b public 8", "mem"));
         visitService.create(b.id, visit(place, LocalDate.of(2026, 7, 2), 10.0,
-                Visibility.PUBLIC, "b public 10", "mem"));
+                Visibility.FRIENDS, "b friends 10", "mem"));
         visitService.create(b.id, visit(place, LocalDate.of(2026, 7, 3), 1.0,
                 Visibility.PRIVATE, "", "hidden private"));
-        visitService.create(b.id, visit(place, LocalDate.of(2026, 7, 4), 2.0,
-                Visibility.FRIENDS, "friends vis", "mem"));
 
+        // B contribution = avg(8, 10) = 9; PRIVATE excluded
         mockMvc.perform(get("/api/v1/places/{id}/friends-summary", place)
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.friendsVisitedCount").value(1))
                 .andExpect(jsonPath("$.averageScore").value(9.0))
-                .andExpect(jsonPath("$.friends.length()").value(1));
+                .andExpect(jsonPath("$.friends.length()").value(1))
+                .andExpect(jsonPath("$.friends[0].latestScore").value(10.0));
 
         mockMvc.perform(get("/api/v1/places/{id}/reviews", place)
                         .param("scope", "friends")
@@ -292,21 +293,31 @@ class DiscoveryVisibilityIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2));
 
+        mockMvc.perform(get("/api/v1/places/{id}/reviews", place)
+                        .param("scope", "community"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mockMvc.perform(get("/api/v1/places/{id}", place))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.averageScore").value(8.0))
+                .andExpect(jsonPath("$.ratingCount").value(1));
+
         RegisteredUser c = register("visC");
         follow(a, c);
         follow(c, a);
-        UUID hiddenOnly = insertPlace("Friends Hidden Only", PlaceCategory.CAFE, 30.71, 40.71);
-        visitService.create(c.id, visit(hiddenOnly, LocalDate.of(2026, 7, 5), 10.0,
+        UUID friendsOnly = insertPlace("Friends Only Place", PlaceCategory.CAFE, 30.71, 40.71);
+        visitService.create(c.id, visit(friendsOnly, LocalDate.of(2026, 7, 5), 10.0,
                 Visibility.PRIVATE, "", "only private"));
-        visitService.create(c.id, visit(hiddenOnly, LocalDate.of(2026, 7, 6), 9.0,
+        visitService.create(c.id, visit(friendsOnly, LocalDate.of(2026, 7, 6), 9.0,
                 Visibility.FRIENDS, "only friends", ""));
 
-        mockMvc.perform(get("/api/v1/places/{id}/friends-summary", hiddenOnly)
+        mockMvc.perform(get("/api/v1/places/{id}/friends-summary", friendsOnly)
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.friendsVisitedCount").value(0))
-                .andExpect(jsonPath("$.averageScore").doesNotExist())
-                .andExpect(jsonPath("$.friends").isEmpty());
+                .andExpect(jsonPath("$.friendsVisitedCount").value(1))
+                .andExpect(jsonPath("$.averageScore").value(9.0))
+                .andExpect(jsonPath("$.friends.length()").value(1))
+                .andExpect(jsonPath("$.friends[0].latestScore").value(9.0));
     }
 
     @Test

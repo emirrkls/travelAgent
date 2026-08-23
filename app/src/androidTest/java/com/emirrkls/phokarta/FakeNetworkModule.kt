@@ -104,63 +104,70 @@ private class FakeVisits(
     private val social: FakeSocial,
 ) : VisitRemoteDataSource {
     private val visits = mutableListOf<VisitOwnerDto>()
-    private val publicReviews = mutableListOf<PublicVisitDto>()
-    private val activity = mutableListOf<PublicActivityDto>().apply {
-        add(
+    /** Community-readable (PUBLIC) only. */
+    private val communityReviews = mutableListOf<PublicVisitDto>()
+    private val communityActivity = mutableListOf<PublicActivityDto>()
+    /** Friend-readable (PUBLIC + FRIENDS). */
+    private val friendReadableReviews = mutableListOf<PublicVisitDto>()
+    private val friendReadableActivity = mutableListOf<PublicActivityDto>()
+
+    init {
+        fun indexActivity(event: PublicActivityDto, friendOnly: Boolean = false) {
+            friendReadableActivity += event
+            if (!friendOnly) communityActivity += event
+        }
+        fun indexReview(dto: PublicVisitDto, friendOnly: Boolean = false) {
+            friendReadableReviews += dto
+            if (!friendOnly) communityReviews += dto
+        }
+
+        indexActivity(
             PublicActivityDto(
                 visitId = "30000000-0000-0000-0000-000000000101",
-                author = PublicActivityAuthorDto(
-                    id = OTHER_USER_ID,
-                    username = "ahmetgoes",
-                    displayName = "Ahmet Deniz",
-                    avatarUrl = null,
-                ),
+                author = PublicActivityAuthorDto(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz", null),
                 place = activityPlace(),
                 overallScore = 9.1,
                 publicReview = "Beautiful cove with clear water.",
                 visitedAt = "2026-08-20",
             ),
         )
-        add(
+        indexActivity(
             PublicActivityDto(
                 visitId = "30000000-0000-0000-0000-000000000102",
-                author = PublicActivityAuthorDto(
-                    id = THIRD_USER_ID,
-                    username = "eceeats",
-                    displayName = "Ece Aksoy",
-                    avatarUrl = null,
-                ),
+                author = PublicActivityAuthorDto(THIRD_USER_ID, "eceeats", "Ece Aksoy", null),
                 place = activityPlace(),
                 overallScore = 8.7,
                 publicReview = "",
                 visitedAt = "2026-08-18",
             ),
         )
-        add(
+        indexActivity(
             PublicActivityDto(
                 visitId = "30000000-0000-0000-0000-000000000103",
-                author = PublicActivityAuthorDto(
-                    id = FOURTH_USER_ID,
-                    username = "denizmaps",
-                    displayName = "Deniz Community",
-                    avatarUrl = null,
-                ),
+                author = PublicActivityAuthorDto(FOURTH_USER_ID, "denizmaps", "Deniz Community", null),
                 place = activityPlace(),
                 overallScore = 8.2,
                 publicReview = "Community-only cove notes.",
                 visitedAt = "2026-08-17",
             ),
         )
+        // Mutual friend's FRIENDS-only visit — friends activity yes, community no.
+        indexActivity(
+            PublicActivityDto(
+                visitId = "30000000-0000-0000-0000-000000000104",
+                author = PublicActivityAuthorDto(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz", null),
+                place = activityPlace(),
+                overallScore = 9.6,
+                publicReview = "Friends-only cove notes.",
+                visitedAt = "2026-08-21",
+            ),
+            friendOnly = true,
+        )
         repeat(22) { index ->
-            add(
+            indexActivity(
                 PublicActivityDto(
                     visitId = "30000000-0000-0000-0000-${"%012d".format(200 + index)}",
-                    author = PublicActivityAuthorDto(
-                        id = OTHER_USER_ID,
-                        username = "ahmetgoes",
-                        displayName = "Ahmet Deniz",
-                        avatarUrl = null,
-                    ),
+                    author = PublicActivityAuthorDto(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz", null),
                     place = activityPlace(),
                     overallScore = 7.5,
                     publicReview = "Paged activity $index",
@@ -168,53 +175,76 @@ private class FakeVisits(
                 ),
             )
         }
-        sortByDescending { it.visitedAt }
-    }
+        communityActivity.sortByDescending { it.visitedAt }
+        friendReadableActivity.sortByDescending { it.visitedAt }
 
-    init {
-        publicReviews += PublicVisitDto(
-            id = "30000000-0000-0000-0000-000000000201",
-            placeId = PLACE_ID,
-            placeName = summary.name,
-            userId = OTHER_USER_ID,
-            username = "ahmetgoes",
-            displayName = "Ahmet Deniz",
-            avatarUrl = null,
-            visitedAt = "2026-05-03",
-            overallRating = 9.4,
-            publicReview = "Friend public review of the cove.",
-            photos = emptyList(),
-            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        indexReview(
+            PublicVisitDto(
+                id = "30000000-0000-0000-0000-000000000201",
+                placeId = PLACE_ID,
+                placeName = summary.name,
+                userId = OTHER_USER_ID,
+                username = "ahmetgoes",
+                displayName = "Ahmet Deniz",
+                avatarUrl = null,
+                visitedAt = "2026-05-03",
+                overallRating = 9.4,
+                publicReview = "Friend public review of the cove.",
+                photos = emptyList(),
+                verificationStatus = VerificationStatusDto.UNVERIFIED,
+            ),
         )
-        publicReviews += PublicVisitDto(
-            id = "30000000-0000-0000-0000-000000000203",
-            placeId = PLACE_ID,
-            placeName = summary.name,
-            userId = OTHER_USER_ID,
-            username = "ahmetgoes",
-            displayName = "Ahmet Deniz",
-            avatarUrl = null,
-            visitedAt = "2026-03-01",
-            overallRating = 8.8,
-            publicReview = "Earlier friend visit.",
-            photos = emptyList(),
-            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        indexReview(
+            PublicVisitDto(
+                id = "30000000-0000-0000-0000-000000000203",
+                placeId = PLACE_ID,
+                placeName = summary.name,
+                userId = OTHER_USER_ID,
+                username = "ahmetgoes",
+                displayName = "Ahmet Deniz",
+                avatarUrl = null,
+                visitedAt = "2026-03-01",
+                overallRating = 8.8,
+                publicReview = "Earlier friend visit.",
+                photos = emptyList(),
+                verificationStatus = VerificationStatusDto.UNVERIFIED,
+            ),
         )
-        publicReviews += PublicVisitDto(
-            id = "30000000-0000-0000-0000-000000000202",
-            placeId = PLACE_ID,
-            placeName = summary.name,
-            userId = THIRD_USER_ID,
-            username = "eceeats",
-            displayName = "Ece Aksoy",
-            avatarUrl = null,
-            visitedAt = "2026-04-10",
-            overallRating = 8.0,
-            publicReview = "One-way visitor review.",
-            photos = emptyList(),
-            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        indexReview(
+            PublicVisitDto(
+                id = "30000000-0000-0000-0000-000000000202",
+                placeId = PLACE_ID,
+                placeName = summary.name,
+                userId = THIRD_USER_ID,
+                username = "eceeats",
+                displayName = "Ece Aksoy",
+                avatarUrl = null,
+                visitedAt = "2026-04-10",
+                overallRating = 8.0,
+                publicReview = "One-way visitor review.",
+                photos = emptyList(),
+                verificationStatus = VerificationStatusDto.UNVERIFIED,
+            ),
         )
-        publicReviews.sortByDescending { it.visitedAt }
+        indexReview(
+            PublicVisitDto(
+                id = "30000000-0000-0000-0000-000000000204",
+                placeId = PLACE_ID,
+                placeName = summary.name,
+                userId = OTHER_USER_ID,
+                username = "ahmetgoes",
+                displayName = "Ahmet Deniz",
+                avatarUrl = null,
+                visitedAt = "2026-05-10",
+                overallRating = 9.1,
+                publicReview = "Friend-only review of the cove.",
+                photos = emptyList(),
+                verificationStatus = VerificationStatusDto.UNVERIFIED,
+            ),
+            friendOnly = true,
+        )
+        communityReviews.sortByDescending { it.visitedAt }
+        friendReadableReviews.sortByDescending { it.visitedAt }
     }
 
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
@@ -226,8 +256,11 @@ private class FakeVisits(
             VerificationStatusDto.UNVERIFIED,
         )
         visits += visit
-        if (request.visibility == com.emirrkls.phokarta.core.network.model.VisibilityDto.PUBLIC) {
-            publicReviews += PublicVisitDto(
+        val visibility = request.visibility
+        if (visibility == com.emirrkls.phokarta.core.network.model.VisibilityDto.PUBLIC ||
+            visibility == com.emirrkls.phokarta.core.network.model.VisibilityDto.FRIENDS
+        ) {
+            val dto = PublicVisitDto(
                 id = visitId,
                 placeId = request.placeId,
                 placeName = summary.name,
@@ -241,8 +274,7 @@ private class FakeVisits(
                 photos = request.photos.orEmpty(),
                 verificationStatus = VerificationStatusDto.UNVERIFIED,
             )
-            publicReviews.sortByDescending { it.visitedAt }
-            activity += PublicActivityDto(
+            val event = PublicActivityDto(
                 visitId = visitId,
                 author = PublicActivityAuthorDto(USER_ID, "emir_demo", "Emir Kaya", null),
                 place = activityPlace(request.placeId),
@@ -250,7 +282,16 @@ private class FakeVisits(
                 publicReview = request.publicReview.orEmpty(),
                 visitedAt = request.visitedAt,
             )
-            activity.sortByDescending { it.visitedAt }
+            friendReadableReviews += dto
+            friendReadableReviews.sortByDescending { it.visitedAt }
+            friendReadableActivity += event
+            friendReadableActivity.sortByDescending { it.visitedAt }
+            if (visibility == com.emirrkls.phokarta.core.network.model.VisibilityDto.PUBLIC) {
+                communityReviews += dto
+                communityReviews.sortByDescending { it.visitedAt }
+                communityActivity += event
+                communityActivity.sortByDescending { it.visitedAt }
+            }
         }
         return RemoteResult.Success(visit)
     }
@@ -263,7 +304,8 @@ private class FakeVisits(
         page: Int,
         size: Int,
     ): RemoteResult<PageResponseDto<PublicVisitDto>> {
-        val matching = publicReviews.filter { it.placeId == placeId }.filterByScope(scope) { it.userId }
+        val source = if (scope?.lowercase() == "friends") friendReadableReviews else communityReviews
+        val matching = source.filter { it.placeId == placeId }.filterByScope(scope) { it.userId }
         return RemoteResult.Success(paginate(matching, page, size))
     }
 
@@ -272,7 +314,8 @@ private class FakeVisits(
         page: Int,
         size: Int,
     ): RemoteResult<PageResponseDto<PublicActivityDto>> {
-        val matching = activity.filterByScope(scope) { it.author.id }
+        val source = if (scope?.lowercase() == "friends") friendReadableActivity else communityActivity
+        val matching = source.filterByScope(scope) { it.author.id }
         return RemoteResult.Success(paginate(matching, page, size))
     }
 
@@ -281,7 +324,7 @@ private class FakeVisits(
             return RemoteResult.Success(FriendPlaceSummaryDto(null, 0, emptyList()))
         }
         val friends = social.mutualFriendIds()
-        val friendVisits = publicReviews
+        val friendVisits = friendReadableReviews
             .filter { it.placeId == placeId && it.userId in friends }
             .groupBy { it.userId }
         if (friendVisits.isEmpty()) {

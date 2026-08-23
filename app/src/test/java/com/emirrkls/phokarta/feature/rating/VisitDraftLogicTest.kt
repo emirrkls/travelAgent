@@ -97,23 +97,39 @@ class VisitDraftLogicTest {
     @Test
     fun reviewHelperCopyMatchesVisibilitySemantics() {
         assertEquals("Shared with the community", VisitVisibilityCopy.reviewHelper(Visibility.PUBLIC))
-        assertEquals("Not shown in community reviews", VisitVisibilityCopy.reviewHelper(Visibility.FRIENDS))
-        assertEquals("Only you can see this review", VisitVisibilityCopy.reviewHelper(Visibility.PRIVATE))
+        assertEquals("Shared with your friends", VisitVisibilityCopy.reviewHelper(Visibility.FRIENDS))
+        assertEquals("Only visible to you", VisitVisibilityCopy.reviewHelper(Visibility.PRIVATE))
     }
 
     @Test
     fun impactHintCopyMatchesVisibilitySemantics() {
         assertEquals(
-            "This visit can contribute to community discovery.",
+            "This can contribute to Community and Friends discovery.",
             VisitVisibilityCopy.impactHint(Visibility.PUBLIC),
         )
         assertEquals(
-            "This won't affect community discovery.",
+            "This won't affect the Community score.",
             VisitVisibilityCopy.impactHint(Visibility.FRIENDS),
         )
         assertEquals(
-            "This won't affect community or friends scores.",
+            "This won't affect Community or Friends scores.",
             VisitVisibilityCopy.impactHint(Visibility.PRIVATE),
+        )
+    }
+
+    @Test
+    fun sheetDescriptionCopyMatchesVisibilitySemantics() {
+        assertEquals(
+            "Visible to the Phokarta community",
+            VisitVisibilityCopy.sheetDescription(Visibility.PUBLIC),
+        )
+        assertEquals(
+            "Visible to your friends",
+            VisitVisibilityCopy.sheetDescription(Visibility.FRIENDS),
+        )
+        assertEquals(
+            "Only you can see this",
+            VisitVisibilityCopy.sheetDescription(Visibility.PRIVATE),
         )
     }
 }

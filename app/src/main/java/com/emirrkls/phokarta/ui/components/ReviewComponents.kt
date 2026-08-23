@@ -313,7 +313,7 @@ fun FriendReviewsEmptyState(modifier: Modifier = Modifier) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Text("No friend reviews yet", style = MaterialTheme.typography.titleMedium)
         Text(
-            "When friends visit this place, their public reviews appear here.",
+            "When friends visit this place, their reviews appear here.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )

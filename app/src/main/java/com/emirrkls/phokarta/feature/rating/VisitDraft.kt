@@ -20,8 +20,8 @@ data class VisitDraft(
 /**
  * User-facing copy for visit visibility.
  *
- * FRIENDS is stored by the backend but is not friend-readable today — Social v2
- * discovery/feeds/scores use PUBLIC visits only. Copy must stay truthful.
+ * PUBLIC — community + mutual friends. FRIENDS — mutual friends only.
+ * PRIVATE — owner only. Backend is authoritative for audience.
  */
 object VisitVisibilityCopy {
     val selectionOrder: List<Visibility> = listOf(
@@ -37,21 +37,21 @@ object VisitVisibilityCopy {
     }
 
     fun sheetDescription(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "Share it with the Phokarta community"
-        Visibility.FRIENDS -> "Keep this limited for now — not shown in community discovery"
-        Visibility.PRIVATE -> "Keep this visit only for yourself"
+        Visibility.PUBLIC -> "Visible to the Phokarta community"
+        Visibility.FRIENDS -> "Visible to your friends"
+        Visibility.PRIVATE -> "Only you can see this"
     }
 
     fun reviewHelper(visibility: Visibility): String = when (visibility) {
         Visibility.PUBLIC -> "Shared with the community"
-        Visibility.FRIENDS -> "Not shown in community reviews"
-        Visibility.PRIVATE -> "Only you can see this review"
+        Visibility.FRIENDS -> "Shared with your friends"
+        Visibility.PRIVATE -> "Only visible to you"
     }
 
     fun impactHint(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "This visit can contribute to community discovery."
-        Visibility.FRIENDS -> "This won't affect community discovery."
-        Visibility.PRIVATE -> "This won't affect community or friends scores."
+        Visibility.PUBLIC -> "This can contribute to Community and Friends discovery."
+        Visibility.FRIENDS -> "This won't affect the Community score."
+        Visibility.PRIVATE -> "This won't affect Community or Friends scores."
     }
 
     fun contentDescription(visibility: Visibility): String =

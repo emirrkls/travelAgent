@@ -157,6 +157,8 @@ class FriendsDiscoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Friend reviews").fetchSemanticsNodes().isNotEmpty() &&
                 composeRule.onAllNodesWithText("Friend public review of the cove.", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Friend-only review of the cove.", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(
@@ -171,6 +173,33 @@ class FriendsDiscoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty()
         }
+        assertTrue(
+            "FRIENDS-only review must stay out of community",
+            composeRule.onAllNodesWithText("Friend-only review of the cove.", substring = true)
+                .fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun friendsActivityIncludesFriendsOnlyVisitAndExcludesFromCommunity() {
+        openActivityFeed()
+
+        composeRule.onNodeWithContentDescription("Friends scope").performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithText("Friends-only cove notes.", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithContentDescription("Community scope").performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(
+            "FRIENDS-only activity must stay out of community",
+            composeRule.onAllNodesWithText("Friends-only cove notes.", substring = true)
+                .fetchSemanticsNodes().isEmpty(),
+        )
     }
 
     private fun openActivityFeed() {

@@ -38,7 +38,7 @@ Data flows through one boundary:
 | GET/POST/DELETE | `/api/v1/me/visits`, `/me/saved-places`, `/me/collections` | bearer |
 | POST | `/api/v1/visits` | bearer (userId from principal) |
 
-Public: place discovery/detail, public reviews, PUBLIC collections. Community `averageScore` / `ratingCount` (and minRating / rating sorts) use **PUBLIC Visits only** — FRIENDS/PRIVATE ratings never affect discovery. Friends discovery (activity, reviews, friends-summary) uses mutual follows + PUBLIC Visits. Owner `/me/visits` returns all of the owner's Visits. Collection visibility (PUBLIC / FRIENDS / PRIVATE) is separate from Visit visibility.
+Public: place discovery/detail, public reviews, PUBLIC collections. Community `averageScore` / `ratingCount` (and minRating / rating sorts) use **PUBLIC Visits only** — FRIENDS/PRIVATE ratings never affect community discovery. Friends discovery (activity, reviews, friends-summary) uses mutual follows + **friend-readable Visits (PUBLIC or FRIENDS)**; PRIVATE is excluded. Owner `/me/visits` returns all of the owner's Visits. Collection visibility (PUBLIC / FRIENDS / PRIVATE) is separate from Visit visibility.
 
 ### Development demo account
 
@@ -115,7 +115,7 @@ Never commit keys, `.env`, `local.properties`, or `secrets.properties`.
 - Google Sign-In / Apple Sign-In via `auth_identities`
 - Password reset and email verification delivery
 - Redis-backed auth rate limiting for multi-node production
-- v0.7 social graph (depends on authenticated identity; FRIENDS visibility stays conservative until then)
+- v0.7 social graph / friends discovery (mutual follows + friend-readable Visits)
 
 ## Build and test
 

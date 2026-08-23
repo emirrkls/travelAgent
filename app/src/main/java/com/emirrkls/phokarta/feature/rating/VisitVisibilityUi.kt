@@ -163,6 +163,12 @@ fun VisitVisibilitySheet(
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Friends are people you mutually follow.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

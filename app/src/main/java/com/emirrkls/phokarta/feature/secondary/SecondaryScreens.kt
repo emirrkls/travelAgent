@@ -187,7 +187,7 @@ private fun ActivityHeader(
         )
         Text(
             if (activeScope == ActivityScope.FRIENDS) {
-                "Public visits from people you mutually follow."
+                "Visits from people you mutually follow."
             } else {
                 "Recent public visits from travelers."
             },

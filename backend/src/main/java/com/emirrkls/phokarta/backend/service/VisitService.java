@@ -137,8 +137,7 @@ public class VisitService {
         }
         UUID viewerId = SecurityUtils.requireCurrentUserId();
         return PageResponse.from(
-                visits.findFriendsReviews(placeId, viewerId, Visibility.PUBLIC,
-                        PageRequest.of(page, size)),
+                visits.findFriendsReviews(placeId, viewerId, PageRequest.of(page, size)),
                 mapper::toPublic);
     }
 
@@ -158,7 +157,7 @@ public class VisitService {
         }
         UUID viewerId = SecurityUtils.requireCurrentUserId();
         return PageResponse.from(
-                visits.findFriendsActivity(viewerId, Visibility.PUBLIC, PageRequest.of(page, size)),
+                visits.findFriendsActivity(viewerId, PageRequest.of(page, size)),
                 mapper::toActivity);
     }
 

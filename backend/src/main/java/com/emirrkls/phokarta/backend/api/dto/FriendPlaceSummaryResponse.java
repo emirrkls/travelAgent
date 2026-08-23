@@ -9,6 +9,7 @@ import java.util.UUID;
 /**
  * Viewer-relative friends lens for a place.
  * averageScore is the mean of per-friend averages (user-weighted), never visit-weighted.
+ * Qualifying Visits are friend-readable (PUBLIC or FRIENDS); PRIVATE never contributes.
  * Structurally excludes privateMemory, email, and auth fields.
  * Null averageScore is omitted (never serialized as 0.0).
  */
@@ -19,8 +20,9 @@ public record FriendPlaceSummaryResponse(
         List<FriendPreview> friends
 ) {
     /**
-     * Unique mutual friend who visited. latestScore is that friend's newest public Visit score.
-     * Aggregate Friends score uses each friend's average across all their public Visits.
+     * Unique mutual friend who visited with a friend-readable Visit.
+     * latestScore is that friend's newest friend-readable Visit score (PRIVATE ignored).
+     * Aggregate Friends score uses each friend's average across their friend-readable Visits.
      */
     public record FriendPreview(
             UUID userId,

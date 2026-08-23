@@ -97,12 +97,32 @@ class VisitVisibilityFlowTest {
 
         composeRule.onNodeWithText("Shared with the community").assertIsDisplayed()
         selectVisibility("Private")
-        composeRule.onNodeWithText("Only you can see this review").assertIsDisplayed()
+        composeRule.onNodeWithText("Only visible to you").assertIsDisplayed()
         composeRule.onNodeWithText(reviewText).assertIsDisplayed()
 
         selectVisibility("Public")
         composeRule.onNodeWithText("Shared with the community").assertIsDisplayed()
         composeRule.onNodeWithText(reviewText).assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsVisibility_sheetAndReviewHelperShowFriendAudienceCopy() {
+        openRatingForSarnicCove()
+        composeRule.onNodeWithContentDescription("Visibility,", substring = true)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithText("Who can see this visit?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Visible to your friends").assertIsDisplayed()
+        composeRule.onNodeWithText("Friends are people you mutually follow.").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Friends.", substring = true).performClick()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithContentDescription("Visibility, Friends")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Shared with your friends").assertIsDisplayed()
+        composeRule.onNodeWithText("This won't affect the Community score.").assertIsDisplayed()
     }
 
     private fun openRatingForSarnicCove() {

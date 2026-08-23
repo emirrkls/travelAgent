@@ -27,13 +27,15 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
             Visibility visibility, Pageable pageable);
 
     /**
-     * Friends Activity: PUBLIC visits by mutual friends of viewer, excluding self.
-     * Mutual = viewer→author AND author→viewer. Ordering matches community feed.
+     * Friends Activity: friend-readable visits (PUBLIC or FRIENDS) by mutual friends,
+     * excluding self and PRIVATE. Mutual = viewer→author AND author→viewer.
      */
     @EntityGraph(attributePaths = {"user", "place"})
     @Query("""
             select v from Visit v
-            where v.visibility = :visibility
+            where v.visibility in (
+                    com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC,
+                    com.emirrkls.phokarta.backend.domain.model.Visibility.FRIENDS)
               and v.user.id <> :viewerId
               and exists (
                   select 1 from UserFollow outbound
@@ -49,17 +51,18 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
             """)
     Page<Visit> findFriendsActivity(
             @Param("viewerId") UUID viewerId,
-            @Param("visibility") Visibility visibility,
             Pageable pageable);
 
     /**
-     * Friends reviews for a place: PUBLIC visits by mutual friends, excluding self.
+     * Friends reviews for a place: friend-readable visits by mutual friends, excluding self.
      */
     @EntityGraph(attributePaths = {"user", "place"})
     @Query("""
             select v from Visit v
             where v.place.id = :placeId
-              and v.visibility = :visibility
+              and v.visibility in (
+                    com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC,
+                    com.emirrkls.phokarta.backend.domain.model.Visibility.FRIENDS)
               and v.user.id <> :viewerId
               and exists (
                   select 1 from UserFollow outbound
@@ -76,7 +79,6 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     Page<Visit> findFriendsReviews(
             @Param("placeId") UUID placeId,
             @Param("viewerId") UUID viewerId,
-            @Param("visibility") Visibility visibility,
             Pageable pageable);
 
     @Query("""
@@ -111,7 +113,9 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
 
     /**
      * User-weighted friends score: AVG(per-friend AVG(overall_rating)).
-     * friendsVisitedCount = distinct mutual friends with ≥1 PUBLIC visit.
+     * Per-friend average uses friend-readable Visits only (PUBLIC or FRIENDS).
+     * friendsVisitedCount = distinct mutual friends with ≥1 friend-readable Visit.
+     * PRIVATE never contributes.
      */
     @Query(value = """
             select avg(friend_avg) as "averageScore",
@@ -120,7 +124,7 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                 select avg(v.overall_rating) as friend_avg
                 from visits v
                 where v.place_id = :placeId
-                  and v.visibility = 'PUBLIC'
+                  and v.visibility in ('PUBLIC', 'FRIENDS')
                   and v.user_id <> :viewerId
                   and exists (
                       select 1 from user_follows outbound
@@ -148,8 +152,9 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     }
 
     /**
-     * Unique mutual friends who visited, ordered by each friend's latest Visit date DESC.
-     * latestScore is the score from that latest Visit (not the friend's place average).
+     * Unique mutual friends who visited with a friend-readable Visit,
+     * ordered by each friend's latest friend-readable Visit date DESC.
+     * latestScore is from that latest friend-readable Visit (PRIVATE ignored).
      */
     @Query(value = """
             select u.id as "userId",
@@ -162,7 +167,7 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                        max(v.visited_at) as max_visited_at
                 from visits v
                 where v.place_id = :placeId
-                  and v.visibility = 'PUBLIC'
+                  and v.visibility in ('PUBLIC', 'FRIENDS')
                   and v.user_id <> :viewerId
                   and exists (
                       select 1 from user_follows outbound
@@ -181,7 +186,7 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                 select v2.overall_rating, v2.visited_at
                 from visits v2
                 where v2.place_id = :placeId
-                  and v2.visibility = 'PUBLIC'
+                  and v2.visibility in ('PUBLIC', 'FRIENDS')
                   and v2.user_id = friends.user_id
                 order by v2.visited_at desc, v2.created_at desc, v2.id desc
                 limit 1

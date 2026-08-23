@@ -23,11 +23,11 @@ public record CreateVisitRequest(
         @Size(max = 4000) String privateMemory,
         @Size(max = 20) List<@NotBlank @Size(max = 500) String> photos,
         @NotNull
-        @Schema(description = "Visit audience. PUBLIC participates in community discovery, "
-                + "community reviews, community activity, and friends discovery aggregates. "
-                + "FRIENDS is stored for the owner but is currently excluded from community and "
-                + "friends discovery surfaces. PRIVATE is owner-only and never appears in "
-                + "discovery. Required; clients must send an explicit value.")
+        @Schema(description = "Visit audience. PUBLIC is community-readable and friend-readable "
+                + "(community score/reviews/activity plus mutual-friend discovery). "
+                + "FRIENDS is mutual-friend-readable only and is excluded from community "
+                + "discovery. PRIVATE is owner-only and never appears in discovery. "
+                + "Required; clients must send an explicit value.")
         Visibility visibility) {
 
     public record DimensionScore(

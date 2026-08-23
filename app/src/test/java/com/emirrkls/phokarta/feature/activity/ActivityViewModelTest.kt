@@ -6,7 +6,10 @@ import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.model.ActivityAuthor
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityPlaceSummary
+import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.UserSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -34,6 +37,18 @@ class ActivityViewModelTest {
 
     @After
     fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun `defaults to community scope`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.activityItems.value = listOf(event("c1"))
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(ActivityScope.COMMUNITY, viewModel.uiState.value.activeScope)
+        assertEquals(listOf("c1"), viewModel.uiState.value.items.map { it.visitId })
+        assertEquals(listOf(ActivityScope.COMMUNITY), repository.requestedActivityScopes)
+    }
 
     @Test
     fun `loads first page and appends next page without duplicates`() = runTest(dispatcher) {
@@ -124,19 +139,155 @@ class ActivityViewModelTest {
     }
 
     @Test
-    fun `resume refreshes when feed was invalidated`() = runTest(dispatcher) {
+    fun `resume refreshes community when feed was invalidated`() = runTest(dispatcher) {
         val repository = TestTravelRepository()
         val invalidator = ActivityFeedInvalidator()
         repository.activityItems.value = listOf(event("old"))
+        repository.friendsActivityItems.value = listOf(event("friend-old", authorId = "friend"))
         val viewModel = createViewModel(repository, invalidator)
+        advanceUntilIdle()
+        viewModel.selectScope(ActivityScope.FRIENDS)
         advanceUntilIdle()
 
         repository.activityItems.value = listOf(event("new"))
+        repository.friendsActivityItems.value = listOf(event("friend-new", authorId = "friend"))
         invalidator.markDirty()
         viewModel.onScreenResumed()
         advanceUntilIdle()
 
-        assertEquals(listOf("new"), viewModel.uiState.value.items.map { it.visitId })
+        assertEquals(listOf("friend-old"), viewModel.uiState.value.friends.items.map { it.visitId })
+        assertEquals(listOf("new"), viewModel.uiState.value.community.items.map { it.visitId })
+    }
+
+    @Test
+    fun `switching to friends loads independent list`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.activityItems.value = listOf(event("community"))
+        repository.friendsActivityItems.value = listOf(event("friend", authorId = "friend"))
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        assertEquals(ActivityScope.FRIENDS, viewModel.uiState.value.activeScope)
+        assertEquals(listOf("friend"), viewModel.uiState.value.items.map { it.visitId })
+        assertEquals(listOf("community"), viewModel.uiState.value.community.items.map { it.visitId })
+        assertTrue(repository.requestedActivityScopes.contains(ActivityScope.FRIENDS))
+    }
+
+    @Test
+    fun `scope switch preserves previously loaded state`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.activityItems.value = (1..25).map { event("c$it") }
+        repository.friendsActivityItems.value = listOf(event("f1", authorId = "friend"))
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.loadNextPage()
+        advanceUntilIdle()
+
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+        viewModel.selectScope(ActivityScope.COMMUNITY)
+        advanceUntilIdle()
+
+        assertEquals(25, viewModel.uiState.value.community.items.size)
+        assertEquals(listOf("f1"), viewModel.uiState.value.friends.items.map { it.visitId })
+        assertEquals(1, repository.requestedActivityScopes.count { it == ActivityScope.FRIENDS })
+    }
+
+    @Test
+    fun `friends and community errors stay isolated`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.activityItems.value = listOf(event("community"))
+        repository.friendsActivityError = TravelError.Offline()
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.friends.errorMessage != null)
+        assertEquals(listOf("community"), viewModel.uiState.value.community.items.map { it.visitId })
+        assertNull(viewModel.uiState.value.community.errorMessage)
+    }
+
+    @Test
+    fun `friends empty with zero friends shows no friends reason`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.ownerSocialCounts = OwnerSocialCounts(0, 0, 0)
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        assertEquals(FriendsEmptyReason.NO_FRIENDS, viewModel.uiState.value.friendsEmptyReason)
+        assertTrue(viewModel.uiState.value.items.isEmpty())
+    }
+
+    @Test
+    fun `friends empty with friends shows no activity reason`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.ownerSocialCounts = OwnerSocialCounts(1, 1, 2)
+        repository.friends += UserSummary("friend", "Friend", "friend", "")
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        assertEquals(FriendsEmptyReason.NO_ACTIVITY, viewModel.uiState.value.friendsEmptyReason)
+    }
+
+    @Test
+    fun `friends pagination stays on friends scope`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.friendsActivityItems.value = (1..25).map { event("f$it", authorId = "friend") }
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        viewModel.loadNextPage()
+        advanceUntilIdle()
+
+        assertEquals(25, viewModel.uiState.value.friends.items.size)
+        assertTrue(repository.requestedActivityScopes.takeLast(2).all { it == ActivityScope.FRIENDS })
+    }
+
+    @Test
+    fun `friends feed does not include self authored events in expectations`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        val selfId = repository.currentUser.id
+        repository.friendsActivityItems.value = listOf(
+            event("friend", authorId = "friend-user"),
+        )
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.items.none { it.author.userId == selfId })
+        assertEquals(listOf("friend"), viewModel.uiState.value.items.map { it.visitId })
+    }
+
+    @Test
+    fun `friends retry clears friends error`() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.friendsActivityError = TravelError.Offline()
+        val viewModel = createViewModel(repository)
+        advanceUntilIdle()
+        viewModel.selectScope(ActivityScope.FRIENDS)
+        advanceUntilIdle()
+
+        repository.friendsActivityError = null
+        repository.friendsActivityItems.value = listOf(event("f1", authorId = "friend"))
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.friends.errorMessage)
+        assertEquals(1, viewModel.uiState.value.friends.items.size)
     }
 
     private fun TestScope.createViewModel(
@@ -148,9 +299,9 @@ class ActivityViewModelTest {
         return viewModel
     }
 
-    private fun event(id: String) = ActivityEvent(
+    private fun event(id: String, authorId: String = "u1") = ActivityEvent(
         visitId = id,
-        author = ActivityAuthor("u1", "demo", "Demo User", null),
+        author = ActivityAuthor(authorId, "demo", "Demo User", null),
         place = ActivityPlaceSummary(
             id = "p1",
             name = "Test Place",

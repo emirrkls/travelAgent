@@ -103,7 +103,7 @@ private object Route {
     const val PublicProfile = "user/{userId}"
     const val SocialList = "social/{kind}"
     const val Place = "place/{placeId}"
-    const val PlaceReviews = "place/{placeId}/reviews"
+    const val PlaceReviews = "place/{placeId}/reviews?scope={scope}"
     const val Rating = "rating/{placeId}"
     const val Collection = "collection/{collectionId}"
     const val Success = "success/{placeName}"
@@ -266,13 +266,24 @@ fun PhokartaApp() {
                     PlaceDetailScreen(
                         onBack = { navController.popBackStack() },
                         onRate = { navController.navigate("rating/$placeId") },
-                        onSeeAllReviews = { navController.navigate("place/$placeId/reviews") },
+                        onSeeAllReviews = { scope ->
+                            navController.navigate("place/$placeId/reviews?scope=${scope.queryParam}")
+                        },
                         onAuthor = { userId -> navController.navigateToUser(userId, authState) },
                         visitPublished = backStackEntry.savedStateHandle.get<Boolean>("visitPublished") == true,
                         onVisitPublishedConsumed = { backStackEntry.savedStateHandle["visitPublished"] = false },
                     )
                 }
-                composable(Route.PlaceReviews, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
+                composable(
+                    Route.PlaceReviews,
+                    arguments = listOf(
+                        navArgument("placeId") { type = NavType.StringType },
+                        navArgument("scope") {
+                            type = NavType.StringType
+                            defaultValue = "community"
+                        },
+                    ),
+                ) {
                     PlaceReviewsScreen(
                         onBack = { navController.popBackStack() },
                         onAuthor = { userId -> navController.navigateToUser(userId, authState) },

@@ -6,7 +6,9 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
@@ -31,11 +33,20 @@ open class TestTravelRepository : TravelRepository {
     val saved = MutableStateFlow<Set<String>>(emptySet())
     val collections = MutableStateFlow<List<Collection>>(emptyList())
     val publicReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
+    val friendReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
     val activityItems = MutableStateFlow<List<ActivityEvent>>(emptyList())
-    var publicReviewsError: com.emirrkls.phokarta.core.data.TravelError? = null
-    var activityError: com.emirrkls.phokarta.core.data.TravelError? = null
-    var activityLoadMoreError: com.emirrkls.phokarta.core.data.TravelError? = null
+    val friendsActivityItems = MutableStateFlow<List<ActivityEvent>>(emptyList())
+    val friendSummariesByPlace = MutableStateFlow<Map<String, FriendPlaceSummary>>(emptyMap())
+    var publicReviewsError: TravelError? = null
+    var friendReviewsError: TravelError? = null
+    var activityError: TravelError? = null
+    var friendsActivityError: TravelError? = null
+    var activityLoadMoreError: TravelError? = null
+    var friendsActivityLoadMoreError: TravelError? = null
+    var friendSummaryError: TravelError? = null
     val requestedActivityPages = mutableListOf<Int>()
+    val requestedActivityScopes = mutableListOf<ActivityScope>()
+    val requestedReviewScopes = mutableListOf<ActivityScope>()
     override val currentUser: User = MockPlaceCatalogDataSource().currentUser
 
     override fun observePlaces(): Flow<List<Place>> = places
@@ -45,14 +56,20 @@ open class TestTravelRepository : TravelRepository {
     override fun observeCollections(): Flow<List<Collection>> = collections
     override suspend fun getPlace(id: String) = places.value.firstOrNull { it.id == id }
     override suspend fun getCollection(id: String) = collections.value.firstOrNull { it.id == id }
-    override suspend fun loadActivityPage(page: Int, size: Int): RepositoryResult<ActivityFeedPage> {
+    override suspend fun loadActivityPage(
+        scope: ActivityScope,
+        page: Int,
+        size: Int,
+    ): RepositoryResult<ActivityFeedPage> {
         requestedActivityPages += page
-        if (page == 0) {
-            activityError?.let { return RepositoryResult.Failure(it) }
+        requestedActivityScopes += scope
+        val pageError = if (scope == ActivityScope.FRIENDS) {
+            if (page == 0) friendsActivityError else friendsActivityLoadMoreError
         } else {
-            activityLoadMoreError?.let { return RepositoryResult.Failure(it) }
+            if (page == 0) activityError else activityLoadMoreError
         }
-        val all = activityItems.value
+        pageError?.let { return RepositoryResult.Failure(it) }
+        val all = if (scope == ActivityScope.FRIENDS) friendsActivityItems.value else activityItems.value
         val from = (page * size).coerceAtMost(all.size)
         val to = (from + size).coerceAtMost(all.size)
         val slice = all.subList(from, to)
@@ -75,10 +92,21 @@ open class TestTravelRepository : TravelRepository {
     override suspend fun nearby(latitude: Double, longitude: Double, radiusMeters: Double, category: PlaceCategory?, minRating: Double?): RepositoryResult<List<NearbyPlace>> =
         RepositoryResult.Success(emptyList())
     override suspend fun refreshPlaceDetail(id: String): RepositoryResult<Place> =
-        getPlace(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
-    override suspend fun refreshPublicReviews(placeId: String, page: Int, size: Int): RepositoryResult<PublicReviewPage> {
-        publicReviewsError?.let { return RepositoryResult.Failure(it) }
-        val all = publicReviewsByPlace.value[placeId].orEmpty()
+        getPlace(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(TravelError.NotFound())
+    override suspend fun refreshPublicReviews(
+        placeId: String,
+        scope: ActivityScope,
+        page: Int,
+        size: Int,
+    ): RepositoryResult<PublicReviewPage> {
+        requestedReviewScopes += scope
+        val error = if (scope == ActivityScope.FRIENDS) friendReviewsError else publicReviewsError
+        error?.let { return RepositoryResult.Failure(it) }
+        val all = if (scope == ActivityScope.FRIENDS) {
+            friendReviewsByPlace.value[placeId].orEmpty()
+        } else {
+            publicReviewsByPlace.value[placeId].orEmpty()
+        }
         val from = (page * size).coerceAtMost(all.size)
         val to = (from + size).coerceAtMost(all.size)
         val slice = all.subList(from, to)
@@ -93,11 +121,17 @@ open class TestTravelRepository : TravelRepository {
             ),
         )
     }
+
+    override suspend fun loadFriendPlaceSummary(placeId: String): RepositoryResult<FriendPlaceSummary> {
+        friendSummaryError?.let { return RepositoryResult.Failure(it) }
+        return friendSummariesByPlace.value[placeId]?.let { RepositoryResult.Success(it) }
+            ?: RepositoryResult.Success(FriendPlaceSummary(null, 0, emptyList()))
+    }
     override suspend fun refreshOwnerVisits(page: Int, size: Int): RepositoryResult<List<Visit>> = RepositoryResult.Success(visits.value)
     override suspend fun refreshSaved(page: Int, size: Int): RepositoryResult<Set<String>> = RepositoryResult.Success(saved.value)
     override suspend fun refreshCollections(page: Int, size: Int): RepositoryResult<List<Collection>> = RepositoryResult.Success(collections.value)
     override suspend fun refreshCollectionDetail(id: String): RepositoryResult<Collection> =
-        getCollection(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
+        getCollection(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(TravelError.NotFound())
     override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> {
         visits.value = visits.value + visit
         return RepositoryResult.Success(visit)
@@ -109,7 +143,7 @@ open class TestTravelRepository : TravelRepository {
     }
     override suspend fun saveCollection(collection: Collection): RepositoryResult<Collection> = RepositoryResult.Success(collection)
     override suspend fun addPlaceToCollection(collectionId: String, placeId: String): RepositoryResult<Collection> =
-        RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
+        RepositoryResult.Failure(TravelError.NotFound())
     override suspend fun removePlaceFromCollection(collectionId: String, placeId: String): RepositoryResult<Unit> = RepositoryResult.Success(Unit)
 
     val publicProfiles = mutableMapOf<String, PublicUserProfile>()

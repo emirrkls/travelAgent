@@ -3,7 +3,9 @@ package com.emirrkls.phokarta.core.data
 import com.emirrkls.phokarta.core.auth.AuthState
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
@@ -85,9 +87,13 @@ class DefaultTravelRepository @Inject constructor(
         (refreshCollectionDetail(id) as? RepositoryResult.Success)?.value
             ?: localUserState.getCollection(id)
 
-    override suspend fun loadActivityPage(page: Int, size: Int): RepositoryResult<ActivityFeedPage> =
+    override suspend fun loadActivityPage(
+        scope: ActivityScope,
+        page: Int,
+        size: Int,
+    ): RepositoryResult<ActivityFeedPage> =
         try {
-            when (val result = visitsRemote.publicActivity(page, size)) {
+            when (val result = visitsRemote.publicActivity(scope = scope.queryParam, page = page, size = size)) {
                 is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
                 is RemoteResult.Success -> mapOrValidation {
                     val response = result.value
@@ -240,10 +246,18 @@ class DefaultTravelRepository @Inject constructor(
 
     override suspend fun refreshPublicReviews(
         placeId: String,
+        scope: ActivityScope,
         page: Int,
         size: Int,
     ): RepositoryResult<PublicReviewPage> = try {
-        when (val result = visitsRemote.publicReviews(placeId.toCanonicalUuid(), page, size)) {
+        when (
+            val result = visitsRemote.publicReviews(
+                placeId = placeId.toCanonicalUuid(),
+                scope = scope.queryParam,
+                page = page,
+                size = size,
+            )
+        ) {
             is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
             is RemoteResult.Success -> mapOrValidation {
                 val response = result.value
@@ -256,6 +270,17 @@ class DefaultTravelRepository @Inject constructor(
                         hasNext = response.hasNext,
                     ),
                 )
+            }
+        }
+    } catch (error: IllegalArgumentException) {
+        RepositoryResult.Failure(TravelError.Validation(error.message))
+    }
+
+    override suspend fun loadFriendPlaceSummary(placeId: String): RepositoryResult<FriendPlaceSummary> = try {
+        when (val result = visitsRemote.friendsSummary(placeId.toCanonicalUuid())) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> mapOrValidation {
+                RepositoryResult.Success(result.value.toDomain())
             }
         }
     } catch (error: IllegalArgumentException) {

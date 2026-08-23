@@ -118,6 +118,22 @@ data class PublicActivityPlaceDto(
 )
 
 @Serializable
+data class FriendPlaceSummaryDto(
+    val averageScore: Double? = null,
+    val friendsVisitedCount: Long = 0,
+    val friends: List<FriendPlaceUserDto> = emptyList(),
+)
+
+@Serializable
+data class FriendPlaceUserDto(
+    val userId: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val latestScore: Double,
+    val latestVisitedAt: String,
+)
+
+@Serializable
 data class VisitOwnerDto(
     val id: String,
     val place: PlaceSummaryDto,

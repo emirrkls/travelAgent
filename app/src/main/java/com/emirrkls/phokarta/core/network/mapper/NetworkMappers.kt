@@ -4,6 +4,8 @@ import com.emirrkls.phokarta.core.model.ActivityAuthor
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityPlaceSummary
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.FriendPlaceSummary
+import com.emirrkls.phokarta.core.model.FriendPlaceUser
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReview
@@ -18,6 +20,8 @@ import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
@@ -145,6 +149,20 @@ fun PublicActivityDto.toActivityEvent(): ActivityEvent = ActivityEvent(
     overallScore = overallScore,
     publicReview = publicReview,
     visitDate = visitedAt.toLocalDateSafely(),
+)
+
+fun FriendPlaceSummaryDto.toDomain(): FriendPlaceSummary = FriendPlaceSummary(
+    averageScore = averageScore,
+    friendsVisitedCount = friendsVisitedCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt(),
+    friends = friends.map { it.toDomain() },
+)
+
+fun FriendPlaceUserDto.toDomain(): FriendPlaceUser = FriendPlaceUser(
+    userId = userId.toCanonicalUuid(),
+    displayName = displayName.ifBlank { "Traveler" },
+    avatarUrl = avatarUrl,
+    latestScore = latestScore,
+    latestVisitedAt = latestVisitedAt.toLocalDateSafely(),
 )
 
 fun Visit.toCreateDto(): CreateVisitDto = CreateVisitDto(

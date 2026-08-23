@@ -1,7 +1,9 @@
 package com.emirrkls.phokarta.core.data
 
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
@@ -30,7 +32,11 @@ interface TravelRepository {
     fun observeCollections(): Flow<List<Collection>>
     suspend fun getPlace(id: String): Place?
     suspend fun getCollection(id: String): Collection?
-    suspend fun loadActivityPage(page: Int = 0, size: Int = 20): RepositoryResult<ActivityFeedPage>
+    suspend fun loadActivityPage(
+        scope: ActivityScope = ActivityScope.COMMUNITY,
+        page: Int = 0,
+        size: Int = 20,
+    ): RepositoryResult<ActivityFeedPage>
     suspend fun listPlaces(
         category: com.emirrkls.phokarta.core.model.PlaceCategory? = null,
         city: String? = null,
@@ -59,9 +65,11 @@ interface TravelRepository {
     suspend fun refreshPlaceDetail(id: String): RepositoryResult<Place>
     suspend fun refreshPublicReviews(
         placeId: String,
+        scope: ActivityScope = ActivityScope.COMMUNITY,
         page: Int = 0,
         size: Int = 20,
     ): RepositoryResult<PublicReviewPage>
+    suspend fun loadFriendPlaceSummary(placeId: String): RepositoryResult<FriendPlaceSummary>
     suspend fun refreshOwnerVisits(page: Int = 0, size: Int = 50): RepositoryResult<List<Visit>>
     suspend fun refreshSaved(page: Int = 0, size: Int = 100): RepositoryResult<Set<String>>
     suspend fun refreshCollections(page: Int = 0, size: Int = 100): RepositoryResult<List<Collection>>

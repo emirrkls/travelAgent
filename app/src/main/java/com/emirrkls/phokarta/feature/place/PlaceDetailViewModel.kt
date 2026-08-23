@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visibility
@@ -33,6 +35,12 @@ data class CommunityReviewsUiState(
     val expandedReviewIds: Set<String> = emptySet(),
 )
 
+data class FriendSummaryUiState(
+    val summary: FriendPlaceSummary? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 data class PlaceDetailUiState(
     val place: Place? = null,
     val isSaved: Boolean = false,
@@ -49,8 +57,14 @@ data class PlaceDetailUiState(
     val isCreatingCollection: Boolean = false,
     val createCollectionError: String? = null,
     val shareText: String? = null,
+    val activeReviewScope: ActivityScope = ActivityScope.COMMUNITY,
     val communityReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
-)
+    val friendReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
+    val friendSummary: FriendSummaryUiState = FriendSummaryUiState(),
+) {
+    val activeReviews: CommunityReviewsUiState
+        get() = if (activeReviewScope == ActivityScope.FRIENDS) friendReviews else communityReviews
+}
 
 @HiltViewModel
 class PlaceDetailViewModel @Inject constructor(
@@ -61,6 +75,10 @@ class PlaceDetailViewModel @Inject constructor(
     private val place = MutableStateFlow<Place?>(null)
     private val status = MutableStateFlow(DetailStatus())
     private val communityReviews = MutableStateFlow(CommunityReviewsUiState())
+    private val friendReviews = MutableStateFlow(CommunityReviewsUiState())
+    private val friendSummary = MutableStateFlow(FriendSummaryUiState())
+    private val activeReviewScope = MutableStateFlow(ActivityScope.COMMUNITY)
+    private var friendReviewsRequested = false
 
     val uiState = combine(
         combine(
@@ -77,7 +95,14 @@ class PlaceDetailViewModel @Inject constructor(
         ) { collections, detailStatus, reviewsState ->
             Triple(collections, detailStatus, reviewsState)
         },
-    ) { (current, saved, visits), (collections, detailStatus, reviewsState) ->
+        combine(
+            friendReviews,
+            friendSummary,
+            activeReviewScope,
+        ) { friendReviewsState, friendSummaryState, reviewScope ->
+            Triple(friendReviewsState, friendSummaryState, reviewScope)
+        },
+    ) { (current, saved, visits), (collections, detailStatus, reviewsState), (friendReviewsState, friendSummaryState, reviewScope) ->
         PlaceDetailUiState(
             place = current,
             isSaved = placeId in saved,
@@ -94,7 +119,10 @@ class PlaceDetailViewModel @Inject constructor(
             isCreatingCollection = detailStatus.isCreatingCollection,
             createCollectionError = detailStatus.createCollectionError,
             shareText = detailStatus.shareText,
+            activeReviewScope = reviewScope,
             communityReviews = reviewsState,
+            friendReviews = friendReviewsState,
+            friendSummary = friendSummaryState,
         )
     }.stateIn(
         viewModelScope,
@@ -108,6 +136,7 @@ class PlaceDetailViewModel @Inject constructor(
     init {
         load()
         loadCommunityReviews()
+        loadFriendSummary()
         viewModelScope.launch { repository.refreshCollections() }
         viewModelScope.launch { repository.refreshOwnerVisits() }
     }
@@ -118,8 +147,32 @@ class PlaceDetailViewModel @Inject constructor(
 
     fun retryCommunityReviews() = loadCommunityReviews(force = true)
 
+    fun selectReviewScope(scope: ActivityScope) {
+        if (activeReviewScope.value == scope) return
+        activeReviewScope.value = scope
+        if (scope == ActivityScope.FRIENDS && !friendReviewsRequested) {
+            friendReviewsRequested = true
+            loadFriendReviews(force = true)
+        }
+    }
+
+    fun refreshActiveReviews() {
+        when (activeReviewScope.value) {
+            ActivityScope.COMMUNITY -> loadCommunityReviews(force = true)
+            ActivityScope.FRIENDS -> loadFriendReviews(force = true)
+        }
+    }
+
+    fun retryActiveReviews() = refreshActiveReviews()
+
+    fun refreshFriendSummary() = loadFriendSummary(force = true)
+
+    fun retryFriendSummary() = loadFriendSummary(force = true)
+
     fun toggleReviewExpanded(reviewId: String) {
-        communityReviews.update { state ->
+        val scope = activeReviewScope.value
+        val target = if (scope == ActivityScope.FRIENDS) friendReviews else communityReviews
+        target.update { state ->
             val expanded = reviewId in state.expandedReviewIds
             state.copy(
                 expandedReviewIds = if (expanded) state.expandedReviewIds - reviewId else state.expandedReviewIds + reviewId,
@@ -278,7 +331,14 @@ class PlaceDetailViewModel @Inject constructor(
         if (!force && communityReviews.value.isLoading) return
         viewModelScope.launch {
             communityReviews.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val result = repository.refreshPublicReviews(placeId, page = 0, size = PREVIEW_PAGE_SIZE)) {
+            when (
+                val result = repository.refreshPublicReviews(
+                    placeId,
+                    scope = ActivityScope.COMMUNITY,
+                    page = 0,
+                    size = PREVIEW_PAGE_SIZE,
+                )
+            ) {
                 is RepositoryResult.Success -> communityReviews.update {
                     it.copy(
                         reviews = result.value.reviews,
@@ -290,6 +350,50 @@ class PlaceDetailViewModel @Inject constructor(
                     )
                 }
                 is RepositoryResult.Failure -> communityReviews.update {
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                }
+            }
+        }
+    }
+
+    private fun loadFriendReviews(force: Boolean = false) {
+        if (!force && friendReviews.value.isLoading) return
+        viewModelScope.launch {
+            friendReviews.update { it.copy(isLoading = true, errorMessage = null) }
+            when (
+                val result = repository.refreshPublicReviews(
+                    placeId,
+                    scope = ActivityScope.FRIENDS,
+                    page = 0,
+                    size = PREVIEW_PAGE_SIZE,
+                )
+            ) {
+                is RepositoryResult.Success -> friendReviews.update {
+                    it.copy(
+                        reviews = result.value.reviews,
+                        totalElements = result.value.totalElements,
+                        hasNext = result.value.hasNext,
+                        isLoading = false,
+                        errorMessage = null,
+                        expandedReviewIds = emptySet(),
+                    )
+                }
+                is RepositoryResult.Failure -> friendReviews.update {
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                }
+            }
+        }
+    }
+
+    private fun loadFriendSummary(force: Boolean = false) {
+        if (!force && friendSummary.value.isLoading) return
+        viewModelScope.launch {
+            friendSummary.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = repository.loadFriendPlaceSummary(placeId)) {
+                is RepositoryResult.Success -> friendSummary.update {
+                    FriendSummaryUiState(summary = result.value, isLoading = false)
+                }
+                is RepositoryResult.Failure -> friendSummary.update {
                     it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
                 }
             }

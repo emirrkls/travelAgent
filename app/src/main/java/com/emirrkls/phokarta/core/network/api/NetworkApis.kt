@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
@@ -135,15 +136,22 @@ interface VisitApi {
     @GET("api/v1/places/{placeId}/reviews")
     suspend fun publicReviews(
         @Path("placeId") placeId: String,
+        @Query("scope") scope: String? = null,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<PublicVisitDto>>
 
     @GET("api/v1/activity")
     suspend fun publicActivity(
+        @Query("scope") scope: String? = null,
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<PublicActivityDto>>
+
+    @GET("api/v1/places/{placeId}/friends-summary")
+    suspend fun friendsSummary(
+        @Path("placeId") placeId: String,
+    ): Response<FriendPlaceSummaryDto>
 }
 
 interface SavedPlaceApi {

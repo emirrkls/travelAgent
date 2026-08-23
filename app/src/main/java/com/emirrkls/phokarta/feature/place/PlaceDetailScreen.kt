@@ -57,6 +57,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,9 +67,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.feature.collections.CollectionPickerSheet
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
+import com.emirrkls.phokarta.feature.secondary.ActivityScopeSelector
 import com.emirrkls.phokarta.ui.components.CategoryIcon
 import com.emirrkls.phokarta.ui.components.CommunityReviewCard
 import com.emirrkls.phokarta.ui.components.CommunityReviewsEmptyState
@@ -75,15 +79,19 @@ import com.emirrkls.phokarta.ui.components.CommunityReviewsErrorState
 import com.emirrkls.phokarta.ui.components.CommunityReviewsLoadingIndicator
 import com.emirrkls.phokarta.ui.components.CommunityReviewsSectionHeader
 import com.emirrkls.phokarta.ui.components.CommunityScoreSection
+import com.emirrkls.phokarta.ui.components.FriendReviewsEmptyState
+import com.emirrkls.phokarta.ui.components.FriendScoreSection
 import com.emirrkls.phokarta.ui.components.PersonalVisitScoreSection
+import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
+import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.theme.Coral
 
 @Composable
 fun PlaceDetailScreen(
     onBack: () -> Unit,
     onRate: () -> Unit,
-    onSeeAllReviews: () -> Unit = {},
+    onSeeAllReviews: (ActivityScope) -> Unit = {},
     onAuthor: (String) -> Unit = {},
     visitPublished: Boolean = false,
     onVisitPublishedConsumed: () -> Unit = {},
@@ -274,6 +282,11 @@ fun PlaceDetailScreen(
                         ratingCount = place.ratingCount,
                         modifier = Modifier.weight(1f),
                     )
+                    FriendScoreSection(
+                        friendsScore = state.friendSummary.summary?.averageScore,
+                        friendsVisitedCount = state.friendSummary.summary?.friendsVisitedCount ?: 0,
+                        modifier = Modifier.weight(1f),
+                    )
                     latestVisit?.let { visit ->
                         PersonalVisitScoreSection(
                             latestVisit = visit,
@@ -281,6 +294,11 @@ fun PlaceDetailScreen(
                             modifier = Modifier.weight(1f),
                         )
                     }
+                }
+                state.friendSummary.errorMessage?.let { friendError ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(friendError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = viewModel::retryFriendSummary) { Text("Retry friends score") }
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -381,40 +399,91 @@ fun PlaceDetailScreen(
                         )
                     }
                 }
-                place.friendSignal?.let { friendSignal ->
+                val friendsPreview = state.friendSummary.summary?.friends.orEmpty()
+                if (friendsPreview.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
                     Text("Friends who visited", style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(14.dp))
-                    Text(friendSignal, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
+                    friendsPreview.take(5).forEach { friend ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onAuthor(friend.userId) }
+                                .padding(vertical = 6.dp)
+                                .semantics {
+                                    contentDescription =
+                                        "Friend who visited ${friend.displayName}, latest score ${String.format("%.1f", friend.latestScore)}"
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            UserAvatar(friend.avatarUrl.orEmpty(), size = 40)
+                            Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                                Text(
+                                    friend.displayName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    String.format("%.1f", friend.latestScore),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                            RatingBadge(friend.latestScore)
+                        }
+                    }
                 }
                 Spacer(Modifier.height(28.dp))
-                CommunityReviewsSectionHeader(totalElements = state.communityReviews.totalElements)
+                val activeReviews = state.activeReviews
+                CommunityReviewsSectionHeader(
+                    totalElements = activeReviews.totalElements,
+                    title = if (state.activeReviewScope == ActivityScope.FRIENDS) {
+                        "Friend reviews"
+                    } else {
+                        "Community reviews"
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+                ActivityScopeSelector(
+                    activeScope = state.activeReviewScope,
+                    onSelectScope = viewModel::selectReviewScope,
+                )
                 Spacer(Modifier.height(12.dp))
                 when {
-                    state.communityReviews.isLoading && state.communityReviews.reviews.isEmpty() ->
+                    activeReviews.isLoading && activeReviews.reviews.isEmpty() ->
                         CommunityReviewsLoadingIndicator()
-                    state.communityReviews.errorMessage != null && state.communityReviews.reviews.isEmpty() ->
+                    activeReviews.errorMessage != null && activeReviews.reviews.isEmpty() ->
                         CommunityReviewsErrorState(
-                            message = state.communityReviews.errorMessage.orEmpty(),
-                            onRetry = viewModel::retryCommunityReviews,
+                            message = activeReviews.errorMessage.orEmpty(),
+                            onRetry = viewModel::retryActiveReviews,
                         )
-                    state.communityReviews.reviews.isEmpty() ->
-                        CommunityReviewsEmptyState(hasVisited = hasVisited)
+                    activeReviews.reviews.isEmpty() -> {
+                        if (state.activeReviewScope == ActivityScope.FRIENDS) {
+                            FriendReviewsEmptyState()
+                        } else {
+                            CommunityReviewsEmptyState(hasVisited = hasVisited)
+                        }
+                    }
                     else -> {
-                        state.communityReviews.reviews.forEach { review ->
+                        activeReviews.reviews.forEach { review ->
                             CommunityReviewCard(
                                 review = review,
                                 currentUserId = state.currentUserId,
-                                expanded = review.id in state.communityReviews.expandedReviewIds,
+                                expanded = review.id in activeReviews.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
                                 onOpenAuthor = onAuthor,
                             )
                             Spacer(Modifier.height(10.dp))
                         }
-                        if (state.communityReviews.totalElements > state.communityReviews.reviews.size ||
-                            state.communityReviews.hasNext
+                        if (activeReviews.totalElements > activeReviews.reviews.size ||
+                            activeReviews.hasNext
                         ) {
-                            TextButton(onClick = onSeeAllReviews, modifier = Modifier.fillMaxWidth()) {
+                            TextButton(
+                                onClick = { onSeeAllReviews(state.activeReviewScope) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
                                 Text("See all reviews")
                             }
                         }

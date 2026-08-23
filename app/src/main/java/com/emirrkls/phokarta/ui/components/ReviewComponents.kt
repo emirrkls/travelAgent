@@ -42,14 +42,29 @@ object CommunityScoreCopy {
     }
 }
 
+object FriendsScoreCopy {
+    fun visitedLabel(count: Int): String = when (count) {
+        0 -> "No friend visits yet"
+        1 -> "1 friend visited"
+        else -> "$count friends visited"
+    }
+}
+
 @Composable
 fun CommunityScoreSection(
     communityScore: Double?,
     ratingCount: Int,
     modifier: Modifier = Modifier,
 ) {
+    val scoreDescription = if (communityScore != null) {
+        "Community score ${String.format("%.1f", communityScore)}, ${VisitDraftLogic.scoreLabel(communityScore.toFloat())}"
+    } else {
+        "Community not rated"
+    }
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { contentDescription = scoreDescription },
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
     ) {
@@ -64,10 +79,6 @@ fun CommunityScoreSection(
                     String.format("%.1f", communityScore),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.semantics {
-                        contentDescription =
-                            "Community score ${String.format("%.1f", communityScore)}, ${VisitDraftLogic.scoreLabel(communityScore.toFloat())}"
-                    },
                 )
                 Text(
                     VisitDraftLogic.scoreLabel(communityScore.toFloat()),
@@ -79,13 +90,66 @@ fun CommunityScoreSection(
                     "Not rated",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { contentDescription = "Community not rated" },
                 )
             }
             if (ratingCount > 0) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     CommunityScoreCopy.visitCountLabel(ratingCount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FriendScoreSection(
+    friendsScore: Double?,
+    friendsVisitedCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    val scoreDescription = if (friendsScore != null) {
+        "Friends score ${String.format("%.1f", friendsScore)}, ${VisitDraftLogic.scoreLabel(friendsScore.toFloat())}"
+    } else {
+        "Friends score unavailable. No friend visits yet"
+    }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { contentDescription = scoreDescription },
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(
+                "Friends",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (friendsScore != null) {
+                Text(
+                    String.format("%.1f", friendsScore),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    VisitDraftLogic.scoreLabel(friendsScore.toFloat()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            } else {
+                Text(
+                    FriendsScoreCopy.visitedLabel(0),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (friendsVisitedCount > 0) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    FriendsScoreCopy.visitedLabel(friendsVisitedCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -107,7 +171,7 @@ fun PersonalVisitScoreSection(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "Your latest visit",
+                "You",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -229,10 +293,11 @@ fun CommunityReviewsEmptyState(
 @Composable
 fun CommunityReviewsSectionHeader(
     totalElements: Long,
+    title: String = "Community reviews",
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("Community reviews", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
         if (totalElements > 0) {
             Text(
                 if (totalElements == 1L) "1 review" else "$totalElements reviews",
@@ -240,6 +305,18 @@ fun CommunityReviewsSectionHeader(
                 style = MaterialTheme.typography.labelLarge,
             )
         }
+    }
+}
+
+@Composable
+fun FriendReviewsEmptyState(modifier: Modifier = Modifier) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text("No friend reviews yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "When friends visit this place, their public reviews appear here.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

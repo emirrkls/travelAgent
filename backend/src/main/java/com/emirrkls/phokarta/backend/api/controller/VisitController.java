@@ -1,10 +1,12 @@
 package com.emirrkls.phokarta.backend.api.controller;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
+import com.emirrkls.phokarta.backend.api.dto.FriendPlaceSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
+import com.emirrkls.phokarta.backend.domain.model.FeedScope;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,22 +47,37 @@ public class VisitController {
     }
 
     @Operation(summary = "Public reviews for a place",
-            description = "Returns PUBLIC visits only. privateMemory is never included.")
+            description = "Returns PUBLIC visits only. scope=community (default) is public; "
+                    + "scope=friends requires auth and returns mutual-friend Visits only. "
+                    + "privateMemory is never included.")
     @GetMapping("/places/{placeId}/reviews")
     public PageResponse<PublicVisitResponse> publicReviews(
             @PathVariable UUID placeId,
+            @RequestParam(required = false) String scope,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.publicReviews(placeId, page, size);
+        return service.publicReviews(placeId, FeedScope.fromParam(scope), page, size);
     }
 
-    @Operation(summary = "Public community activity feed",
+    @Operation(summary = "Friends discovery summary for a place",
+            description = "Authenticated viewer-relative summary: user-weighted friends score, "
+                    + "unique friends visited, and a small preview ordered by latest Visit. "
+                    + "Does not pollute the public Place detail response.")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/places/{placeId}/friends-summary")
+    public FriendPlaceSummaryResponse friendsSummary(@PathVariable UUID placeId) {
+        return service.friendsSummary(placeId, SecurityUtils.requireCurrentUserId());
+    }
+
+    @Operation(summary = "Activity feed",
             description = "Cross-place PUBLIC visit events, newest first. "
+                    + "scope=community (default, public) or scope=friends (auth, mutual friends only). "
                     + "privateMemory and private user fields are never included.")
     @GetMapping("/activity")
     public PageResponse<PublicActivityResponse> publicActivity(
+            @RequestParam(required = false) String scope,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.publicActivity(page, size);
+        return service.publicActivity(FeedScope.fromParam(scope), page, size);
     }
 }

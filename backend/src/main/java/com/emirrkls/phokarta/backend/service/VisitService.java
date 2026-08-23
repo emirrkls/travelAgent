@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.backend.service;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
+import com.emirrkls.phokarta.backend.api.dto.FriendPlaceSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
@@ -11,6 +12,7 @@ import com.emirrkls.phokarta.backend.domain.entity.Place;
 import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.domain.entity.Visit;
 import com.emirrkls.phokarta.backend.domain.entity.VisitDimensionScore;
+import com.emirrkls.phokarta.backend.domain.model.FeedScope;
 import com.emirrkls.phokarta.backend.domain.model.VerificationStatus;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.domain.service.RatingDimensionRegistry;
@@ -18,6 +20,7 @@ import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,8 @@ import java.util.UUID;
 
 @Service
 public class VisitService {
+    static final int FRIEND_PREVIEW_LIMIT = 5;
+
     private final VisitRepository visits;
     private final VisitDimensionScoreRepository scores;
     private final UserRepository users;
@@ -116,18 +121,72 @@ public class VisitService {
 
     @Transactional(readOnly = true)
     public PageResponse<PublicVisitResponse> publicReviews(UUID placeId, int page, int size) {
+        return publicReviews(placeId, FeedScope.COMMUNITY, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PublicVisitResponse> publicReviews(
+            UUID placeId, FeedScope scope, int page, int size) {
         if (!places.existsById(placeId)) throw ApiException.notFound("Place", placeId);
-        return PageResponse.from(visits
-                .findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
-                placeId, Visibility.PUBLIC, PageRequest.of(page, size)), mapper::toPublic);
+        FeedScope resolved = scope == null ? FeedScope.COMMUNITY : scope;
+        if (resolved == FeedScope.COMMUNITY) {
+            return PageResponse.from(visits
+                    .findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                            placeId, Visibility.PUBLIC, PageRequest.of(page, size)),
+                    mapper::toPublic);
+        }
+        UUID viewerId = SecurityUtils.requireCurrentUserId();
+        return PageResponse.from(
+                visits.findFriendsReviews(placeId, viewerId, Visibility.PUBLIC,
+                        PageRequest.of(page, size)),
+                mapper::toPublic);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<PublicActivityResponse> publicActivity(int page, int size) {
+        return publicActivity(FeedScope.COMMUNITY, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PublicActivityResponse> publicActivity(FeedScope scope, int page, int size) {
+        FeedScope resolved = scope == null ? FeedScope.COMMUNITY : scope;
+        if (resolved == FeedScope.COMMUNITY) {
+            return PageResponse.from(
+                    visits.findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                            Visibility.PUBLIC, PageRequest.of(page, size)),
+                    mapper::toActivity);
+        }
+        UUID viewerId = SecurityUtils.requireCurrentUserId();
         return PageResponse.from(
-                visits.findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
-                        Visibility.PUBLIC, PageRequest.of(page, size)),
+                visits.findFriendsActivity(viewerId, Visibility.PUBLIC, PageRequest.of(page, size)),
                 mapper::toActivity);
+    }
+
+    /**
+     * Viewer-relative friends summary for a place. Dedicated endpoint so the globally
+     * cacheable public Place detail is not polluted with viewer-relative values.
+     */
+    @Transactional(readOnly = true)
+    public FriendPlaceSummaryResponse friendsSummary(UUID placeId, UUID viewerId) {
+        if (!places.existsById(placeId)) throw ApiException.notFound("Place", placeId);
+        requireUser(viewerId);
+        VisitRepository.FriendScoreAggregate aggregate =
+                visits.aggregateFriendsScore(placeId, viewerId);
+        long friendsVisitedCount = aggregate == null ? 0L : aggregate.getFriendsVisitedCount();
+        Double averageScore = friendsVisitedCount == 0
+                ? null
+                : (aggregate == null ? null : aggregate.getAverageScore());
+        List<FriendPlaceSummaryResponse.FriendPreview> friends = friendsVisitedCount == 0
+                ? List.of()
+                : visits.findFriendPreviews(placeId, viewerId, FRIEND_PREVIEW_LIMIT).stream()
+                .map(row -> new FriendPlaceSummaryResponse.FriendPreview(
+                        row.getUserId(),
+                        row.getDisplayName(),
+                        row.getAvatarUrl(),
+                        row.getLatestScore(),
+                        row.getLatestVisitedAt()))
+                .toList();
+        return new FriendPlaceSummaryResponse(averageScore, friendsVisitedCount, friends);
     }
 
     private List<VisitOwnerResponse.DimensionScoreResponse> toDimensionResponses(

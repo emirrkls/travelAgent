@@ -86,8 +86,9 @@ class CommunityReviewsFlowTest {
 
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Community").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithContentDescription("Community score", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Community").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Community score", substring = true).assertIsDisplayed()
     }
 }

@@ -41,6 +41,9 @@ import com.emirrkls.phokarta.ui.components.CommunityReviewsEmptyState
 import com.emirrkls.phokarta.ui.components.CommunityReviewsErrorState
 import com.emirrkls.phokarta.ui.components.CommunityReviewsLoadingIndicator
 import com.emirrkls.phokarta.ui.components.CommunityScoreSection
+import com.emirrkls.phokarta.ui.components.FriendReviewsEmptyState
+import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.feature.secondary.ActivityScopeSelector
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +84,7 @@ fun PlaceReviewsScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "Community reviews",
+                            if (state.scope == ActivityScope.FRIENDS) "Friend reviews" else "Community reviews",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -122,11 +125,18 @@ fun PlaceReviewsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
+                        ActivityScopeSelector(
+                            activeScope = state.scope,
+                            onSelectScope = viewModel::selectScope,
+                        )
+                        Spacer(Modifier.height(8.dp))
                         state.place?.let { place ->
-                            CommunityScoreSection(
-                                communityScore = place.communityScore,
-                                ratingCount = place.ratingCount,
-                            )
+                            if (state.scope == ActivityScope.COMMUNITY) {
+                                CommunityScoreSection(
+                                    communityScore = place.communityScore,
+                                    ratingCount = place.ratingCount,
+                                )
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -137,7 +147,13 @@ fun PlaceReviewsScreen(
                         Spacer(Modifier.height(4.dp))
                     }
                     if (state.reviews.isEmpty()) {
-                        item { CommunityReviewsEmptyState(hasVisited = false) }
+                        item {
+                            if (state.scope == ActivityScope.FRIENDS) {
+                                FriendReviewsEmptyState()
+                            } else {
+                                CommunityReviewsEmptyState(hasVisited = false)
+                            }
+                        }
                     } else {
                         items(state.reviews, key = { it.id }) { review ->
                             CommunityReviewCard(

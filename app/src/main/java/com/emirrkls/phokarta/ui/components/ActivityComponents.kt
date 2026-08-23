@@ -190,17 +190,21 @@ fun ActivityEventCard(
 }
 
 @Composable
-fun ActivityEmptyState(modifier: Modifier = Modifier) {
+fun ActivityEmptyState(
+    modifier: Modifier = Modifier,
+    title: String = "No activity yet",
+    subtitle: String = "Community visits will appear here.",
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("No activity yet", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Community visits will appear here.",
+            subtitle,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,

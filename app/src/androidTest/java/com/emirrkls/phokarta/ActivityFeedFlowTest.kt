@@ -155,6 +155,9 @@ class ActivityFeedFlowTest {
         composeRule.onNodeWithContentDescription("Public review input")
             .performScrollTo()
             .performTextInput(publicReviewText)
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Private memory input").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithContentDescription("Private memory input")
             .performScrollTo()
             .performTextInput(privateMemoryText)

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,8 +54,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.feature.activity.ActivityViewModel
+import com.emirrkls.phokarta.feature.activity.FriendsEmptyReason
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
 import com.emirrkls.phokarta.feature.collections.visibilityLabel
 import com.emirrkls.phokarta.ui.components.ActivityEmptyState
@@ -75,7 +83,7 @@ fun ActivityScreen(
         viewModel.onScreenResumed()
     }
 
-    LaunchedEffect(listState, state.hasNext, state.isLoadingMore, state.isLoadingInitial) {
+    LaunchedEffect(listState, state.hasNext, state.isLoadingMore, state.isLoadingInitial, state.activeScope) {
         snapshotFlow {
             val info = listState.layoutInfo
             val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -98,13 +106,19 @@ fun ActivityScreen(
         when {
             state.isLoadingInitial && state.items.isEmpty() -> {
                 Column(Modifier.fillMaxSize()) {
-                    ActivityHeader()
+                    ActivityHeader(
+                        activeScope = state.activeScope,
+                        onSelectScope = viewModel::selectScope,
+                    )
                     ActivityLoadingIndicator()
                 }
             }
             state.errorMessage != null && state.items.isEmpty() -> {
                 Column(Modifier.fillMaxSize()) {
-                    ActivityHeader()
+                    ActivityHeader(
+                        activeScope = state.activeScope,
+                        onSelectScope = viewModel::selectScope,
+                    )
                     ActivityErrorState(
                         message = state.errorMessage.orEmpty(),
                         onRetry = viewModel::retry,
@@ -117,9 +131,17 @@ fun ActivityScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 110.dp),
                 ) {
-                    item { ActivityHeader() }
+                    item {
+                        ActivityHeader(
+                            activeScope = state.activeScope,
+                            onSelectScope = viewModel::selectScope,
+                        )
+                    }
                     if (state.items.isEmpty()) {
-                        item { ActivityEmptyState() }
+                        item {
+                            val (title, subtitle) = activityEmptyCopy(state.activeScope, state.friendsEmptyReason)
+                            ActivityEmptyState(title = title, subtitle = subtitle)
+                        }
                     } else {
                         items(state.items, key = { it.visitId }) { event ->
                             ActivityEventCard(
@@ -154,13 +176,77 @@ fun ActivityScreen(
 }
 
 @Composable
-private fun ActivityHeader() {
+private fun ActivityHeader(
+    activeScope: ActivityScope,
+    onSelectScope: (ActivityScope) -> Unit,
+) {
     Column(Modifier.padding(20.dp)) {
-        Text("Community activity", style = MaterialTheme.typography.headlineLarge)
         Text(
-            "Recent public visits from travelers.",
+            if (activeScope == ActivityScope.FRIENDS) "Friends activity" else "Community activity",
+            style = MaterialTheme.typography.headlineLarge,
+        )
+        Text(
+            if (activeScope == ActivityScope.FRIENDS) {
+                "Public visits from people you mutually follow."
+            } else {
+                "Recent public visits from travelers."
+            },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(12.dp))
+        ActivityScopeSelector(activeScope = activeScope, onSelectScope = onSelectScope)
+    }
+}
+
+@Composable
+fun ActivityScopeSelector(
+    activeScope: ActivityScope,
+    onSelectScope: (ActivityScope) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ScopeChip(
+            label = "Friends",
+            selected = activeScope == ActivityScope.FRIENDS,
+            onClick = { onSelectScope(ActivityScope.FRIENDS) },
+        )
+        ScopeChip(
+            label = "Community",
+            selected = activeScope == ActivityScope.COMMUNITY,
+            onClick = { onSelectScope(ActivityScope.COMMUNITY) },
+        )
+    }
+}
+
+@Composable
+fun ScopeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        modifier = Modifier.semantics {
+            this.selected = selected
+            role = Role.Tab
+            // Distinct from score-section labels like "Friends" / "Community".
+            contentDescription = if (selected) "$label scope selected" else "$label scope"
+        },
+    )
+}
+
+private fun activityEmptyCopy(
+    scope: ActivityScope,
+    friendsEmptyReason: FriendsEmptyReason,
+): Pair<String, String> = when (scope) {
+    ActivityScope.COMMUNITY -> "No activity yet" to "Community visits will appear here."
+    ActivityScope.FRIENDS -> when (friendsEmptyReason) {
+        FriendsEmptyReason.NO_FRIENDS ->
+            "No friends yet" to "Mutual follows become friends on Phokarta."
+        FriendsEmptyReason.NO_ACTIVITY, FriendsEmptyReason.NONE ->
+            "No friend activity yet" to "When your friends visit places, you'll see them here."
     }
 }
 

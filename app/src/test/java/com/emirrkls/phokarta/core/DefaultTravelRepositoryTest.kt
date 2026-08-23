@@ -21,6 +21,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.DimensionScoreDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
@@ -456,11 +457,16 @@ private class FakeVisits(
     var publicResult: RemoteResult<PageResponseDto<PublicVisitDto>> = page(),
     var publicResults: Map<Int, RemoteResult<PageResponseDto<PublicVisitDto>>>? = null,
     var activityResult: RemoteResult<PageResponseDto<PublicActivityDto>> = page(),
+    var friendsSummaryResult: RemoteResult<FriendPlaceSummaryDto> = RemoteResult.Success(
+        FriendPlaceSummaryDto(null, 0, emptyList()),
+    ),
 ) : VisitRemoteDataSource {
     var lastCreate: CreateVisitDto? = null
     val requestedOwnerPages = mutableListOf<Int>()
     val requestedPublicPages = mutableListOf<Int>()
     val requestedActivityPages = mutableListOf<Int>()
+    val requestedActivityScopes = mutableListOf<String?>()
+    val requestedPublicScopes = mutableListOf<String?>()
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         lastCreate = request
         return createResult
@@ -469,14 +475,27 @@ private class FakeVisits(
         requestedOwnerPages += page
         return ownerResults?.get(page) ?: ownerResult
     }
-    override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> {
+    override suspend fun publicReviews(
+        placeId: String,
+        scope: String?,
+        page: Int,
+        size: Int,
+    ): RemoteResult<PageResponseDto<PublicVisitDto>> {
         requestedPublicPages += page
+        requestedPublicScopes += scope
         return publicResults?.get(page) ?: publicResult
     }
-    override suspend fun publicActivity(page: Int, size: Int): RemoteResult<PageResponseDto<PublicActivityDto>> {
+    override suspend fun publicActivity(
+        scope: String?,
+        page: Int,
+        size: Int,
+    ): RemoteResult<PageResponseDto<PublicActivityDto>> {
         requestedActivityPages += page
+        requestedActivityScopes += scope
         return activityResult
     }
+    override suspend fun friendsSummary(placeId: String): RemoteResult<FriendPlaceSummaryDto> =
+        friendsSummaryResult
 }
 
 private class FakeSaved(

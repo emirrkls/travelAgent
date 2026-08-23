@@ -16,6 +16,7 @@ import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
@@ -110,14 +111,18 @@ interface VisitRemoteDataSource {
 
     suspend fun publicReviews(
         placeId: String,
+        scope: String? = null,
         page: Int = 0,
         size: Int = 20,
     ): RemoteResult<PageResponseDto<PublicVisitDto>>
 
     suspend fun publicActivity(
+        scope: String? = null,
         page: Int = 0,
         size: Int = 20,
     ): RemoteResult<PageResponseDto<PublicActivityDto>>
+
+    suspend fun friendsSummary(placeId: String): RemoteResult<FriendPlaceSummaryDto>
 }
 
 class RetrofitVisitRemoteDataSource @Inject constructor(
@@ -130,11 +135,14 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
     override suspend fun ownerVisits(page: Int, size: Int) =
         safeApiCall(json) { api.ownerVisits(page, size) }
 
-    override suspend fun publicReviews(placeId: String, page: Int, size: Int) =
-        safeApiCall(json) { api.publicReviews(placeId, page, size) }
+    override suspend fun publicReviews(placeId: String, scope: String?, page: Int, size: Int) =
+        safeApiCall(json) { api.publicReviews(placeId, scope, page, size) }
 
-    override suspend fun publicActivity(page: Int, size: Int) =
-        safeApiCall(json) { api.publicActivity(page, size) }
+    override suspend fun publicActivity(scope: String?, page: Int, size: Int) =
+        safeApiCall(json) { api.publicActivity(scope, page, size) }
+
+    override suspend fun friendsSummary(placeId: String) =
+        safeApiCall(json) { api.friendsSummary(placeId) }
 }
 
 interface SavedPlaceRemoteDataSource {

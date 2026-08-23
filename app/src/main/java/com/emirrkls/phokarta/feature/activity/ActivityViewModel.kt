@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.data.ActivityFeedInvalidator
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.ActivityEvent
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,36 +17,62 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class ActivityUiState(
+enum class FriendsEmptyReason {
+    NONE,
+    NO_FRIENDS,
+    NO_ACTIVITY,
+}
+
+data class ScopeFeedUiState(
     val items: List<ActivityEvent> = emptyList(),
-    val isLoadingInitial: Boolean = true,
+    val isLoadingInitial: Boolean = false,
     val isLoadingMore: Boolean = false,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val loadMoreErrorMessage: String? = null,
     val hasNext: Boolean = false,
-    val currentUserId: String,
     val expandedReviewIds: Set<String> = emptySet(),
+    val friendsEmptyReason: FriendsEmptyReason = FriendsEmptyReason.NONE,
+    val hasLoaded: Boolean = false,
 )
+
+data class ActivityUiState(
+    val activeScope: ActivityScope = ActivityScope.COMMUNITY,
+    val community: ScopeFeedUiState = ScopeFeedUiState(isLoadingInitial = true),
+    val friends: ScopeFeedUiState = ScopeFeedUiState(),
+    val currentUserId: String,
+) {
+    val activeFeed: ScopeFeedUiState
+        get() = if (activeScope == ActivityScope.FRIENDS) friends else community
+
+    val items: List<ActivityEvent> get() = activeFeed.items
+    val isLoadingInitial: Boolean get() = activeFeed.isLoadingInitial
+    val isLoadingMore: Boolean get() = activeFeed.isLoadingMore
+    val isRefreshing: Boolean get() = activeFeed.isRefreshing
+    val errorMessage: String? get() = activeFeed.errorMessage
+    val loadMoreErrorMessage: String? get() = activeFeed.loadMoreErrorMessage
+    val hasNext: Boolean get() = activeFeed.hasNext
+    val expandedReviewIds: Set<String> get() = activeFeed.expandedReviewIds
+    val friendsEmptyReason: FriendsEmptyReason get() = activeFeed.friendsEmptyReason
+}
 
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val feedInvalidator: ActivityFeedInvalidator,
 ) : ViewModel() {
-    private val status = MutableStateFlow(FeedStatus(isLoadingInitial = true))
+    private val status = MutableStateFlow(
+        FeedBundle(
+            community = FeedStatus(isLoadingInitial = true),
+        ),
+    )
 
-    val uiState = status.map { feed ->
+    val uiState = status.map { bundle ->
         ActivityUiState(
-            items = feed.items,
-            isLoadingInitial = feed.isLoadingInitial,
-            isLoadingMore = feed.isLoadingMore,
-            isRefreshing = feed.isRefreshing,
-            errorMessage = feed.errorMessage,
-            loadMoreErrorMessage = feed.loadMoreErrorMessage,
-            hasNext = feed.hasNext,
+            activeScope = bundle.activeScope,
+            community = bundle.community.toUi(),
+            friends = bundle.friends.toUi(),
             currentUserId = repository.currentUser.id,
-            expandedReviewIds = feed.expandedReviewIds,
         )
     }.stateIn(
         viewModelScope,
@@ -54,58 +81,42 @@ class ActivityViewModel @Inject constructor(
     )
 
     init {
-        loadInitial()
+        loadInitial(ActivityScope.COMMUNITY)
+    }
+
+    fun selectScope(scope: ActivityScope) {
+        if (status.value.activeScope == scope) return
+        status.update { it.copy(activeScope = scope) }
+        val feed = status.value.feed(scope)
+        if (!feed.hasLoaded && !feed.isLoadingInitial) {
+            loadInitial(scope)
+        }
     }
 
     fun onScreenResumed() {
         if (feedInvalidator.consume()) {
-            refresh()
+            refresh(ActivityScope.COMMUNITY)
         }
     }
 
-    fun retry() = loadInitial()
+    fun retry() = loadInitial(status.value.activeScope)
 
-    fun refresh() {
-        val current = status.value
-        if (current.isLoadingInitial || current.isRefreshing) return
-        viewModelScope.launch {
-            status.update {
-                it.copy(isRefreshing = true, errorMessage = null, loadMoreErrorMessage = null)
-            }
-            when (val result = repository.loadActivityPage(page = 0, size = PAGE_SIZE)) {
-                is RepositoryResult.Success -> status.update {
-                    FeedStatus(
-                        items = result.value.items,
-                        hasNext = result.value.hasNext,
-                        nextPage = 1,
-                        isRefreshing = false,
-                        expandedReviewIds = it.expandedReviewIds,
-                    )
-                }
-                is RepositoryResult.Failure -> status.update {
-                    it.copy(
-                        isRefreshing = false,
-                        errorMessage = if (it.items.isEmpty()) result.error.toUserMessage() else null,
-                        loadMoreErrorMessage = if (it.items.isNotEmpty()) result.error.toUserMessage() else null,
-                    )
-                }
-            }
-        }
-    }
+    fun refresh() = refresh(status.value.activeScope)
 
     fun loadNextPage() {
-        val current = status.value
+        val scope = status.value.activeScope
+        val current = status.value.feed(scope)
         if (current.isLoadingInitial || current.isLoadingMore || current.isRefreshing || !current.hasNext) {
             return
         }
         val nextPage = current.nextPage
-        status.update { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
+        updateFeed(scope) { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
         viewModelScope.launch {
-            when (val result = repository.loadActivityPage(page = nextPage, size = PAGE_SIZE)) {
+            when (val result = repository.loadActivityPage(scope = scope, page = nextPage, size = PAGE_SIZE)) {
                 is RepositoryResult.Success -> {
                     val existingIds = current.items.map { it.visitId }.toSet()
                     val merged = current.items + result.value.items.filter { it.visitId !in existingIds }
-                    status.update {
+                    updateFeed(scope) {
                         it.copy(
                             items = merged,
                             hasNext = result.value.hasNext,
@@ -115,7 +126,7 @@ class ActivityViewModel @Inject constructor(
                         )
                     }
                 }
-                is RepositoryResult.Failure -> status.update {
+                is RepositoryResult.Failure -> updateFeed(scope) {
                     it.copy(isLoadingMore = false, loadMoreErrorMessage = result.error.toUserMessage())
                 }
             }
@@ -125,7 +136,8 @@ class ActivityViewModel @Inject constructor(
     fun retryLoadMore() = loadNextPage()
 
     fun toggleReviewExpanded(visitId: String) {
-        status.update { state ->
+        val scope = status.value.activeScope
+        updateFeed(scope) { state ->
             val expanded = visitId in state.expandedReviewIds
             state.copy(
                 expandedReviewIds = if (expanded) {
@@ -137,30 +149,114 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    private fun loadInitial() {
+    private fun refresh(scope: ActivityScope) {
+        val current = status.value.feed(scope)
+        if (current.isLoadingInitial || current.isRefreshing) return
         viewModelScope.launch {
-            status.update {
-                FeedStatus(isLoadingInitial = true, errorMessage = null, expandedReviewIds = it.expandedReviewIds)
+            updateFeed(scope) {
+                it.copy(isRefreshing = true, errorMessage = null, loadMoreErrorMessage = null)
             }
-            when (val result = repository.loadActivityPage(page = 0, size = PAGE_SIZE)) {
-                is RepositoryResult.Success -> status.update {
-                    FeedStatus(
-                        items = result.value.items,
-                        hasNext = result.value.hasNext,
-                        nextPage = 1,
-                        isLoadingInitial = false,
-                        expandedReviewIds = it.expandedReviewIds,
+            when (val result = repository.loadActivityPage(scope = scope, page = 0, size = PAGE_SIZE)) {
+                is RepositoryResult.Success -> {
+                    val emptyReason = resolveFriendsEmptyReason(scope, result.value.items.isEmpty())
+                    updateFeed(scope) {
+                        FeedStatus(
+                            items = result.value.items,
+                            hasNext = result.value.hasNext,
+                            nextPage = 1,
+                            isRefreshing = false,
+                            hasLoaded = true,
+                            expandedReviewIds = it.expandedReviewIds,
+                            friendsEmptyReason = emptyReason,
+                        )
+                    }
+                }
+                is RepositoryResult.Failure -> updateFeed(scope) {
+                    it.copy(
+                        isRefreshing = false,
+                        errorMessage = if (it.items.isEmpty()) result.error.toUserMessage() else null,
+                        loadMoreErrorMessage = if (it.items.isNotEmpty()) result.error.toUserMessage() else null,
                     )
                 }
-                is RepositoryResult.Failure -> status.update {
+            }
+        }
+    }
+
+    private fun loadInitial(scope: ActivityScope) {
+        viewModelScope.launch {
+            updateFeed(scope) {
+                FeedStatus(
+                    isLoadingInitial = true,
+                    errorMessage = null,
+                    expandedReviewIds = it.expandedReviewIds,
+                    hasLoaded = it.hasLoaded,
+                )
+            }
+            when (val result = repository.loadActivityPage(scope = scope, page = 0, size = PAGE_SIZE)) {
+                is RepositoryResult.Success -> {
+                    val emptyReason = resolveFriendsEmptyReason(scope, result.value.items.isEmpty())
+                    updateFeed(scope) {
+                        FeedStatus(
+                            items = result.value.items,
+                            hasNext = result.value.hasNext,
+                            nextPage = 1,
+                            isLoadingInitial = false,
+                            hasLoaded = true,
+                            expandedReviewIds = it.expandedReviewIds,
+                            friendsEmptyReason = emptyReason,
+                        )
+                    }
+                }
+                is RepositoryResult.Failure -> updateFeed(scope) {
                     FeedStatus(
                         isLoadingInitial = false,
                         errorMessage = result.error.toUserMessage(),
+                        hasLoaded = true,
                         expandedReviewIds = it.expandedReviewIds,
                     )
                 }
             }
         }
+    }
+
+    private suspend fun resolveFriendsEmptyReason(
+        scope: ActivityScope,
+        isEmpty: Boolean,
+    ): FriendsEmptyReason {
+        if (scope != ActivityScope.FRIENDS || !isEmpty) return FriendsEmptyReason.NONE
+        return when (val counts = repository.loadOwnerSocialCounts()) {
+            is RepositoryResult.Success -> {
+                if (counts.value.friendCount <= 0) FriendsEmptyReason.NO_FRIENDS
+                else FriendsEmptyReason.NO_ACTIVITY
+            }
+            is RepositoryResult.Failure -> {
+                when (val friends = repository.loadFriends(page = 0, size = 1)) {
+                    is RepositoryResult.Success -> {
+                        if (friends.value.totalElements <= 0) FriendsEmptyReason.NO_FRIENDS
+                        else FriendsEmptyReason.NO_ACTIVITY
+                    }
+                    is RepositoryResult.Failure -> FriendsEmptyReason.NO_ACTIVITY
+                }
+            }
+        }
+    }
+
+    private fun updateFeed(scope: ActivityScope, transform: (FeedStatus) -> FeedStatus) {
+        status.update { bundle ->
+            when (scope) {
+                ActivityScope.COMMUNITY -> bundle.copy(community = transform(bundle.community))
+                ActivityScope.FRIENDS -> bundle.copy(friends = transform(bundle.friends))
+            }
+        }
+    }
+
+    private data class FeedBundle(
+        val activeScope: ActivityScope = ActivityScope.COMMUNITY,
+        val community: FeedStatus = FeedStatus(),
+        val friends: FeedStatus = FeedStatus(),
+    ) {
+        fun feed(scope: ActivityScope): FeedStatus =
+            if (scope == ActivityScope.FRIENDS) friends else community
     }
 
     private data class FeedStatus(
@@ -173,7 +269,22 @@ class ActivityViewModel @Inject constructor(
         val errorMessage: String? = null,
         val loadMoreErrorMessage: String? = null,
         val expandedReviewIds: Set<String> = emptySet(),
-    )
+        val friendsEmptyReason: FriendsEmptyReason = FriendsEmptyReason.NONE,
+        val hasLoaded: Boolean = false,
+    ) {
+        fun toUi() = ScopeFeedUiState(
+            items = items,
+            isLoadingInitial = isLoadingInitial,
+            isLoadingMore = isLoadingMore,
+            isRefreshing = isRefreshing,
+            errorMessage = errorMessage,
+            loadMoreErrorMessage = loadMoreErrorMessage,
+            hasNext = hasNext,
+            expandedReviewIds = expandedReviewIds,
+            friendsEmptyReason = friendsEmptyReason,
+            hasLoaded = hasLoaded,
+        )
+    }
 
     companion object {
         const val PAGE_SIZE = 20

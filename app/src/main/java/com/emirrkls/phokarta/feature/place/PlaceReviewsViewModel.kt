@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
@@ -19,6 +20,7 @@ import javax.inject.Inject
 
 data class PlaceReviewsUiState(
     val place: Place? = null,
+    val scope: ActivityScope = ActivityScope.COMMUNITY,
     val reviews: List<PublicReview> = emptyList(),
     val totalElements: Long = 0,
     val hasNext: Boolean = false,
@@ -36,12 +38,14 @@ class PlaceReviewsViewModel @Inject constructor(
     private val repository: TravelRepository,
 ) : ViewModel() {
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
+    private val initialScope = ActivityScope.fromQueryParam(savedStateHandle["scope"])
     private val place = MutableStateFlow<Place?>(null)
-    private val status = MutableStateFlow(ReviewsStatus())
+    private val status = MutableStateFlow(ReviewsStatus(scope = initialScope))
 
     val uiState = combine(place, status) { currentPlace, reviewsStatus ->
         PlaceReviewsUiState(
             place = currentPlace,
+            scope = reviewsStatus.scope,
             reviews = reviewsStatus.reviews,
             totalElements = reviewsStatus.totalElements,
             hasNext = reviewsStatus.hasNext,
@@ -55,11 +59,17 @@ class PlaceReviewsViewModel @Inject constructor(
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        PlaceReviewsUiState(currentUserId = repository.currentUser.id),
+        PlaceReviewsUiState(currentUserId = repository.currentUser.id, scope = initialScope),
     )
 
     init {
         loadPlace()
+        loadInitialReviews()
+    }
+
+    fun selectScope(scope: ActivityScope) {
+        if (status.value.scope == scope) return
+        status.update { ReviewsStatus(scope = scope, isLoadingInitial = true) }
         loadInitialReviews()
     }
 
@@ -76,7 +86,14 @@ class PlaceReviewsViewModel @Inject constructor(
         viewModelScope.launch {
             status.update { it.copy(isLoadingMore = true, loadMoreErrorMessage = null) }
             val nextPage = current.nextPage
-            when (val result = repository.refreshPublicReviews(placeId, page = nextPage, size = PAGE_SIZE)) {
+            when (
+                val result = repository.refreshPublicReviews(
+                    placeId,
+                    scope = current.scope,
+                    page = nextPage,
+                    size = PAGE_SIZE,
+                )
+            ) {
                 is RepositoryResult.Success -> {
                     val existingIds = current.reviews.map { it.id }.toSet()
                     val merged = current.reviews + result.value.reviews.filter { it.id !in existingIds }
@@ -117,14 +134,22 @@ class PlaceReviewsViewModel @Inject constructor(
     }
 
     private fun loadInitialReviews() {
-        if (status.value.isLoadingInitial && status.value.reviews.isNotEmpty()) return
+        val scope = status.value.scope
         viewModelScope.launch {
             status.update {
-                ReviewsStatus(isLoadingInitial = true, errorMessage = null, nextPage = 0)
+                ReviewsStatus(scope = scope, isLoadingInitial = true, errorMessage = null, nextPage = 0)
             }
-            when (val result = repository.refreshPublicReviews(placeId, page = 0, size = PAGE_SIZE)) {
+            when (
+                val result = repository.refreshPublicReviews(
+                    placeId,
+                    scope = scope,
+                    page = 0,
+                    size = PAGE_SIZE,
+                )
+            ) {
                 is RepositoryResult.Success -> status.update {
                     ReviewsStatus(
+                        scope = scope,
                         reviews = result.value.reviews,
                         totalElements = result.value.totalElements,
                         hasNext = result.value.hasNext,
@@ -134,6 +159,7 @@ class PlaceReviewsViewModel @Inject constructor(
                 }
                 is RepositoryResult.Failure -> status.update {
                     ReviewsStatus(
+                        scope = scope,
                         isLoadingInitial = false,
                         errorMessage = result.error.toUserMessage(),
                     )
@@ -143,6 +169,7 @@ class PlaceReviewsViewModel @Inject constructor(
     }
 
     private data class ReviewsStatus(
+        val scope: ActivityScope = ActivityScope.COMMUNITY,
         val reviews: List<PublicReview> = emptyList(),
         val totalElements: Long = 0,
         val hasNext: Boolean = false,

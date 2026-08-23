@@ -13,6 +13,8 @@ import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
@@ -50,6 +52,7 @@ import retrofit2.Response
 private const val USER_ID = "11111111-1111-1111-1111-111111111111"
 private const val OTHER_USER_ID = "22222222-2222-2222-2222-222222222222"
 private const val THIRD_USER_ID = "33333333-3333-3333-3333-333333333333"
+private const val FOURTH_USER_ID = "44444444-4444-4444-4444-444444444444"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 
@@ -61,10 +64,10 @@ object FakeNetworkModule {
         explicitNulls = true
     }
     @Provides @Singleton fun places(): PlaceRemoteDataSource = FakePlaces()
-    @Provides @Singleton fun visits(): VisitRemoteDataSource = FakeVisits()
+    @Provides @Singleton fun fakeSocial(): FakeSocial = FakeSocial()
+    @Provides @Singleton fun visits(social: FakeSocial): VisitRemoteDataSource = FakeVisits(social)
     @Provides @Singleton fun saved(): SavedPlaceRemoteDataSource = FakeSaved()
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
-    @Provides @Singleton fun fakeSocial(): FakeSocial = FakeSocial()
     @Provides @Singleton fun social(fake: FakeSocial): SocialRemoteDataSource = fake
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
     @Provides @Singleton fun meApi(fake: FakeSocial): MeApi = FakeMeApi(fake)
@@ -73,12 +76,12 @@ object FakeNetworkModule {
 private val summary = PlaceSummaryDto(
     PLACE_ID, "Sarnıç Cove", PlaceCategoryDto.BEACH,
     "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200",
-    "Bodrum", "Muğla", "Türkiye", 37.085, 27.53, 2, 9.1, 42,
+    "Bodrum", "Muğla", "Türkiye", 37.085, 27.53, 2, 8.7, 42,
 )
 private val detail = PlaceDetailDto(
     PLACE_ID, "Sarnıç Cove", "A quiet Aegean cove.", PlaceCategoryDto.BEACH,
     listOf("Swimming"), 37.085, 27.53, "Bodrum", "Muğla", "Türkiye",
-    "Bodrum, Muğla", summary.coverImage, listOf(summary.coverImage), 2, 9.1, 42,
+    "Bodrum, Muğla", summary.coverImage, listOf(summary.coverImage), 2, 8.7, 42,
     emptyList(), emptyList(),
 )
 
@@ -97,7 +100,9 @@ private class FakePlaces : PlaceRemoteDataSource {
     override suspend fun detail(id: String) = RemoteResult.Success(detail)
 }
 
-private class FakeVisits : VisitRemoteDataSource {
+private class FakeVisits(
+    private val social: FakeSocial,
+) : VisitRemoteDataSource {
     private val visits = mutableListOf<VisitOwnerDto>()
     private val publicReviews = mutableListOf<PublicVisitDto>()
     private val activity = mutableListOf<PublicActivityDto>().apply {
@@ -105,18 +110,12 @@ private class FakeVisits : VisitRemoteDataSource {
             PublicActivityDto(
                 visitId = "30000000-0000-0000-0000-000000000101",
                 author = PublicActivityAuthorDto(
-                    id = "22222222-2222-2222-2222-222222222222",
+                    id = OTHER_USER_ID,
                     username = "ahmetgoes",
                     displayName = "Ahmet Deniz",
                     avatarUrl = null,
                 ),
-                place = PublicActivityPlaceDto(
-                    id = PLACE_ID,
-                    name = summary.name,
-                    category = summary.category,
-                    city = summary.city,
-                    coverImage = summary.coverImage,
-                ),
+                place = activityPlace(),
                 overallScore = 9.1,
                 publicReview = "Beautiful cove with clear water.",
                 visitedAt = "2026-08-20",
@@ -126,21 +125,30 @@ private class FakeVisits : VisitRemoteDataSource {
             PublicActivityDto(
                 visitId = "30000000-0000-0000-0000-000000000102",
                 author = PublicActivityAuthorDto(
-                    id = "33333333-3333-3333-3333-333333333333",
+                    id = THIRD_USER_ID,
                     username = "eceeats",
                     displayName = "Ece Aksoy",
                     avatarUrl = null,
                 ),
-                place = PublicActivityPlaceDto(
-                    id = PLACE_ID,
-                    name = summary.name,
-                    category = summary.category,
-                    city = summary.city,
-                    coverImage = summary.coverImage,
-                ),
+                place = activityPlace(),
                 overallScore = 8.7,
                 publicReview = "",
                 visitedAt = "2026-08-18",
+            ),
+        )
+        add(
+            PublicActivityDto(
+                visitId = "30000000-0000-0000-0000-000000000103",
+                author = PublicActivityAuthorDto(
+                    id = FOURTH_USER_ID,
+                    username = "denizmaps",
+                    displayName = "Deniz Community",
+                    avatarUrl = null,
+                ),
+                place = activityPlace(),
+                overallScore = 8.2,
+                publicReview = "Community-only cove notes.",
+                visitedAt = "2026-08-17",
             ),
         )
         repeat(22) { index ->
@@ -148,18 +156,12 @@ private class FakeVisits : VisitRemoteDataSource {
                 PublicActivityDto(
                     visitId = "30000000-0000-0000-0000-${"%012d".format(200 + index)}",
                     author = PublicActivityAuthorDto(
-                        id = "22222222-2222-2222-2222-222222222222",
+                        id = OTHER_USER_ID,
                         username = "ahmetgoes",
                         displayName = "Ahmet Deniz",
                         avatarUrl = null,
                     ),
-                    place = PublicActivityPlaceDto(
-                        id = PLACE_ID,
-                        name = summary.name,
-                        category = summary.category,
-                        city = summary.city,
-                        coverImage = summary.coverImage,
-                    ),
+                    place = activityPlace(),
                     overallScore = 7.5,
                     publicReview = "Paged activity $index",
                     visitedAt = "2026-07-%02d".format((index % 28) + 1),
@@ -167,6 +169,52 @@ private class FakeVisits : VisitRemoteDataSource {
             )
         }
         sortByDescending { it.visitedAt }
+    }
+
+    init {
+        publicReviews += PublicVisitDto(
+            id = "30000000-0000-0000-0000-000000000201",
+            placeId = PLACE_ID,
+            placeName = summary.name,
+            userId = OTHER_USER_ID,
+            username = "ahmetgoes",
+            displayName = "Ahmet Deniz",
+            avatarUrl = null,
+            visitedAt = "2026-05-03",
+            overallRating = 9.4,
+            publicReview = "Friend public review of the cove.",
+            photos = emptyList(),
+            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        )
+        publicReviews += PublicVisitDto(
+            id = "30000000-0000-0000-0000-000000000203",
+            placeId = PLACE_ID,
+            placeName = summary.name,
+            userId = OTHER_USER_ID,
+            username = "ahmetgoes",
+            displayName = "Ahmet Deniz",
+            avatarUrl = null,
+            visitedAt = "2026-03-01",
+            overallRating = 8.8,
+            publicReview = "Earlier friend visit.",
+            photos = emptyList(),
+            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        )
+        publicReviews += PublicVisitDto(
+            id = "30000000-0000-0000-0000-000000000202",
+            placeId = PLACE_ID,
+            placeName = summary.name,
+            userId = THIRD_USER_ID,
+            username = "eceeats",
+            displayName = "Ece Aksoy",
+            avatarUrl = null,
+            visitedAt = "2026-04-10",
+            overallRating = 8.0,
+            publicReview = "One-way visitor review.",
+            photos = emptyList(),
+            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        )
+        publicReviews.sortByDescending { it.visitedAt }
     }
 
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
@@ -197,13 +245,7 @@ private class FakeVisits : VisitRemoteDataSource {
             activity += PublicActivityDto(
                 visitId = visitId,
                 author = PublicActivityAuthorDto(USER_ID, "emir_demo", "Emir Kaya", null),
-                place = PublicActivityPlaceDto(
-                    id = request.placeId,
-                    name = summary.name,
-                    category = summary.category,
-                    city = summary.city,
-                    coverImage = summary.coverImage,
-                ),
+                place = activityPlace(request.placeId),
                 overallScore = request.overallRating,
                 publicReview = request.publicReview.orEmpty(),
                 visitedAt = request.visitedAt,
@@ -215,40 +257,89 @@ private class FakeVisits : VisitRemoteDataSource {
 
     override suspend fun ownerVisits(page: Int, size: Int) = RemoteResult.Success(page(visits.toList()))
 
-    override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> {
-        val matching = publicReviews.filter { it.placeId == placeId }
-        val from = (page * size).coerceAtMost(matching.size)
-        val to = (from + size).coerceAtMost(matching.size)
-        val slice = matching.subList(from, to)
-        val totalPages = if (matching.isEmpty()) 0 else ((matching.size + size - 1) / size)
+    override suspend fun publicReviews(
+        placeId: String,
+        scope: String?,
+        page: Int,
+        size: Int,
+    ): RemoteResult<PageResponseDto<PublicVisitDto>> {
+        val matching = publicReviews.filter { it.placeId == placeId }.filterByScope(scope) { it.userId }
+        return RemoteResult.Success(paginate(matching, page, size))
+    }
+
+    override suspend fun publicActivity(
+        scope: String?,
+        page: Int,
+        size: Int,
+    ): RemoteResult<PageResponseDto<PublicActivityDto>> {
+        val matching = activity.filterByScope(scope) { it.author.id }
+        return RemoteResult.Success(paginate(matching, page, size))
+    }
+
+    override suspend fun friendsSummary(placeId: String): RemoteResult<FriendPlaceSummaryDto> {
+        if (placeId != PLACE_ID) {
+            return RemoteResult.Success(FriendPlaceSummaryDto(null, 0, emptyList()))
+        }
+        val friends = social.mutualFriendIds()
+        val friendVisits = publicReviews
+            .filter { it.placeId == placeId && it.userId in friends }
+            .groupBy { it.userId }
+        if (friendVisits.isEmpty()) {
+            return RemoteResult.Success(FriendPlaceSummaryDto(null, 0, emptyList()))
+        }
+        val previews = friendVisits.map { (userId, visitsForUser) ->
+            val latest = visitsForUser.maxBy { it.visitedAt }
+            FriendPlaceUserDto(
+                userId = userId,
+                displayName = latest.displayName,
+                avatarUrl = latest.avatarUrl,
+                latestScore = latest.overallRating,
+                latestVisitedAt = latest.visitedAt,
+            )
+        }.sortedByDescending { it.latestVisitedAt }
+        val average = friendVisits.values
+            .map { visitsForUser -> visitsForUser.map { it.overallRating }.average() }
+            .average()
         return RemoteResult.Success(
-            PageResponseDto(
-                content = slice,
-                page = page,
-                size = size,
-                totalElements = matching.size.toLong(),
-                totalPages = totalPages,
-                hasNext = to < matching.size,
+            FriendPlaceSummaryDto(
+                averageScore = average,
+                friendsVisitedCount = previews.size.toLong(),
+                friends = previews.take(5),
             ),
         )
     }
 
-    override suspend fun publicActivity(page: Int, size: Int): RemoteResult<PageResponseDto<PublicActivityDto>> {
-        val from = (page * size).coerceAtMost(activity.size)
-        val to = (from + size).coerceAtMost(activity.size)
-        val slice = activity.subList(from, to)
-        val totalPages = if (activity.isEmpty()) 0 else ((activity.size + size - 1) / size)
-        return RemoteResult.Success(
-            PageResponseDto(
-                content = slice,
-                page = page,
-                size = size,
-                totalElements = activity.size.toLong(),
-                totalPages = totalPages,
-                hasNext = to < activity.size,
-            ),
+    private fun <T> List<T>.filterByScope(scope: String?, userId: (T) -> String): List<T> {
+        return when (scope?.lowercase()) {
+            "friends" -> filter { id ->
+                val uid = userId(id)
+                uid != USER_ID && social.isMutualFriend(uid)
+            }
+            else -> this
+        }
+    }
+
+    private fun <T> paginate(values: List<T>, page: Int, size: Int): PageResponseDto<T> {
+        val from = (page * size).coerceAtMost(values.size)
+        val to = (from + size).coerceAtMost(values.size)
+        val totalPages = if (values.isEmpty()) 0 else ((values.size + size - 1) / size)
+        return PageResponseDto(
+            content = values.subList(from, to),
+            page = page,
+            size = size,
+            totalElements = values.size.toLong(),
+            totalPages = totalPages,
+            hasNext = to < values.size,
         )
     }
+
+    private fun activityPlace(placeId: String = PLACE_ID) = PublicActivityPlaceDto(
+        id = placeId,
+        name = summary.name,
+        category = summary.category,
+        city = summary.city,
+        coverImage = summary.coverImage,
+    )
 }
 
 private class FakeSaved : SavedPlaceRemoteDataSource {
@@ -380,11 +471,20 @@ class FakeSocial : SocialRemoteDataSource {
     private val users = listOf(
         summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz"),
         summary(THIRD_USER_ID, "selinmaps", "Selin Maps"),
+        summary(FOURTH_USER_ID, "denizmaps", "Deniz Community"),
     )
 
     fun ownerFollowerCount(): Long = followsYou.size.toLong()
     fun ownerFollowingCount(): Long = following.size.toLong()
     fun ownerFriendCount(): Long = following.count { it in followsYou }.toLong()
+
+    fun isMutualFriend(userId: String): Boolean = userId in following && userId in followsYou
+
+    fun mutualFriendIds(): Set<String> = following.filter { it in followsYou }.toSet()
+
+    fun seedMutualFriend(userId: String = OTHER_USER_ID) {
+        following += userId
+    }
 
     fun reset() {
         following.clear()

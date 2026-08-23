@@ -3,6 +3,8 @@ package com.emirrkls.phokarta.core.network.mapper
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PublicReview
+import com.emirrkls.phokarta.core.model.PublicReviewAuthor
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
@@ -99,17 +101,19 @@ fun VisitOwnerDto.toDomain(userId: String): Visit = Visit(
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
 )
 
-fun PublicVisitDto.toDomain(): Visit = Visit(
+fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(
     id = id.toCanonicalUuid(),
-    userId = userId.toCanonicalUuid(),
     placeId = placeId.toCanonicalUuid(),
-    visitedAt = visitedAt.toLocalDateSafely(),
-    overallRating = overallRating,
-    ratingDimensions = emptyMap(),
-    review = publicReview,
-    personalNote = "",
+    author = PublicReviewAuthor(
+        userId = userId.toCanonicalUuid(),
+        username = username,
+        displayName = displayName,
+        avatarUrl = avatarUrl,
+    ),
+    overallScore = overallRating,
+    publicReview = publicReview,
+    visitDate = visitedAt.toLocalDateSafely(),
     photos = photos,
-    visibility = Visibility.PUBLIC,
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
 )
 

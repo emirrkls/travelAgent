@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
@@ -15,6 +16,7 @@ import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
 import com.emirrkls.phokarta.core.network.mapper.toDomain
 import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
+import com.emirrkls.phokarta.core.network.mapper.toPublicReview
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
@@ -208,6 +210,30 @@ class DefaultTravelRepository @Inject constructor(
         } catch (error: IllegalArgumentException) {
             RepositoryResult.Failure(TravelError.Validation(error.message))
         }
+
+    override suspend fun refreshPublicReviews(
+        placeId: String,
+        page: Int,
+        size: Int,
+    ): RepositoryResult<PublicReviewPage> = try {
+        when (val result = visitsRemote.publicReviews(placeId.toCanonicalUuid(), page, size)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> mapOrValidation {
+                val response = result.value
+                RepositoryResult.Success(
+                    PublicReviewPage(
+                        reviews = response.content.map { it.toPublicReview() },
+                        page = response.page,
+                        totalPages = response.totalPages,
+                        totalElements = response.totalElements,
+                        hasNext = response.hasNext,
+                    ),
+                )
+            }
+        }
+    } catch (error: IllegalArgumentException) {
+        RepositoryResult.Failure(TravelError.Validation(error.message))
+    }
 
     override suspend fun refreshOwnerVisits(page: Int, size: Int): RepositoryResult<List<Visit>> {
         val visitDtos = mutableListOf<com.emirrkls.phokarta.core.network.model.VisitOwnerDto>()

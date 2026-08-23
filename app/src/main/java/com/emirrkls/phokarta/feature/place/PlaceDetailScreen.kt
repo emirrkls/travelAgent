@@ -30,8 +30,6 @@ import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,6 +41,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,23 +63,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.feature.collections.CollectionPickerSheet
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
 import com.emirrkls.phokarta.ui.components.CategoryIcon
-import com.emirrkls.phokarta.ui.components.ScorePill
+import com.emirrkls.phokarta.ui.components.CommunityReviewCard
+import com.emirrkls.phokarta.ui.components.CommunityReviewsEmptyState
+import com.emirrkls.phokarta.ui.components.CommunityReviewsErrorState
+import com.emirrkls.phokarta.ui.components.CommunityReviewsLoadingIndicator
+import com.emirrkls.phokarta.ui.components.CommunityReviewsSectionHeader
+import com.emirrkls.phokarta.ui.components.CommunityScoreSection
+import com.emirrkls.phokarta.ui.components.PersonalVisitScoreSection
 import com.emirrkls.phokarta.ui.components.TravelImage
-import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.theme.Coral
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun PlaceDetailScreen(
     onBack: () -> Unit,
     onRate: () -> Unit,
+    onSeeAllReviews: () -> Unit = {},
     visitPublished: Boolean = false,
     onVisitPublishedConsumed: () -> Unit = {},
     viewModel: PlaceDetailViewModel = hiltViewModel(),
@@ -103,6 +106,7 @@ fun PlaceDetailScreen(
     LaunchedEffect(visitPublished) {
         if (visitPublished) {
             snackbarHostState.showSnackbar("Visit added")
+            viewModel.refreshCommunityReviews()
             onVisitPublishedConsumed()
         }
     }
@@ -264,29 +268,17 @@ fun PlaceDetailScreen(
                     Spacer(Modifier.height(10.dp))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    place.friendsScore?.let { ScorePill("Friends", it, modifier = Modifier.weight(1f)) }
-                    place.communityScore?.let {
-                        ScorePill("Community", it, modifier = Modifier.weight(1f))
-                    } ?: Text("Community · Not rated", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                }
-                latestVisit?.let { visit ->
-                    Spacer(Modifier.height(12.dp))
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(16.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                            Text("Your latest visit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                "${String.format("%.1f", visit.overallRating)} · ${visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMM yyyy"))}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            if (visitCount > 1) {
-                                Text(
-                                    VisitStateLogic.repeatVisitLabel(visitCount).orEmpty(),
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    style = MaterialTheme.typography.labelSmall,
-                                )
-                            }
-                        }
+                    CommunityScoreSection(
+                        communityScore = place.communityScore,
+                        ratingCount = place.ratingCount,
+                        modifier = Modifier.weight(1f),
+                    )
+                    latestVisit?.let { visit ->
+                        PersonalVisitScoreSection(
+                            latestVisit = visit,
+                            visitCount = visitCount,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
                 Spacer(Modifier.height(22.dp))
@@ -392,31 +384,38 @@ fun PlaceDetailScreen(
                     Spacer(Modifier.height(28.dp))
                     Text("Friends who visited", style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(14.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        listOf(
-                            state.currentUserAvatarUrl,
-                            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-                            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-                        ).forEach { url ->
-                            Box(Modifier.padding(end = 6.dp)) { UserAvatar(url) }
-                        }
-                        Text(friendSignal, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
-                    }
+                    Text(friendSignal, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
                 }
                 Spacer(Modifier.height(28.dp))
-                Text("Traveler notes", style = MaterialTheme.typography.titleLarge)
+                CommunityReviewsSectionHeader(totalElements = state.communityReviews.totalElements)
                 Spacer(Modifier.height(12.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(20.dp),
-                ) {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(
-                            "“Come before noon, stay for the soft evening light. The quieter corner is to the left.”",
-                            style = MaterialTheme.typography.bodyLarge,
+                when {
+                    state.communityReviews.isLoading && state.communityReviews.reviews.isEmpty() ->
+                        CommunityReviewsLoadingIndicator()
+                    state.communityReviews.errorMessage != null && state.communityReviews.reviews.isEmpty() ->
+                        CommunityReviewsErrorState(
+                            message = state.communityReviews.errorMessage.orEmpty(),
+                            onRetry = viewModel::retryCommunityReviews,
                         )
-                        Spacer(Modifier.height(12.dp))
-                        Text("Ece Aksoy · 9.2", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge)
+                    state.communityReviews.reviews.isEmpty() ->
+                        CommunityReviewsEmptyState(hasVisited = hasVisited)
+                    else -> {
+                        state.communityReviews.reviews.forEach { review ->
+                            CommunityReviewCard(
+                                review = review,
+                                currentUserId = state.currentUserId,
+                                expanded = review.id in state.communityReviews.expandedReviewIds,
+                                onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
+                            )
+                            Spacer(Modifier.height(10.dp))
+                        }
+                        if (state.communityReviews.totalElements > state.communityReviews.reviews.size ||
+                            state.communityReviews.hasNext
+                        ) {
+                            TextButton(onClick = onSeeAllReviews, modifier = Modifier.fillMaxWidth()) {
+                                Text("See all reviews")
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(28.dp))

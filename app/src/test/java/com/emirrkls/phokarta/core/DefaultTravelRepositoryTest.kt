@@ -229,6 +229,46 @@ class DefaultTravelRepositoryTest {
     }
 
     @Test
+    fun `public reviews map to public review domain without private fields`() = runBlocking {
+        val publicVisit = PublicVisitDto(
+            id = VISIT_ID,
+            placeId = PLACE_ID,
+            placeName = "Fixture Beach",
+            userId = USER_ID,
+            username = "demo",
+            displayName = "Demo User",
+            avatarUrl = null,
+            visitedAt = "2026-08-22",
+            overallRating = 9.1,
+            publicReview = "Visible review",
+            photos = emptyList(),
+            verificationStatus = VerificationStatusDto.UNVERIFIED,
+        )
+        val visits = FakeVisits(
+            publicResult = RemoteResult.Success(
+                PageResponseDto(
+                    content = listOf(publicVisit),
+                    page = 0,
+                    size = 20,
+                    totalElements = 1,
+                    totalPages = 1,
+                    hasNext = false,
+                ),
+            ),
+        )
+        val repository = repository(visits = visits)
+
+        val result = repository.refreshPublicReviews(PLACE_ID, page = 0, size = 20)
+
+        assertTrue(result is RepositoryResult.Success)
+        val page = (result as RepositoryResult.Success).value
+        assertEquals(1, page.reviews.size)
+        assertEquals("Visible review", page.reviews.single().publicReview)
+        assertEquals("Demo User", page.reviews.single().author.displayName)
+        assertEquals(listOf(0), visits.requestedPublicPages)
+    }
+
+    @Test
     fun `later page failure preserves existing catalog and local visits`() = runBlocking {
         val local = FakeLocal().apply { visits.value = listOf(visit()) }
         val places = FakePlaces(
@@ -386,9 +426,12 @@ private class FakeVisits(
     var createResult: RemoteResult<VisitOwnerDto> = RemoteResult.Failure(NetworkError.Connection),
     var ownerResult: RemoteResult<PageResponseDto<VisitOwnerDto>> = page(),
     var ownerResults: Map<Int, RemoteResult<PageResponseDto<VisitOwnerDto>>>? = null,
+    var publicResult: RemoteResult<PageResponseDto<PublicVisitDto>> = page(),
+    var publicResults: Map<Int, RemoteResult<PageResponseDto<PublicVisitDto>>>? = null,
 ) : VisitRemoteDataSource {
     var lastCreate: CreateVisitDto? = null
     val requestedOwnerPages = mutableListOf<Int>()
+    val requestedPublicPages = mutableListOf<Int>()
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         lastCreate = request
         return createResult
@@ -397,7 +440,10 @@ private class FakeVisits(
         requestedOwnerPages += page
         return ownerResults?.get(page) ?: ownerResult
     }
-    override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> = page()
+    override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> {
+        requestedPublicPages += page
+        return publicResults?.get(page) ?: publicResult
+    }
 }
 
 private class FakeSaved(

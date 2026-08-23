@@ -87,19 +87,56 @@ private class FakePlaces : PlaceRemoteDataSource {
 
 private class FakeVisits : VisitRemoteDataSource {
     private val visits = mutableListOf<VisitOwnerDto>()
+    private val publicReviews = mutableListOf<PublicVisitDto>()
+
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
+        val visitId = UUID.randomUUID().toString()
         val visit = VisitOwnerDto(
-            UUID.randomUUID().toString(), summary, request.visitedAt,
+            visitId, summary, request.visitedAt,
             request.overallRating, request.dimensions.orEmpty(), request.publicReview.orEmpty(),
             request.privateMemory.orEmpty(), request.photos.orEmpty(), request.visibility,
             VerificationStatusDto.UNVERIFIED,
         )
         visits += visit
+        if (request.visibility == com.emirrkls.phokarta.core.network.model.VisibilityDto.PUBLIC) {
+            publicReviews += PublicVisitDto(
+                id = visitId,
+                placeId = request.placeId,
+                placeName = summary.name,
+                userId = USER_ID,
+                username = "emir_demo",
+                displayName = "Emir Kaya",
+                avatarUrl = null,
+                visitedAt = request.visitedAt,
+                overallRating = request.overallRating,
+                publicReview = request.publicReview.orEmpty(),
+                photos = request.photos.orEmpty(),
+                verificationStatus = VerificationStatusDto.UNVERIFIED,
+            )
+            publicReviews.sortByDescending { it.visitedAt }
+        }
         return RemoteResult.Success(visit)
     }
+
     override suspend fun ownerVisits(page: Int, size: Int) = RemoteResult.Success(page(visits.toList()))
-    override suspend fun publicReviews(placeId: String, page: Int, size: Int) =
-        RemoteResult.Success(page(emptyList<PublicVisitDto>()))
+
+    override suspend fun publicReviews(placeId: String, page: Int, size: Int): RemoteResult<PageResponseDto<PublicVisitDto>> {
+        val matching = publicReviews.filter { it.placeId == placeId }
+        val from = (page * size).coerceAtMost(matching.size)
+        val to = (from + size).coerceAtMost(matching.size)
+        val slice = matching.subList(from, to)
+        val totalPages = if (matching.isEmpty()) 0 else ((matching.size + size - 1) / size)
+        return RemoteResult.Success(
+            PageResponseDto(
+                content = slice,
+                page = page,
+                size = size,
+                totalElements = matching.size.toLong(),
+                totalPages = totalPages,
+                hasNext = to < matching.size,
+            ),
+        )
+    }
 }
 
 private class FakeSaved : SavedPlaceRemoteDataSource {

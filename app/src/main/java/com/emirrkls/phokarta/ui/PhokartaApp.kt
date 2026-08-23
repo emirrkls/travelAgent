@@ -72,6 +72,7 @@ import com.emirrkls.phokarta.feature.map.MapScreen
 import com.emirrkls.phokarta.feature.onboarding.OnboardingScreen
 import com.emirrkls.phokarta.feature.onboarding.SplashScreen
 import com.emirrkls.phokarta.feature.place.PlaceDetailScreen
+import com.emirrkls.phokarta.feature.place.PlaceReviewsScreen
 import com.emirrkls.phokarta.feature.profile.ProfileScreen
 import com.emirrkls.phokarta.feature.rating.RatingScreen
 import com.emirrkls.phokarta.feature.saved.WantToGoScreen
@@ -96,6 +97,7 @@ private object Route {
     const val Collections = "collections"
     const val WantToGo = "want-to-go"
     const val Place = "place/{placeId}"
+    const val PlaceReviews = "place/{placeId}/reviews"
     const val Rating = "rating/{placeId}"
     const val Collection = "collection/{collectionId}"
     const val Success = "success/{placeName}"
@@ -221,12 +223,17 @@ fun PhokartaApp() {
                 composable(Route.Collections) { CollectionsScreen({ navController.popBackStack() }, { navController.navigate("collection/$it") }) }
                 composable(Route.Place, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
                     val backStackEntry = it
+                    val placeId = backStackEntry.arguments?.getString("placeId").orEmpty()
                     PlaceDetailScreen(
                         onBack = { navController.popBackStack() },
-                        onRate = { navController.navigate("rating/${backStackEntry.arguments?.getString("placeId")}") },
+                        onRate = { navController.navigate("rating/$placeId") },
+                        onSeeAllReviews = { navController.navigate("place/$placeId/reviews") },
                         visitPublished = backStackEntry.savedStateHandle.get<Boolean>("visitPublished") == true,
                         onVisitPublishedConsumed = { backStackEntry.savedStateHandle["visitPublished"] = false },
                     )
+                }
+                composable(Route.PlaceReviews, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
+                    PlaceReviewsScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Route.Rating, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
                     RatingScreen(

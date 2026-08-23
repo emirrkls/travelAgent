@@ -9,6 +9,8 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PublicReview
+import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
@@ -21,6 +23,8 @@ open class TestTravelRepository : TravelRepository {
     val visits = MutableStateFlow<List<Visit>>(emptyList())
     val saved = MutableStateFlow<Set<String>>(emptySet())
     val collections = MutableStateFlow<List<Collection>>(emptyList())
+    val publicReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
+    var publicReviewsError: com.emirrkls.phokarta.core.data.TravelError? = null
     override val currentUser: User = MockPlaceCatalogDataSource().currentUser
 
     override fun observePlaces(): Flow<List<Place>> = places
@@ -40,6 +44,23 @@ open class TestTravelRepository : TravelRepository {
         RepositoryResult.Success(emptyList())
     override suspend fun refreshPlaceDetail(id: String): RepositoryResult<Place> =
         getPlace(id)?.let { RepositoryResult.Success(it) } ?: RepositoryResult.Failure(com.emirrkls.phokarta.core.data.TravelError.NotFound())
+    override suspend fun refreshPublicReviews(placeId: String, page: Int, size: Int): RepositoryResult<PublicReviewPage> {
+        publicReviewsError?.let { return RepositoryResult.Failure(it) }
+        val all = publicReviewsByPlace.value[placeId].orEmpty()
+        val from = (page * size).coerceAtMost(all.size)
+        val to = (from + size).coerceAtMost(all.size)
+        val slice = all.subList(from, to)
+        val totalPages = if (all.isEmpty()) 0 else ((all.size + size - 1) / size)
+        return RepositoryResult.Success(
+            PublicReviewPage(
+                reviews = slice,
+                page = page,
+                totalPages = totalPages,
+                totalElements = all.size.toLong(),
+                hasNext = to < all.size,
+            ),
+        )
+    }
     override suspend fun refreshOwnerVisits(page: Int, size: Int): RepositoryResult<List<Visit>> = RepositoryResult.Success(visits.value)
     override suspend fun refreshSaved(page: Int, size: Int): RepositoryResult<Set<String>> = RepositoryResult.Success(saved.value)
     override suspend fun refreshCollections(page: Int, size: Int): RepositoryResult<List<Collection>> = RepositoryResult.Success(collections.value)

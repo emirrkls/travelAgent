@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import kotlinx.coroutines.flow.Flow
@@ -53,6 +54,11 @@ interface TravelRepository {
         minRating: Double? = null,
     ): RepositoryResult<List<NearbyPlace>>
     suspend fun refreshPlaceDetail(id: String): RepositoryResult<Place>
+    suspend fun refreshPublicReviews(
+        placeId: String,
+        page: Int = 0,
+        size: Int = 20,
+    ): RepositoryResult<PublicReviewPage>
     suspend fun refreshOwnerVisits(page: Int = 0, size: Int = 50): RepositoryResult<List<Visit>>
     suspend fun refreshSaved(page: Int = 0, size: Int = 100): RepositoryResult<Set<String>>
     suspend fun refreshCollections(page: Int = 0, size: Int = 100): RepositoryResult<List<Collection>>

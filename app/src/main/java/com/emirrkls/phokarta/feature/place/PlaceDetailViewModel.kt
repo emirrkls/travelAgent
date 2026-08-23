@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
+import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.share.PhokartaShare
@@ -23,12 +24,22 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+data class CommunityReviewsUiState(
+    val reviews: List<PublicReview> = emptyList(),
+    val totalElements: Long = 0,
+    val hasNext: Boolean = false,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val expandedReviewIds: Set<String> = emptySet(),
+)
+
 data class PlaceDetailUiState(
     val place: Place? = null,
     val isSaved: Boolean = false,
     val visits: List<Visit> = emptyList(),
     val collections: List<Collection> = emptyList(),
     val membershipBusyIds: Set<String> = emptySet(),
+    val currentUserId: String,
     val currentUserAvatarUrl: String,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
@@ -38,6 +49,7 @@ data class PlaceDetailUiState(
     val isCreatingCollection: Boolean = false,
     val createCollectionError: String? = null,
     val shareText: String? = null,
+    val communityReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
 )
 
 @HiltViewModel
@@ -48,20 +60,31 @@ class PlaceDetailViewModel @Inject constructor(
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val place = MutableStateFlow<Place?>(null)
     private val status = MutableStateFlow(DetailStatus())
+    private val communityReviews = MutableStateFlow(CommunityReviewsUiState())
 
     val uiState = combine(
-        place,
-        repository.observeSavedPlaceIds(),
-        repository.observeVisits(),
-        repository.observeCollections(),
-        status,
-    ) { current, saved, visits, collections, detailStatus ->
+        combine(
+            place,
+            repository.observeSavedPlaceIds(),
+            repository.observeVisits(),
+        ) { current, saved, visits ->
+            Triple(current, saved, visits)
+        },
+        combine(
+            repository.observeCollections(),
+            status,
+            communityReviews,
+        ) { collections, detailStatus, reviewsState ->
+            Triple(collections, detailStatus, reviewsState)
+        },
+    ) { (current, saved, visits), (collections, detailStatus, reviewsState) ->
         PlaceDetailUiState(
             place = current,
             isSaved = placeId in saved,
             visits = visits.filter { it.placeId == placeId }.sortedByDescending { it.visitedAt },
             collections = collections,
             membershipBusyIds = detailStatus.membershipBusyIds,
+            currentUserId = repository.currentUser.id,
             currentUserAvatarUrl = repository.currentUser.avatarUrl,
             isLoading = detailStatus.isLoading,
             errorMessage = detailStatus.errorMessage,
@@ -71,20 +94,38 @@ class PlaceDetailViewModel @Inject constructor(
             isCreatingCollection = detailStatus.isCreatingCollection,
             createCollectionError = detailStatus.createCollectionError,
             shareText = detailStatus.shareText,
+            communityReviews = reviewsState,
         )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        PlaceDetailUiState(currentUserAvatarUrl = repository.currentUser.avatarUrl),
+        PlaceDetailUiState(
+            currentUserId = repository.currentUser.id,
+            currentUserAvatarUrl = repository.currentUser.avatarUrl,
+        ),
     )
 
     init {
         load()
+        loadCommunityReviews()
         viewModelScope.launch { repository.refreshCollections() }
         viewModelScope.launch { repository.refreshOwnerVisits() }
     }
 
     fun retry() = load()
+
+    fun refreshCommunityReviews() = loadCommunityReviews(force = true)
+
+    fun retryCommunityReviews() = loadCommunityReviews(force = true)
+
+    fun toggleReviewExpanded(reviewId: String) {
+        communityReviews.update { state ->
+            val expanded = reviewId in state.expandedReviewIds
+            state.copy(
+                expandedReviewIds = if (expanded) state.expandedReviewIds - reviewId else state.expandedReviewIds + reviewId,
+            )
+        }
+    }
 
     fun toggleSaved() {
         viewModelScope.launch {
@@ -233,6 +274,28 @@ class PlaceDetailViewModel @Inject constructor(
         }
     }
 
+    private fun loadCommunityReviews(force: Boolean = false) {
+        if (!force && communityReviews.value.isLoading) return
+        viewModelScope.launch {
+            communityReviews.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val result = repository.refreshPublicReviews(placeId, page = 0, size = PREVIEW_PAGE_SIZE)) {
+                is RepositoryResult.Success -> communityReviews.update {
+                    it.copy(
+                        reviews = result.value.reviews,
+                        totalElements = result.value.totalElements,
+                        hasNext = result.value.hasNext,
+                        isLoading = false,
+                        errorMessage = null,
+                        expandedReviewIds = emptySet(),
+                    )
+                }
+                is RepositoryResult.Failure -> communityReviews.update {
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                }
+            }
+        }
+    }
+
     private data class DetailStatus(
         val isLoading: Boolean = true,
         val errorMessage: String? = null,
@@ -248,5 +311,6 @@ class PlaceDetailViewModel @Inject constructor(
     companion object {
         private const val DEFAULT_COLLECTION_COVER =
             "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200"
+        const val PREVIEW_PAGE_SIZE = 3
     }
 }

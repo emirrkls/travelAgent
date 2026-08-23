@@ -19,6 +19,7 @@ import javax.inject.Inject
 
 data class ExploreUiState(
     val places: List<Place> = emptyList(),
+    val savedPlaces: List<Place> = emptyList(),
     val selectedCategory: PlaceCategory? = null,
     val savedPlaceIds: Set<String> = emptySet(),
     val currentUser: User? = null,
@@ -32,8 +33,23 @@ data class ExploreUiState(
 class ExploreViewModel @Inject constructor(private val repository: TravelRepository) : ViewModel() {
     private val selectedCategory = MutableStateFlow<PlaceCategory?>(null)
     private val refreshState = MutableStateFlow(true to null as String?)
-    val uiState = combine(repository.observePlaces(), selectedCategory, repository.observeSavedPlaceIds(), refreshState) { places, category, saved, refresh ->
-        ExploreUiState(places, category, saved, repository.currentUser, refresh.first, refresh.second)
+    val uiState = combine(
+        repository.observePlaces(),
+        selectedCategory,
+        repository.observeSavedPlaceIds(),
+        refreshState,
+    ) { places, category, saved, refresh ->
+        val savedOrder = saved.toList()
+        val byId = places.associateBy { it.id }
+        ExploreUiState(
+            places = places,
+            savedPlaces = savedOrder.mapNotNull { byId[it] },
+            selectedCategory = category,
+            savedPlaceIds = saved,
+            currentUser = repository.currentUser,
+            isLoading = refresh.first,
+            errorMessage = refresh.second,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExploreUiState())
 
     init {

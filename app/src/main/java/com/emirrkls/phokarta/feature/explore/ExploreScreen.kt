@@ -49,6 +49,7 @@ fun ExploreScreen(
     onSearch: () -> Unit,
     onPlace: (String) -> Unit,
     onCollections: () -> Unit,
+    onWantToGo: () -> Unit,
     viewModel: ExploreViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,6 +92,19 @@ fun ExploreScreen(
                 }
             }
         }
+        if (selectedCategory == null && state.savedPlaces.isNotEmpty()) {
+            item {
+                PlaceSection(
+                    title = "Want to Go",
+                    places = state.savedPlaces.take(8),
+                    saved = state.savedPlaceIds,
+                    onPlace = onPlace,
+                    onSave = viewModel::toggleSaved,
+                    onSeeAll = onWantToGo,
+                )
+                Spacer(Modifier.height(34.dp))
+            }
+        }
         if (selectedCategory != null) {
             item { PlaceSection("${selectedCategory.label} picks", state.filteredPlaces, state.savedPlaceIds, onPlace, viewModel::toggleSaved) }
         } else {
@@ -121,9 +135,18 @@ private fun SearchEntry(onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlaceSection(title: String, places: List<Place>, saved: Set<String>, onPlace: (String) -> Unit, onSave: (String) -> Unit) {
+private fun PlaceSection(
+    title: String,
+    places: List<Place>,
+    saved: Set<String>,
+    onPlace: (String) -> Unit,
+    onSave: (String) -> Unit,
+    onSeeAll: (() -> Unit)? = null,
+) {
     Column {
-        Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader(title, "See all") }
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            SectionHeader(title, "See all", onAction = onSeeAll)
+        }
         Spacer(Modifier.height(14.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(places, key = { it.id }) { place -> PlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }) }

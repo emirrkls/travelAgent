@@ -13,7 +13,8 @@ interface LocalUserStateDataSource {
     suspend fun upsertVisits(visits: List<Visit>)
     suspend fun isSaved(placeId: String): Boolean
     suspend fun setSaved(placeId: String, saved: Boolean)
-    suspend fun replaceSavedPlaceIds(placeIds: Set<String>)
+    /** Replaces all saved rows for the current owner, preserving each entry's `savedAt` timestamp. */
+    suspend fun replaceSavedPlaces(entries: List<Pair<String, Long>>)
     suspend fun upsertCollection(collection: Collection)
     suspend fun replaceCollections(collections: List<Collection>)
     suspend fun addPlaceToCollection(collectionId: String, placeId: String)

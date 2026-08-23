@@ -36,6 +36,7 @@ import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -68,6 +69,10 @@ class DefaultTravelRepositoryTest {
         assertEquals(listOf(PLACE_ID), repository.observePlaces().first().map { it.id })
         assertEquals(setOf(PLACE_ID), repository.observeSavedPlaceIds().first())
         assertEquals(listOf(VISIT_ID), repository.observeVisits().first().map { it.id })
+        assertEquals(
+            OffsetDateTime.parse("2026-08-22T10:00:00Z").toInstant().toEpochMilli(),
+            local.savedAtMillis[PLACE_ID],
+        )
     }
 
     @Test
@@ -311,6 +316,7 @@ private fun <T> remotePage(page: Int, hasNext: Boolean, vararg values: T) = Remo
 private class FakeLocal : LocalUserStateDataSource {
     val visits = MutableStateFlow<List<Visit>>(emptyList())
     val saved = MutableStateFlow<Set<String>>(emptySet())
+    val savedAtMillis = linkedMapOf<String, Long>()
     val collections = MutableStateFlow<List<Collection>>(emptyList())
     override fun observeVisits(): Flow<List<Visit>> = visits
     override fun observeSavedPlaceIds(): Flow<Set<String>> = saved
@@ -323,8 +329,13 @@ private class FakeLocal : LocalUserStateDataSource {
     override suspend fun isSaved(placeId: String) = placeId in saved.value
     override suspend fun setSaved(placeId: String, saved: Boolean) {
         this.saved.value = if (saved) this.saved.value + placeId else this.saved.value - placeId
+        if (saved) savedAtMillis[placeId] = System.currentTimeMillis() else savedAtMillis.remove(placeId)
     }
-    override suspend fun replaceSavedPlaceIds(placeIds: Set<String>) { saved.value = placeIds }
+    override suspend fun replaceSavedPlaces(entries: List<Pair<String, Long>>) {
+        saved.value = entries.map { it.first }.toCollection(LinkedHashSet())
+        savedAtMillis.clear()
+        entries.forEach { (id, at) -> savedAtMillis[id] = at }
+    }
     override suspend fun upsertCollection(collection: Collection) {
         collections.value = collections.value.filterNot { it.id == collection.id } + collection
     }

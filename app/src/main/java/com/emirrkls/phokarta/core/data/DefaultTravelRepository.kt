@@ -243,11 +243,13 @@ class DefaultTravelRepository @Inject constructor(
             nextPage++
         } while (response.hasNext)
         return mapOrValidation {
-            savedDtos.forEach { it.savedAt.toEpochMillisSafely() }
             val places = savedDtos.map { it.place.toDomain() }
-            val ids = places.mapTo(linkedSetOf()) { it.id }
+            val entries = savedDtos.map { dto ->
+                dto.place.toDomain().id to dto.savedAt.toEpochMillisSafely()
+            }
+            val ids = entries.mapTo(linkedSetOf()) { it.first }
             mergePlaces(places)
-            localUserState.replaceSavedPlaceIds(ids)
+            localUserState.replaceSavedPlaces(entries)
             RepositoryResult.Success(ids)
         }
     }

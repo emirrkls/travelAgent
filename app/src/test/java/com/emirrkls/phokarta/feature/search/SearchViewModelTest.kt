@@ -43,8 +43,64 @@ class SearchViewModelTest {
         advanceTimeBy(1)
         runCurrent()
 
-        assertEquals(listOf("bodrum" to PlaceCategory.BEACH), repository.calls)
+        assertEquals(1, repository.calls.size)
+        assertEquals("bodrum", repository.calls.single().search)
+        assertEquals(PlaceCategory.BEACH, repository.calls.single().category)
         assertEquals(repository.places.value, viewModel.uiState.value.results)
+    }
+
+    @Test
+    fun highlyRatedSendsMinRatingAndResetsToPageZero() = runTest(dispatcher) {
+        val repository = RecordingSearchRepository()
+        val viewModel = SearchViewModel(repository)
+        advanceUntilIdle()
+        viewModel.toggleHighlyRated()
+        advanceUntilIdle()
+
+        assertEquals(9.0, repository.calls.last().minRating)
+        assertEquals(0, repository.calls.last().page)
+        assertTrue(viewModel.uiState.value.filters.highlyRatedOnly)
+    }
+
+    @Test
+    fun savedFilterUsesLocalCatalogWithoutRemoteCallBurst() = runTest(dispatcher) {
+        val repository = RecordingSearchRepository()
+        val place = repository.places.value.first()
+        repository.saved.value = linkedSetOf(place.id)
+        val viewModel = SearchViewModel(repository)
+        advanceUntilIdle()
+        val remoteBefore = repository.calls.size
+        viewModel.toggleSavedOnly()
+        advanceUntilIdle()
+
+        assertEquals(remoteBefore, repository.calls.size)
+        assertEquals(listOf(place.id), viewModel.uiState.value.results.map { it.id })
+        assertEquals(SearchEmptyReason.NOTHING_SAVED.takeIf { false }, viewModel.uiState.value.emptyReason)
+    }
+
+    @Test
+    fun savedFilterEmptyWhenNothingSaved() = runTest(dispatcher) {
+        val repository = RecordingSearchRepository()
+        val viewModel = SearchViewModel(repository)
+        advanceUntilIdle()
+        viewModel.toggleSavedOnly()
+        advanceUntilIdle()
+        assertEquals(SearchEmptyReason.NOTHING_SAVED, viewModel.uiState.value.emptyReason)
+    }
+
+    @Test
+    fun clearFiltersRestoresDefaultRemoteSearch() = runTest(dispatcher) {
+        val repository = RecordingSearchRepository()
+        val viewModel = SearchViewModel(repository)
+        advanceUntilIdle()
+        viewModel.toggleSavedOnly()
+        viewModel.setCategory(PlaceCategory.HOTEL)
+        advanceUntilIdle()
+        viewModel.clearFilters()
+        advanceUntilIdle()
+
+        assertEquals(SearchFilters(), viewModel.uiState.value.filters)
+        assertTrue(repository.calls.isNotEmpty())
     }
 
     @Test
@@ -79,15 +135,34 @@ class SearchViewModelTest {
         advanceTimeBy(300)
         advanceUntilIdle()
 
-        assertTrue("old" in repository.calls.mapNotNull { it.first })
+        assertTrue("old" in repository.calls.mapNotNull { it.search })
         assertTrue("new" in repository.completed)
         assertTrue("old" !in repository.completed)
         assertEquals("new", viewModel.uiState.value.query)
     }
+
+    @Test
+    fun saveTogglePropagatesThroughRepository() = runTest(dispatcher) {
+        val repository = RecordingSearchRepository()
+        val placeId = repository.places.value.first().id
+        val viewModel = SearchViewModel(repository)
+        advanceUntilIdle()
+        viewModel.toggleSaved(placeId)
+        advanceUntilIdle()
+        assertTrue(placeId in repository.saved.value)
+        assertTrue(placeId in viewModel.uiState.value.savedPlaceIds)
+    }
 }
 
+private data class SearchCall(
+    val search: String?,
+    val category: PlaceCategory?,
+    val minRating: Double?,
+    val page: Int,
+)
+
 private class RecordingSearchRepository : TestTravelRepository() {
-    val calls = mutableListOf<Pair<String?, PlaceCategory?>>()
+    val calls = mutableListOf<SearchCall>()
     val completed = mutableListOf<String>()
     var fail = false
     var slowQuery: String? = null
@@ -101,13 +176,13 @@ private class RecordingSearchRepository : TestTravelRepository() {
         page: Int,
         size: Int,
     ): RepositoryResult<PlacePage> {
-        calls += search to category
+        calls += SearchCall(search, category, minRating, page)
         if (search == slowQuery) delay(1_000)
         search?.let(completed::add)
         return if (fail) {
             RepositoryResult.Failure(TravelError.Offline())
         } else {
-            RepositoryResult.Success(PlacePage(places.value, 0, 1, places.value.size.toLong(), false))
+            RepositoryResult.Success(PlacePage(places.value, page, 1, places.value.size.toLong(), false))
         }
     }
 }

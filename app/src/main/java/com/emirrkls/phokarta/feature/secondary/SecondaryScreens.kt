@@ -57,6 +57,7 @@ import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
+import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import com.emirrkls.phokarta.ui.theme.Coral
 
 @Composable
@@ -125,7 +126,11 @@ private fun PlaceActivityCard(item: ActivityItem, place: Place, saved: Boolean, 
                         }
                     }
                     IconButton(onClick = onSave) {
-                        Icon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, if (saved) "Remove saved place" else "Save place", tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            WantToGoCopy.saveContentDescription(saved),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }

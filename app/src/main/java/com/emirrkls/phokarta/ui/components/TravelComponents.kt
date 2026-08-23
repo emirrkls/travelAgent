@@ -38,8 +38,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +52,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
+import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import kotlin.math.roundToInt
 
 private val CardShape = RoundedCornerShape(24.dp)
@@ -110,7 +116,12 @@ fun CategoryChip(label: String, selected: Boolean, icon: ImageVector? = null, on
     )
     val elevation by animateDpAsState(if (selected) 2.dp else 0.dp, label = "categoryElevation")
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .semantics {
+                this.selected = selected
+                contentDescription = if (selected) "$label, selected" else label
+            },
         color = color,
         contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         shape = RoundedCornerShape(50),
@@ -220,12 +231,19 @@ fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> U
 
 @Composable
 private fun SaveButton(saved: Boolean, onSave: () -> Unit, modifier: Modifier = Modifier, inverse: Boolean = false) {
+    val haptics = LocalHapticFeedback.current
     Surface(modifier = modifier, shape = CircleShape, color = if (inverse) Color.Black.copy(alpha = 0.42f) else MaterialTheme.colorScheme.surface) {
-        IconButton(onClick = onSave, modifier = Modifier.size(42.dp)) {
+        IconButton(
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onSave()
+            },
+            modifier = Modifier.size(42.dp),
+        ) {
             AnimatedContent(saved, label = "saveIcon") { isSaved ->
                 Icon(
                     if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = if (isSaved) "Remove from saved" else "Save place",
+                    contentDescription = WantToGoCopy.saveContentDescription(isSaved),
                     tint = if (inverse) Color.White else MaterialTheme.colorScheme.primary,
                 )
             }
@@ -234,7 +252,14 @@ private fun SaveButton(saved: Boolean, onSave: () -> Unit, modifier: Modifier = 
 }
 
 @Composable
-fun CompactPlaceCard(place: Place, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CompactPlaceCard(
+    place: Place,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    saved: Boolean = false,
+    visited: Boolean = false,
+    onSave: (() -> Unit)? = null,
+) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
@@ -247,18 +272,34 @@ fun CompactPlaceCard(place: Place, onClick: () -> Unit, modifier: Modifier = Mod
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     CategoryIcon(place.category, size = 15.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${place.category.label} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text("${place.category.label} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                place.friendSignal?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CommunityRatingLabel(place.communityScore)
+                    if (visited) {
+                        Text("Visited", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    }
                 }
             }
-            place.friendsScore?.let {
-                RatingBadge(it)
-                Spacer(Modifier.width(8.dp))
+            if (onSave != null) {
+                SaveButton(saved, onSave)
             }
         }
+    }
+}
+
+@Composable
+fun CommunityRatingLabel(score: Double?, modifier: Modifier = Modifier) {
+    if (score != null) {
+        RatingBadge(score)
+    } else {
+        Text(
+            "Not rated",
+            modifier = modifier,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -53,7 +53,12 @@ import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.theme.Coral
 
 @Composable
-fun ProfileScreen(onPlace: (String) -> Unit, onCollection: (String) -> Unit, viewModel: ProfileViewModel = hiltViewModel()) {
+fun ProfileScreen(
+    onPlace: (String) -> Unit,
+    onCollection: (String) -> Unit,
+    onWantToGo: () -> Unit,
+    viewModel: ProfileViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
@@ -109,13 +114,105 @@ fun ProfileScreen(onPlace: (String) -> Unit, onCollection: (String) -> Unit, vie
         }
         when (tab) {
             0 -> {
-                item { Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader("Your visits", "${state.visitedPlaces.size} total") } }
-                items(state.visitedPlaces, key = { it.visit.id }) { visited ->
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-                        CompactPlaceCard(visited.place, { onPlace(visited.place.id) })
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(visited.visit.visitedAt.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                            Text(String.format("Your score %.1f", visited.visit.overallRating), color = Coral, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                item {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                            .padding(4.dp),
+                    ) {
+                        listOf(
+                            ProfilePlacesSegment.VISITS to "Visits",
+                            ProfilePlacesSegment.SAVED to "Saved",
+                        ).forEach { (segment, label) ->
+                            val selected = state.placesSegment == segment
+                            Surface(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.setPlacesSegment(segment) },
+                                color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                shape = RoundedCornerShape(11.dp),
+                            ) {
+                                Text(
+                                    label,
+                                    Modifier.padding(vertical = 10.dp).fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selected) Coral else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+                state.saveErrorMessage?.let { message ->
+                    item {
+                        Text(
+                            message,
+                            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                if (state.placesSegment == ProfilePlacesSegment.VISITS) {
+                    item {
+                        Box(Modifier.padding(horizontal = 16.dp)) {
+                            SectionHeader("Your visits", "${state.visitedPlaces.size} total")
+                        }
+                    }
+                    items(state.visitedPlaces, key = { it.visit.id }) { visited ->
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                            CompactPlaceCard(
+                                place = visited.place,
+                                onClick = { onPlace(visited.place.id) },
+                                saved = visited.place.id in state.savedPlaceIds,
+                                visited = true,
+                                onSave = { viewModel.toggleSaved(visited.place.id) },
+                            )
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    visited.visit.visitedAt.toString(),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Text(
+                                    String.format("Your score %.1f", visited.visit.overallRating),
+                                    color = Coral,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Box(Modifier.padding(horizontal = 16.dp)) {
+                            SectionHeader("Want to Go", "See all", onWantToGo)
+                        }
+                    }
+                    if (state.savedPlaces.isEmpty()) {
+                        item {
+                            Text(
+                                "Nothing saved yet",
+                                Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        items(state.savedPlaces, key = { it.id }) { place ->
+                            Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                                CompactPlaceCard(
+                                    place = place,
+                                    onClick = { onPlace(place.id) },
+                                    saved = true,
+                                    onSave = { viewModel.toggleSaved(place.id) },
+                                )
+                            }
                         }
                     }
                 }

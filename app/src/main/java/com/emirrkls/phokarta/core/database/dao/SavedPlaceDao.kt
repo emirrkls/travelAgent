@@ -46,14 +46,11 @@ interface SavedPlaceDao {
     }
 
     @Transaction
-    suspend fun replaceSavedPlaceIds(
+    suspend fun replaceSavedPlaces(
         ownerUserId: String,
-        placeIds: Set<String>,
-        nowEpochMillis: Long,
+        entries: List<SavedPlaceEntity>,
     ) {
         deleteSavedPlacesForOwner(ownerUserId)
-        placeIds.forEach {
-            insertSavedPlace(SavedPlaceEntity(ownerUserId, it, nowEpochMillis))
-        }
+        entries.forEach { insertSavedPlace(it) }
     }
 }

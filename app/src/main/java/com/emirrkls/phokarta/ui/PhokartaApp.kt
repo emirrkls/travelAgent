@@ -74,6 +74,7 @@ import com.emirrkls.phokarta.feature.onboarding.SplashScreen
 import com.emirrkls.phokarta.feature.place.PlaceDetailScreen
 import com.emirrkls.phokarta.feature.profile.ProfileScreen
 import com.emirrkls.phokarta.feature.rating.RatingScreen
+import com.emirrkls.phokarta.feature.saved.WantToGoScreen
 import com.emirrkls.phokarta.feature.search.SearchScreen
 import com.emirrkls.phokarta.feature.secondary.ActivityScreen
 import com.emirrkls.phokarta.feature.secondary.CollectionDetailScreen
@@ -93,6 +94,7 @@ private object Route {
     const val Activity = "activity"
     const val Profile = "profile"
     const val Collections = "collections"
+    const val WantToGo = "want-to-go"
     const val Place = "place/{placeId}"
     const val Rating = "rating/{placeId}"
     const val Collection = "collection/{collectionId}"
@@ -192,11 +194,30 @@ fun PhokartaApp() {
                 composable(Route.Register) {
                     RegisterScreen(onHaveAccount = { navController.popBackStack() })
                 }
-                composable(Route.Explore) { ExploreScreen({ navController.navigate(Route.Search) }, { navController.navigate("place/$it") }, { navController.navigate(Route.Collections) }) }
+                composable(Route.Explore) {
+                    ExploreScreen(
+                        onSearch = { navController.navigate(Route.Search) },
+                        onPlace = { navController.navigate("place/$it") },
+                        onCollections = { navController.navigate(Route.Collections) },
+                        onWantToGo = { navController.navigate(Route.WantToGo) },
+                    )
+                }
                 composable(Route.Search) { SearchScreen({ navController.popBackStack() }, { navController.navigate("place/$it") }) }
                 composable(Route.Map) { MapScreen(onPlace = { navController.navigate("place/$it") }) }
                 composable(Route.Activity) { ActivityScreen({ navController.navigate("place/$it") }, { navController.navigate("collection/$it") }) }
-                composable(Route.Profile) { ProfileScreen({ navController.navigate("place/$it") }, { navController.navigate("collection/$it") }) }
+                composable(Route.Profile) {
+                    ProfileScreen(
+                        onPlace = { navController.navigate("place/$it") },
+                        onCollection = { navController.navigate("collection/$it") },
+                        onWantToGo = { navController.navigate(Route.WantToGo) },
+                    )
+                }
+                composable(Route.WantToGo) {
+                    WantToGoScreen(
+                        onBack = { navController.popBackStack() },
+                        onPlace = { navController.navigate("place/$it") },
+                    )
+                }
                 composable(Route.Collections) { CollectionsScreen({ navController.popBackStack() }, { navController.navigate("collection/$it") }) }
                 composable(Route.Place, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) { PlaceDetailScreen({ navController.popBackStack() }, { navController.navigate("rating/${it.arguments?.getString("placeId")}") }) }
                 composable(Route.Rating, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) { RatingScreen({ navController.popBackStack() }, { name -> navController.navigate("success/${android.net.Uri.encode(name)}") { popUpTo(Route.Explore) } }) }
@@ -210,7 +231,7 @@ fun PhokartaApp() {
         AddActionSheet(
             onDismiss = { showAddSheet = false },
             onRate = { showAddSheet = false; navController.navigate(Route.Search) },
-            onWantToGo = { showAddSheet = false; navController.navigate(Route.Search) },
+            onWantToGo = { showAddSheet = false; navController.navigate(Route.WantToGo) },
             onCreateCollection = { showAddSheet = false; navController.navigate(Route.Collections) },
         )
     }

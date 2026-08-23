@@ -46,7 +46,8 @@ class RoomLocalUserStateDataSource @Inject constructor(
             if (ownerId == null) {
                 flowOf(emptySet())
             } else {
-                savedPlaceDao.observeSavedPlaceIds(ownerId).map { it.toSet() }
+                // LinkedHashSet keeps Room's savedAt DESC order for Want to Go shelves.
+                savedPlaceDao.observeSavedPlaceIds(ownerId).map { it.toCollection(LinkedHashSet()) }
             }
         }
 
@@ -92,9 +93,14 @@ class RoomLocalUserStateDataSource @Inject constructor(
         savedPlaceDao.setSaved(ownerId, placeId, saved, System.currentTimeMillis())
     }
 
-    override suspend fun replaceSavedPlaceIds(placeIds: Set<String>) {
+    override suspend fun replaceSavedPlaces(entries: List<Pair<String, Long>>) {
         val ownerId = ownerIdOrNull() ?: return
-        savedPlaceDao.replaceSavedPlaceIds(ownerId, placeIds, System.currentTimeMillis())
+        savedPlaceDao.replaceSavedPlaces(
+            ownerUserId = ownerId,
+            entries = entries.map { (placeId, savedAt) ->
+                com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity(ownerId, placeId, savedAt)
+            },
+        )
     }
 
     override suspend fun upsertCollection(collection: Collection) {

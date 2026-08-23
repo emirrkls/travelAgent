@@ -423,7 +423,7 @@ private fun MapControls(
                 }
                 item { MapFilterChip("9+ rated", filters.highlyRatedOnly, onHighlyRated) }
                 item { MapFilterChip("Visited", filters.visitedOnly, onVisited) }
-                item { MapFilterChip("Want to go", filters.wantToGoOnly, onWantToGo) }
+                item { MapFilterChip("Want to Go", filters.wantToGoOnly, onWantToGo) }
             }
         }
     }

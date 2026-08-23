@@ -1,4 +1,4 @@
-package com.emirrkls.phokarta.feature.search
+package com.emirrkls.phokarta.feature.saved
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,8 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -39,16 +37,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.feature.search.SearchSort
 import com.emirrkls.phokarta.ui.components.CategoryChip
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.components.vectorIcon
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 
 @Composable
-fun SearchScreen(
+fun WantToGoScreen(
     onBack: () -> Unit,
     onPlace: (String) -> Unit,
-    viewModel: SearchViewModel = hiltViewModel(),
+    viewModel: WantToGoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var sortMenuOpen by remember { mutableStateOf(false) }
@@ -56,18 +55,25 @@ fun SearchScreen(
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Text("Discover", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(WantToGoCopy.SURFACE, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${state.totalCount} saved",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
             IconButton(
                 onClick = { sortMenuOpen = true },
-                modifier = Modifier.semantics { contentDescription = "Sort results" },
+                modifier = Modifier.semantics { contentDescription = "Sort saved places" },
             ) {
                 Icon(Icons.Rounded.Sort, contentDescription = null)
             }
             DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Recommended") },
+                    text = { Text("Recently saved") },
                     onClick = {
-                        viewModel.setSort(SearchSort.DEFAULT)
+                        viewModel.setSort(SearchSort.RECENTLY_SAVED)
                         sortMenuOpen = false
                     },
                 )
@@ -78,26 +84,19 @@ fun SearchScreen(
                         sortMenuOpen = false
                     },
                 )
-                DropdownMenuItem(
-                    text = { Text("Recently saved") },
-                    onClick = {
-                        viewModel.setSort(SearchSort.RECENTLY_SAVED)
-                        sortMenuOpen = false
-                    },
-                )
             }
         }
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::setQuery,
             singleLine = true,
-            placeholder = { Text("Try Bodrum, beach, Kaş…") },
+            placeholder = { Text("Search saved places") },
             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .semantics { contentDescription = "Search places, cities or categories" },
+                .semantics { contentDescription = "Search within Want to Go" },
         )
         Spacer(Modifier.height(12.dp))
         LazyRow(
@@ -105,65 +104,31 @@ fun SearchScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                CategoryChip("All", !state.filters.hasActiveFilters && state.filters.category == null) {
+                CategoryChip("All", state.category == null && state.destination == null && !state.highlyRatedOnly) {
                     viewModel.clearFilters()
                 }
             }
             item {
-                CategoryChip(WantToGoCopy.SURFACE, state.filters.savedOnly) {
-                    viewModel.toggleSavedOnly()
-                }
-            }
-            item {
-                CategoryChip("Visited", state.filters.visitedOnly) {
-                    viewModel.toggleVisitedOnly()
-                }
-            }
-            item {
-                CategoryChip("9+ Rated", state.filters.highlyRatedOnly) {
-                    viewModel.toggleHighlyRated()
-                }
+                CategoryChip("9+ Rated", state.highlyRatedOnly, onClick = viewModel::toggleHighlyRated)
             }
             items(PlaceCategory.entries) { category ->
                 CategoryChip(
                     category.label,
-                    state.filters.category == category,
+                    state.category == category,
                     category.vectorIcon,
-                ) { viewModel.setCategory(if (state.filters.category == category) null else category) }
+                ) { viewModel.setCategory(if (state.category == category) null else category) }
+            }
+            items(state.destinations) { city ->
+                CategoryChip(city, state.destination == city) {
+                    viewModel.setDestination(if (state.destination == city) null else city)
+                }
             }
         }
-        if (state.filters.hasActiveFilters) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = viewModel::clearFilters) { Text("Clear filters") }
-                Spacer(Modifier.weight(1f))
-                Text(
-                    sortLabel(state.filters.sort),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "${state.totalElements} places",
-                Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelLarge,
-            )
-            if (state.isLoading) CircularProgressIndicator(Modifier.height(24.dp))
-        }
-        state.errorMessage?.let { message ->
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(message, Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-                Button(onClick = viewModel::retry) { Text("Retry") }
-            }
+        if (state.category != null || state.destination != null || state.highlyRatedOnly || state.query.isNotBlank()) {
+            TextButton(
+                onClick = viewModel::clearFilters,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            ) { Text("Clear filters") }
         }
         state.saveErrorMessage?.let { message ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -176,42 +141,35 @@ fun SearchScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(state.results, key = { it.id }) { place ->
+            items(state.places, key = { it.id }) { place ->
                 CompactPlaceCard(
                     place = place,
                     onClick = { onPlace(place.id) },
-                    saved = place.id in state.savedPlaceIds,
-                    visited = place.id in state.visitedPlaceIds,
+                    saved = true,
                     onSave = { viewModel.toggleSaved(place.id) },
                 )
             }
-            state.emptyReason?.let { reason ->
+            if (state.places.isEmpty()) {
                 item {
-                    SearchEmptyState(reason)
+                    Column(Modifier.padding(top = 40.dp, start = 8.dp, end = 8.dp)) {
+                        if (state.totalCount == 0) {
+                            Text("Nothing saved yet", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Save places you want to remember and they’ll appear here.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text("No matches", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Try another filter or clear your search.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun SearchEmptyState(reason: SearchEmptyReason) {
-    val (title, body) = when (reason) {
-        SearchEmptyReason.NO_RESULTS -> "No places found" to "Try another place, city or category."
-        SearchEmptyReason.NOTHING_SAVED -> "Nothing saved yet" to
-            "Save places you want to remember and they’ll appear here."
-        SearchEmptyReason.NOTHING_VISITED -> "No visits yet" to
-            "Places you’ve rated will show up when you filter by Visited."
-    }
-    Column(Modifier.padding(top = 40.dp, start = 8.dp, end = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(6.dp))
-        Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-private fun sortLabel(sort: SearchSort): String = when (sort) {
-    SearchSort.DEFAULT -> "Recommended"
-    SearchSort.RATING -> "Rating"
-    SearchSort.RECENTLY_SAVED -> "Recently saved"
 }

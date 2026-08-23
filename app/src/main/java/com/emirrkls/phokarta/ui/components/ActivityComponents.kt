@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -58,13 +59,18 @@ fun ActivityEventCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .testTag("activity_event_${event.visitId}")
             .clickable(onClick = onOpenPlace)
             .semantics {
                 contentDescription = buildString {
                     append("$authorLabel visited ${event.place.name}")
                     append(", score $scoreText, $scoreDescriptor")
                     append(", visited $dateLabel")
-                    if (hasReviewText) append(", ${event.publicReview}")
+                    if (hasReviewText) {
+                        append(", ${event.publicReview}")
+                    } else {
+                        append(", rating only")
+                    }
                     append(". Open place")
                 }
             },

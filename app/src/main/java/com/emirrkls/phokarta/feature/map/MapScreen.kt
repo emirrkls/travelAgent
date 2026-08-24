@@ -492,7 +492,16 @@ private fun MapControls(
                     },
                 )
                 MapFilterChip("Visited", filters.visitedOnly, onVisited)
-                MapFilterChip("Want to Go", filters.wantToGoOnly, onWantToGo)
+                MapFilterChip(
+                    "Want to Go",
+                    filters.wantToGoOnly,
+                    onWantToGo,
+                    contentDescription = if (filters.wantToGoOnly) {
+                        "Want to Go filter, selected"
+                    } else {
+                        "Want to Go filter"
+                    },
+                )
             }
         }
     }

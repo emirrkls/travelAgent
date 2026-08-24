@@ -57,6 +57,7 @@ private const val THIRD_USER_ID = "33333333-3333-3333-3333-333333333333"
 private const val FOURTH_USER_ID = "44444444-4444-4444-4444-444444444444"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val OTHER_PLACE_ID = "20000000-0000-0000-0000-000000000099"
+private const val FRIEND_ONLY_PLACE_ID = "20000000-0000-0000-0000-000000000088"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 
 @Module
@@ -95,6 +96,12 @@ private val otherSummary = PlaceSummaryDto(
     "Bodrum", "Muğla", "Türkiye", 37.09, 27.54, 2, 8.0, 12,
 )
 
+private val friendOnlySummary = PlaceSummaryDto(
+    FRIEND_ONLY_PLACE_ID, "Friend Cove", PlaceCategoryDto.BEACH,
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900",
+    "Bodrum", "Muğla", "Türkiye", 37.08, 27.52, 2, 8.4, 18,
+)
+
 private fun <T> page(values: List<T>) = PageResponseDto(values, 0, 100, values.size.toLong(), 1, false)
 
 private class FakePlaces : PlaceRemoteDataSource {
@@ -107,7 +114,7 @@ private class FakePlaces : PlaceRemoteDataSource {
         RemoteResult.Success(listOf(NearbyPlaceDto(summary, 240.0)))
     override suspend fun bounds(west: Double, south: Double, east: Double, north: Double, category: PlaceCategoryDto?, minRating: Double?, limit: Int) =
         RemoteResult.Success(
-            listOf(summary, otherSummary).filter {
+            listOf(summary, otherSummary, friendOnlySummary).filter {
                 (category == null || it.category == category) &&
                     (minRating == null || (it.averageScore ?: 0.0) >= minRating)
             },
@@ -404,7 +411,11 @@ private class FakeSaved(
     private val visits: FakeVisits,
 ) : SavedPlaceRemoteDataSource {
     private val saved = linkedSetOf<String>()
-    private val summaries = mapOf(PLACE_ID to summary)
+    private val summaries = mapOf(
+        PLACE_ID to summary,
+        OTHER_PLACE_ID to otherSummary,
+        FRIEND_ONLY_PLACE_ID to friendOnlySummary,
+    )
 
     override suspend fun list(page: Int, size: Int): RemoteResult<PageResponseDto<SavedPlaceDto>> {
         val content = saved.mapNotNull { id ->
@@ -671,7 +682,7 @@ class FakeSocial : SocialRemoteDataSource {
         val friendSignal = isMutualFriend(OTHER_USER_ID)
         return RemoteResult.Success(
             unique.map { id ->
-                if (friendSignal && id == PLACE_ID) {
+                if (friendSignal && (id == PLACE_ID || id == FRIEND_ONLY_PLACE_ID)) {
                     FriendMetricsDto(placeId = id, friendAverageScore = 9.1, friendsVisitedCount = 1)
                 } else {
                     FriendMetricsDto(placeId = id, friendAverageScore = null, friendsVisitedCount = 0)

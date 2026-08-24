@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -43,6 +44,7 @@ class MapFriendsVisitedFlowTest {
         composeRule.onNodeWithContentDescription("Friends visited filter").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Friend Cove").fetchSemanticsNodes().isNotEmpty() &&
                 composeRule.onAllNodesWithText("Quiet Bay").fetchSemanticsNodes().isEmpty()
         }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().assertIsDisplayed()
@@ -53,20 +55,33 @@ class MapFriendsVisitedFlowTest {
     fun wantToGoAndFriendsVisited_showsSavedFriendOverlap() {
         openMap()
         composeRule.waitUntil(timeoutMillis = 20_000) {
-            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Quiet Bay").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Friend Cove").fetchSemanticsNodes().isNotEmpty()
         }
+        // X = Sarnıç: saved + friends. Y = Quiet Bay: saved + no friends. Z = Friend Cove: friends, not saved.
         composeRule.onAllNodesWithContentDescription("Save Sarnıç Cove to Want to Go").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithContentDescription("Remove Sarnıç Cove from Want to Go")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        composeRule.onNodeWithText("Want to Go").performClick()
-        composeRule.onNodeWithContentDescription("Friends visited filter").performClick()
+        composeRule.onAllNodesWithContentDescription("Save Quiet Bay to Want to Go").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithContentDescription("Remove Quiet Bay from Want to Go")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Want to Go filter").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription("Friends visited filter").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithText("Quiet Bay").fetchSemanticsNodes().isEmpty()
+                composeRule.onAllNodesWithText("Quiet Bay").fetchSemanticsNodes().isEmpty() &&
+                composeRule.onAllNodesWithText("Friend Cove").fetchSemanticsNodes().isEmpty()
         }
+        composeRule.onNodeWithContentDescription("Want to Go filter, selected").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Friends visited filter, selected").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().assertIsDisplayed()
         composeRule.onAllNodesWithText("Friends 9.1").onFirst().assertIsDisplayed()
         composeRule.onAllNodesWithText("1 friend visited").onFirst().assertIsDisplayed()
     }

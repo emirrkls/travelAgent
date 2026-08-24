@@ -103,6 +103,38 @@ class VisitDraftLogicTest {
     }
 
     @Test
+    fun defaultOnlyDraftIsNotMeaningful() {
+        assertFalse(VisitDraftLogic.hasMeaningfulContent(VisitDraft(visitDate = today), today))
+        assertFalse(
+            VisitDraftLogic.hasMeaningfulContent(
+                VisitDraft(visitDate = today, dimensionsExpanded = true),
+                today,
+            ),
+        )
+    }
+
+    @Test
+    fun meaningfulWhenScoreDimensionsTextDateOrVisibilityChange() {
+        assertTrue(VisitDraftLogic.hasMeaningfulContent(VisitDraft(overallScore = 9f, visitDate = today), today))
+        assertTrue(
+            VisitDraftLogic.hasMeaningfulContent(
+                VisitDraft(dimensions = mapOf(RatingDimension.SEA to 8f), visitDate = today),
+                today,
+            ),
+        )
+        assertTrue(VisitDraftLogic.hasMeaningfulContent(VisitDraft(publicReview = "hi", visitDate = today), today))
+        assertTrue(VisitDraftLogic.hasMeaningfulContent(VisitDraft(privateMemory = "x", visitDate = today), today))
+        assertTrue(VisitDraftLogic.hasMeaningfulContent(VisitDraft(visitDate = today.minusDays(1)), today))
+        assertTrue(
+            VisitDraftLogic.hasMeaningfulContent(
+                VisitDraft(visibility = Visibility.FRIENDS, visitDate = today),
+                today,
+            ),
+        )
+        assertFalse(VisitDraftLogic.hasMeaningfulContent(VisitDraft(publicReview = "   ", visitDate = today), today))
+    }
+
+    @Test
     fun reviewHelperCopyMatchesVisibilitySemantics() {
         assertEquals(R.string.visibility_public_review_helper, VisitVisibilityCopy.reviewHelperRes(Visibility.PUBLIC))
         assertEquals(R.string.visibility_friends_review_helper, VisitVisibilityCopy.reviewHelperRes(Visibility.FRIENDS))

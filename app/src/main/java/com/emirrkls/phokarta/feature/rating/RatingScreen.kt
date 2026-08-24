@@ -23,16 +23,22 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -53,6 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.labelRes
@@ -69,16 +78,36 @@ import com.emirrkls.phokarta.R
 fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showVisibilitySheet by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showDiscardConfirm by remember { mutableStateOf(false) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.flushDraft()
+    }
     LaunchedEffect(state.published) {
         if (state.published) {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onPublished()
         }
     }
+    LaunchedEffect(state.discarded) {
+        if (state.discarded) onBack()
+    }
+    LaunchedEffect(state.showDraftRestoredMessage) {
+        if (state.showDraftRestoredMessage) {
+            snackbarHostState.showSnackbar(context.getString(R.string.draft_restored))
+            viewModel.consumeDraftRestoredMessage()
+        }
+    }
+
     val place = state.place
     if (place == null) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            if (state.isLoading) {
+            if (state.isLoading || state.isDraftInitializing) {
                 CircularProgressIndicator()
             } else {
                 Text(if (state.isNotFound) stringResource(R.string.place_not_found) else state.loadError?.let { stringResource(it) }.orEmpty(), color = MaterialTheme.colorScheme.error)
@@ -90,13 +119,31 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
         return
     }
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showVisibilitySheet by remember { mutableStateOf(false) }
     if (showVisibilitySheet) {
         VisitVisibilitySheet(
             selectedVisibility = state.visibility,
             onSelect = viewModel::setVisibility,
             onDismiss = { showVisibilitySheet = false },
+        )
+    }
+    if (showDiscardConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirm = false },
+            title = { Text(stringResource(R.string.discard_draft_title)) },
+            text = { Text(stringResource(R.string.discard_draft_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardConfirm = false
+                        viewModel.discardDraft()
+                    },
+                ) { Text(stringResource(R.string.action_discard)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
     if (showDatePicker) {
@@ -124,8 +171,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
         }
     }
 
+    val draftEditsEnabled = !state.isDraftInitializing && !state.isPublishing
     Scaffold(
         modifier = Modifier.imePadding(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Surface(shadowElevation = 10.dp) {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
@@ -163,7 +212,30 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 Text(
                     if (state.hasExistingVisits) stringResource(R.string.rate_another_visit) else stringResource(R.string.record_a_visit),
                     style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
                 )
+                if (state.canDiscard) {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.semantics {
+                            contentDescription = context.getString(R.string.a11y_draft_menu)
+                        },
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.discard_draft)) },
+                            onClick = {
+                                menuExpanded = false
+                                showDiscardConfirm = true
+                            },
+                            modifier = Modifier.semantics {
+                                contentDescription = context.getString(R.string.a11y_discard_draft)
+                            },
+                        )
+                    }
+                }
             }
             if (state.hasExistingVisits) {
                 Text(
@@ -202,7 +274,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     Spacer(Modifier.height(8.dp))
                     RatingControl(
                         value = state.overall,
-                        onValueChange = viewModel::setOverall,
+                        onValueChange = { if (draftEditsEnabled) viewModel.setOverall(it) },
                         onValueChangeFinished = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
                         onThresholdCrossed = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
                     )
@@ -214,7 +286,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             }
             Spacer(Modifier.height(24.dp))
             Surface(
-                Modifier.fillMaxWidth().clickable(onClick = viewModel::toggleDimensionsExpanded),
+                Modifier.fillMaxWidth().clickable(enabled = draftEditsEnabled, onClick = viewModel::toggleDimensionsExpanded),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 shape = RoundedCornerShape(18.dp),
             ) {
@@ -240,7 +312,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         val value = state.dimensions[dimension]
                         if (value == null) {
                             Surface(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { viewModel.enableDimension(dimension) },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = draftEditsEnabled) { viewModel.enableDimension(dimension) },
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 shape = RoundedCornerShape(16.dp),
                             ) {
@@ -256,7 +328,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(stringResource(dimension.labelRes()), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                                         Text(formatScoreLocalized(value), fontWeight = FontWeight.Bold)
-                                        IconButton(onClick = { viewModel.removeDimension(dimension) }) {
+                                        IconButton(
+                                            onClick = { viewModel.removeDimension(dimension) },
+                                            enabled = draftEditsEnabled,
+                                        ) {
                                             Icon(
                                                 Icons.Rounded.Close,
                                                 stringResource(R.string.remove_dimension_score, stringResource(dimension.labelRes())),
@@ -265,7 +340,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                                     }
                                     RatingControl(
                                         value = value,
-                                        onValueChange = { viewModel.setDimension(dimension, it) },
+                                        onValueChange = { if (draftEditsEnabled) viewModel.setDimension(dimension, it) },
                                         compact = true,
                                         onValueChangeFinished = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
                                     )
@@ -285,10 +360,11 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             Spacer(Modifier.height(9.dp))
             OutlinedTextField(
                 state.review,
-                viewModel::setReview,
+                { if (draftEditsEnabled) viewModel.setReview(it) },
                 Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = reviewInputA11y },
+                enabled = draftEditsEnabled,
                 label = { Text(stringResource(R.string.review)) },
                 placeholder = { Text(stringResource(R.string.review_placeholder)) },
                 minLines = 3,
@@ -300,10 +376,11 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             Spacer(Modifier.height(9.dp))
             OutlinedTextField(
                 state.note,
-                viewModel::setNote,
+                { if (draftEditsEnabled) viewModel.setNote(it) },
                 Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = privateMemoryInputA11y },
+                enabled = draftEditsEnabled,
                 label = { Text(stringResource(R.string.private_memory)) },
                 placeholder = { Text(stringResource(R.string.private_memory_placeholder)) },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null) },
@@ -312,7 +389,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             )
             Spacer(Modifier.height(18.dp))
             Surface(
-                Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                Modifier.fillMaxWidth().clickable(enabled = draftEditsEnabled) { showDatePicker = true },
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(18.dp),
             ) {
@@ -326,7 +403,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         )
                     }
                     if (state.visitedAt != LocalDate.now()) {
-                        TextButton(onClick = viewModel::resetVisitedAtToToday) { Text(stringResource(R.string.today)) }
+                        TextButton(onClick = viewModel::resetVisitedAtToToday, enabled = draftEditsEnabled) {
+                            Text(stringResource(R.string.today))
+                        }
                     } else {
                         Text(stringResource(R.string.today), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                     }
@@ -335,9 +414,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             Spacer(Modifier.height(18.dp))
             VisitVisibilityRow(
                 visibility = state.visibility,
-                onClick = { showVisibilitySheet = true },
+                onClick = { if (draftEditsEnabled) showVisibilitySheet = true },
             )
             Spacer(Modifier.height(26.dp))
         }
     }
 }
+

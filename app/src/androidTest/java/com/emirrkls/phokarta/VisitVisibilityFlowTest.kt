@@ -134,9 +134,17 @@ class VisitVisibilityFlowTest {
         }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
+        when {
+            composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty() ->
+                composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+            composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ->
+                composeRule.onAllNodesWithText("Rate another visit").onFirst().performClick()
+            else -> composeRule.onAllNodesWithText("Been here").onFirst().performClick()
+        }
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }

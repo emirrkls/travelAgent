@@ -54,6 +54,20 @@ object VisitDraftLogic {
         validateDateRes(draft.visitDate, today) == null &&
             draft.overallScore in 0f..10f
 
+    /**
+     * Default-only drafts must not be persisted (avoids a draft for every Place open).
+     * [dimensionsExpanded] alone is UI chrome and does not count as meaningful.
+     */
+    fun hasMeaningfulContent(draft: VisitDraft, today: LocalDate = LocalDate.now()): Boolean {
+        val defaults = VisitDraft(visitDate = today)
+        return draft.overallScore != defaults.overallScore ||
+            draft.dimensions.isNotEmpty() ||
+            draft.publicReview.isNotBlank() ||
+            draft.privateMemory.isNotBlank() ||
+            draft.visitDate != today ||
+            draft.visibility != Visibility.PUBLIC
+    }
+
     fun toVisit(
         draft: VisitDraft,
         placeId: String,

@@ -24,6 +24,7 @@
     <string name="action_unfollow">Takipten çık</string>
     <string name="action_sign_out">Çıkış yap</string>
     <string name="action_selected">Seçili</string>
+    <string name="action_discard">Sil</string>
     <string name="optional">İsteğe bağlı</string>
 
     <string name="want_to_go_action">Gitmek istiyorum</string>
@@ -233,6 +234,14 @@
     <string name="visit_date_future_error">Ziyaret tarihi gelecekte olamaz.</string>
     <string name="visited_twice">İki kez gittim</string>
     <string name="rate_another_visit">Başka bir ziyaret puanla</string>
+    <string name="continue_draft">Taslağa devam et</string>
+    <string name="draft_restored">Taslak geri yüklendi</string>
+    <string name="discard_draft">Taslağı sil</string>
+    <string name="discard_draft_title">Taslak silinsin mi?</string>
+    <string name="discard_draft_message">Tamamlanmamış ziyaretin silinecek.</string>
+    <string name="a11y_continue_draft">Tamamlanmamış ziyaret taslağına devam et</string>
+    <string name="a11y_discard_draft">Tamamlanmamış ziyaret taslağını sil</string>
+    <string name="a11y_draft_menu">Ziyaret taslağı seçenekleri</string>
     <string name="visit_published">Ziyaret yayınlandı</string>
     <string name="see_it_on_your_profile">Profilinde gör</string>
     <string name="back_to_explore">Keşfet\'e dön</string>

@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.database.dao.CachedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
+import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
 import com.emirrkls.phokarta.core.di.DatabaseModule
 import dagger.Module
 import dagger.Provides
@@ -30,6 +31,9 @@ object TestDatabaseModule {
 
     @Provides
     fun provideVisitDao(database: TravelDatabase): VisitDao = database.visitDao()
+
+    @Provides
+    fun provideVisitDraftDao(database: TravelDatabase): VisitDraftDao = database.visitDraftDao()
 
     @Provides
     fun provideSavedPlaceDao(database: TravelDatabase): SavedPlaceDao = database.savedPlaceDao()

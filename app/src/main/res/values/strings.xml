@@ -28,6 +28,7 @@
     <string name="action_unfollow">Unfollow</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_selected">Selected</string>
+    <string name="action_discard">Discard</string>
     <string name="optional">Optional</string>
 
     <!-- Want to Go terminology -->
@@ -252,6 +253,14 @@
     <string name="visit_date_future_error">Visit date can\'t be in the future.</string>
     <string name="visited_twice">Visited twice</string>
     <string name="rate_another_visit">Rate another visit</string>
+    <string name="continue_draft">Continue draft</string>
+    <string name="draft_restored">Draft restored</string>
+    <string name="discard_draft">Discard draft</string>
+    <string name="discard_draft_title">Discard draft?</string>
+    <string name="discard_draft_message">Your unfinished visit will be deleted.</string>
+    <string name="a11y_continue_draft">Continue unfinished visit draft</string>
+    <string name="a11y_discard_draft">Discard unfinished visit draft</string>
+    <string name="a11y_draft_menu">Visit draft options</string>
     <string name="visit_published">Visit published</string>
     <string name="see_it_on_your_profile">See it on your profile</string>
     <string name="back_to_explore">Back to Explore</string>

@@ -5,7 +5,9 @@ import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.PlaceCacheDataSource
 import com.emirrkls.phokarta.core.data.RoomLocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.RoomPlaceCacheDataSource
+import com.emirrkls.phokarta.core.data.RoomVisitDraftRepository
 import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -30,4 +32,10 @@ abstract class AppModule {
     abstract fun bindPlaceCacheDataSource(
         dataSource: RoomPlaceCacheDataSource,
     ): PlaceCacheDataSource
+
+    @Binds
+    @Singleton
+    abstract fun bindVisitDraftRepository(
+        repository: RoomVisitDraftRepository,
+    ): VisitDraftRepository
 }

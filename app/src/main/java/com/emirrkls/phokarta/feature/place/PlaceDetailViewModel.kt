@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
@@ -61,6 +62,7 @@ data class PlaceDetailUiState(
     val communityReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
     val friendReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
     val friendSummary: FriendSummaryUiState = FriendSummaryUiState(),
+    val hasUnfinishedDraft: Boolean = false,
 ) {
     val activeReviews: CommunityReviewsUiState
         get() = if (activeReviewScope == ActivityScope.FRIENDS) friendReviews else communityReviews
@@ -70,6 +72,7 @@ data class PlaceDetailUiState(
 class PlaceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: TravelRepository,
+    private val draftRepository: VisitDraftRepository,
 ) : ViewModel() {
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val place = MutableStateFlow<Place?>(null)
@@ -102,7 +105,8 @@ class PlaceDetailViewModel @Inject constructor(
         ) { friendReviewsState, friendSummaryState, reviewScope ->
             Triple(friendReviewsState, friendSummaryState, reviewScope)
         },
-    ) { (current, saved, visits), (collections, detailStatus, reviewsState), (friendReviewsState, friendSummaryState, reviewScope) ->
+        draftRepository.observeHasDraft(placeId),
+    ) { (current, saved, visits), (collections, detailStatus, reviewsState), (friendReviewsState, friendSummaryState, reviewScope), hasDraft ->
         PlaceDetailUiState(
             place = current,
             isSaved = placeId in saved,
@@ -123,6 +127,7 @@ class PlaceDetailViewModel @Inject constructor(
             communityReviews = reviewsState,
             friendReviews = friendReviewsState,
             friendSummary = friendSummaryState,
+            hasUnfinishedDraft = hasDraft,
         )
     }.stateIn(
         viewModelScope,

@@ -69,7 +69,8 @@ object FakeNetworkModule {
     }
     @Provides @Singleton fun places(): PlaceRemoteDataSource = FakePlaces()
     @Provides @Singleton fun fakeSocial(): FakeSocial = FakeSocial()
-    @Provides @Singleton fun visits(social: FakeSocial): VisitRemoteDataSource = FakeVisits(social)
+    @Provides @Singleton fun fakeVisits(social: FakeSocial): FakeVisits = FakeVisits(social)
+    @Provides @Singleton fun visits(fake: FakeVisits): VisitRemoteDataSource = fake
     @Provides @Singleton fun saved(visits: VisitRemoteDataSource): SavedPlaceRemoteDataSource =
         FakeSaved(visits as FakeVisits)
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
@@ -122,7 +123,7 @@ private class FakePlaces : PlaceRemoteDataSource {
     override suspend fun detail(id: String) = RemoteResult.Success(detail)
 }
 
-private class FakeVisits(
+class FakeVisits(
     private val social: FakeSocial,
 ) : VisitRemoteDataSource {
     private val visits = mutableListOf<VisitOwnerDto>()
@@ -132,6 +133,7 @@ private class FakeVisits(
     /** Friend-readable (PUBLIC + FRIENDS). */
     private val friendReadableReviews = mutableListOf<PublicVisitDto>()
     private val friendReadableActivity = mutableListOf<PublicActivityDto>()
+    @Volatile var failCreate: Boolean = false
 
     init {
         fun indexActivity(event: PublicActivityDto, friendOnly: Boolean = false) {
@@ -270,6 +272,7 @@ private class FakeVisits(
     }
 
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
+        if (failCreate) return RemoteResult.Failure(NetworkError.Server(500, null))
         val visitId = UUID.randomUUID().toString()
         val visit = VisitOwnerDto(
             visitId, summary, request.visitedAt,

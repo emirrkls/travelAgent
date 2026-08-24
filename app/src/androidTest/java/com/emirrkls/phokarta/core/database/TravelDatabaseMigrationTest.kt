@@ -113,6 +113,46 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration4To5AddsVisitDraftTablesWithoutDestroyingExistingData() {
+        helper.createDatabase(TEST_DATABASE, 4).apply {
+            insertCanonicalStateV4()
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 5, true, MIGRATION_4_5).apply {
+            assertEquals(1, rowCount("visits"))
+            assertEquals(1, rowCount("visit_dimension_scores"))
+            assertEquals(1, rowCount("saved_places"))
+            assertEquals(1, rowCount("collections"))
+            assertEquals(1, rowCount("cached_places"))
+            assertEquals(0, rowCount("visit_drafts"))
+            assertEquals(0, rowCount("visit_draft_dimension_scores"))
+
+            val userId = "20000000-0000-4000-8000-000000000002"
+            val placeId = "30000000-0000-4000-8000-000000000003"
+            execSQL(
+                """
+                INSERT INTO visit_drafts
+                (userId, placeId, overallScore, publicReview, privateMemory, visitedAtEpochDay,
+                 visibility, dimensionsExpanded, createdAtEpochMillis, updatedAtEpochMillis)
+                VALUES (?, ?, 8.5, 'Draft review', 'Draft memory', 21000, 'FRIENDS', 0, 400, 400)
+                """.trimIndent(),
+                arrayOf<Any>(userId, placeId),
+            )
+            execSQL(
+                """
+                INSERT INTO visit_draft_dimension_scores (userId, placeId, dimensionKey, score)
+                VALUES (?, ?, 'SEA', 9.0)
+                """.trimIndent(),
+                arrayOf<Any>(userId, placeId),
+            )
+            assertEquals(1, rowCount("visit_drafts"))
+            assertEquals(1, rowCount("visit_draft_dimension_scores"))
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits
@@ -167,6 +207,49 @@ class TravelDatabaseMigrationTest {
         execSQL(
             "INSERT INTO collection_places (collectionId, placeId) VALUES (?, ?)",
             arrayOf<Any>(collectionId, placeId),
+        )
+    }
+
+    private fun SupportSQLiteDatabase.insertCanonicalStateV4() {
+        val visitId = "10000000-0000-4000-8000-000000000001"
+        val userId = "20000000-0000-4000-8000-000000000002"
+        val placeId = "30000000-0000-4000-8000-000000000003"
+        val collectionId = "40000000-0000-4000-8000-000000000004"
+
+        execSQL(
+            """INSERT INTO visits
+                (id, userId, placeId, visitedAtEpochDay, overallRating, publicReview, privateMemory,
+                 visibility, verificationStatus, createdAtEpochMillis)
+                VALUES (?, ?, ?, 21000, 9.0, 'Review', 'Memory',
+                        'PUBLIC', 'UNVERIFIED', 200)""".trimIndent(),
+            arrayOf<Any>(visitId, userId, placeId),
+        )
+        execSQL(
+            "INSERT INTO visit_dimension_scores (visitId, dimensionKey, score) VALUES (?, 'SEA', 9.0)",
+            arrayOf<Any>(visitId),
+        )
+        execSQL(
+            "INSERT INTO saved_places (ownerUserId, placeId, savedAtEpochMillis) VALUES (?, ?, 200)",
+            arrayOf<Any>(userId, placeId),
+        )
+        execSQL(
+            """INSERT INTO collections
+                (id, userId, title, description, visibility, coverImage,
+                 createdAtEpochMillis, updatedAtEpochMillis)
+                VALUES (?, ?, 'Canonical', '', 'PRIVATE', '', 200, 200)""".trimIndent(),
+            arrayOf<Any>(collectionId, userId),
+        )
+        execSQL(
+            "INSERT INTO collection_places (collectionId, placeId) VALUES (?, ?)",
+            arrayOf<Any>(collectionId, placeId),
+        )
+        execSQL(
+            """INSERT INTO cached_places
+                (id, name, category, coverImage, city, region, country, latitude, longitude,
+                 priceLevel, averageScore, ratingCount, updatedAtEpochMillis)
+                VALUES (?, 'Cached place', 'BEACH', '', 'Bodrum', 'Muğla', 'Türkiye',
+                        37.0, 27.4, 2, NULL, 0, 200)""".trimIndent(),
+            arrayOf<Any>(placeId),
         )
     }
 

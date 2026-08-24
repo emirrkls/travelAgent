@@ -116,7 +116,16 @@ fun PlaceDetailScreen(
     val visitCount = state.visits.size
     val latestVisit = state.visits.firstOrNull()
     val inAnyList = state.collections.any { place?.id in it.placeIds }
-    val rateLabel = if (hasVisited) stringResource(R.string.rate_another_visit) else stringResource(R.string.place_been_here)
+    val rateLabel = when {
+        state.hasUnfinishedDraft -> stringResource(R.string.continue_draft)
+        hasVisited -> stringResource(R.string.rate_another_visit)
+        else -> stringResource(R.string.place_been_here)
+    }
+    val rateActionA11y = when {
+        state.hasUnfinishedDraft -> stringResource(R.string.a11y_continue_draft)
+        hasVisited -> stringResource(R.string.been_here_rate_another)
+        else -> stringResource(R.string.been_here_rate_place)
+    }
 
     LaunchedEffect(visitPublished) {
         if (visitPublished) {
@@ -310,15 +319,11 @@ fun PlaceDetailScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     DetailAction(
                         icon = Icons.Rounded.AddLocationAlt,
-                        label = stringResource(R.string.place_been_here),
+                        label = rateLabel,
                         onClick = onRate,
                         modifier = Modifier.weight(1f),
-                        selected = hasVisited,
-                        contentDescription = if (hasVisited) {
-                            stringResource(R.string.been_here_rate_another)
-                        } else {
-                            stringResource(R.string.been_here_rate_place)
-                        },
+                        selected = hasVisited || state.hasUnfinishedDraft,
+                        contentDescription = rateActionA11y,
                     )
                     DetailAction(
                         icon = if (state.isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,

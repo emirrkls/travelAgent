@@ -7,12 +7,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.emirrkls.phokarta.core.database.entity.CollectionEntity
 import com.emirrkls.phokarta.core.database.entity.CollectionPlaceCrossRef
 import com.emirrkls.phokarta.core.database.entity.VisitDimensionScoreEntity
+import com.emirrkls.phokarta.core.database.entity.VisitDraftDimensionScoreEntity
+import com.emirrkls.phokarta.core.database.entity.VisitDraftEntity
 import com.emirrkls.phokarta.core.database.entity.VisitEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -126,6 +129,91 @@ class TravelDatabaseTest {
             "keep-other",
             dao.getCollectionWithPlaceIds("other-user", "keep-other")?.collection?.id,
         )
+    }
+
+    @Test
+    fun visitDraftUpsertFetchUpdateDeleteAndExpiry() = runBlocking {
+        val dao = database.visitDraftDao()
+        val userA = "user-a"
+        val userB = "user-b"
+        val placeX = "place-x"
+        val placeY = "place-y"
+
+        dao.upsertDraftWithDimensions(
+            VisitDraftEntity(
+                userId = userA,
+                placeId = placeX,
+                overallScore = 8.5f,
+                publicReview = "Review A",
+                privateMemory = "Memory A",
+                visitedAtEpochDay = 20_100L,
+                visibility = "FRIENDS",
+                dimensionsExpanded = true,
+                createdAtEpochMillis = 1_000L,
+                updatedAtEpochMillis = 1_000L,
+            ),
+            listOf(
+                VisitDraftDimensionScoreEntity(userA, placeX, "SEA", 9f),
+            ),
+        )
+        dao.upsertDraftWithDimensions(
+            VisitDraftEntity(
+                userId = userA,
+                placeId = placeY,
+                overallScore = 7f,
+                publicReview = "Other place",
+                privateMemory = "",
+                visitedAtEpochDay = 20_101L,
+                visibility = "PUBLIC",
+                dimensionsExpanded = false,
+                createdAtEpochMillis = 2_000L,
+                updatedAtEpochMillis = 2_000L,
+            ),
+            emptyList(),
+        )
+        dao.upsertDraftWithDimensions(
+            VisitDraftEntity(
+                userId = userB,
+                placeId = placeX,
+                overallScore = 6f,
+                publicReview = "User B",
+                privateMemory = "",
+                visitedAtEpochDay = 20_102L,
+                visibility = "PRIVATE",
+                dimensionsExpanded = false,
+                createdAtEpochMillis = 3_000L,
+                updatedAtEpochMillis = 3_000L,
+            ),
+            emptyList(),
+        )
+
+        val loaded = dao.getDraftWithDimensions(userA, placeX)!!
+        assertEquals(8.5f, loaded.first.overallScore, 0.01f)
+        assertEquals("FRIENDS", loaded.first.visibility)
+        assertEquals(mapOf("SEA" to 9f), loaded.second.associate { it.dimensionKey to it.score })
+
+        dao.upsertDraftWithDimensions(
+            loaded.first.copy(publicReview = "Updated", updatedAtEpochMillis = 1_500L),
+            listOf(VisitDraftDimensionScoreEntity(userA, placeX, "VALUE", 8f)),
+        )
+        val updated = dao.getDraftWithDimensions(userA, placeX)!!
+        assertEquals("Updated", updated.first.publicReview)
+        assertEquals(1_000L, updated.first.createdAtEpochMillis)
+        assertEquals(mapOf("VALUE" to 8f), updated.second.associate { it.dimensionKey to it.score })
+
+        assertTrue(dao.hasDraft(userA, placeX))
+        assertTrue(dao.hasDraft(userA, placeY))
+        assertTrue(dao.hasDraft(userB, placeX))
+
+        dao.deleteDraft(userA, placeX)
+        assertNull(dao.getDraft(userA, placeX))
+        assertEquals(emptyList<VisitDraftDimensionScoreEntity>(), dao.getDimensionScores(userA, placeX))
+        assertTrue(dao.hasDraft(userA, placeY))
+        assertTrue(dao.hasDraft(userB, placeX))
+
+        dao.deleteExpired(2_500L)
+        assertNull(dao.getDraft(userA, placeY))
+        assertTrue(dao.hasDraft(userB, placeX))
     }
 
     private fun visit(id: String, placeId: String, createdAt: Long) = VisitEntity(

@@ -5,11 +5,13 @@ import androidx.room.Room
 import com.emirrkls.phokarta.core.database.MIGRATION_1_2
 import com.emirrkls.phokarta.core.database.MIGRATION_2_3
 import com.emirrkls.phokarta.core.database.MIGRATION_3_4
+import com.emirrkls.phokarta.core.database.MIGRATION_4_5
 import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.dao.CachedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
+import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,11 +26,14 @@ object DatabaseModule {
     @Singleton
     fun provideTravelDatabase(@ApplicationContext context: Context): TravelDatabase =
         Room.databaseBuilder(context, TravelDatabase::class.java, TravelDatabase.NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     @Provides
     fun provideVisitDao(database: TravelDatabase): VisitDao = database.visitDao()
+
+    @Provides
+    fun provideVisitDraftDao(database: TravelDatabase): VisitDraftDao = database.visitDraftDao()
 
     @Provides
     fun provideSavedPlaceDao(database: TravelDatabase): SavedPlaceDao = database.savedPlaceDao()

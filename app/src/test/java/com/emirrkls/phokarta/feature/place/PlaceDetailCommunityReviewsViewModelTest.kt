@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.feature.place
 
 import androidx.lifecycle.SavedStateHandle
+import com.emirrkls.phokarta.FakeVisitDraftRepository
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.data.TravelError
@@ -200,7 +201,11 @@ class PlaceDetailCommunityReviewsViewModelTest {
     }
 
     private fun TestScope.createViewModel(placeId: String, repository: TestTravelRepository): PlaceDetailViewModel {
-        val viewModel = PlaceDetailViewModel(SavedStateHandle(mapOf("placeId" to placeId)), repository)
+        val viewModel = PlaceDetailViewModel(
+            SavedStateHandle(mapOf("placeId" to placeId)),
+            repository,
+            FakeVisitDraftRepository(),
+        )
         backgroundScope.launch(dispatcher) { viewModel.uiState.collect { } }
         return viewModel
     }

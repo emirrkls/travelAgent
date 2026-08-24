@@ -183,6 +183,7 @@
     <string name="a11y_friends_visited_filter_selected">Arkadaşlarım gitti filtresi, seçili</string>
     <string name="a11y_visited_filter">Gittim filtresi</string>
     <string name="a11y_visited_filter_selected">Gittim filtresi, seçili</string>
+    <string name="a11y_chip_selected">%1$s, seçili</string>
     <string name="a11y_map_marker_rated">%1$s, puan %2$s</string>
     <string name="a11y_map_marker_saved">, kaydedildi</string>
     <string name="a11y_map_marker_visited">, gittim</string>

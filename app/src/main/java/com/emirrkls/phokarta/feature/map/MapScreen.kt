@@ -445,11 +445,19 @@ private fun MapControls(
         Column(Modifier.padding(top = 10.dp, bottom = 9.dp)) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.map_discovery), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.map_places_through_people), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f).padding(end = 4.dp)) {
+                    Text(
+                        stringResource(R.string.map_discovery),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        stringResource(R.string.map_places_through_people),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 if (filters.activeCount > 0) {
                     IconButton(onClick = onClear) { Icon(Icons.Rounded.ClearAll, stringResource(R.string.a11y_clear_map_filters)) }
@@ -582,7 +590,11 @@ private fun MapPlaceSheet(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Text("${state.visiblePlaces.size} spots", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(R.string.map_spots_count, state.visiblePlaces.size),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
         if (state.friendMetricsErrorMessage != null) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp)) {

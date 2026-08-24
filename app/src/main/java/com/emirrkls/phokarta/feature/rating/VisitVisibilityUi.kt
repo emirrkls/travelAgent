@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.feature.rating
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -105,6 +107,7 @@ fun VisitVisibilitySheet(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
         ) {
@@ -172,6 +175,12 @@ fun VisitVisibilitySheet(
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.visibility_friends_definition),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

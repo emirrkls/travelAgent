@@ -199,6 +199,7 @@
     <string name="a11y_friends_visited_filter_selected">Friends visited filter, selected</string>
     <string name="a11y_visited_filter">Visited filter</string>
     <string name="a11y_visited_filter_selected">Visited filter, selected</string>
+    <string name="a11y_chip_selected">%1$s, selected</string>
     <string name="a11y_map_marker_rated">%1$s, rated %2$s</string>
     <string name="a11y_map_marker_saved">, saved</string>
     <string name="a11y_map_marker_visited">, visited</string>

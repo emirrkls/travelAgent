@@ -42,23 +42,23 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.ui.localization.appLocale
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.labelRes
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.emirrkls.phokarta.core.model.Collection
-import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import kotlin.math.roundToInt
-import com.emirrkls.phokarta.R
 
 private val CardShape = RoundedCornerShape(24.dp)
 private val ImageShape = RoundedCornerShape(20.dp)
@@ -120,12 +120,17 @@ fun CategoryChip(label: String, selected: Boolean, icon: ImageVector? = null, on
         label = "categoryColor",
     )
     val elevation by animateDpAsState(if (selected) 2.dp else 0.dp, label = "categoryElevation")
+    val chipA11y = if (selected) {
+        stringResource(R.string.a11y_chip_selected, label)
+    } else {
+        label
+    }
     Surface(
         modifier = Modifier
             .clickable(onClick = onClick)
             .semantics {
                 this.selected = selected
-                contentDescription = if (selected) "$label, selected" else label
+                contentDescription = chipA11y
             },
         color = color,
         contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -234,7 +239,11 @@ fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> U
                         Spacer(Modifier.width(8.dp))
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("${place.ratingCount} ratings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.ratings_count, place.ratingCount),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

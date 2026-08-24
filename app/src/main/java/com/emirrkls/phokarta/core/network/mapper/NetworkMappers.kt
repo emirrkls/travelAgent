@@ -13,6 +13,7 @@ import com.emirrkls.phokarta.core.model.PublicReviewAuthor
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
@@ -29,6 +30,7 @@ import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
+import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
@@ -164,6 +166,14 @@ fun FriendPlaceUserDto.toDomain(): FriendPlaceUser = FriendPlaceUser(
     latestScore = latestScore,
     latestVisitedAt = latestVisitedAt.toLocalDateSafely(),
 )
+
+fun SavedPlaceDto.toFriendMetrics(): SavedFriendMetrics {
+    val count = friendsVisitedCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+    return SavedFriendMetrics(
+        averageScore = if (count == 0) null else friendAverageScore,
+        friendsVisitedCount = count,
+    )
+}
 
 fun Visit.toCreateDto(): CreateVisitDto = CreateVisitDto(
     placeId = placeId.toCanonicalUuid(),

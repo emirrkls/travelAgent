@@ -66,7 +66,8 @@ object FakeNetworkModule {
     @Provides @Singleton fun places(): PlaceRemoteDataSource = FakePlaces()
     @Provides @Singleton fun fakeSocial(): FakeSocial = FakeSocial()
     @Provides @Singleton fun visits(social: FakeSocial): VisitRemoteDataSource = FakeVisits(social)
-    @Provides @Singleton fun saved(): SavedPlaceRemoteDataSource = FakeSaved()
+    @Provides @Singleton fun saved(visits: VisitRemoteDataSource): SavedPlaceRemoteDataSource =
+        FakeSaved(visits as FakeVisits)
     @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
     @Provides @Singleton fun social(fake: FakeSocial): SocialRemoteDataSource = fake
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
@@ -385,17 +386,56 @@ private class FakeVisits(
     )
 }
 
-private class FakeSaved : SavedPlaceRemoteDataSource {
+private class FakeSaved(
+    private val visits: FakeVisits,
+) : SavedPlaceRemoteDataSource {
     private val saved = linkedSetOf<String>()
-    override suspend fun list(page: Int, size: Int) =
-        RemoteResult.Success(page(if (PLACE_ID in saved) listOf(SavedPlaceDto(summary, TIMESTAMP)) else emptyList()))
-    override suspend fun save(placeId: String): RemoteResult<SavedPlaceDto> {
-        saved += placeId
-        return RemoteResult.Success(SavedPlaceDto(summary, TIMESTAMP))
+    private val summaries = mapOf(PLACE_ID to summary)
+
+    override suspend fun list(page: Int, size: Int): RemoteResult<PageResponseDto<SavedPlaceDto>> {
+        val content = saved.mapNotNull { id ->
+            val place = summaries[id] ?: return@mapNotNull null
+            enrichedDto(place)
+        }
+        return RemoteResult.Success(paginate(content, page, size))
     }
+
+    override suspend fun save(placeId: String): RemoteResult<SavedPlaceDto> {
+        val place = summaries[placeId] ?: summary.copy(id = placeId)
+        saved += placeId
+        return RemoteResult.Success(enrichedDto(place))
+    }
+
     override suspend fun remove(placeId: String): RemoteResult<Unit> {
         saved -= placeId
         return RemoteResult.Success(Unit)
+    }
+
+    private suspend fun enrichedDto(place: PlaceSummaryDto): SavedPlaceDto {
+        val friend = when (val result = visits.friendsSummary(place.id)) {
+            is RemoteResult.Success -> result.value
+            is RemoteResult.Failure -> FriendPlaceSummaryDto(null, 0, emptyList())
+        }
+        return SavedPlaceDto(
+            place = place,
+            savedAt = TIMESTAMP,
+            friendAverageScore = friend.averageScore,
+            friendsVisitedCount = friend.friendsVisitedCount,
+        )
+    }
+
+    private fun <T> paginate(values: List<T>, page: Int, size: Int): PageResponseDto<T> {
+        val from = (page * size).coerceAtMost(values.size)
+        val to = (from + size).coerceAtMost(values.size)
+        val totalPages = if (values.isEmpty()) 0 else ((values.size + size - 1) / size)
+        return PageResponseDto(
+            content = values.subList(from, to),
+            page = page,
+            size = size,
+            totalElements = values.size.toLong(),
+            totalPages = totalPages,
+            hasNext = to < values.size,
+        )
     }
 }
 

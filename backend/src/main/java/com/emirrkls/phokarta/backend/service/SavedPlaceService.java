@@ -10,6 +10,7 @@ import com.emirrkls.phokarta.backend.domain.entity.SavedPlaceId;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.SavedPlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
+import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +27,16 @@ public class SavedPlaceService {
     private final SavedPlaceRepository saved;
     private final UserRepository users;
     private final PlaceRepository places;
+    private final VisitRepository visits;
     private final PlaceMapper mapper;
 
     public SavedPlaceService(SavedPlaceRepository saved, UserRepository users,
-                             PlaceRepository places, PlaceMapper mapper) {
+                             PlaceRepository places, VisitRepository visits,
+                             PlaceMapper mapper) {
         this.saved = saved;
         this.users = users;
         this.places = places;
+        this.visits = visits;
         this.mapper = mapper;
     }
 
@@ -43,11 +47,18 @@ public class SavedPlaceService {
         List<UUID> placeIds = result.getContent().stream()
                 .map(entity -> entity.getPlace().getId()).distinct().toList();
         Map<UUID, PlaceRepository.RatingAggregate> ratings = new HashMap<>();
+        Map<UUID, VisitRepository.FriendScoreByPlace> friendScores = new HashMap<>();
         if (!placeIds.isEmpty()) {
             places.aggregateByIds(placeIds).forEach(row -> ratings.put(row.getId(), row));
+            visits.aggregateFriendsScoreByPlaceIds(placeIds, userId)
+                    .forEach(row -> friendScores.put(row.getPlaceId(), row));
         }
         List<SavedPlaceResponse> content = result.getContent().stream()
-                .map(entity -> response(entity, ratings.get(entity.getPlace().getId()))).toList();
+                .map(entity -> response(
+                        entity,
+                        ratings.get(entity.getPlace().getId()),
+                        friendScores.get(entity.getPlace().getId())))
+                .toList();
         return new PageResponse<>(content, result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages(), result.hasNext());
     }
@@ -60,7 +71,7 @@ public class SavedPlaceService {
         saved.insertIfAbsent(userId, placeId, OffsetDateTime.now(ZoneOffset.UTC));
         return response(saved.findDetailedById(id)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Saved place insert completed without a readable row")));
+                        "Saved place insert completed without a readable row")), userId);
     }
 
     @Transactional
@@ -69,20 +80,34 @@ public class SavedPlaceService {
         saved.deleteById(new SavedPlaceId(userId, placeId));
     }
 
-    private SavedPlaceResponse response(SavedPlace entity) {
+    private SavedPlaceResponse response(SavedPlace entity, UUID viewerId) {
         Place place = entity.getPlace();
         PlaceRepository.RatingAggregate rating = null;
+        VisitRepository.FriendScoreByPlace friendScore = null;
         if (place != null) {
-            rating = places.aggregateByIds(List.of(place.getId())).stream().findFirst().orElse(null);
+            UUID placeId = place.getId();
+            rating = places.aggregateByIds(List.of(placeId)).stream().findFirst().orElse(null);
+            friendScore = visits.aggregateFriendsScoreByPlaceIds(List.of(placeId), viewerId)
+                    .stream().findFirst().orElse(null);
         }
-        return response(entity, rating);
+        return response(entity, rating, friendScore);
     }
 
     private SavedPlaceResponse response(
-            SavedPlace entity, PlaceRepository.RatingAggregate rating) {
-        return new SavedPlaceResponse(mapper.toSummary(entity.getPlace(),
-                rating == null ? null : rating.getAverageScore(),
-                rating == null ? 0 : rating.getRatingCount()), entity.getSavedAt());
+            SavedPlace entity,
+            PlaceRepository.RatingAggregate rating,
+            VisitRepository.FriendScoreByPlace friendScore) {
+        long friendsVisited = friendScore == null ? 0L : friendScore.getFriendsVisitedCount();
+        Double friendAverage = friendsVisited == 0
+                ? null
+                : (friendScore == null ? null : friendScore.getAverageScore());
+        return new SavedPlaceResponse(
+                mapper.toSummary(entity.getPlace(),
+                        rating == null ? null : rating.getAverageScore(),
+                        rating == null ? 0 : rating.getRatingCount()),
+                entity.getSavedAt(),
+                friendAverage,
+                friendsVisited);
     }
 
     private void requireUser(UUID id) {

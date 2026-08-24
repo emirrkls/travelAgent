@@ -15,3 +15,11 @@ data class FriendPlaceSummary(
     val friendsVisitedCount: Int,
     val friends: List<FriendPlaceUser>,
 )
+
+/** Viewer-relative friend overlap for a saved Place. Not stored in Room. */
+data class SavedFriendMetrics(
+    val averageScore: Double?,
+    val friendsVisitedCount: Int,
+) {
+    val hasFriendSignal: Boolean get() = friendsVisitedCount > 0
+}

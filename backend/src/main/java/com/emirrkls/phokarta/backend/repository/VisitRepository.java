@@ -143,6 +143,46 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
             @Param("placeId") UUID placeId,
             @Param("viewerId") UUID viewerId);
 
+    interface FriendScoreByPlace {
+        UUID getPlaceId();
+        Double getAverageScore();
+        long getFriendsVisitedCount();
+    }
+
+    /**
+     * Batch user-weighted friends score for many places in one query.
+     * Same semantics as {@link #aggregateFriendsScore}: PUBLIC+FRIENDS, mutual friends,
+     * PRIVATE excluded, AVG(per-friend AVG). Places with no qualifying friends are omitted.
+     */
+    @Query(value = """
+            select place_id as "placeId",
+                   avg(friend_avg) as "averageScore",
+                   count(*) as "friendsVisitedCount"
+            from (
+                select v.place_id,
+                       avg(v.overall_rating) as friend_avg
+                from visits v
+                where v.place_id in (:placeIds)
+                  and v.visibility in ('PUBLIC', 'FRIENDS')
+                  and v.user_id <> :viewerId
+                  and exists (
+                      select 1 from user_follows outbound
+                      where outbound.follower_user_id = :viewerId
+                        and outbound.followed_user_id = v.user_id
+                  )
+                  and exists (
+                      select 1 from user_follows inbound
+                      where inbound.follower_user_id = v.user_id
+                        and inbound.followed_user_id = :viewerId
+                  )
+                group by v.place_id, v.user_id
+            ) per_friend
+            group by place_id
+            """, nativeQuery = true)
+    List<FriendScoreByPlace> aggregateFriendsScoreByPlaceIds(
+            @Param("placeIds") List<UUID> placeIds,
+            @Param("viewerId") UUID viewerId);
+
     interface FriendPreviewRow {
         UUID getUserId();
         String getDisplayName();

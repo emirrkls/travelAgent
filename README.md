@@ -38,7 +38,7 @@ Data flows through one boundary:
 | GET/POST/DELETE | `/api/v1/me/visits`, `/me/saved-places`, `/me/collections` | bearer |
 | POST | `/api/v1/visits` | bearer (userId from principal) |
 
-Public: place discovery/detail, public reviews, PUBLIC collections. Community `averageScore` / `ratingCount` (and minRating / rating sorts) use **PUBLIC Visits only** — FRIENDS/PRIVATE ratings never affect community discovery. Friends discovery (activity, reviews, friends-summary) uses mutual follows + **friend-readable Visits (PUBLIC or FRIENDS)**; PRIVATE is excluded. Owner `/me/visits` returns all of the owner's Visits. Collection visibility (PUBLIC / FRIENDS / PRIVATE) is separate from Visit visibility.
+Public: place discovery/detail, public reviews, PUBLIC collections. Community `averageScore` / `ratingCount` (and minRating / rating sorts) use **PUBLIC Visits only** — FRIENDS/PRIVATE ratings never affect community discovery. Friends discovery (activity, reviews, friends-summary) uses mutual follows + **friend-readable Visits (PUBLIC or FRIENDS)**; PRIVATE is excluded. `GET /me/saved-places` enriches each saved row with the same friend score/count (batch, no N+1). Owner `/me/visits` returns all of the owner's Visits. Collection visibility (PUBLIC / FRIENDS / PRIVATE) is separate from Visit visibility.
 
 ### Development demo account
 

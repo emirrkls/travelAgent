@@ -214,4 +214,6 @@ private fun sortLabel(sort: SearchSort): String = when (sort) {
     SearchSort.DEFAULT -> "Recommended"
     SearchSort.RATING -> "Rating"
     SearchSort.RECENTLY_SAVED -> "Recently saved"
+    SearchSort.FRIENDS_SCORE -> "Friends score"
+    SearchSort.MOST_FRIENDS_VISITED -> "Most friends visited"
 }

@@ -265,10 +265,31 @@ fun CompactPlaceCard(
     modifier: Modifier = Modifier,
     saved: Boolean = false,
     visited: Boolean = false,
+    friendAverageScore: Double? = null,
+    friendsVisitedCount: Int = 0,
     onSave: (() -> Unit)? = null,
 ) {
+    val friendSemantics = FriendsScoreCopy.cardSemantics(friendsVisitedCount, friendAverageScore)
+    val communitySemantics = if (place.communityScore != null) {
+        "Community rating ${String.format("%.1f", place.communityScore)}"
+    } else {
+        "Community not rated"
+    }
     Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(place.name)
+                    append(". ")
+                    append(communitySemantics)
+                    if (friendSemantics != null) {
+                        append(". ")
+                        append(friendSemantics)
+                    }
+                }
+            },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
@@ -286,6 +307,24 @@ fun CompactPlaceCard(
                     CommunityRatingLabel(place.communityScore)
                     if (visited) {
                         VisitedBadge()
+                    }
+                }
+                if (friendsVisitedCount > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (friendAverageScore != null) {
+                            Text(
+                                "Friends ${String.format("%.1f", friendAverageScore)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Text(
+                            FriendsScoreCopy.cardVisitedLabel(friendsVisitedCount),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

@@ -68,6 +68,12 @@ public class MeController {
         return visitService.ownerVisits(SecurityUtils.requireCurrentUserId(), page, size);
     }
 
+    @Operation(summary = "List saved places",
+            description = "Owner-only Want to Go list, newest saved first. Each row includes "
+                    + "community Place summary (PUBLIC Visits) plus viewer-relative friend "
+                    + "overlap: friendsVisitedCount and friendAverageScore from mutual friends' "
+                    + "friend-readable Visits (PUBLIC or FRIENDS). PRIVATE Visits never contribute. "
+                    + "friendAverageScore is omitted when count is 0.")
     @GetMapping("/saved-places")
     public PageResponse<SavedPlaceResponse> mySavedPlaces(
             @RequestParam(defaultValue = "0") @Min(0) int page,

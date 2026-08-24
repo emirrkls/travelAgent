@@ -17,6 +17,7 @@ import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.UserSummary
@@ -31,6 +32,7 @@ open class TestTravelRepository : TravelRepository {
     val places = MutableStateFlow(MockPlaceCatalogDataSource.mockPlaces.take(4))
     val visits = MutableStateFlow<List<Visit>>(emptyList())
     val saved = MutableStateFlow<Set<String>>(emptySet())
+    val savedFriendMetrics = MutableStateFlow<Map<String, SavedFriendMetrics>>(emptyMap())
     val collections = MutableStateFlow<List<Collection>>(emptyList())
     val publicReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
     val friendReviewsByPlace = MutableStateFlow<Map<String, List<PublicReview>>>(emptyMap())
@@ -53,6 +55,7 @@ open class TestTravelRepository : TravelRepository {
     override fun observeVisits(): Flow<List<Visit>> = visits
     override fun observeVisitedPlaceIds(): Flow<Set<String>> = visits.map(VisitStateLogic::visitedPlaceIds)
     override fun observeSavedPlaceIds(): Flow<Set<String>> = saved
+    override fun observeSavedFriendMetrics(): Flow<Map<String, SavedFriendMetrics>> = savedFriendMetrics
     override fun observeCollections(): Flow<List<Collection>> = collections
     override suspend fun getPlace(id: String) = places.value.firstOrNull { it.id == id }
     override suspend fun getCollection(id: String) = collections.value.firstOrNull { it.id == id }

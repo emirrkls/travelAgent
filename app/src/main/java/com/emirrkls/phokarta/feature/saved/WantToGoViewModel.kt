@@ -4,9 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
-import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
-import com.emirrkls.phokarta.feature.search.SearchLogic
 import com.emirrkls.phokarta.feature.search.SearchSort
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,10 +21,12 @@ data class WantToGoUiState(
     val category: PlaceCategory? = null,
     val destination: String? = null,
     val highlyRatedOnly: Boolean = false,
+    val friendsVisitedOnly: Boolean = false,
     val sort: SearchSort = SearchSort.RECENTLY_SAVED,
-    val places: List<Place> = emptyList(),
+    val places: List<WantToGoItem> = emptyList(),
     val destinations: List<String> = emptyList(),
     val totalCount: Int = 0,
+    val friendCount: Long? = null,
     val saveErrorMessage: String? = null,
 )
 
@@ -35,7 +35,10 @@ private data class WantToGoFilterState(
     val category: PlaceCategory?,
     val destination: String?,
     val highlyRatedOnly: Boolean,
+    val friendsVisitedOnly: Boolean,
     val sort: SearchSort,
+    val saveErrorMessage: String?,
+    val friendCount: Long?,
 )
 
 @HiltViewModel
@@ -46,54 +49,78 @@ class WantToGoViewModel @Inject constructor(
     private val category = MutableStateFlow<PlaceCategory?>(null)
     private val destination = MutableStateFlow<String?>(null)
     private val highlyRatedOnly = MutableStateFlow(false)
+    private val friendsVisitedOnly = MutableStateFlow(false)
     private val sort = MutableStateFlow(SearchSort.RECENTLY_SAVED)
     private val saveError = MutableStateFlow<String?>(null)
+    private val friendCount = MutableStateFlow<Long?>(null)
 
     init {
         viewModelScope.launch {
             repository.refreshSaved()
             repository.refreshCatalog()
+            friendCount.value = when (val result = repository.loadOwnerSocialCounts()) {
+                is RepositoryResult.Success -> result.value.friendCount
+                is RepositoryResult.Failure -> null
+            }
         }
     }
 
-    private val filterState = combine(query, category, destination, highlyRatedOnly, sort) {
-            q, cat, dest, rated, selectedSort ->
-        WantToGoFilterState(q, cat, dest, rated, selectedSort)
+    private val extras = combine(saveError, friendCount, sort) { error, friends, selectedSort ->
+        Triple(error, friends, selectedSort)
+    }
+
+    private val filterState = combine(query, category, destination, highlyRatedOnly, friendsVisitedOnly) {
+            q, cat, dest, rated, friendsOnly ->
+        WantToGoFilterState(
+            query = q,
+            category = cat,
+            destination = dest,
+            highlyRatedOnly = rated,
+            friendsVisitedOnly = friendsOnly,
+            sort = SearchSort.RECENTLY_SAVED,
+            saveErrorMessage = null,
+            friendCount = null,
+        )
+    }.combine(extras) { filters, extra ->
+        filters.copy(
+            sort = extra.third,
+            saveErrorMessage = extra.first,
+            friendCount = extra.second,
+        )
     }
 
     val uiState = combine(
         repository.observeSavedPlaceIds(),
         repository.observePlaces(),
+        repository.observeSavedFriendMetrics(),
         filterState,
-        saveError,
-    ) { savedIds, catalog, filters, error ->
+    ) { savedIds, catalog, metrics, filters ->
         val savedOrder = savedIds.toList()
         val savedPlaces = savedOrder.mapNotNull { id -> catalog.firstOrNull { it.id == id } }
         val destinations = savedPlaces.map { it.city }.distinct().sorted()
-        var filtered = savedPlaces
-        filters.category?.let { cat -> filtered = filtered.filter { it.category == cat } }
-        filters.destination?.let { city -> filtered = filtered.filter { it.city.equals(city, ignoreCase = true) } }
-        if (filters.highlyRatedOnly) {
-            filtered = filtered.filter {
-                (it.communityScore ?: Double.NEGATIVE_INFINITY) >= SearchLogic.HIGHLY_RATED_MIN
-            }
-        }
-        val needle = filters.query.trim()
-        if (needle.isNotEmpty()) {
-            filtered = filtered.filter { SearchLogic.matchesQuery(it, needle) }
-        }
-        filtered = SearchLogic.sort(filtered, filters.sort, savedOrder)
-
+        val filtered = WantToGoLogic.filterAndSort(
+            savedPlaces = savedPlaces,
+            savedOrder = savedOrder,
+            friendMetrics = metrics,
+            query = filters.query,
+            category = filters.category,
+            destination = filters.destination,
+            highlyRatedOnly = filters.highlyRatedOnly,
+            friendsVisitedOnly = filters.friendsVisitedOnly,
+            sort = filters.sort,
+        )
         WantToGoUiState(
             query = filters.query,
             category = filters.category,
             destination = filters.destination,
             highlyRatedOnly = filters.highlyRatedOnly,
+            friendsVisitedOnly = filters.friendsVisitedOnly,
             sort = filters.sort,
             places = filtered,
             destinations = destinations,
             totalCount = savedPlaces.size,
-            saveErrorMessage = error,
+            friendCount = filters.friendCount,
+            saveErrorMessage = filters.saveErrorMessage,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WantToGoUiState())
 
@@ -113,6 +140,10 @@ class WantToGoViewModel @Inject constructor(
         highlyRatedOnly.update { !it }
     }
 
+    fun toggleFriendsVisited() {
+        friendsVisitedOnly.update { !it }
+    }
+
     fun setSort(value: SearchSort) {
         sort.value = value
     }
@@ -121,6 +152,7 @@ class WantToGoViewModel @Inject constructor(
         category.value = null
         destination.value = null
         highlyRatedOnly.value = false
+        friendsVisitedOnly.value = false
         sort.value = SearchSort.RECENTLY_SAVED
         query.value = ""
     }

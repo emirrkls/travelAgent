@@ -48,6 +48,22 @@ object FriendsScoreCopy {
         1 -> "1 friend visited"
         else -> "$count friends visited"
     }
+
+    fun cardVisitedLabel(count: Int): String = when {
+        count <= 0 -> ""
+        count == 1 -> "1 friend visited"
+        else -> "$count friends visited"
+    }
+
+    fun cardSemantics(friendsVisitedCount: Int, friendAverageScore: Double?): String? {
+        if (friendsVisitedCount <= 0) return null
+        val visits = cardVisitedLabel(friendsVisitedCount)
+        return if (friendAverageScore != null) {
+            "$visits, friends rating ${String.format("%.1f", friendAverageScore)}"
+        } else {
+            visits
+        }
+    }
 }
 
 @Composable

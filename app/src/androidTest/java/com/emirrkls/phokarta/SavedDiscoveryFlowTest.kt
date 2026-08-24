@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import javax.inject.Inject
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -22,9 +23,14 @@ class SavedDiscoveryFlowTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    @Inject
+    lateinit var fakeSocial: FakeSocial
+
     @Before
     fun inject() {
         hiltRule.inject()
+        fakeSocial.reset()
+        fakeSocial.seedMutualFriend()
     }
 
     @Test
@@ -87,5 +93,31 @@ class SavedDiscoveryFlowTest {
             composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun wantToGo_showsFriendSignalMatchingPlaceDetail() {
+        composeRule.skipOnboardingIfNeeded()
+        composeRule.signInIfNeeded()
+        composeRule.waitForExplore()
+
+        composeRule.onAllNodesWithContentDescription("Want to go").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithContentDescription("Remove from Want to Go").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("See all").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Friends 9.1", substring = true).fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("1 friend visited").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Friends visited").performClick()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithContentDescription("Friends score 9.1", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

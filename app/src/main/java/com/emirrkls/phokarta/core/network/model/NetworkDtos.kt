@@ -169,6 +169,8 @@ data class CreateVisitDto(
 data class SavedPlaceDto(
     val place: PlaceSummaryDto,
     val savedAt: String,
+    val friendAverageScore: Double? = null,
+    val friendsVisitedCount: Long = 0,
 )
 
 @Serializable

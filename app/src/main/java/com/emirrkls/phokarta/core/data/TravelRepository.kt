@@ -10,6 +10,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
@@ -29,6 +30,7 @@ interface TravelRepository {
     fun observeVisits(): Flow<List<Visit>>
     fun observeVisitedPlaceIds(): Flow<Set<String>>
     fun observeSavedPlaceIds(): Flow<Set<String>>
+    fun observeSavedFriendMetrics(): Flow<Map<String, SavedFriendMetrics>>
     fun observeCollections(): Flow<List<Collection>>
     suspend fun getPlace(id: String): Place?
     suspend fun getCollection(id: String): Collection?

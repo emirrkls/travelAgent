@@ -78,9 +78,23 @@ fun WantToGoScreen(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Rating") },
+                    text = { Text("Community rating") },
                     onClick = {
                         viewModel.setSort(SearchSort.RATING)
+                        sortMenuOpen = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Friends score") },
+                    onClick = {
+                        viewModel.setSort(SearchSort.FRIENDS_SCORE)
+                        sortMenuOpen = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Most friends visited") },
+                    onClick = {
+                        viewModel.setSort(SearchSort.MOST_FRIENDS_VISITED)
                         sortMenuOpen = false
                     },
                 )
@@ -104,9 +118,22 @@ fun WantToGoScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                CategoryChip("All", state.category == null && state.destination == null && !state.highlyRatedOnly) {
+                CategoryChip(
+                    "All",
+                    state.category == null &&
+                        state.destination == null &&
+                        !state.highlyRatedOnly &&
+                        !state.friendsVisitedOnly,
+                ) {
                     viewModel.clearFilters()
                 }
+            }
+            item {
+                CategoryChip(
+                    "Friends visited",
+                    state.friendsVisitedOnly,
+                    onClick = viewModel::toggleFriendsVisited,
+                )
             }
             item {
                 CategoryChip("9+ Rated", state.highlyRatedOnly, onClick = viewModel::toggleHighlyRated)
@@ -124,7 +151,13 @@ fun WantToGoScreen(
                 }
             }
         }
-        if (state.category != null || state.destination != null || state.highlyRatedOnly || state.query.isNotBlank()) {
+        if (
+            state.category != null ||
+            state.destination != null ||
+            state.highlyRatedOnly ||
+            state.friendsVisitedOnly ||
+            state.query.isNotBlank()
+        ) {
             TextButton(
                 onClick = viewModel::clearFilters,
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -141,31 +174,49 @@ fun WantToGoScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(state.places, key = { it.id }) { place ->
+            items(state.places, key = { it.place.id }) { item ->
                 CompactPlaceCard(
-                    place = place,
-                    onClick = { onPlace(place.id) },
+                    place = item.place,
+                    onClick = { onPlace(item.place.id) },
                     saved = true,
-                    onSave = { viewModel.toggleSaved(place.id) },
+                    friendAverageScore = item.friendAverageScore,
+                    friendsVisitedCount = item.friendsVisitedCount,
+                    onSave = { viewModel.toggleSaved(item.place.id) },
                 )
             }
             if (state.places.isEmpty()) {
                 item {
                     Column(Modifier.padding(top = 40.dp, start = 8.dp, end = 8.dp)) {
-                        if (state.totalCount == 0) {
-                            Text("Nothing saved yet", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "Save places you want to remember and they’ll appear here.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text("No matches", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "Try another filter or clear your search.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        when {
+                            state.totalCount == 0 -> {
+                                Text("Nothing saved yet", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Save places you want to remember and they’ll appear here.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            state.friendsVisitedOnly -> {
+                                Text(
+                                    "No friend activity on your saved places yet.",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    WantToGoLogic.friendsVisitedEmptyMessage(
+                                        hasFriends = state.friendCount?.let { it > 0 },
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            else -> {
+                                Text("No matches", style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Try another filter or clear your search.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

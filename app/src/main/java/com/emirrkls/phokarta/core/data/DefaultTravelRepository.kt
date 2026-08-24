@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
@@ -22,6 +23,7 @@ import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
 import com.emirrkls.phokarta.core.network.mapper.toDomain
 import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
+import com.emirrkls.phokarta.core.network.mapper.toFriendMetrics
 import com.emirrkls.phokarta.core.network.mapper.toPublicReview
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
@@ -52,6 +54,7 @@ class DefaultTravelRepository @Inject constructor(
     private val placeCache: PlaceCacheDataSource = NoOpPlaceCacheDataSource,
 ) : TravelRepository {
     private val remotePlaces = MutableStateFlow<List<Place>>(emptyList())
+    private val savedFriendMetrics = MutableStateFlow<Map<String, SavedFriendMetrics>>(emptyMap())
 
     override val currentUser: User
         get() {
@@ -78,6 +81,7 @@ class DefaultTravelRepository @Inject constructor(
     override fun observeVisitedPlaceIds(): Flow<Set<String>> =
         observeVisits().map(VisitStateLogic::visitedPlaceIds)
     override fun observeSavedPlaceIds(): Flow<Set<String>> = localUserState.observeSavedPlaceIds()
+    override fun observeSavedFriendMetrics(): Flow<Map<String, SavedFriendMetrics>> = savedFriendMetrics
     override fun observeCollections(): Flow<List<Collection>> = localUserState.observeCollections()
     override suspend fun getPlace(id: String): Place? =
         (refreshPlaceDetail(id) as? RepositoryResult.Success)?.value
@@ -332,6 +336,9 @@ class DefaultTravelRepository @Inject constructor(
             val ids = entries.mapTo(linkedSetOf()) { it.first }
             mergePlaces(places)
             localUserState.replaceSavedPlaces(entries)
+            savedFriendMetrics.value = savedDtos.associate { dto ->
+                dto.place.toDomain().id to dto.toFriendMetrics()
+            }
             RepositoryResult.Success(ids)
         }
     }
@@ -410,6 +417,10 @@ class DefaultTravelRepository @Inject constructor(
                 }
                 is RemoteResult.Success -> try {
                     mergePlaces(listOf(result.value.place.toDomain()))
+                    val metricsId = result.value.place.toDomain().id
+                    savedFriendMetrics.update { current ->
+                        current + (metricsId to result.value.toFriendMetrics())
+                    }
                     RepositoryResult.Success(true)
                 } catch (error: IllegalArgumentException) {
                     localUserState.setSaved(canonicalPlaceId, wasSaved)
@@ -422,7 +433,10 @@ class DefaultTravelRepository @Inject constructor(
                 localUserState.setSaved(canonicalPlaceId, wasSaved)
                 RepositoryResult.Failure(result.error.toTravelError())
             }
-            is RemoteResult.Success -> RepositoryResult.Success(false)
+            is RemoteResult.Success -> {
+                savedFriendMetrics.update { it - canonicalPlaceId }
+                RepositoryResult.Success(false)
+            }
         }
     }
 

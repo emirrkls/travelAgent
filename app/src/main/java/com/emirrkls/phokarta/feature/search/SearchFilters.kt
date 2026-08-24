@@ -2,11 +2,14 @@ package com.emirrkls.phokarta.feature.search
 
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 
 enum class SearchSort {
     DEFAULT,
     RATING,
     RECENTLY_SAVED,
+    FRIENDS_SCORE,
+    MOST_FRIENDS_VISITED,
 }
 
 data class SearchFilters(
@@ -67,16 +70,31 @@ object SearchLogic {
         return sort(result, filters.sort, savedOrder)
     }
 
-    fun sort(places: List<Place>, sort: SearchSort, savedOrder: List<String>): List<Place> = when (sort) {
+    fun sort(
+        places: List<Place>,
+        sort: SearchSort,
+        savedOrder: List<String>,
+        friendMetrics: Map<String, SavedFriendMetrics> = emptyMap(),
+    ): List<Place> = when (sort) {
         SearchSort.DEFAULT -> places
         SearchSort.RATING -> places.sortedByDescending { it.communityScore ?: Double.NEGATIVE_INFINITY }
         SearchSort.RECENTLY_SAVED -> {
             val rank = savedOrder.withIndex().associate { it.value to it.index }
             places.sortedWith(
                 compareBy<Place> { rank[it.id] ?: Int.MAX_VALUE }
-                    .thenByDescending { it.communityScore ?: Double.NEGATIVE_INFINITY },
+                    .thenBy { it.id },
             )
         }
+        SearchSort.FRIENDS_SCORE -> places.sortedWith(
+            compareByDescending<Place> { friendMetrics[it.id]?.averageScore ?: Double.NEGATIVE_INFINITY }
+                .thenByDescending { friendMetrics[it.id]?.friendsVisitedCount ?: 0 }
+                .thenBy { it.id },
+        )
+        SearchSort.MOST_FRIENDS_VISITED -> places.sortedWith(
+            compareByDescending<Place> { friendMetrics[it.id]?.friendsVisitedCount ?: 0 }
+                .thenByDescending { friendMetrics[it.id]?.averageScore ?: Double.NEGATIVE_INFINITY }
+                .thenBy { it.id },
+        )
     }
 
     fun matchesQuery(place: Place, needle: String): Boolean =

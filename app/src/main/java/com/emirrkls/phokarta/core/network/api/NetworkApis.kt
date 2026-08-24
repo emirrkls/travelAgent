@@ -5,6 +5,8 @@ import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
@@ -48,6 +50,11 @@ interface AuthApi {
 interface MeApi {
     @GET("api/v1/me")
     suspend fun profile(): Response<UserProfileDto>
+
+    @POST("api/v1/me/places/friend-metrics")
+    suspend fun friendMetrics(
+        @Body request: FriendMetricsRequestDto,
+    ): Response<List<FriendMetricsDto>>
 
     @GET("api/v1/me/followers")
     suspend fun followers(

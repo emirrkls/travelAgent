@@ -8,6 +8,8 @@ import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
@@ -135,6 +137,7 @@ private object UnusedAuthApi : AuthApi {
 
 private object UnusedMeApi : MeApi {
     override suspend fun profile(): Response<UserProfileDto> = error("unused")
+    override suspend fun friendMetrics(request: FriendMetricsRequestDto): Response<List<FriendMetricsDto>> = error("unused")
     override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun following(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")

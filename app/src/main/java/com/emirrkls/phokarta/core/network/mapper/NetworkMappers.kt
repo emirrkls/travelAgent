@@ -21,6 +21,7 @@ import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
@@ -168,6 +169,14 @@ fun FriendPlaceUserDto.toDomain(): FriendPlaceUser = FriendPlaceUser(
 )
 
 fun SavedPlaceDto.toFriendMetrics(): SavedFriendMetrics {
+    val count = friendsVisitedCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+    return SavedFriendMetrics(
+        averageScore = if (count == 0) null else friendAverageScore,
+        friendsVisitedCount = count,
+    )
+}
+
+fun FriendMetricsDto.toFriendMetrics(): SavedFriendMetrics {
     val count = friendsVisitedCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
     return SavedFriendMetrics(
         averageScore = if (count == 0) null else friendAverageScore,

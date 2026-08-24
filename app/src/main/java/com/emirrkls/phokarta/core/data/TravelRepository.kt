@@ -72,6 +72,7 @@ interface TravelRepository {
         size: Int = 20,
     ): RepositoryResult<PublicReviewPage>
     suspend fun loadFriendPlaceSummary(placeId: String): RepositoryResult<FriendPlaceSummary>
+    suspend fun loadFriendMetrics(placeIds: List<String>): RepositoryResult<Map<String, SavedFriendMetrics>>
     suspend fun refreshOwnerVisits(page: Int = 0, size: Int = 50): RepositoryResult<List<Visit>>
     suspend fun refreshSaved(page: Int = 0, size: Int = 100): RepositoryResult<Set<String>>
     suspend fun refreshCollections(page: Int = 0, size: Int = 100): RepositoryResult<List<Collection>>

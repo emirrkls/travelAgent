@@ -64,6 +64,16 @@ object FriendsScoreCopy {
             visits
         }
     }
+
+    fun mapSheetSemantics(friendsVisitedCount: Int, friendAverageScore: Double?): String? {
+        if (friendsVisitedCount <= 0) return null
+        val visits = cardVisitedLabel(friendsVisitedCount)
+        return if (friendAverageScore != null) {
+            "Friends rating ${String.format("%.1f", friendAverageScore)}, $visits"
+        } else {
+            visits
+        }
+    }
 }
 
 @Composable

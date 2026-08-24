@@ -13,6 +13,8 @@ import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
@@ -54,6 +56,7 @@ private const val OTHER_USER_ID = "22222222-2222-2222-2222-222222222222"
 private const val THIRD_USER_ID = "33333333-3333-3333-3333-333333333333"
 private const val FOURTH_USER_ID = "44444444-4444-4444-4444-444444444444"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
+private const val OTHER_PLACE_ID = "20000000-0000-0000-0000-000000000099"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 
 @Module
@@ -86,6 +89,12 @@ private val detail = PlaceDetailDto(
     emptyList(), emptyList(),
 )
 
+private val otherSummary = PlaceSummaryDto(
+    OTHER_PLACE_ID, "Quiet Bay", PlaceCategoryDto.CAFE,
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
+    "Bodrum", "Muğla", "Türkiye", 37.09, 27.54, 2, 8.0, 12,
+)
+
 private fun <T> page(values: List<T>) = PageResponseDto(values, 0, 100, values.size.toLong(), 1, false)
 
 private class FakePlaces : PlaceRemoteDataSource {
@@ -97,7 +106,12 @@ private class FakePlaces : PlaceRemoteDataSource {
     override suspend fun nearby(latitude: Double, longitude: Double, radiusMeters: Double, category: PlaceCategoryDto?, minRating: Double?, limit: Int) =
         RemoteResult.Success(listOf(NearbyPlaceDto(summary, 240.0)))
     override suspend fun bounds(west: Double, south: Double, east: Double, north: Double, category: PlaceCategoryDto?, minRating: Double?, limit: Int) =
-        RemoteResult.Success(listOf(summary).filter { (category == null || it.category == category) && (minRating == null || (it.averageScore ?: 0.0) >= minRating) })
+        RemoteResult.Success(
+            listOf(summary, otherSummary).filter {
+                (category == null || it.category == category) &&
+                    (minRating == null || (it.averageScore ?: 0.0) >= minRating)
+            },
+        )
     override suspend fun detail(id: String) = RemoteResult.Success(detail)
 }
 
@@ -545,11 +559,16 @@ private class FakeMeApi(
 
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
         Response.success(page(emptyList()))
+
+    override suspend fun friendMetrics(
+        request: FriendMetricsRequestDto,
+    ): Response<List<FriendMetricsDto>> = Response.success(emptyList())
 }
 
 class FakeSocial : SocialRemoteDataSource {
     private val following = ConcurrentHashMap.newKeySet<String>()
     private val followsYou = setOf(OTHER_USER_ID)
+    @Volatile var failFriendMetrics: Boolean = false
 
     private val users = listOf(
         summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz"),
@@ -571,6 +590,7 @@ class FakeSocial : SocialRemoteDataSource {
 
     fun reset() {
         following.clear()
+        failFriendMetrics = false
     }
 
     override suspend fun search(query: String, page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> {
@@ -644,6 +664,21 @@ class FakeSocial : SocialRemoteDataSource {
                 ownerFriendCount(),
             ),
         )
+
+    override suspend fun friendMetrics(placeIds: List<String>): RemoteResult<List<FriendMetricsDto>> {
+        if (failFriendMetrics) return RemoteResult.Failure(NetworkError.Connection)
+        val unique = placeIds.distinct()
+        val friendSignal = isMutualFriend(OTHER_USER_ID)
+        return RemoteResult.Success(
+            unique.map { id ->
+                if (friendSignal && id == PLACE_ID) {
+                    FriendMetricsDto(placeId = id, friendAverageScore = 9.1, friendsVisitedCount = 1)
+                } else {
+                    FriendMetricsDto(placeId = id, friendAverageScore = null, friendsVisitedCount = 0)
+                }
+            },
+        )
+    }
 
     private fun summary(id: String, username: String, displayName: String) =
         UserSummaryDto(id, username, displayName, null, null)

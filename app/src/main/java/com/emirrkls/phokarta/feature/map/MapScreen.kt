@@ -13,6 +13,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,9 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.LocationSearching
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -49,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,9 +75,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.core.model.MapMarkerLogic
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.ui.components.CategoryIcon
+import com.emirrkls.phokarta.ui.components.FriendsScoreCopy
 import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.vectorIcon
@@ -145,6 +150,24 @@ fun MapScreen(
             }
     }
 
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(400)
+        val current = viewModel.uiState.value
+        if (current.allPlaces.isEmpty() && current.appliedViewport == null && !current.isLoading) {
+            viewModel.bootstrapDefaultAreaIfNeeded(
+                MapViewport(
+                    north = DefaultMapCenter.latitude + 0.35,
+                    east = DefaultMapCenter.longitude + 0.45,
+                    south = DefaultMapCenter.latitude - 0.35,
+                    west = DefaultMapCenter.longitude - 0.45,
+                    centerLatitude = DefaultMapCenter.latitude,
+                    centerLongitude = DefaultMapCenter.longitude,
+                    zoom = 11.2f,
+                ),
+            )
+        }
+    }
+
     LaunchedEffect(state.cameraRequest?.id) {
         state.cameraRequest?.let { request ->
             cameraPositionState.animate(
@@ -197,6 +220,7 @@ fun MapScreen(
                 },
                 onOpen = onPlace,
                 onSave = viewModel::toggleSaved,
+                onRetryFriends = viewModel::retryFriendMetrics,
             )
         },
     ) {
@@ -231,13 +255,20 @@ fun MapScreen(
                         val selected = state.selectedPlaceId == place.id
                         val saved = place.id in state.savedPlaceIds
                         val visited = place.id in state.visitedPlaceIds
+                        val friendsVisited = mapFriendSignal(state.friendMetricsByPlaceId[place.id]).hasSignal
+                        val flags = MapMarkerLogic.flags(saved, visited, friendsVisited)
                         MarkerComposable(
                             place.id,
                             selected,
                             saved,
                             visited,
+                            friendsVisited,
                             state = remember(place.id) { MarkerState(LatLng(place.latitude, place.longitude)) },
-                            contentDescription = "${place.name}, rated ${formatScore(place.communityScore)}",
+                            contentDescription = MapMarkerLogic.contentDescription(
+                                place.name,
+                                formatScore(place.communityScore),
+                                flags,
+                            ),
                             title = place.name,
                             zIndex = 1f,
                             onClick = {
@@ -245,7 +276,7 @@ fun MapScreen(
                                 true
                             },
                         ) {
-                            TravelMapMarker(place, selected, saved, visited)
+                            TravelMapMarker(place, selected, saved, visited, friendsVisited)
                         }
                     }
                 }
@@ -274,6 +305,7 @@ fun MapScreen(
                 onCategoryMenuChange = { categoryMenuOpen = it },
                 onCategory = viewModel::selectCategory,
                 onHighlyRated = viewModel::toggleHighlyRated,
+                onFriendsVisited = viewModel::toggleFriendsVisited,
                 onVisited = viewModel::toggleVisited,
                 onWantToGo = viewModel::toggleWantToGo,
                 onClear = viewModel::clearFilters,
@@ -316,7 +348,13 @@ fun MapScreen(
 }
 
 @Composable
-private fun TravelMapMarker(place: Place, selected: Boolean, saved: Boolean, visited: Boolean) {
+private fun TravelMapMarker(
+    place: Place,
+    selected: Boolean,
+    saved: Boolean,
+    visited: Boolean,
+    friendsVisited: Boolean,
+) {
     val container = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Surface(
@@ -336,12 +374,12 @@ private fun TravelMapMarker(place: Place, selected: Boolean, saved: Boolean, vis
         ) {
             CategoryIcon(place.category, size = if (selected) 17.dp else 14.dp, tint = content)
             Text(formatScore(place.communityScore), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-            if (saved || visited) {
+            if (saved || visited || friendsVisited) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (saved) {
                         Icon(
                             Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Saved",
+                            contentDescription = null,
                             modifier = Modifier.size(if (selected) 11.dp else 9.dp),
                             tint = if (selected) content else MaterialTheme.colorScheme.primary,
                         )
@@ -349,9 +387,17 @@ private fun TravelMapMarker(place: Place, selected: Boolean, saved: Boolean, vis
                     if (visited) {
                         Icon(
                             Icons.Rounded.CheckCircle,
-                            contentDescription = "Visited",
+                            contentDescription = null,
                             modifier = Modifier.size(if (selected) 11.dp else 9.dp),
                             tint = if (selected) content else MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    if (friendsVisited) {
+                        Icon(
+                            Icons.Rounded.People,
+                            contentDescription = null,
+                            modifier = Modifier.size(if (selected) 11.dp else 9.dp),
+                            tint = if (selected) content else MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 }
@@ -368,6 +414,7 @@ private fun MapControls(
     onCategoryMenuChange: (Boolean) -> Unit,
     onCategory: (PlaceCategory?) -> Unit,
     onHighlyRated: () -> Unit,
+    onFriendsVisited: () -> Unit,
     onVisited: () -> Unit,
     onWantToGo: () -> Unit,
     onClear: () -> Unit,
@@ -399,53 +446,74 @@ private fun MapControls(
                     )
                 }
             }
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 12.dp),
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item {
-                    Box {
-                        FilterChip(
-                            selected = filters.category != null,
-                            onClick = { onCategoryMenuChange(true) },
-                            label = { Text(filters.category?.label ?: "Category") },
-                            leadingIcon = filters.category?.let { category ->
-                                { CategoryIcon(category, size = 17.dp) }
-                            },
-                            trailingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp)) },
+                Box {
+                    FilterChip(
+                        selected = filters.category != null,
+                        onClick = { onCategoryMenuChange(true) },
+                        label = { Text(filters.category?.label ?: "Category") },
+                        leadingIcon = filters.category?.let { category ->
+                            { CategoryIcon(category, size = 17.dp) }
+                        },
+                        trailingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp)) },
+                    )
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = categoryMenuOpen,
+                        onDismissRequest = { onCategoryMenuChange(false) },
+                    ) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("All categories") },
+                            onClick = { onCategory(null); onCategoryMenuChange(false) },
                         )
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = categoryMenuOpen,
-                            onDismissRequest = { onCategoryMenuChange(false) },
-                        ) {
+                        PlaceCategory.entries.forEach { category ->
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("All categories") },
-                                onClick = { onCategory(null); onCategoryMenuChange(false) },
+                                text = { Text(category.label) },
+                                leadingIcon = { Icon(category.vectorIcon, null) },
+                                onClick = { onCategory(category); onCategoryMenuChange(false) },
                             )
-                            PlaceCategory.entries.forEach { category ->
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(category.label) },
-                                    leadingIcon = { Icon(category.vectorIcon, null) },
-                                    onClick = { onCategory(category); onCategoryMenuChange(false) },
-                                )
-                            }
                         }
                     }
                 }
-                item { MapFilterChip("9+ rated", filters.highlyRatedOnly, onHighlyRated) }
-                item { MapFilterChip("Visited", filters.visitedOnly, onVisited) }
-                item { MapFilterChip("Want to Go", filters.wantToGoOnly, onWantToGo) }
+                MapFilterChip("9+ rated", filters.highlyRatedOnly, onHighlyRated)
+                MapFilterChip(
+                    "Friends visited",
+                    filters.friendsVisitedOnly,
+                    onFriendsVisited,
+                    contentDescription = if (filters.friendsVisitedOnly) {
+                        "Friends visited filter, selected"
+                    } else {
+                        "Friends visited filter"
+                    },
+                )
+                MapFilterChip("Visited", filters.visitedOnly, onVisited)
+                MapFilterChip("Want to Go", filters.wantToGoOnly, onWantToGo)
             }
         }
     }
 }
 
 @Composable
-private fun MapFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun MapFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    contentDescription: String? = null,
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label) },
+        modifier = if (contentDescription != null) {
+            Modifier.semantics { this.contentDescription = contentDescription }
+        } else {
+            Modifier
+        },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -459,9 +527,12 @@ private fun MapPlaceSheet(
     onSelect: (Place) -> Unit,
     onOpen: (String) -> Unit,
     onSave: (String) -> Unit,
+    onRetryFriends: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     val selectedIndex = state.visiblePlaces.indexOfFirst { it.id == state.selectedPlaceId }
+    val friendsFilterPending = state.filters.friendsVisitedOnly &&
+        (state.friendMetricsLoading || state.friendMetricsErrorMessage != null)
     LaunchedEffect(selectedIndex) {
         if (selectedIndex >= 0) listState.animateScrollToItem(selectedIndex)
     }
@@ -488,14 +559,41 @@ private fun MapPlaceSheet(
             }
             Text("${state.visiblePlaces.size} spots", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
         }
+        if (state.friendMetricsErrorMessage != null) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp)) {
+                Text(
+                    if (state.filters.friendsVisitedOnly) {
+                        "Friend visits couldn’t be loaded for this area."
+                    } else {
+                        "Friend signals are unavailable right now."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(onClick = onRetryFriends) { Text("Retry friends") }
+            }
+        }
         if (state.visiblePlaces.isEmpty()) {
             Column(
                 Modifier.fillMaxWidth().padding(30.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No places match this view", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(5.dp))
-                Text("Pan the map or adjust a filter.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                when {
+                    friendsFilterPending && state.friendMetricsLoading -> {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(8.dp))
+                        Text("Loading friend visits…", style = MaterialTheme.typography.titleMedium)
+                    }
+                    state.filters.friendsVisitedOnly && state.friendMetricsErrorMessage != null -> {
+                        Text("Friends visited isn’t available", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(5.dp))
+                        Text("This isn’t an empty result. Retry to load friend visits.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    else -> {
+                        Text("No places match this view", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(5.dp))
+                        Text("Pan the map or adjust a filter.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -504,11 +602,14 @@ private fun MapPlaceSheet(
                 verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 items(state.visiblePlaces, key = { it.id }) { place ->
+                    val signal = mapFriendSignal(state.friendMetricsByPlaceId[place.id])
                     MapPlaceRow(
                         place = place,
                         selected = state.selectedPlaceId == place.id,
                         saved = place.id in state.savedPlaceIds,
                         visited = place.id in state.visitedPlaceIds,
+                        friendsVisitedCount = signal.friendsVisitedCount,
+                        friendAverageScore = signal.friendAverageScore,
                         onClick = {
                             if (state.selectedPlaceId == place.id) onOpen(place.id) else onSelect(place)
                         },
@@ -526,11 +627,27 @@ private fun MapPlaceRow(
     selected: Boolean,
     saved: Boolean,
     visited: Boolean,
+    friendsVisitedCount: Int,
+    friendAverageScore: Double?,
     onClick: () -> Unit,
     onSave: () -> Unit,
 ) {
+    val friendSemantics = FriendsScoreCopy.mapSheetSemantics(friendsVisitedCount, friendAverageScore)
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(place.name)
+                    if (saved) append(", saved")
+                    if (visited) append(", visited")
+                    if (friendSemantics != null) {
+                        append(", ")
+                        append(friendSemantics)
+                    }
+                }
+            },
         shape = RoundedCornerShape(20.dp),
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null,
@@ -552,8 +669,30 @@ private fun MapPlaceRow(
                 }
                 if (visited) {
                     Text("Visited", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                } else if (saved) {
+                    Text("Saved", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                 } else if (selected) {
                     Text("Tap again to open", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                }
+                if (friendsVisitedCount > 0) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 2.dp),
+                    ) {
+                        if (friendAverageScore != null) {
+                            Text(
+                                "Friends ${String.format("%.1f", friendAverageScore)}",
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Text(
+                            FriendsScoreCopy.cardVisitedLabel(friendsVisitedCount),
+                            color = MaterialTheme.colorScheme.tertiary,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 }
             }
             place.communityScore?.let { RatingBadge(it) }

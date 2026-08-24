@@ -3,6 +3,8 @@ package com.emirrkls.phokarta.backend.api.controller;
 import com.emirrkls.phokarta.backend.api.dto.CollectionDetailResponse;
 import com.emirrkls.phokarta.backend.api.dto.CollectionSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.CreateCollectionRequest;
+import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsRequest;
+import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.SavedPlaceResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserProfileResponse;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @Validated
@@ -90,6 +93,21 @@ public class MeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeSavedPlace(@PathVariable UUID placeId) {
         savedPlaceService.remove(SecurityUtils.requireCurrentUserId(), placeId);
+    }
+
+    @Operation(summary = "Batch friend metrics for places",
+            description = "Authenticated viewer-relative aggregates for the given Place IDs: "
+                    + "friendsVisitedCount (distinct mutual friends with ≥1 friend-readable Visit) "
+                    + "and friendAverageScore (AVG of per-friend averages). Qualifying Visits are "
+                    + "PUBLIC or FRIENDS; PRIVATE and self are excluded. One-way follows do not count. "
+                    + "Does not include friend identities, review text, or privateMemory. "
+                    + "Public Place DTOs stay community-only; this companion avoids polluting bounds. "
+                    + "At most 200 IDs. Duplicates are de-duplicated. Empty list returns [].")
+    @PostMapping("/places/friend-metrics")
+    public List<FriendPlaceMetricsResponse> friendMetrics(
+            @Valid @RequestBody FriendPlaceMetricsRequest request) {
+        return visitService.friendMetrics(
+                SecurityUtils.requireCurrentUserId(), request.placeIds());
     }
 
     @GetMapping("/collections")

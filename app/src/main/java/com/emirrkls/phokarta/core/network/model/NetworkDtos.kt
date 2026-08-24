@@ -174,6 +174,18 @@ data class SavedPlaceDto(
 )
 
 @Serializable
+data class FriendMetricsRequestDto(
+    val placeIds: List<String>,
+)
+
+@Serializable
+data class FriendMetricsDto(
+    val placeId: String,
+    val friendAverageScore: Double? = null,
+    val friendsVisitedCount: Long = 0,
+)
+
+@Serializable
 data class CollectionSummaryDto(
     val id: String,
     val userId: String,

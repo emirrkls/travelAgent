@@ -21,6 +21,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.DimensionScoreDto
+import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
@@ -562,6 +563,8 @@ private class FakeSocial(
     override suspend fun following(page: Int, size: Int) = page<UserSummaryDto>()
     override suspend fun friends(page: Int, size: Int) = page<UserSummaryDto>()
     override suspend fun meProfile() = meProfile
+    override suspend fun friendMetrics(placeIds: List<String>) =
+        RemoteResult.Success(emptyList<FriendMetricsDto>())
 }
 
 private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(

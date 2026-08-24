@@ -130,6 +130,20 @@ open class TestTravelRepository : TravelRepository {
         return friendSummariesByPlace.value[placeId]?.let { RepositoryResult.Success(it) }
             ?: RepositoryResult.Success(FriendPlaceSummary(null, 0, emptyList()))
     }
+
+    val friendMetricsByPlace = MutableStateFlow<Map<String, SavedFriendMetrics>>(emptyMap())
+    var friendMetricsError: TravelError? = null
+    val friendMetricsCalls = mutableListOf<List<String>>()
+
+    override suspend fun loadFriendMetrics(placeIds: List<String>): RepositoryResult<Map<String, SavedFriendMetrics>> {
+        friendMetricsCalls += placeIds
+        friendMetricsError?.let { return RepositoryResult.Failure(it) }
+        return RepositoryResult.Success(
+            placeIds.distinct().associateWith { id ->
+                friendMetricsByPlace.value[id] ?: SavedFriendMetrics(null, 0)
+            },
+        )
+    }
     override suspend fun refreshOwnerVisits(page: Int, size: Int): RepositoryResult<List<Visit>> = RepositoryResult.Success(visits.value)
     override suspend fun refreshSaved(page: Int, size: Int): RepositoryResult<Set<String>> = RepositoryResult.Success(saved.value)
     override suspend fun refreshCollections(page: Int, size: Int): RepositoryResult<List<Collection>> = RepositoryResult.Success(collections.value)

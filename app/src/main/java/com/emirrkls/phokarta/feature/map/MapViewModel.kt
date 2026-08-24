@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.ui.presentation.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -43,13 +44,14 @@ data class MapViewport(
 data class MapFilters(
     val category: PlaceCategory? = null,
     val highlyRatedOnly: Boolean = false,
-    val trustedOnly: Boolean = false,
+    val friendsVisitedOnly: Boolean = false,
     val visitedOnly: Boolean = false,
     val wantToGoOnly: Boolean = false,
 ) {
     val activeCount: Int
         get() = listOfNotNull(category).size + listOf(
             highlyRatedOnly,
+            friendsVisitedOnly,
             visitedOnly,
             wantToGoOnly,
         ).count { it }
@@ -77,6 +79,9 @@ data class MapUiState(
     val cameraRequest: MapCameraRequest? = null,
     val isLoading: Boolean = false,
     val boundsErrorMessage: String? = null,
+    val friendMetricsByPlaceId: Map<String, SavedFriendMetrics> = emptyMap(),
+    val friendMetricsLoading: Boolean = false,
+    val friendMetricsErrorMessage: String? = null,
     val saveErrorMessage: String? = null,
     val nearbyPlaces: List<NearbyPlace> = emptyList(),
 )
@@ -87,12 +92,30 @@ internal fun filterMapPlaces(
     visitedPlaceIds: Set<String>,
     savedPlaceIds: Set<String>,
     viewport: MapViewport?,
+    friendMetrics: Map<String, SavedFriendMetrics> = emptyMap(),
 ): List<Place> = places.filter { place ->
     (filters.category == null || place.category == filters.category) &&
         (!filters.highlyRatedOnly || (place.communityScore ?: Double.NEGATIVE_INFINITY) >= 9.0) &&
+        (!filters.friendsVisitedOnly || (friendMetrics[place.id]?.friendsVisitedCount ?: 0) > 0) &&
         (!filters.visitedOnly || place.id in visitedPlaceIds) &&
         (!filters.wantToGoOnly || place.id in savedPlaceIds) &&
         (viewport == null || viewport.contains(place))
+}
+
+internal fun mapFriendSignal(metrics: SavedFriendMetrics?): MapFriendSignal {
+    val count = metrics?.friendsVisitedCount ?: 0
+    return MapFriendSignal(
+        friendsVisitedCount = count,
+        friendAverageScore = if (count == 0) null else metrics?.averageScore,
+    )
+}
+
+data class MapFriendSignal(
+    val friendsVisitedCount: Int = 0,
+    val friendAverageScore: Double? = null,
+) {
+    val hasSignal: Boolean get() = friendsVisitedCount > 0
+    val showScore: Boolean get() = hasSignal && friendAverageScore != null
 }
 
 internal fun viewportMovedEnough(applied: MapViewport, candidate: MapViewport): Boolean {
@@ -120,13 +143,14 @@ class MapViewModel @Inject constructor(
         MapFilters(
             category = savedStateHandle.get<String>("map.category")?.let(PlaceCategory::valueOf),
             highlyRatedOnly = savedStateHandle["map.highlyRated"] ?: false,
-            trustedOnly = false,
+            friendsVisitedOnly = savedStateHandle["map.friendsVisited"] ?: false,
             visitedOnly = savedStateHandle["map.visited"] ?: false,
             wantToGoOnly = savedStateHandle["map.wantToGo"] ?: false,
         ),
     )
     private val appliedViewport = MutableStateFlow(restoredAppliedViewport)
     private val boundsPlaces = MutableStateFlow<List<Place>>(emptyList())
+    private val friendMetricsSnapshot = MutableStateFlow(FriendMetricsSnapshot())
     private var hasFetchedBounds = false
     private val requestIds = AtomicLong()
     private var boundsRequestId = 0L
@@ -144,36 +168,65 @@ class MapViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                boundsPlaces,
-                repository.observeVisitedPlaceIds(),
-                repository.observeSavedPlaceIds(),
-                filters,
-                appliedViewport,
-            ) { places, visited, saved, currentFilters, viewport ->
+                combine(
+                    boundsPlaces,
+                    repository.observeVisitedPlaceIds(),
+                    repository.observeSavedPlaceIds(),
+                    filters,
+                    appliedViewport,
+                ) { places, visited, saved, currentFilters, viewport ->
+                    MapCore(places, visited, saved, currentFilters, viewport)
+                },
+                friendMetricsSnapshot,
+            ) { core, metrics ->
+                val applyFriendsFilter = core.filters.friendsVisitedOnly &&
+                    !metrics.loading &&
+                    metrics.errorMessage == null
+                val visiblePlaces = if (core.filters.friendsVisitedOnly &&
+                    (metrics.loading || metrics.errorMessage != null)
+                ) {
+                    null
+                } else {
+                    filterMapPlaces(
+                        places = core.places,
+                        filters = core.filters.copy(
+                            friendsVisitedOnly = applyFriendsFilter && core.filters.friendsVisitedOnly,
+                        ),
+                        visitedPlaceIds = core.visited,
+                        savedPlaceIds = core.saved,
+                        viewport = core.viewport,
+                        friendMetrics = metrics.byPlaceId,
+                    )
+                }
                 MapData(
-                    places = places,
-                    visiblePlaces = filterMapPlaces(places, currentFilters, visited, saved, viewport),
-                    savedPlaceIds = saved,
-                    visitedPlaceIds = visited,
-                    filters = currentFilters,
-                    viewport = viewport,
+                    places = core.places,
+                    visiblePlaces = visiblePlaces,
+                    savedPlaceIds = core.saved,
+                    visitedPlaceIds = core.visited,
+                    filters = core.filters,
+                    viewport = core.viewport,
+                    friendMetrics = metrics,
                 )
             }.collect { data ->
                 _uiState.update { current ->
+                    val visiblePlaces = data.visiblePlaces ?: current.visiblePlaces
                     val selectedPlaceId = current.selectedPlaceId?.takeIf { selected ->
-                        data.visiblePlaces.any { it.id == selected }
+                        visiblePlaces.any { it.id == selected }
                     }
                     if (selectedPlaceId != current.selectedPlaceId) {
                         savedStateHandle["map.selectedPlaceId"] = selectedPlaceId
                     }
                     current.copy(
                         allPlaces = data.places,
-                        visiblePlaces = data.visiblePlaces,
+                        visiblePlaces = visiblePlaces,
                         savedPlaceIds = data.savedPlaceIds,
                         visitedPlaceIds = data.visitedPlaceIds,
                         filters = data.filters,
                         selectedPlaceId = selectedPlaceId,
                         appliedViewport = data.viewport,
+                        friendMetricsByPlaceId = data.friendMetrics.byPlaceId,
+                        friendMetricsLoading = data.friendMetrics.loading,
+                        friendMetricsErrorMessage = data.friendMetrics.errorMessage,
                     )
                 }
             }
@@ -196,6 +249,7 @@ class MapViewModel @Inject constructor(
 
     fun selectCategory(category: PlaceCategory?) = updateFilters { it.copy(category = category) }
     fun toggleHighlyRated() = updateFilters { it.copy(highlyRatedOnly = !it.highlyRatedOnly) }
+    fun toggleFriendsVisited() = updateFilters { it.copy(friendsVisitedOnly = !it.friendsVisitedOnly) }
     fun toggleVisited() = updateFilters { it.copy(visitedOnly = !it.visitedOnly) }
     fun toggleWantToGo() = updateFilters { it.copy(wantToGoOnly = !it.wantToGoOnly) }
     fun clearFilters() { updateFilters { MapFilters() } }
@@ -236,6 +290,16 @@ class MapViewModel @Inject constructor(
         appliedViewport.value = viewport
         savedStateHandle.writeViewport("map.applied", viewport)
         _uiState.update { it.copy(showSearchThisArea = false) }
+        fetchBounds(viewport)
+    }
+
+    /** Loads a default area when the map camera has not produced an idle viewport yet. */
+    fun bootstrapDefaultAreaIfNeeded(viewport: MapViewport) {
+        if (hasFetchedBounds) return
+        appliedViewport.value = viewport
+        savedStateHandle.writeViewport("map.applied", viewport)
+        savedStateHandle.writeViewport("map.camera", viewport)
+        _uiState.update { it.copy(cameraViewport = viewport, showSearchThisArea = false) }
         fetchBounds(viewport)
     }
 
@@ -283,13 +347,25 @@ class MapViewModel @Inject constructor(
         appliedViewport.value?.let(::fetchBounds)
     }
 
+    fun retryFriendMetrics() {
+        val places = boundsPlaces.value
+        if (places.isEmpty()) {
+            retryBounds()
+            return
+        }
+        val requestId = boundsRequestId
+        viewModelScope.launch {
+            enrichFriendMetrics(requestId, places, holdPlacesUntilReady = filters.value.friendsVisitedOnly)
+        }
+    }
+
     private fun updateFilters(transform: (MapFilters) -> MapFilters) {
         val previous = filters.value
         val updated = transform(previous)
         filters.value = updated
         savedStateHandle["map.category"] = updated.category?.name
         savedStateHandle["map.highlyRated"] = updated.highlyRatedOnly
-        savedStateHandle["map.trusted"] = updated.trustedOnly
+        savedStateHandle["map.friendsVisited"] = updated.friendsVisitedOnly
         savedStateHandle["map.visited"] = updated.visitedOnly
         savedStateHandle["map.wantToGo"] = updated.wantToGoOnly
         if (updated.category != previous.category ||
@@ -305,7 +381,11 @@ class MapViewModel @Inject constructor(
         val requestId = ++boundsRequestId
         val requestFilters = filters.value
         boundsRequestJob = viewModelScope.launch {
+            val friendsFilter = requestFilters.friendsVisitedOnly
             _uiState.update { it.copy(isLoading = true, boundsErrorMessage = null) }
+            if (friendsFilter) {
+                friendMetricsSnapshot.update { it.copy(loading = true, errorMessage = null) }
+            }
             when (val result = repository.refreshBounds(
                 west = viewport.west,
                 south = viewport.south,
@@ -316,11 +396,16 @@ class MapViewModel @Inject constructor(
             )) {
                 is RepositoryResult.Success -> {
                     if (requestId != boundsRequestId) return@launch
-                    boundsPlaces.value = result.value
-                    _uiState.update { it.copy(isLoading = false) }
+                    val places = result.value
+                    if (!friendsFilter) {
+                        boundsPlaces.value = places
+                        _uiState.update { it.copy(isLoading = false) }
+                    }
+                    enrichFriendMetrics(requestId, places, holdPlacesUntilReady = friendsFilter)
                 }
                 is RepositoryResult.Failure -> {
                     if (requestId != boundsRequestId) return@launch
+                    friendMetricsSnapshot.update { it.copy(loading = false) }
                     _uiState.update {
                         it.copy(isLoading = false, boundsErrorMessage = result.error.toUserMessage())
                     }
@@ -329,13 +414,67 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    private suspend fun enrichFriendMetrics(
+        requestId: Long,
+        places: List<Place>,
+        holdPlacesUntilReady: Boolean,
+    ) {
+        if (places.isEmpty()) {
+            if (requestId != boundsRequestId) return
+            if (holdPlacesUntilReady) {
+                boundsPlaces.value = places
+            }
+            friendMetricsSnapshot.value = FriendMetricsSnapshot()
+            _uiState.update { it.copy(isLoading = false) }
+            return
+        }
+        friendMetricsSnapshot.update { it.copy(loading = true, errorMessage = null) }
+        when (val metrics = repository.loadFriendMetrics(places.map { it.id })) {
+            is RepositoryResult.Success -> {
+                if (requestId != boundsRequestId) return
+                if (holdPlacesUntilReady) {
+                    boundsPlaces.value = places
+                }
+                friendMetricsSnapshot.value = FriendMetricsSnapshot(byPlaceId = metrics.value)
+                _uiState.update { it.copy(isLoading = false) }
+            }
+            is RepositoryResult.Failure -> {
+                if (requestId != boundsRequestId) return
+                friendMetricsSnapshot.update {
+                    it.copy(loading = false, errorMessage = metrics.error.toUserMessage())
+                }
+                if (!holdPlacesUntilReady) {
+                    friendMetricsSnapshot.update { snapshot ->
+                        snapshot.copy(byPlaceId = emptyMap())
+                    }
+                }
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    private data class MapCore(
+        val places: List<Place>,
+        val visited: Set<String>,
+        val saved: Set<String>,
+        val filters: MapFilters,
+        val viewport: MapViewport?,
+    )
+
+    private data class FriendMetricsSnapshot(
+        val byPlaceId: Map<String, SavedFriendMetrics> = emptyMap(),
+        val loading: Boolean = false,
+        val errorMessage: String? = null,
+    )
+
     private data class MapData(
         val places: List<Place>,
-        val visiblePlaces: List<Place>,
+        val visiblePlaces: List<Place>?,
         val savedPlaceIds: Set<String>,
         val visitedPlaceIds: Set<String>,
         val filters: MapFilters,
         val viewport: MapViewport?,
+        val friendMetrics: FriendMetricsSnapshot,
     )
 }
 

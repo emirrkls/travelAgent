@@ -67,7 +67,9 @@ public class PlaceController {
     @Operation(summary = "Find places in map bounds",
             description = "Uses west,south,east,north in longitude/latitude degrees. "
                     + "Antimeridian-crossing boxes (west >= east) are rejected. "
-                    + "Ordering and minRating use PUBLIC Community scores only.")
+                    + "Ordering and minRating use PUBLIC Community scores only. "
+                    + "Viewer-relative friend metrics are not included; authenticated clients "
+                    + "enrich via POST /api/v1/me/places/friend-metrics.")
     @GetMapping("/bounds")
     public List<PlaceSummaryResponse> bounds(
             @RequestParam @DecimalMin("-180") @DecimalMax("180") double west,

@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.Visit
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -115,6 +117,84 @@ class MapViewModelTest {
         assertEquals(null, handle.get<String>("map.selectedPlaceId"))
     }
 
+    @Test
+    fun friendsVisitedToggleIsLocalWithoutRefetch() = runTest(dispatcher) {
+        val repository = RecordingMapRepository()
+        val first = repository.places.value.first()
+        repository.friendMetricsByPlace.value = mapOf(
+            first.id to SavedFriendMetrics(9.1, 1),
+            repository.places.value[1].id to SavedFriendMetrics(null, 0),
+        )
+        val viewModel = MapViewModel(repository, SavedStateHandle())
+        viewModel.onCameraIdle(viewport())
+        advanceUntilIdle()
+        val boundsBefore = repository.boundsCalls.size
+        val metricsBefore = repository.friendMetricsCalls.size
+
+        viewModel.toggleFriendsVisited()
+        advanceUntilIdle()
+
+        assertEquals(boundsBefore, repository.boundsCalls.size)
+        assertEquals(metricsBefore, repository.friendMetricsCalls.size)
+        assertEquals(listOf(first.id), viewModel.uiState.value.visiblePlaces.map { it.id })
+        viewModel.toggleFriendsVisited()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.visiblePlaces.size > 1)
+    }
+
+    @Test
+    fun friendEnrichmentFailureKeepsPlacesWithoutFriendsFilter() = runTest(dispatcher) {
+        val repository = RecordingMapRepository().apply { friendMetricsError = TravelError.Offline() }
+        val viewModel = MapViewModel(repository, SavedStateHandle())
+        viewModel.onCameraIdle(viewport())
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.visiblePlaces.isNotEmpty())
+        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage.isNullOrBlank())
+        assertTrue(viewModel.uiState.value.friendMetricsByPlaceId.isEmpty())
+    }
+
+    @Test
+    fun friendEnrichmentFailureWithFilterDoesNotFakeEmptyMatch() = runTest(dispatcher) {
+        val repository = RecordingMapRepository()
+        val first = repository.places.value.first()
+        repository.friendMetricsByPlace.value = mapOf(first.id to SavedFriendMetrics(9.0, 1))
+        val viewModel = MapViewModel(repository, SavedStateHandle())
+        viewModel.onCameraIdle(viewport())
+        advanceUntilIdle()
+        viewModel.toggleFriendsVisited()
+        advanceUntilIdle()
+        assertEquals(listOf(first.id), viewModel.uiState.value.visiblePlaces.map { it.id })
+
+        repository.friendMetricsError = TravelError.Offline()
+        viewModel.onCameraIdle(viewport().copy(centerLatitude = 38.0, centerLongitude = 29.0))
+        viewModel.searchThisArea()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage.isNullOrBlank())
+        assertEquals(listOf(first.id), viewModel.uiState.value.visiblePlaces.map { it.id })
+    }
+
+    @Test
+    fun staleFriendEnrichmentDoesNotOverwriteNewerBounds() = runTest(dispatcher) {
+        val repository = RecordingMapRepository().apply { slowFirstFriendMetrics = true }
+        val first = repository.places.value.first()
+        val second = repository.places.value[1]
+        repository.friendMetricsByPlace.value = mapOf(first.id to SavedFriendMetrics(1.0, 1))
+        val viewModel = MapViewModel(repository, SavedStateHandle())
+        viewModel.onCameraIdle(viewport())
+        runCurrent()
+
+        repository.friendMetricsByPlace.value = mapOf(second.id to SavedFriendMetrics(2.0, 2))
+        repository.places.value = listOf(second)
+        viewModel.searchThisArea()
+        advanceUntilIdle()
+
+        assertEquals(listOf(second.id), viewModel.uiState.value.allPlaces.map { it.id })
+        assertEquals(2, viewModel.uiState.value.friendMetricsByPlaceId[second.id]?.friendsVisitedCount)
+        assertNull(viewModel.uiState.value.friendMetricsByPlaceId[first.id])
+    }
+
     private fun viewport() = MapViewport(40.0, 32.0, 34.0, 24.0, 37.0, 28.0, 9f)
     private fun visit(placeId: String) = Visit("v1", "u1", placeId, LocalDate.now(), 8.0, emptyMap(), "", "")
 }
@@ -125,6 +205,7 @@ private class RecordingMapRepository : TestTravelRepository() {
     val completedCategories = mutableListOf<PlaceCategory?>()
     var failBounds = false
     var slowFirstBounds = false
+    var slowFirstFriendMetrics = false
 
     override suspend fun refreshBounds(
         west: Double,
@@ -138,5 +219,11 @@ private class RecordingMapRepository : TestTravelRepository() {
         if (slowFirstBounds && boundsCalls.size == 1) delay(1_000)
         completedCategories += category
         return if (failBounds) RepositoryResult.Failure(TravelError.Offline()) else RepositoryResult.Success(places.value)
+    }
+
+    override suspend fun loadFriendMetrics(placeIds: List<String>): RepositoryResult<Map<String, SavedFriendMetrics>> {
+        friendMetricsCalls += placeIds
+        if (slowFirstFriendMetrics && friendMetricsCalls.size == 1) delay(1_000)
+        return super.loadFriendMetrics(placeIds)
     }
 }

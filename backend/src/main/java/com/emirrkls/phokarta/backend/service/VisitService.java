@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.backend.service;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
+import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsResponse;
 import com.emirrkls.phokarta.backend.api.dto.FriendPlaceSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
@@ -31,6 +32,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +40,7 @@ import java.util.UUID;
 @Service
 public class VisitService {
     static final int FRIEND_PREVIEW_LIMIT = 5;
+    static final int FRIEND_METRICS_MAX_PLACE_IDS = 200;
 
     private final VisitRepository visits;
     private final VisitDimensionScoreRepository scores;
@@ -186,6 +189,47 @@ public class VisitService {
                         row.getLatestVisitedAt()))
                 .toList();
         return new FriendPlaceSummaryResponse(averageScore, friendsVisitedCount, friends);
+    }
+
+    /**
+     * Batch viewer-relative friend metrics for map enrichment.
+     * Same formula as {@link #friendsSummary}: AVG(per-friend AVG) of PUBLIC+FRIENDS
+     * Visits by mutual friends. Places with no qualifying friends return count 0
+     * and omitted score. Input IDs are de-duplicated; order of first occurrence is kept.
+     */
+    @Transactional(readOnly = true)
+    public List<FriendPlaceMetricsResponse> friendMetrics(UUID viewerId, List<UUID> placeIds) {
+        requireUser(viewerId);
+        List<UUID> unique = uniquePlaceIds(placeIds);
+        if (unique.size() > FRIEND_METRICS_MAX_PLACE_IDS) {
+            throw ApiException.validation(
+                    "placeIds must contain at most " + FRIEND_METRICS_MAX_PLACE_IDS + " unique ids");
+        }
+        if (unique.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, VisitRepository.FriendScoreByPlace> byPlace = new HashMap<>();
+        visits.aggregateFriendsScoreByPlaceIds(unique, viewerId)
+                .forEach(row -> byPlace.put(row.getPlaceId(), row));
+        return unique.stream().map(placeId -> {
+            VisitRepository.FriendScoreByPlace row = byPlace.get(placeId);
+            long count = row == null ? 0L : row.getFriendsVisitedCount();
+            Double average = count == 0 ? null : row.getAverageScore();
+            return new FriendPlaceMetricsResponse(placeId, average, count);
+        }).toList();
+    }
+
+    private List<UUID> uniquePlaceIds(List<UUID> placeIds) {
+        if (placeIds == null || placeIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<UUID> unique = new LinkedHashSet<>();
+        for (UUID id : placeIds) {
+            if (id != null) {
+                unique.add(id);
+            }
+        }
+        return List.copyOf(unique);
     }
 
     private List<VisitOwnerResponse.DimensionScoreResponse> toDimensionResponses(

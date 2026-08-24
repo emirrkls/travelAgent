@@ -46,11 +46,33 @@ object VisitStateLogic {
 
 enum class MapMarkerBadge { NONE, SAVED, VISITED, BOTH }
 
+data class MapMarkerFlags(
+    val saved: Boolean,
+    val visited: Boolean,
+    val friendsVisited: Boolean,
+)
+
 object MapMarkerLogic {
     fun badge(saved: Boolean, visited: Boolean): MapMarkerBadge = when {
         saved && visited -> MapMarkerBadge.BOTH
         saved -> MapMarkerBadge.SAVED
         visited -> MapMarkerBadge.VISITED
         else -> MapMarkerBadge.NONE
+    }
+
+    fun flags(saved: Boolean, visited: Boolean, friendsVisited: Boolean) =
+        MapMarkerFlags(saved, visited, friendsVisited)
+
+    fun contentDescription(
+        placeName: String,
+        communityScore: String,
+        flags: MapMarkerFlags,
+    ): String = buildString {
+        append(placeName)
+        append(", rated ")
+        append(communityScore)
+        if (flags.saved) append(", saved")
+        if (flags.visited) append(", visited")
+        if (flags.friendsVisited) append(", friends visited")
     }
 }

@@ -291,6 +291,26 @@ class DefaultTravelRepository @Inject constructor(
         RepositoryResult.Failure(TravelError.Validation(error.message))
     }
 
+    override suspend fun loadFriendMetrics(placeIds: List<String>): RepositoryResult<Map<String, SavedFriendMetrics>> = try {
+        val unique = placeIds.map { it.toCanonicalUuid() }.distinct()
+        if (unique.isEmpty()) {
+            RepositoryResult.Success(emptyMap())
+        } else {
+            when (val result = socialRemote.friendMetrics(unique)) {
+                is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+                is RemoteResult.Success -> mapOrValidation {
+                    RepositoryResult.Success(
+                        result.value.associate { dto ->
+                            dto.placeId.toCanonicalUuid() to dto.toFriendMetrics()
+                        },
+                    )
+                }
+            }
+        }
+    } catch (error: IllegalArgumentException) {
+        RepositoryResult.Failure(TravelError.Validation(error.message))
+    }
+
     override suspend fun refreshOwnerVisits(page: Int, size: Int): RepositoryResult<List<Visit>> {
         val visitDtos = mutableListOf<com.emirrkls.phokarta.core.network.model.VisitOwnerDto>()
         var nextPage = page

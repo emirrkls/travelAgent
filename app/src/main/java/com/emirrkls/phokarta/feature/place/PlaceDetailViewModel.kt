@@ -14,7 +14,7 @@ import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.share.PhokartaShare
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,14 +31,14 @@ data class CommunityReviewsUiState(
     val totalElements: Long = 0,
     val hasNext: Boolean = false,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: Int? = null,
     val expandedReviewIds: Set<String> = emptySet(),
 )
 
 data class FriendSummaryUiState(
     val summary: FriendPlaceSummary? = null,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: Int? = null,
 )
 
 data class PlaceDetailUiState(
@@ -50,12 +50,12 @@ data class PlaceDetailUiState(
     val currentUserId: String,
     val currentUserAvatarUrl: String,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null,
+    val errorMessage: Int? = null,
     val isNotFound: Boolean = false,
-    val saveErrorMessage: String? = null,
-    val membershipErrorMessage: String? = null,
+    val saveErrorMessage: Int? = null,
+    val membershipErrorMessage: Int? = null,
     val isCreatingCollection: Boolean = false,
-    val createCollectionError: String? = null,
+    val createCollectionError: Int? = null,
     val shareText: String? = null,
     val activeReviewScope: ActivityScope = ActivityScope.COMMUNITY,
     val communityReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
@@ -186,7 +186,7 @@ class PlaceDetailViewModel @Inject constructor(
             when (val result = repository.toggleSaved(placeId)) {
                 is RepositoryResult.Success -> Unit
                 is RepositoryResult.Failure -> status.update {
-                    it.copy(saveErrorMessage = result.error.toUserMessage())
+                    it.copy(saveErrorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -220,7 +220,7 @@ class PlaceDetailViewModel @Inject constructor(
                         repository.refreshCollectionDetail(collectionId)
                     } else {
                         status.update {
-                            it.copy(membershipErrorMessage = result.error.toUserMessage())
+                            it.copy(membershipErrorMessage = result.error.toUserMessageRes())
                         }
                     }
                 }
@@ -266,7 +266,7 @@ class PlaceDetailViewModel @Inject constructor(
                                     status.update {
                                         it.copy(
                                             isCreatingCollection = false,
-                                            createCollectionError = add.error.toUserMessage(),
+                                            createCollectionError = add.error.toUserMessageRes(),
                                         )
                                     }
                                     return@launch
@@ -281,7 +281,7 @@ class PlaceDetailViewModel @Inject constructor(
                 is RepositoryResult.Failure -> status.update {
                     it.copy(
                         isCreatingCollection = false,
-                        createCollectionError = result.error.toUserMessage(),
+                        createCollectionError = result.error.toUserMessageRes(),
                     )
                 }
             }
@@ -292,9 +292,9 @@ class PlaceDetailViewModel @Inject constructor(
         status.update { it.copy(createCollectionError = null) }
     }
 
-    fun prepareShare() {
+    fun prepareShare(resources: android.content.res.Resources) {
         val current = place.value ?: return
-        status.update { it.copy(shareText = PhokartaShare.placeText(current)) }
+        status.update { it.copy(shareText = PhokartaShare.placeText(resources, current)) }
     }
 
     fun consumeShareText(): String? {
@@ -318,7 +318,7 @@ class PlaceDetailViewModel @Inject constructor(
                     status.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = result.error.toUserMessage(),
+                            errorMessage = result.error.toUserMessageRes(),
                             isNotFound = result.error is TravelError.NotFound && place.value == null,
                         )
                     }
@@ -350,7 +350,7 @@ class PlaceDetailViewModel @Inject constructor(
                     )
                 }
                 is RepositoryResult.Failure -> communityReviews.update {
-                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -379,7 +379,7 @@ class PlaceDetailViewModel @Inject constructor(
                     )
                 }
                 is RepositoryResult.Failure -> friendReviews.update {
-                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -394,7 +394,7 @@ class PlaceDetailViewModel @Inject constructor(
                     FriendSummaryUiState(summary = result.value, isLoading = false)
                 }
                 is RepositoryResult.Failure -> friendSummary.update {
-                    it.copy(isLoading = false, errorMessage = result.error.toUserMessage())
+                    it.copy(isLoading = false, errorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -402,13 +402,13 @@ class PlaceDetailViewModel @Inject constructor(
 
     private data class DetailStatus(
         val isLoading: Boolean = true,
-        val errorMessage: String? = null,
+        val errorMessage: Int? = null,
         val isNotFound: Boolean = false,
-        val saveErrorMessage: String? = null,
+        val saveErrorMessage: Int? = null,
         val membershipBusyIds: Set<String> = emptySet(),
-        val membershipErrorMessage: String? = null,
+        val membershipErrorMessage: Int? = null,
         val isCreatingCollection: Boolean = false,
-        val createCollectionError: String? = null,
+        val createCollectionError: Int? = null,
         val shareText: String? = null,
     )
 

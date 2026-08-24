@@ -8,7 +8,7 @@ import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PublicReview
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,8 +26,8 @@ data class PlaceReviewsUiState(
     val hasNext: Boolean = false,
     val isLoadingInitial: Boolean = true,
     val isLoadingMore: Boolean = false,
-    val errorMessage: String? = null,
-    val loadMoreErrorMessage: String? = null,
+    val errorMessage: Int? = null,
+    val loadMoreErrorMessage: Int? = null,
     val currentUserId: String,
     val expandedReviewIds: Set<String> = emptySet(),
 )
@@ -109,7 +109,7 @@ class PlaceReviewsViewModel @Inject constructor(
                     }
                 }
                 is RepositoryResult.Failure -> status.update {
-                    it.copy(isLoadingMore = false, loadMoreErrorMessage = result.error.toUserMessage())
+                    it.copy(isLoadingMore = false, loadMoreErrorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -161,7 +161,7 @@ class PlaceReviewsViewModel @Inject constructor(
                     ReviewsStatus(
                         scope = scope,
                         isLoadingInitial = false,
-                        errorMessage = result.error.toUserMessage(),
+                        errorMessage = result.error.toUserMessageRes(),
                     )
                 }
             }
@@ -176,8 +176,8 @@ class PlaceReviewsViewModel @Inject constructor(
         val nextPage: Int = 0,
         val isLoadingInitial: Boolean = false,
         val isLoadingMore: Boolean = false,
-        val errorMessage: String? = null,
-        val loadMoreErrorMessage: String? = null,
+        val errorMessage: Int? = null,
+        val loadMoreErrorMessage: Int? = null,
         val expandedReviewIds: Set<String> = emptySet(),
     )
 

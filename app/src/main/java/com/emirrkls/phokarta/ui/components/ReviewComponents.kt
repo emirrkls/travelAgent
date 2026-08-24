@@ -26,50 +26,77 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
+import com.emirrkls.phokarta.ui.localization.formatMonthYearLocalized
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
-import java.time.format.DateTimeFormatter
-
-private val reviewDateFormatter = DateTimeFormatter.ofPattern("MMM yyyy")
-private val visitDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
+import com.emirrkls.phokarta.R
 
 object CommunityScoreCopy {
+    @androidx.annotation.StringRes
+    fun visitCountLabelRes(count: Int): Int =
+        if (count == 0) R.string.no_community_ratings_yet else 0
+
+    @androidx.annotation.PluralsRes
+    fun visitPluralRes(count: Int): Int = R.plurals.visits_count
+
+    @Composable
     fun visitCountLabel(count: Int): String = when (count) {
-        0 -> "No community ratings yet"
-        1 -> "1 visit"
-        else -> "$count visits"
+        0 -> stringResource(R.string.no_community_ratings_yet)
+        else -> pluralStringResource(R.plurals.visits_count, count, count)
     }
 }
 
 object FriendsScoreCopy {
+    @androidx.annotation.StringRes
+    fun visitedLabelRes(count: Int): Int =
+        if (count == 0) R.string.no_friend_visits_yet else 0
+
+    @androidx.annotation.PluralsRes
+    fun visitedPluralRes(count: Int): Int = R.plurals.friends_visited_count
+
+    @Composable
     fun visitedLabel(count: Int): String = when (count) {
-        0 -> "No friend visits yet"
-        1 -> "1 friend visited"
-        else -> "$count friends visited"
+        0 -> stringResource(R.string.no_friend_visits_yet)
+        else -> pluralStringResource(R.plurals.friends_visited_count, count, count)
     }
 
+    @Composable
     fun cardVisitedLabel(count: Int): String = when {
         count <= 0 -> ""
-        count == 1 -> "1 friend visited"
-        else -> "$count friends visited"
+        else -> pluralStringResource(R.plurals.friends_visited_count, count, count)
     }
 
+    @Composable
     fun cardSemantics(friendsVisitedCount: Int, friendAverageScore: Double?): String? {
         if (friendsVisitedCount <= 0) return null
         val visits = cardVisitedLabel(friendsVisitedCount)
         return if (friendAverageScore != null) {
-            "$visits, friends rating ${String.format("%.1f", friendAverageScore)}"
+            stringResource(
+                R.string.friends_rating_with_visits_a11y,
+                visits,
+                formatScoreLocalized(friendAverageScore),
+            )
         } else {
             visits
         }
     }
 
+    @Composable
     fun mapSheetSemantics(friendsVisitedCount: Int, friendAverageScore: Double?): String? {
         if (friendsVisitedCount <= 0) return null
         val visits = cardVisitedLabel(friendsVisitedCount)
         return if (friendAverageScore != null) {
-            "Friends rating ${String.format("%.1f", friendAverageScore)}, $visits"
+            stringResource(
+                R.string.friends_rating_prefix_a11y,
+                formatScoreLocalized(friendAverageScore),
+                visits,
+            )
         } else {
             visits
         }
@@ -83,9 +110,13 @@ fun CommunityScoreSection(
     modifier: Modifier = Modifier,
 ) {
     val scoreDescription = if (communityScore != null) {
-        "Community score ${String.format("%.1f", communityScore)}, ${VisitDraftLogic.scoreLabel(communityScore.toFloat())}"
+        stringResource(
+            R.string.community_score_a11y,
+            formatScoreLocalized(communityScore),
+            stringResource(VisitDraftLogic.scoreBand(communityScore.toFloat()).labelRes()),
+        )
     } else {
-        "Community not rated"
+        stringResource(R.string.community_not_rated)
     }
     Surface(
         modifier = modifier
@@ -96,24 +127,24 @@ fun CommunityScoreSection(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "Community",
+                stringResource(R.string.community),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (communityScore != null) {
                 Text(
-                    String.format("%.1f", communityScore),
+                    formatScoreLocalized(communityScore),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    VisitDraftLogic.scoreLabel(communityScore.toFloat()),
+                    stringResource(VisitDraftLogic.scoreBand(communityScore.toFloat()).labelRes()),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
                 )
             } else {
                 Text(
-                    "Not rated",
+                    stringResource(R.string.not_rated),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -137,9 +168,13 @@ fun FriendScoreSection(
     modifier: Modifier = Modifier,
 ) {
     val scoreDescription = if (friendsScore != null) {
-        "Friends score ${String.format("%.1f", friendsScore)}, ${VisitDraftLogic.scoreLabel(friendsScore.toFloat())}"
+        stringResource(
+            R.string.friends_score_a11y,
+            formatScoreLocalized(friendsScore),
+            stringResource(VisitDraftLogic.scoreBand(friendsScore.toFloat()).labelRes()),
+        )
     } else {
-        "Friends score unavailable. No friend visits yet"
+        stringResource(R.string.friends_score_unavailable)
     }
     Surface(
         modifier = modifier
@@ -150,18 +185,18 @@ fun FriendScoreSection(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "Friends",
+                stringResource(R.string.friends),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (friendsScore != null) {
                 Text(
-                    String.format("%.1f", friendsScore),
+                    formatScoreLocalized(friendsScore),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    VisitDraftLogic.scoreLabel(friendsScore.toFloat()),
+                    stringResource(VisitDraftLogic.scoreBand(friendsScore.toFloat()).labelRes()),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
                 )
@@ -197,27 +232,31 @@ fun PersonalVisitScoreSection(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "You",
+                stringResource(R.string.you),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val scoreText = formatScoreLocalized(latestVisit.overallRating)
+            val latestVisitA11y = stringResource(
+                R.string.your_latest_visit_score_a11y,
+                scoreText,
+            )
             Text(
-                String.format("%.1f", latestVisit.overallRating),
+                scoreText,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.semantics {
-                    contentDescription =
-                        "Your latest visit score ${String.format("%.1f", latestVisit.overallRating)}"
+                    contentDescription = latestVisitA11y
                 },
             )
             Text(
-                latestVisit.visitedAt.format(visitDateFormatter),
+                formatMediumDateLocalized(latestVisit.visitedAt),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (visitCount > 1) {
                 Text(
-                    if (visitCount == 1) "1 visit" else "$visitCount visits",
+                    pluralStringResource(R.plurals.visits_count, visitCount, visitCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.secondary,
                 )
@@ -237,20 +276,26 @@ fun CommunityReviewCard(
     modifier: Modifier = Modifier,
 ) {
     val isCurrentUser = currentUserId != null && review.author.userId == currentUserId
-    val authorLabel = if (isCurrentUser) "${review.author.displayName} · You" else review.author.displayName
-    val dateLabel = review.visitDate.format(reviewDateFormatter)
-    val scoreText = String.format("%.1f", review.overallScore)
+    val youLabel = stringResource(R.string.you)
+    val authorLabel = if (isCurrentUser) "${review.author.displayName} · $youLabel" else review.author.displayName
+    val dateLabel = formatMonthYearLocalized(review.visitDate)
+    val scoreText = formatScoreLocalized(review.overallScore)
     val hasReviewText = review.publicReview.isNotBlank()
-    val scoreDescriptor = VisitDraftLogic.scoreLabel(review.overallScore.toFloat())
+    val scoreDescriptor = stringResource(VisitDraftLogic.scoreBand(review.overallScore.toFloat()).labelRes())
+    val reviewByA11y = stringResource(R.string.a11y_review_by, authorLabel)
+    val scoreA11y = stringResource(R.string.a11y_score_with_band, scoreText, scoreDescriptor)
+    val visitedA11y = stringResource(R.string.activity_visited_date, dateLabel)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .semantics {
                 contentDescription = buildString {
-                    append("Review by $authorLabel")
-                    append(", score $scoreText, $scoreDescriptor")
-                    append(", visited $dateLabel")
+                    append(reviewByA11y)
+                    append(", ")
+                    append(scoreA11y)
+                    append(", ")
+                    append(visitedA11y)
                     if (hasReviewText) append(", ${review.publicReview}")
                 }
             },
@@ -287,13 +332,18 @@ fun CommunityReviewCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (canExpand) {
+                    val reviewExpandA11y = if (expanded) {
+                        stringResource(R.string.a11y_show_less_review)
+                    } else {
+                        stringResource(R.string.a11y_read_more_review)
+                    }
                     TextButton(
                         onClick = onToggleExpand,
                         modifier = Modifier.semantics {
-                            contentDescription = if (expanded) "Show less review text" else "Read more review text"
+                            contentDescription = reviewExpandA11y
                         },
                     ) {
-                        Text(if (expanded) "Show less" else "Read more")
+                        Text(if (expanded) stringResource(R.string.show_less) else stringResource(R.string.read_more))
                     }
                 }
             }
@@ -306,10 +356,10 @@ fun CommunityReviewsEmptyState(
     hasVisited: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(vertical = 8.dp)) {
-        Text("No community reviews yet", style = MaterialTheme.typography.titleMedium)
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text(stringResource(R.string.no_community_reviews_yet), style = MaterialTheme.typography.titleMedium)
         Text(
-            if (hasVisited) "Be the first to share your experience publicly." else "Be the first to share your experience.",
+            if (hasVisited) stringResource(R.string.be_first_to_share_public) else stringResource(R.string.be_first_to_share),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -319,7 +369,7 @@ fun CommunityReviewsEmptyState(
 @Composable
 fun CommunityReviewsSectionHeader(
     totalElements: Long,
-    title: String = "Community reviews",
+    title: String = stringResource(R.string.place_community_reviews),
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -337,9 +387,9 @@ fun CommunityReviewsSectionHeader(
 @Composable
 fun FriendReviewsEmptyState(modifier: Modifier = Modifier) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text("No friend reviews yet", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.no_friend_reviews_yet), style = MaterialTheme.typography.titleMedium)
         Text(
-            "When friends visit this place, their reviews appear here.",
+            stringResource(R.string.friend_reviews_empty_body),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -352,7 +402,7 @@ fun CommunityReviewsLoadingIndicator(modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
-        CircularProgressIndicator(modifier.size(24.dp), strokeWidth = 2.dp)
+        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
     }
 }
 
@@ -363,9 +413,9 @@ fun CommunityReviewsErrorState(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Text("Couldn't load community reviews", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.community_reviews_load_error), style = MaterialTheme.typography.titleSmall)
         Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onRetry) { Text("Retry") }
+        Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
     }
 }

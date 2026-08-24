@@ -53,7 +53,7 @@ class MockPlaceCatalogDataSource @Inject constructor() {
             price: Int,
             breakdown: Map<String, Double>,
         ) = Place(
-            id, name, description, category, listOf(category.label),
+            id, name, description, category, listOf(category.searchToken),
             37.03 + id.drop(1).toInt() * .01,
             27.42 + id.drop(1).toInt() * .02,
             city, region, "Türkiye", "$city, $region", image, listOf(image, image), price, score, friends,

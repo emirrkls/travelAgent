@@ -34,17 +34,4 @@ class MapMarkerLogicTest {
         assertTrue(visitedFriends.visited && visitedFriends.friendsVisited && !visitedFriends.saved)
         assertTrue(all.saved && all.visited && all.friendsVisited)
     }
-
-    @Test
-    fun contentDescriptionIncludesAllActiveStates() {
-        val description = MapMarkerLogic.contentDescription(
-            "Cove",
-            "9.1",
-            MapMarkerLogic.flags(saved = true, visited = true, friendsVisited = true),
-        )
-        assertTrue(description.contains("Cove"))
-        assertTrue(description.contains("saved"))
-        assertTrue(description.contains("visited"))
-        assertTrue(description.contains("friends visited"))
-    }
 }

@@ -7,7 +7,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RelationshipState
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +21,8 @@ data class PublicProfileUiState(
     val isLoading: Boolean = true,
     val isMutating: Boolean = false,
     val notFound: Boolean = false,
-    val errorMessage: String? = null,
-    val actionErrorMessage: String? = null,
+    val errorMessage: Int? = null,
+    val actionErrorMessage: Int? = null,
 )
 
 @HiltViewModel
@@ -48,7 +48,7 @@ class PublicProfileViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         notFound = result.error is com.emirrkls.phokarta.core.data.TravelError.NotFound,
-                        errorMessage = result.error.toUserMessage(),
+                        errorMessage = result.error.toUserMessageRes(),
                     )
                 }
                 is RepositoryResult.Success -> _uiState.update {
@@ -95,7 +95,7 @@ class PublicProfileViewModel @Inject constructor(
                 is RepositoryResult.Failure -> _uiState.update {
                     it.copy(
                         isMutating = false,
-                        actionErrorMessage = result.error.toUserMessage(),
+                        actionErrorMessage = result.error.toUserMessageRes(),
                         profile = profile,
                     )
                 }

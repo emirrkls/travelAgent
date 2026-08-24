@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.feature.saved
 
+import androidx.annotation.StringRes
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
@@ -58,8 +60,9 @@ object WantToGoLogic {
         return sortedPlaces.mapNotNull { byId[it.id] }
     }
 
-    fun friendsVisitedEmptyMessage(hasFriends: Boolean?): String = when (hasFriends) {
-        false -> "When you become friends with people on Phokarta, their visits can help you choose from your list."
-        else -> "Your friends haven't visited anything on this list yet."
+    @StringRes
+    fun friendsVisitedEmptyMessageRes(hasFriends: Boolean?): Int = when (hasFriends) {
+        false -> R.string.want_to_go_friends_empty_no_friends
+        else -> R.string.want_to_go_friends_empty_has_friends
     }
 }

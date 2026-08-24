@@ -33,8 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.SocialListKind
 import com.emirrkls.phokarta.ui.components.TravelImage
 
@@ -49,10 +51,16 @@ fun PublicProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.profile?.displayName ?: "Profile", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    Text(
+                        state.profile?.displayName ?: stringResource(R.string.profile),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -68,9 +76,9 @@ fun PublicProfileScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("User not found")
+                    Text(stringResource(R.string.user_not_found))
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = onBack) { Text("Go back") }
+                    Button(onClick = onBack) { Text(stringResource(R.string.action_go_back)) }
                 }
             }
             state.profile == null -> Box(
@@ -78,9 +86,9 @@ fun PublicProfileScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.errorMessage ?: "Something went wrong.")
+                    Text(state.errorMessage?.let { stringResource(it) } ?: stringResource(R.string.error_generic))
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = viewModel::refresh) { Text("Retry") }
+                    Button(onClick = viewModel::refresh) { Text(stringResource(R.string.action_retry)) }
                 }
             }
             else -> {
@@ -132,17 +140,17 @@ fun PublicProfileScreen(
                             onClick = viewModel::toggleFollow,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        state.actionErrorMessage?.let {
+                        state.actionErrorMessage?.let { msg ->
                             Spacer(Modifier.height(8.dp))
-                            Text(it, color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(msg), color = MaterialTheme.colorScheme.error)
                         }
                     }
                     if (profile.cityCount > 0 || profile.countryCount > 0) {
                         Spacer(Modifier.height(24.dp))
-                        Text("Travel summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.travel_summary), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "${profile.countryCount} countries · ${profile.cityCount} cities",
+                            stringResource(R.string.countries_cities_summary, profile.countryCount, profile.cityCount),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

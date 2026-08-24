@@ -9,7 +9,7 @@ import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,14 +75,14 @@ data class MapUiState(
     val cameraViewport: MapViewport? = null,
     val showSearchThisArea: Boolean = false,
     val userLocation: Pair<Double, Double>? = null,
-    val locationMessage: String? = null,
+    val locationMessage: Int? = null,
     val cameraRequest: MapCameraRequest? = null,
     val isLoading: Boolean = false,
-    val boundsErrorMessage: String? = null,
+    val boundsErrorMessage: Int? = null,
     val friendMetricsByPlaceId: Map<String, SavedFriendMetrics> = emptyMap(),
     val friendMetricsLoading: Boolean = false,
-    val friendMetricsErrorMessage: String? = null,
-    val saveErrorMessage: String? = null,
+    val friendMetricsErrorMessage: Int? = null,
+    val saveErrorMessage: Int? = null,
     val nearbyPlaces: List<NearbyPlace> = emptyList(),
 )
 
@@ -259,7 +259,7 @@ class MapViewModel @Inject constructor(
             when (val result = repository.toggleSaved(placeId)) {
                 is RepositoryResult.Success -> _uiState.update { it.copy(saveErrorMessage = null) }
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(saveErrorMessage = result.error.toUserMessage())
+                    it.copy(saveErrorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -324,12 +324,12 @@ class MapViewModel @Inject constructor(
                 minRating = if (filters.value.highlyRatedOnly) 9.0 else null,
             )) {
                 is RepositoryResult.Success -> _uiState.update { it.copy(nearbyPlaces = result.value) }
-                is RepositoryResult.Failure -> _uiState.update { it.copy(locationMessage = result.error.toUserMessage()) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(locationMessage = result.error.toUserMessageRes()) }
             }
         }
     }
 
-    fun onLocationUnavailable(message: String) {
+    fun onLocationUnavailable(@androidx.annotation.StringRes message: Int) {
         _uiState.update { it.copy(locationMessage = message) }
     }
 
@@ -407,7 +407,7 @@ class MapViewModel @Inject constructor(
                     if (requestId != boundsRequestId) return@launch
                     friendMetricsSnapshot.update { it.copy(loading = false) }
                     _uiState.update {
-                        it.copy(isLoading = false, boundsErrorMessage = result.error.toUserMessage())
+                        it.copy(isLoading = false, boundsErrorMessage = result.error.toUserMessageRes())
                     }
                 }
             }
@@ -441,7 +441,7 @@ class MapViewModel @Inject constructor(
             is RepositoryResult.Failure -> {
                 if (requestId != boundsRequestId) return
                 friendMetricsSnapshot.update {
-                    it.copy(loading = false, errorMessage = metrics.error.toUserMessage())
+                    it.copy(loading = false, errorMessage = metrics.error.toUserMessageRes())
                 }
                 if (!holdPlacesUntilReady) {
                     friendMetricsSnapshot.update { snapshot ->
@@ -464,7 +464,7 @@ class MapViewModel @Inject constructor(
     private data class FriendMetricsSnapshot(
         val byPlaceId: Map<String, SavedFriendMetrics> = emptyMap(),
         val loading: Boolean = false,
-        val errorMessage: String? = null,
+        val errorMessage: Int? = null,
     )
 
     private data class MapData(

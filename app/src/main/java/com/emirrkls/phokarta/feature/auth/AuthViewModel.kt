@@ -1,7 +1,9 @@
 package com.emirrkls.phokarta.feature.auth
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.auth.AuthRepository
 import com.emirrkls.phokarta.core.auth.AuthResult
 import com.emirrkls.phokarta.core.auth.AuthState
@@ -24,7 +26,7 @@ data class AuthFormState(
     val password: String = "",
     val passwordVisible: Boolean = false,
     val loading: Boolean = false,
-    val error: String? = null,
+    @StringRes val error: Int? = null,
 )
 
 @HiltViewModel
@@ -79,7 +81,7 @@ class AuthViewModel @Inject constructor(
     fun login() {
         val form = _loginForm.value
         if (form.identifier.isBlank() || form.password.length < 8) {
-            _loginForm.update { it.copy(error = "Enter your email/username and password (min 8).") }
+            _loginForm.update { it.copy(error = R.string.auth_login_validation) }
             return
         }
         viewModelScope.launch {
@@ -97,19 +99,19 @@ class AuthViewModel @Inject constructor(
         val form = _registerForm.value
         when {
             form.displayName.isBlank() -> {
-                _registerForm.update { it.copy(error = "Display name is required.") }
+                _registerForm.update { it.copy(error = R.string.auth_display_name_required) }
                 return
             }
             form.username.length < 3 -> {
-                _registerForm.update { it.copy(error = "Username must be at least 3 characters.") }
+                _registerForm.update { it.copy(error = R.string.auth_username_min) }
                 return
             }
             !form.email.contains("@") -> {
-                _registerForm.update { it.copy(error = "Enter a valid email.") }
+                _registerForm.update { it.copy(error = R.string.auth_email_invalid) }
                 return
             }
             form.password.length < 8 -> {
-                _registerForm.update { it.copy(error = "Password must be at least 8 characters.") }
+                _registerForm.update { it.copy(error = R.string.auth_password_min) }
                 return
             }
         }

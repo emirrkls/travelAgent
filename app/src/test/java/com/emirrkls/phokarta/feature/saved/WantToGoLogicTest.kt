@@ -96,13 +96,13 @@ class WantToGoLogicTest {
 
     @Test
     fun emptyCopyDistinguishesNoFriends() {
-        assertTrue(
-            WantToGoLogic.friendsVisitedEmptyMessage(hasFriends = false)
-                .contains("become friends"),
+        assertEquals(
+            com.emirrkls.phokarta.R.string.want_to_go_friends_empty_no_friends,
+            WantToGoLogic.friendsVisitedEmptyMessageRes(hasFriends = false),
         )
-        assertTrue(
-            WantToGoLogic.friendsVisitedEmptyMessage(hasFriends = true)
-                .contains("haven't visited"),
+        assertEquals(
+            com.emirrkls.phokarta.R.string.want_to_go_friends_empty_has_friends,
+            WantToGoLogic.friendsVisitedEmptyMessageRes(hasFriends = true),
         )
     }
 }

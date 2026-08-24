@@ -1,4 +1,475 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Phokarta</string>
+    <!-- Brand -->
+    <string name="app_name" translatable="false">Phokarta</string>
+    <string name="splash_tagline">places feel better through people</string>
+
+    <!-- Navigation -->
+    <string name="nav_explore">Explore</string>
+    <string name="nav_map">Map</string>
+    <string name="nav_activity">Activity</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_add">Add</string>
+
+    <!-- Common actions -->
+    <string name="action_retry">Retry</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_see_all">See all</string>
+    <string name="action_back">Back</string>
+    <string name="action_done">Done</string>
+    <string name="action_save">Save</string>
+    <string name="action_share">Share</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_create">Create</string>
+    <string name="action_follow">Follow</string>
+    <string name="action_unfollow">Unfollow</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="action_selected">Selected</string>
+    <string name="optional">Optional</string>
+
+    <!-- Want to Go terminology -->
+    <string name="want_to_go_action">Want to go</string>
+    <string name="want_to_go_saved">Saved</string>
+    <string name="want_to_go_surface">Want to Go</string>
+    <string name="want_to_go_remove">Remove from Want to Go</string>
+    <string name="friends_visited">Friends visited</string>
+    <string name="visited">Visited</string>
+    <string name="saved">Saved</string>
+
+    <!-- Visibility — Friends means mutual follow -->
+    <string name="visibility">Visibility</string>
+    <string name="visibility_public">Public</string>
+    <string name="visibility_friends">Friends</string>
+    <string name="visibility_private">Private</string>
+    <string name="visibility_sheet_title">Who can see this visit?</string>
+    <string name="visibility_public_sheet">Visible to the Phokarta community</string>
+    <string name="visibility_friends_sheet">Visible to your friends</string>
+    <string name="visibility_private_sheet">Only you can see this</string>
+    <string name="visibility_public_review_helper">Shared with the community</string>
+    <string name="visibility_friends_review_helper">Shared with your friends</string>
+    <string name="visibility_private_review_helper">Only visible to you</string>
+    <string name="visibility_public_impact">This can contribute to Community and Friends discovery.</string>
+    <string name="visibility_friends_impact">This won\'t affect the Community score.</string>
+    <string name="visibility_private_impact">This won\'t affect Community or Friends scores.</string>
+    <string name="visibility_friends_definition">Friends are people you mutually follow.</string>
+    <string name="visibility_content_description">Visibility, %1$s</string>
+    <string name="visibility_option_content_description">%1$s. %2$s</string>
+    <string name="only_you_can_see_this">Only you can see this</string>
+
+    <!-- Categories (display; API keys stay BEACH/RESTAURANT/…) -->
+    <string name="category_beach">Beach</string>
+    <string name="category_food">Food</string>
+    <string name="category_cafe">Cafe</string>
+    <string name="category_hotel">Hotel</string>
+    <string name="category_bar">Bar</string>
+    <string name="category_nightlife">Nightlife</string>
+    <string name="category_culture">Culture</string>
+    <string name="category_activity">Activity</string>
+    <string name="category_nature">Nature</string>
+    <string name="category">Category</string>
+
+    <!-- Rating dimensions -->
+    <string name="dimension_sea">Sea</string>
+    <string name="dimension_atmosphere">Atmosphere</string>
+    <string name="dimension_service">Service</string>
+    <string name="dimension_cleanliness">Cleanliness</string>
+    <string name="dimension_value">Value</string>
+    <string name="dimension_crowd">Crowd</string>
+    <string name="dimension_food">Food</string>
+    <string name="dimension_presentation">Presentation</string>
+    <string name="dimension_location">Location</string>
+    <string name="dimension_room">Room</string>
+    <string name="dimension_breakfast">Breakfast</string>
+    <string name="dimension_drinks">Drinks</string>
+    <string name="dimension_music">Music</string>
+    <string name="dimension_experience">Experience</string>
+    <string name="dimension_access">Access</string>
+    <string name="dimension_safety">Safety</string>
+    <string name="dimension_guide">Guide</string>
+    <string name="dimension_scenery">Scenery</string>
+    <string name="dimension_tranquility">Tranquility</string>
+
+    <!-- Score bands -->
+    <string name="score_exceptional">Exceptional</string>
+    <string name="score_amazing">Amazing</string>
+    <string name="score_good">Good</string>
+    <string name="score_okay">Okay</string>
+    <string name="score_disappointing">Disappointing</string>
+    <string name="score_terrible">Terrible</string>
+
+    <!-- Social -->
+    <string name="community">Community</string>
+    <string name="friends">Friends</string>
+    <string name="followers">Followers</string>
+    <string name="following">Following</string>
+    <string name="follows_you">Follows you</string>
+    <string name="not_following">Not following</string>
+    <string name="find_people">Find people</string>
+    <string name="search_people_hint">Search by name or username</string>
+    <string name="no_people_found">No people found</string>
+    <string name="no_one_here_yet">No one here yet</string>
+    <string name="user_not_found">User not found</string>
+    <string name="travel_summary">Travel summary</string>
+    <string name="countries_cities_summary">%1$d countries · %2$d cities</string>
+
+    <!-- Errors -->
+    <string name="error_offline">You appear to be offline. Check your connection and try again.</string>
+    <string name="error_timeout">The request took too long. Please try again.</string>
+    <string name="error_validation">That request could not be completed.</string>
+    <string name="error_forbidden">This content isn\'t available.</string>
+    <string name="error_not_found">We couldn\'t find what you were looking for.</string>
+    <string name="error_conflict">This changed elsewhere. Refresh and try again.</string>
+    <string name="error_server">The service is temporarily unavailable. Please try again.</string>
+    <string name="error_unknown">Something went wrong. Please try again.</string>
+    <string name="error_generic">Something went wrong</string>
+
+    <!-- Auth -->
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_register">Create account</string>
+    <string name="auth_email_or_username">Email or username</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_display_name">Display name</string>
+    <string name="auth_username">Username</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_have_account">Already have an account? Sign in</string>
+    <string name="auth_need_account">New here? Create an account</string>
+    <string name="auth_login_validation">Enter your email/username and password (min 8).</string>
+    <string name="auth_display_name_required">Display name is required.</string>
+    <string name="auth_username_min">Username must be at least 3 characters.</string>
+    <string name="auth_email_invalid">Enter a valid email.</string>
+    <string name="auth_password_min">Password must be at least 8 characters.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_discover_eyebrow">DISCOVER</string>
+    <string name="onboarding_discover_title">Find places that feel like you</string>
+    <string name="onboarding_discover_body">Beautiful corners, trusted recommendations and the stories behind them.</string>
+    <string name="onboarding_remember_eyebrow">REMEMBER</string>
+    <string name="onboarding_remember_title">Save plans. Keep memories.</string>
+    <string name="onboarding_remember_body">Separate the places on your list from the experiences you have lived.</string>
+    <string name="onboarding_rate_eyebrow">RATE YOUR WAY</string>
+    <string name="onboarding_rate_title">Build a travel taste that is yours</string>
+    <string name="onboarding_rate_body">Rate what mattered—from the sea to the service—and get better suggestions over time.</string>
+    <string name="onboarding_together_eyebrow">TOGETHER</string>
+    <string name="onboarding_together_title">Travel through people you trust</string>
+    <string name="onboarding_together_body">Follow friends and curious travelers whose taste matches your own.</string>
+
+    <!-- Explore -->
+    <string name="explore_greeting">GOOD EVENING</string>
+    <string name="explore_search_hint">Where to next…?</string>
+    <string name="explore_category_picks">%1$s picks</string>
+    <string name="explore_want_to_go_title">Want to Go</string>
+
+    <!-- Search -->
+    <string name="search_title">Discover</string>
+    <string name="search_hint">Search places, cities or categories</string>
+    <string name="search_clear_filters">Clear filters</string>
+    <string name="search_rated_9_plus">9+ Rated</string>
+    <string name="sort_recommended">Recommended</string>
+    <string name="sort_rating">Rating</string>
+    <string name="sort_recently_saved">Recently saved</string>
+    <string name="sort_friends_score">Friends score</string>
+    <string name="sort_most_friends_visited">Most friends visited</string>
+    <string name="search_empty_no_results_title">No places found</string>
+    <string name="search_empty_no_results_body">Try another place, city or category.</string>
+    <string name="search_empty_nothing_saved_title">Nothing saved yet</string>
+    <string name="search_empty_nothing_saved_body">Save places you want to visit and find them here.</string>
+    <string name="search_empty_nothing_visited_title">No visits yet</string>
+    <string name="search_empty_nothing_visited_body">Rate a place and your visits will show up here.</string>
+
+    <!-- Map -->
+    <string name="map_discovery">Map discovery</string>
+    <string name="map_search_this_area">Search this area</string>
+    <string name="map_no_places_match">No places match this view</string>
+    <string name="map_try_adjusting_filters">Try adjusting filters or searching this area.</string>
+    <string name="map_spots_count">%1$d spots</string>
+    <string name="map_places_through_people">Places through people you trust</string>
+    <string name="map_tap_again_to_open">Tap again to open</string>
+    <string name="map_location_permission_rationale">Location helps show places near you. You can still explore the map without it.</string>
+    <string name="map_location_denied">Location access is off. You can enable it in system settings.</string>
+    <string name="map_location_unavailable">Couldn\'t get your location right now.</string>
+    <string name="a11y_want_to_go_filter">Want to Go filter</string>
+    <string name="a11y_want_to_go_filter_selected">Want to Go filter, selected</string>
+    <string name="a11y_friends_visited_filter">Friends visited filter</string>
+    <string name="a11y_friends_visited_filter_selected">Friends visited filter, selected</string>
+    <string name="a11y_visited_filter">Visited filter</string>
+    <string name="a11y_visited_filter_selected">Visited filter, selected</string>
+    <string name="a11y_map_marker_rated">%1$s, rated %2$s</string>
+    <string name="a11y_map_marker_saved">, saved</string>
+    <string name="a11y_map_marker_visited">, visited</string>
+    <string name="a11y_map_marker_friends_visited">, friends visited</string>
+
+    <!-- Want to Go screen -->
+    <string name="want_to_go_search_hint">Search saved places</string>
+    <string name="want_to_go_nothing_saved">Nothing saved yet</string>
+    <string name="want_to_go_nothing_saved_body">Save places from Explore, Search, or Place Detail.</string>
+    <string name="want_to_go_no_matches">No matches</string>
+    <string name="want_to_go_no_matches_body">Try another search or clear filters.</string>
+    <string name="want_to_go_friends_empty_no_friends">When you become friends with people on Phokarta, their visits can help you choose from your list.</string>
+    <string name="want_to_go_friends_empty_has_friends">Your friends haven\'t visited anything on this list yet.</string>
+
+    <!-- Place detail -->
+    <string name="place_visit_added">Visit added</string>
+    <string name="place_been_here">Been here</string>
+    <string name="place_why_people_love_it">Why people love it</string>
+    <string name="place_friends_who_visited">Friends who visited</string>
+    <string name="place_see_all_reviews">See all reviews</string>
+    <string name="place_community_reviews">Community reviews</string>
+    <string name="place_friend_reviews">Friend reviews</string>
+    <string name="place_add_to_collection">Add to collection</string>
+    <string name="place_rate_place">Rate this place</string>
+    <string name="not_rated">Not rated</string>
+    <string name="community_not_rated">Community not rated</string>
+    <string name="community_score_a11y">Community score %1$s, %2$s</string>
+    <string name="friends_score_a11y">Friends score %1$s, %2$s</string>
+    <string name="friends_rating_with_visits_a11y">%1$s, friends rating %2$s</string>
+    <string name="friends_rating_prefix_a11y">Friends rating %1$s, %2$s</string>
+    <string name="your_latest_visit_score_a11y">Your latest visit score %1$s</string>
+    <string name="no_community_ratings_yet">No community ratings yet</string>
+    <string name="no_friend_visits_yet">No friend visits yet</string>
+    <string name="read_more">Read more</string>
+    <string name="show_less">Show less</string>
+    <string name="reviews_title">Reviews</string>
+
+    <!-- Visit / rating -->
+    <string name="publish_visit">Publish visit</string>
+    <string name="how_was_place">How was %1$s?</string>
+    <string name="visit_date">Visit date</string>
+    <string name="today">Today</string>
+    <string name="add_score">Add score</string>
+    <string name="remove_dimension_score">Remove %1$s score</string>
+    <string name="overall_score_a11y">Overall score %1$s</string>
+    <string name="public_review">Public review</string>
+    <string name="public_review_hint">Share what stood out</string>
+    <string name="private_memory">Private memory</string>
+    <string name="private_memory_hint">Notes only you can see</string>
+    <string name="visit_date_future_error">Visit date can\'t be in the future.</string>
+    <string name="visited_twice">Visited twice</string>
+    <string name="rate_another_visit">Rate another visit</string>
+    <string name="visit_published">Visit published</string>
+    <string name="see_it_on_your_profile">See it on your profile</string>
+    <string name="back_to_explore">Back to Explore</string>
+
+    <!-- Activity -->
+    <string name="friends_activity">Friends activity</string>
+    <string name="community_activity">Community activity</string>
+    <string name="activity_friends_subtitle">Visits from people you mutually follow.</string>
+    <string name="activity_community_subtitle">Public visits from the Phokarta community.</string>
+    <string name="activity_empty_friends_title">No friend activity yet</string>
+    <string name="activity_empty_friends_body">When people you mutually follow publish visits, they\'ll show up here.</string>
+    <string name="activity_empty_community_title">No community activity yet</string>
+    <string name="activity_empty_community_body">Public visits from travelers will appear here.</string>
+    <string name="activity_load_error">Couldn\'t load activity</string>
+    <string name="activity_author_visited">%1$s visited</string>
+    <string name="activity_visited_date">Visited %1$s</string>
+    <string name="you">You</string>
+
+    <!-- Collections -->
+    <string name="collections">Collections</string>
+    <string name="curated_collections">Curated collections</string>
+    <string name="new_collection">New collection</string>
+    <string name="new_collection_short">+ New</string>
+    <string name="new_collection_full">+ New collection</string>
+    <string name="create_collection">Create collection</string>
+    <string name="collection_title">Title</string>
+    <string name="collection_title_hint">Bodrum Summer</string>
+    <string name="collection_description">Description</string>
+    <string name="collection_description_hint">Optional note</string>
+    <string name="save_to_collection">Save to collection</string>
+    <string name="add_to_list">Add to list</string>
+    <string name="remove_from_collection">Remove from collection</string>
+    <string name="collections_empty_title">No collections yet</string>
+    <string name="collections_empty_body">Group places into lists you can revisit.</string>
+    <string name="collection_name_required">Give your collection a name.</string>
+
+    <!-- Profile -->
+    <string name="profile">Profile</string>
+    <string name="travel_identity">TRAVEL IDENTITY</string>
+    <string name="countries">Countries</string>
+    <string name="cities">Cities</string>
+    <string name="places">Places</string>
+    <string name="lists">Lists</string>
+    <string name="trips">Trips</string>
+    <string name="your_visits">Your visits</string>
+    <string name="nothing_saved_yet">Nothing saved yet</string>
+    <string name="trips_coming_into_focus">Trips, coming into focus</string>
+    <string name="avg_score">Avg %1$s</string>
+    <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_turkish" translatable="false">Türkçe</string>
+
+    <!-- Add sheet -->
+    <string name="add_to_your_journey">Add to your journey</string>
+    <string name="rate_a_place">Rate a place</string>
+    <string name="create_a_collection">Create a collection</string>
+
+    <!-- Share -->
+    <string name="share_chooser_title">Share</string>
+    <string name="share_place_with_score">%1$s · %2$s — %3$s on Phokarta</string>
+    <string name="share_place_no_score">%1$s · %2$s on Phokarta</string>
+    <string name="share_visit">%1$s — %2$s on Phokarta</string>
+    <string name="share_collection_one">%1$s · 1 place on Phokarta</string>
+    <string name="share_collection_many">%1$s · %2$d places on Phokarta</string>
+
+    <!-- Distance -->
+    <string name="distance_meters">%1$d m</string>
+    <string name="distance_kilometers">%1$s km</string>
+
+    <!-- Misc labels -->
+    <string name="ratings_count">%1$d ratings</string>
+    <string name="friends_city">Friends · %1$s</string>
+    <string name="friends_score_value">Friends %1$s</string>
+    <string name="category_city">%1$s · %2$s</string>
+    <string name="total_visits_label">%1$d total</string>
+
+    <!-- Auth extras -->
+    <string name="auth_sign_in_subtitle">Sign in to continue</string>
+    <string name="auth_create_account_link">Create an account</string>
+    <string name="auth_register_subtitle">Join Phokarta with email and password</string>
+    <string name="auth_already_have_account">Already have an account</string>
+    <string name="a11y_toggle_password">Toggle password</string>
+
+    <!-- Explore extras -->
+    <string name="explore_where_to_next">Where to next, %1$s?</string>
+    <string name="explore_shortlist_title">Travel better with a shortlist</string>
+    <string name="explore_shortlist_cta">Explore trusted collections →</string>
+
+    <!-- Search extras -->
+    <string name="search_placeholder">Try Bodrum, beach, Kaş…</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="a11y_sort_results">Sort results</string>
+    <string name="sort_community_rating">Community rating</string>
+
+    <!-- Profile extras -->
+    <string name="travel_taste">Travel taste</string>
+    <string name="travel_map_grows">Your travel map will grow with every visit</string>
+    <string name="trips_placeholder_body">Your saved places and visits will become trip stories here.</string>
+    <string name="share_profile">Share profile</string>
+    <string name="visits">Visits</string>
+    <string name="map_tab">Map</string>
+
+    <!-- Collection extras -->
+    <string name="collection_description_optional">Description (optional)</string>
+    <string name="collection_description_placeholder">What ties these places together?</string>
+    <string name="create_new_collection">Create new collection</string>
+    <string name="start_your_first_shortlist">Start your first shortlist</string>
+    <string name="collections_shortlist_subtitle">Shortlists with a point of view</string>
+    <string name="collections_empty_save_together">Save places you want to remember together.</string>
+    <string name="collection_not_found">Collection not found</string>
+    <string name="no_places_here_yet">No places here yet</string>
+    <string name="add_places_from_place_page">Add places from any Place page.</string>
+    <string name="a11y_collection_title">Collection title</string>
+    <string name="a11y_remove_from_collection">Remove %1$s from collection</string>
+
+    <!-- Place detail extras -->
+    <string name="the_scores">The scores</string>
+    <string name="photos">Photos</string>
+    <string name="retry_friends_score">Retry friends score</string>
+    <string name="place_not_found">Place not found</string>
+    <string name="match_for_your_taste">MATCH FOR YOUR TASTE</string>
+    <string name="highly_recommended_for_you">Highly recommended for you</string>
+    <string name="been_here_rate_another">Been here. Rate another visit</string>
+    <string name="been_here_rate_place">Been here. Rate this place</string>
+    <string name="most_recent">Most recent</string>
+    <string name="a11y_friend_visited">Friend who visited %1$s, latest score %2$s</string>
+    <string name="a11y_share_place">Share place</string>
+
+    <!-- Review extras -->
+    <string name="no_community_reviews_yet">No community reviews yet</string>
+    <string name="no_friend_reviews_yet">No friend reviews yet</string>
+    <string name="community_reviews_load_error">Couldn\'t load community reviews</string>
+    <string name="be_first_to_share_public">Be the first to share your experience publicly.</string>
+    <string name="be_first_to_share">Be the first to share your experience.</string>
+    <string name="friend_reviews_empty_body">When friends visit this place, their reviews appear here.</string>
+    <string name="friends_score_unavailable">Friends score unavailable. No friend visits yet</string>
+    <string name="a11y_review_by">Review by %1$s</string>
+    <string name="a11y_show_less_review">Show less review text</string>
+    <string name="a11y_read_more_review">Read more review text</string>
+    <string name="a11y_score_with_band">Score %1$s, %2$s</string>
+    <string name="a11y_community_rating">Community rating %1$s</string>
+    <string name="a11y_traveler_avatar">Traveler avatar</string>
+    <string name="a11y_your_visit">Your visit %1$s on %2$s</string>
+
+    <!-- Map extras -->
+    <string name="all_categories">All categories</string>
+    <string name="places_in_this_area">Places in this area</string>
+    <string name="retry_friends">Retry friends</string>
+    <string name="loading_friend_visits">Loading friend visits…</string>
+    <string name="friends_visited_unavailable">Friends visited isn’t available</string>
+    <string name="friends_visited_unavailable_body">This isn’t an empty result. Retry to load friend visits.</string>
+    <string name="map_pan_or_adjust">Pan the map or adjust a filter.</string>
+    <string name="map_move_or_choose">Move the map or choose a place</string>
+    <string name="map_friend_visits_load_failed">Friend visits couldn’t be loaded for this area.</string>
+    <string name="map_friend_signals_unavailable">Friend signals are unavailable right now.</string>
+    <string name="a11y_travel_discovery_map">Travel discovery map</string>
+    <string name="a11y_current_location">Your current location</string>
+    <string name="a11y_search_this_map_area">Search this map area</string>
+    <string name="a11y_clear_map_filters">Clear map filters</string>
+    <string name="a11y_center_on_location">Center again on my location</string>
+    <string name="a11y_use_my_location">Use my location</string>
+    <string name="a11y_save_place_want_to_go">Save %1$s to Want to Go</string>
+    <string name="a11y_remove_place_want_to_go">Remove %1$s from Want to Go</string>
+
+    <!-- Rating extras -->
+    <string name="set_date">Set date</string>
+    <string name="rate_the_details">Rate the details</string>
+    <string name="review">Review</string>
+    <string name="review_placeholder">What stood out?</string>
+    <string name="private_memory_placeholder">A detail only you need</string>
+    <string name="a11y_review_input">Review input</string>
+    <string name="a11y_private_memory_input">Private memory input</string>
+
+    <!-- Activity extras -->
+    <string name="activity_empty_generic_title">No activity yet</string>
+    <string name="activity_empty_generic_body">Community visits will appear here.</string>
+    <string name="activity_empty_no_friends_title">No friends yet</string>
+    <string name="activity_empty_no_friends_body">Mutual follows become friends on Phokarta.</string>
+
+    <!-- Want to Go extras -->
+    <string name="a11y_sort_saved_places">Sort saved places</string>
+    <string name="a11y_search_within_want_to_go">Search within Want to Go</string>
+    <string name="want_to_go_no_friend_activity">No friend activity on your saved places yet.</string>
+
+    <!-- Add sheet extras -->
+    <string name="capture_plan_or_memory">Capture a plan or a memory.</string>
+    <string name="add_to_want_to_go">Add to Want to Go</string>
+    <string name="add_want_to_go_subtitle">Save a place for later</string>
+    <string name="rate_place_subtitle">Record a visit and what stood out</string>
+    <string name="check_in">Check in</string>
+    <string name="check_in_subtitle">Mark where you are now</string>
+    <string name="add_travel_note">Add travel note</string>
+    <string name="add_travel_note_subtitle">Keep a private memory</string>
+    <string name="create_collection_subtitle">Curate places around an idea</string>
+
+    <!-- Social extras -->
+    <string name="action_go_back">Go back</string>
+    <string name="filter_all">All</string>
+    <string name="a11y_notifications">Notifications</string>
+    <string name="explore_picked_by_people">Picked by people you trust</string>
+    <string name="explore_hidden_gems">Hidden gems</string>
+    <string name="explore_aegean_summer">Aegean summer</string>
+    <string name="collection_shortlist_pov">A shortlist with a point of view.</string>
+    <string name="friends_visibility_ready">Friends visibility is ready for when your circle is connected.</string>
+    <string name="choose_shortlists_for_place">Choose shortlists for this place.</string>
+    <string name="no_shortlists_yet">No shortlists yet. Create one to start.</string>
+    <string name="a11y_in_collection">In %1$s</string>
+    <string name="saved_count">%1$d saved</string>
+    <string name="visit_published_body">%1$s is now part of your travel history.</string>
+    <string name="a11y_scope_selected">%1$s scope selected</string>
+    <string name="a11y_scope">%1$s scope</string>
+    <string name="activity_community_subtitle_short">Recent public visits from travelers.</string>
+    <string name="activity_empty_friends_body_alt">When your friends visit places, you\'ll see them here.</string>
+    <string name="rating_intro_hint">Start with one score. Add detail only if it helps tell the story.</string>
+    <string name="visited_before_hint">You\'ve visited %1$s before · %2$s. Each visit stays in your history.</string>
+    <string name="places_count_with_visibility">%1$s · %2$s</string>
+    <string name="record_a_visit">Record a visit</string>
+    <string name="a11y_collapse_details">Collapse details</string>
+    <string name="a11y_expand_details">Expand details</string>
 </resources>

@@ -29,11 +29,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.formatShortMonthDayLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
-import java.time.format.DateTimeFormatter
-
-private val activityDateFormatter = DateTimeFormatter.ofPattern("MMM d")
+import com.emirrkls.phokarta.R
 
 @Composable
 fun ActivityEventCard(
@@ -49,13 +51,14 @@ fun ActivityEventCard(
     val isCurrentUser = currentUserId != null && event.author.userId == currentUserId
     val authorName = event.author.displayName
     val authorLabel = if (isCurrentUser) "$authorName · You" else authorName
-    val scoreText = String.format("%.1f", event.overallScore)
-    val scoreDescriptor = VisitDraftLogic.scoreLabel(event.overallScore.toFloat())
-    val dateLabel = event.visitDate.format(activityDateFormatter)
+    val scoreText = formatScoreLocalized(event.overallScore)
+    val scoreDescriptor = stringResource(VisitDraftLogic.scoreBand(event.overallScore.toFloat()).labelRes())
+    val scoreA11y = stringResource(R.string.a11y_score_with_band, scoreText, scoreDescriptor)
+    val dateLabel = formatShortMonthDayLocalized(event.visitDate)
     val hasReviewText = event.publicReview.isNotBlank()
     val placeMeta = listOfNotNull(
         event.place.city.takeIf { it.isNotBlank() },
-        event.place.category.label,
+        stringResource(event.place.category.labelRes()),
     ).joinToString(" · ")
 
     Card(
@@ -149,12 +152,12 @@ fun ActivityEventCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.semantics {
-                        contentDescription = "Score $scoreText, $scoreDescriptor"
+                        contentDescription = scoreA11y
                     },
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "Visited $dateLabel",
+                    text = stringResource(R.string.activity_visited_date, dateLabel),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -171,17 +174,18 @@ fun ActivityEventCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (canExpand) {
+                    val expandA11y = if (expanded) {
+                        stringResource(R.string.a11y_show_less_review)
+                    } else {
+                        stringResource(R.string.a11y_read_more_review)
+                    }
                     TextButton(
                         onClick = onToggleExpand,
                         modifier = Modifier.semantics {
-                            contentDescription = if (expanded) {
-                                "Show less review text"
-                            } else {
-                                "Read more review text"
-                            }
+                            contentDescription = expandA11y
                         },
                     ) {
-                        Text(if (expanded) "Show less" else "Read more")
+                        Text(if (expanded) stringResource(R.string.show_less) else stringResource(R.string.read_more))
                     }
                 }
             }
@@ -192,8 +196,8 @@ fun ActivityEventCard(
 @Composable
 fun ActivityEmptyState(
     modifier: Modifier = Modifier,
-    title: String = "No activity yet",
-    subtitle: String = "Community visits will appear here.",
+    title: String = stringResource(R.string.activity_empty_generic_title),
+    subtitle: String = stringResource(R.string.activity_empty_generic_body),
 ) {
     Column(
         modifier = modifier
@@ -224,7 +228,7 @@ fun ActivityErrorState(
             .padding(horizontal = 28.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Couldn't load activity", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text(stringResource(R.string.activity_load_error), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(
             message,
@@ -233,7 +237,7 @@ fun ActivityErrorState(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onRetry) { Text("Retry") }
+        Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.CommunityReviewCard
@@ -45,6 +46,7 @@ import com.emirrkls.phokarta.ui.components.FriendReviewsEmptyState
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.feature.secondary.ActivityScopeSelector
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,12 +81,12 @@ fun PlaceReviewsScreen(
                 title = {
                     Column {
                         Text(
-                            state.place?.name ?: "Reviews",
+                            state.place?.name ?: stringResource(R.string.reviews_title),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            if (state.scope == ActivityScope.FRIENDS) "Friend reviews" else "Community reviews",
+                            if (state.scope == ActivityScope.FRIENDS) stringResource(R.string.place_friend_reviews) else stringResource(R.string.place_community_reviews),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -92,7 +94,7 @@ fun PlaceReviewsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -112,9 +114,9 @@ fun PlaceReviewsScreen(
                     Modifier.fillMaxSize().padding(padding).padding(20.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    CommunityReviewsErrorState(state.errorMessage.orEmpty(), onRetry = viewModel::retry)
+                    CommunityReviewsErrorState(state.errorMessage?.let { stringResource(it) }.orEmpty(), onRetry = viewModel::retry)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = onBack) { Text("Back") }
+                    Button(onClick = onBack) { Text(stringResource(R.string.action_back)) }
                 }
             }
             else -> {
@@ -171,7 +173,7 @@ fun PlaceReviewsScreen(
                     }
                     state.loadMoreErrorMessage?.let { message ->
                         item {
-                            CommunityReviewsErrorState(message, onRetry = viewModel::retryLoadMore)
+                            CommunityReviewsErrorState(stringResource(message), onRetry = viewModel::retryLoadMore)
                         }
                     }
                     item { Spacer(Modifier.height(24.dp)) }

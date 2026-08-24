@@ -23,22 +23,28 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
 import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
 import com.emirrkls.phokarta.feature.rating.visibilityIcon
-import java.time.format.DateTimeFormatter
+import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
+import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 
 @Composable
 fun VisitedBadge(modifier: Modifier = Modifier) {
+    val visitedLabel = stringResource(R.string.visited)
     Surface(
-        modifier = modifier.semantics { contentDescription = "Visited" },
+        modifier = modifier.semantics { contentDescription = visitedLabel },
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         shape = RoundedCornerShape(50),
@@ -49,7 +55,7 @@ fun VisitedBadge(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
-            Text("Visited", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.visited), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -61,9 +67,10 @@ fun OwnerVisitDetailSheet(
     visit: Visit,
     onDismiss: () -> Unit,
 ) {
-    val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
-    val scoreLabel = VisitDraftLogic.scoreLabel(visit.overallRating.toFloat())
-    val visibilityLabel = VisitVisibilityCopy.label(visit.visibility)
+    val dateLabel = formatLongDateLocalized(visit.visitedAt)
+    val scoreLabel = stringResource(VisitDraftLogic.scoreBand(visit.overallRating.toFloat()).labelRes())
+    val visibilityLabel = stringResource(VisitVisibilityCopy.labelRes(visit.visibility))
+    val visibilityA11y = stringResource(R.string.visibility_content_description, visibilityLabel)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -79,7 +86,7 @@ fun OwnerVisitDetailSheet(
             Text(placeName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Text(
-                String.format("%.1f", visit.overallRating),
+                formatScoreLocalized(visit.overallRating),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
             )
@@ -98,13 +105,13 @@ fun OwnerVisitDetailSheet(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Column {
-                    Text("Visibility", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.visibility), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         visibilityLabel,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.semantics {
-                            contentDescription = VisitVisibilityCopy.contentDescription(visit.visibility)
+                            contentDescription = visibilityA11y
                         },
                     )
                 }
@@ -113,16 +120,16 @@ fun OwnerVisitDetailSheet(
                 Spacer(Modifier.height(20.dp))
                 visit.ratingDimensions.entries.sortedByDescending { it.value }.forEach { (dimension, score) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(dimension.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                        Text(String.format("%.1f", score), fontWeight = FontWeight.Bold)
+                        Text(stringResource(dimension.labelRes()), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Text(formatScoreLocalized(score), fontWeight = FontWeight.Bold)
                     }
                 }
             }
             if (visit.review.isNotBlank()) {
                 Spacer(Modifier.height(20.dp))
-                Text("Review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.review), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    VisitVisibilityCopy.reviewHelper(visit.visibility),
+                    stringResource(VisitVisibilityCopy.reviewHelperRes(visit.visibility)),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -135,9 +142,9 @@ fun OwnerVisitDetailSheet(
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Text("Private memory", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.private_memory), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         }
-                        Text("Only you can see this", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.only_you_can_see_this), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                         Spacer(Modifier.height(8.dp))
                         Text(visit.personalNote, style = MaterialTheme.typography.bodyLarge)
                     }
@@ -154,8 +161,9 @@ fun VisitHistoryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dateLabel = visit.visitedAt.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
-    val scoreText = String.format("%.1f", visit.overallRating)
+    val dateLabel = formatMediumDateLocalized(visit.visitedAt)
+    val scoreText = formatScoreLocalized(visit.overallRating)
+    val visitA11y = stringResource(R.string.a11y_your_visit, scoreText, dateLabel)
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -169,7 +177,7 @@ fun VisitHistoryRow(
             Modifier
                 .padding(16.dp)
                 .semantics {
-                    contentDescription = "Your visit $scoreText on $dateLabel"
+                    contentDescription = visitA11y
                 },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -1,17 +1,20 @@
 package com.emirrkls.phokarta.ui.presentation
 
+import androidx.annotation.StringRes
+import com.emirrkls.phokarta.R
+
 /**
- * Product terminology for saved places:
- * - Action (before save): "Want to go"
- * - State (after save): "Saved"
- * - Surfaces (shelf / screen / filter): "Want to Go"
- * Bookmark icons are fine; avoid Favorite / Wishlist / Bookmark as labels.
+ * Product terminology for saved places (resource IDs).
+ * - Action (before save): want_to_go_action
+ * - State (after save): want_to_go_saved
+ * - Surfaces (shelf / screen / filter): want_to_go_surface
  */
 object WantToGoCopy {
-    const val ACTION = "Want to go"
-    const val STATE_SAVED = "Saved"
-    const val SURFACE = "Want to Go"
-    const val REMOVE = "Remove from Want to Go"
+    @StringRes val ACTION = R.string.want_to_go_action
+    @StringRes val STATE_SAVED = R.string.want_to_go_saved
+    @StringRes val SURFACE = R.string.want_to_go_surface
+    @StringRes val REMOVE = R.string.want_to_go_remove
 
-    fun saveContentDescription(saved: Boolean): String = if (saved) REMOVE else ACTION
+    @StringRes
+    fun saveContentDescriptionRes(saved: Boolean): Int = if (saved) REMOVE else ACTION
 }

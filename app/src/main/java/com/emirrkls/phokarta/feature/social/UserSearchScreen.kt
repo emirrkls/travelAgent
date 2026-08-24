@@ -24,8 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,10 +40,10 @@ fun UserSearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Find people") },
+                title = { Text(stringResource(R.string.find_people)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -54,7 +56,7 @@ fun UserSearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search by name or username") },
+                placeholder = { Text(stringResource(R.string.search_people_hint)) },
                 singleLine = true,
             )
             when {
@@ -66,16 +68,16 @@ fun UserSearchScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(state.error!!)
+                        Text(stringResource(state.error!!))
                         Button(onClick = viewModel::retry, modifier = Modifier.padding(top = 12.dp)) {
-                            Text("Retry")
+                            Text(stringResource(R.string.action_retry))
                         }
                     }
                 }
                 state.query.isNotBlank() && state.items.isEmpty() && !state.initialLoading -> Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
-                ) { Text("No people found") }
+                ) { Text(stringResource(R.string.no_people_found)) }
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 24.dp),

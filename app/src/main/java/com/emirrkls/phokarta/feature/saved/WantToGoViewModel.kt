@@ -6,7 +6,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.feature.search.SearchSort
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +27,7 @@ data class WantToGoUiState(
     val destinations: List<String> = emptyList(),
     val totalCount: Int = 0,
     val friendCount: Long? = null,
-    val saveErrorMessage: String? = null,
+    val saveErrorMessage: Int? = null,
 )
 
 private data class WantToGoFilterState(
@@ -37,7 +37,7 @@ private data class WantToGoFilterState(
     val highlyRatedOnly: Boolean,
     val friendsVisitedOnly: Boolean,
     val sort: SearchSort,
-    val saveErrorMessage: String?,
+    val saveErrorMessage: Int?,
     val friendCount: Long?,
 )
 
@@ -51,7 +51,7 @@ class WantToGoViewModel @Inject constructor(
     private val highlyRatedOnly = MutableStateFlow(false)
     private val friendsVisitedOnly = MutableStateFlow(false)
     private val sort = MutableStateFlow(SearchSort.RECENTLY_SAVED)
-    private val saveError = MutableStateFlow<String?>(null)
+    private val saveError = MutableStateFlow<Int?>(null)
     private val friendCount = MutableStateFlow<Long?>(null)
 
     init {
@@ -160,7 +160,7 @@ class WantToGoViewModel @Inject constructor(
     fun toggleSaved(placeId: String) {
         viewModelScope.launch {
             when (val result = repository.toggleSaved(placeId)) {
-                is RepositoryResult.Failure -> saveError.value = result.error.toUserMessage()
+                is RepositoryResult.Failure -> saveError.value = result.error.toUserMessageRes()
                 is RepositoryResult.Success -> saveError.value = null
             }
         }

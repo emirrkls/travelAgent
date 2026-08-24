@@ -86,6 +86,9 @@ import com.emirrkls.phokarta.feature.social.SocialListScreen
 import com.emirrkls.phokarta.feature.social.UserSearchScreen
 import com.emirrkls.phokarta.feature.splash.AppStartViewModel
 import com.emirrkls.phokarta.ui.theme.Coral
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.feature.settings.SettingsScreen
 
 private object Route {
     const val Splash = "splash"
@@ -107,14 +110,15 @@ private object Route {
     const val Rating = "rating/{placeId}"
     const val Collection = "collection/{collectionId}"
     const val Success = "success/{placeName}"
+    const val Settings = "settings"
 }
 
-private data class BottomDestination(val route: String, val label: String, val selected: ImageVector, val unselected: ImageVector)
+private data class BottomDestination(val route: String, val labelRes: Int, val selected: ImageVector, val unselected: ImageVector)
 private val bottomDestinations = listOf(
-    BottomDestination(Route.Explore, "Explore", Icons.Filled.Explore, Icons.Outlined.Explore),
-    BottomDestination(Route.Map, "Map", Icons.Filled.Map, Icons.Outlined.Map),
-    BottomDestination(Route.Activity, "Activity", Icons.Filled.Notifications, Icons.Outlined.Notifications),
-    BottomDestination(Route.Profile, "Profile", Icons.Filled.Person, Icons.Outlined.Person),
+    BottomDestination(Route.Explore, R.string.nav_explore, Icons.Filled.Explore, Icons.Outlined.Explore),
+    BottomDestination(Route.Map, R.string.nav_map, Icons.Filled.Map, Icons.Outlined.Map),
+    BottomDestination(Route.Activity, R.string.nav_activity, Icons.Filled.Notifications, Icons.Outlined.Notifications),
+    BottomDestination(Route.Profile, R.string.nav_profile, Icons.Filled.Person, Icons.Outlined.Person),
 )
 
 @Composable
@@ -227,7 +231,11 @@ fun PhokartaApp() {
                         onFollowers = { navController.navigate("social/followers") },
                         onFollowing = { navController.navigate("social/following") },
                         onFriends = { navController.navigate("social/friends") },
+                        onSettings = { navController.navigate(Route.Settings) },
                     )
+                }
+                composable(Route.Settings) {
+                    SettingsScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Route.UserSearch) {
                     UserSearchScreen(
@@ -322,8 +330,8 @@ private fun TravelBottomBar(currentRoute: String?, navController: NavHostControl
         bottomDestinations.take(2).forEach { destination -> BottomItem(destination, currentRoute, navController) }
         NavigationBarItem(
             selected = false, onClick = onAdd,
-            icon = { Box(Modifier.size(50.dp).background(Coral, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, "Add", tint = Color.White, modifier = Modifier.size(28.dp)) } },
-            label = { Text("Add") }, colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+            icon = { Box(Modifier.size(50.dp).background(Coral, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, stringResource(R.string.nav_add), tint = Color.White, modifier = Modifier.size(28.dp)) } },
+            label = { Text(stringResource(R.string.nav_add)) }, colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
         )
         bottomDestinations.drop(2).forEach { destination -> BottomItem(destination, currentRoute, navController) }
     }
@@ -350,8 +358,8 @@ private fun androidx.compose.foundation.layout.RowScope.BottomItem(destination: 
                 restoreState = true
             }
         },
-        icon = { Icon(if (selected) destination.selected else destination.unselected, destination.label) },
-        label = { Text(destination.label) },
+        icon = { Icon(if (selected) destination.selected else destination.unselected, stringResource(destination.labelRes)) },
+        label = { Text(stringResource(destination.labelRes)) },
         colors = NavigationBarItemDefaults.colors(selectedIconColor = Coral, selectedTextColor = Coral, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
     )
 }
@@ -374,16 +382,16 @@ private fun AddActionSheet(
                 .padding(bottom = 20.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Add to your journey", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
-                Icon(Icons.Rounded.Close, "Close", Modifier.clickable(onClick = onDismiss))
+                Text(stringResource(R.string.add_to_your_journey), Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+                Icon(Icons.Rounded.Close, stringResource(R.string.action_close), Modifier.clickable(onClick = onDismiss))
             }
-            Text("Capture a plan or a memory.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.capture_plan_or_memory), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
-            AddAction(Icons.Rounded.AddLocationAlt, "Rate a place", "Record a visit and what stood out", onRate)
-            AddAction(Icons.Rounded.BookmarkAdd, "Add to Want to Go", "Save a place for later", onWantToGo)
-            AddAction(Icons.Outlined.Explore, "Check in", "Mark where you are now") {}
-            AddAction(Icons.AutoMirrored.Rounded.Notes, "Add travel note", "Keep a private memory") {}
-            AddAction(Icons.Rounded.FolderCopy, "Create collection", "Curate places around an idea", onCreateCollection)
+            AddAction(Icons.Rounded.AddLocationAlt, stringResource(R.string.rate_a_place), stringResource(R.string.rate_place_subtitle), onRate)
+            AddAction(Icons.Rounded.BookmarkAdd, stringResource(R.string.add_to_want_to_go), stringResource(R.string.add_want_to_go_subtitle), onWantToGo)
+            AddAction(Icons.Outlined.Explore, stringResource(R.string.check_in), stringResource(R.string.check_in_subtitle)) {}
+            AddAction(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.add_travel_note), stringResource(R.string.add_travel_note_subtitle)) {}
+            AddAction(Icons.Rounded.FolderCopy, stringResource(R.string.create_collection), stringResource(R.string.create_collection_subtitle), onCreateCollection)
         }
     }
 }

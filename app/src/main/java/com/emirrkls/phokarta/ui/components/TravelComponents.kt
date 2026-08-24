@@ -48,12 +48,17 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import kotlin.math.roundToInt
+import com.emirrkls.phokarta.R
 
 private val CardShape = RoundedCornerShape(24.dp)
 private val ImageShape = RoundedCornerShape(20.dp)
@@ -84,7 +89,7 @@ fun RatingBadge(score: Double, emphasized: Boolean = false) {
     val content = if (emphasized) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
     Surface(color = container, contentColor = content, shape = RoundedCornerShape(12.dp)) {
         Text(
-            text = String.format("%.1f", score),
+            text = formatScoreLocalized(score),
             modifier = Modifier.padding(horizontal = if (emphasized) 11.dp else 9.dp, vertical = 6.dp),
             style = if (emphasized) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
@@ -102,7 +107,7 @@ fun ScorePill(label: String, score: Double, primary: Boolean = false, modifier: 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Text(String.format("%.1f", score), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(formatScoreLocalized(score), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
@@ -172,7 +177,7 @@ fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave:
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CategoryIcon(place.category, size = 17.dp, tint = Color.White.copy(alpha = 0.86f))
                     Text(
-                        place.category.label.uppercase(),
+                        stringResource(place.category.labelRes()).uppercase(appLocale()),
                         color = Color.White.copy(alpha = 0.86f),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
@@ -183,7 +188,7 @@ fun FeaturedPlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave:
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     place.friendsScore?.let { RatingBadge(it, emphasized = true) }
-                    Text(if (place.friendsScore != null) "Friends · ${place.city}" else place.city, color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Text(if (place.friendsScore != null) stringResource(R.string.friends_city, place.city) else place.city, color = Color.White, style = MaterialTheme.typography.labelLarge)
                     if (visited) {
                         VisitedBadge()
                     }
@@ -215,14 +220,14 @@ fun PlaceCard(place: Place, saved: Boolean, onClick: () -> Unit, onSave: () -> U
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     CategoryIcon(place.category, size = 15.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${place.category.label} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text("${stringResource(place.category.labelRes())} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     place.friendsScore?.let {
                         RatingBadge(it)
                         Spacer(Modifier.width(8.dp))
-                        Text("Friends", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.friends), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (visited) {
                         VisitedBadge()
@@ -250,7 +255,7 @@ private fun SaveButton(saved: Boolean, onSave: () -> Unit, modifier: Modifier = 
             AnimatedContent(saved, label = "saveIcon") { isSaved ->
                 Icon(
                     if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = WantToGoCopy.saveContentDescription(isSaved),
+                    contentDescription = stringResource(WantToGoCopy.saveContentDescriptionRes(isSaved)),
                     tint = if (inverse) Color.White else MaterialTheme.colorScheme.primary,
                 )
             }
@@ -271,9 +276,9 @@ fun CompactPlaceCard(
 ) {
     val friendSemantics = FriendsScoreCopy.cardSemantics(friendsVisitedCount, friendAverageScore)
     val communitySemantics = if (place.communityScore != null) {
-        "Community rating ${String.format("%.1f", place.communityScore)}"
+        stringResource(R.string.a11y_community_rating, formatScoreLocalized(place.communityScore))
     } else {
-        "Community not rated"
+        stringResource(R.string.community_not_rated)
     }
     Card(
         modifier = modifier
@@ -300,7 +305,7 @@ fun CompactPlaceCard(
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     CategoryIcon(place.category, size = 15.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${place.category.label} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${stringResource(place.category.labelRes())} · ${place.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -314,7 +319,7 @@ fun CompactPlaceCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (friendAverageScore != null) {
                             Text(
-                                "Friends ${String.format("%.1f", friendAverageScore)}",
+                                stringResource(R.string.friends_score_value, formatScoreLocalized(friendAverageScore)),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
@@ -341,7 +346,7 @@ fun CommunityRatingLabel(score: Double?, modifier: Modifier = Modifier) {
         RatingBadge(score)
     } else {
         Text(
-            "Not rated",
+            stringResource(R.string.not_rated),
             modifier = modifier,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -414,5 +419,5 @@ fun CollectionListCard(
 
 @Composable
 fun UserAvatar(url: String, size: Int = 36) {
-    TravelImage(url, "Traveler avatar", Modifier.size(size.dp).clip(CircleShape))
+    TravelImage(url, stringResource(R.string.a11y_traveler_avatar), Modifier.size(size.dp).clip(CircleShape))
 }

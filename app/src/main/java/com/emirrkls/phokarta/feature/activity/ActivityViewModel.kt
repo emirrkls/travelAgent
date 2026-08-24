@@ -7,7 +7,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityScope
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,8 +28,8 @@ data class ScopeFeedUiState(
     val isLoadingInitial: Boolean = false,
     val isLoadingMore: Boolean = false,
     val isRefreshing: Boolean = false,
-    val errorMessage: String? = null,
-    val loadMoreErrorMessage: String? = null,
+    val errorMessage: Int? = null,
+    val loadMoreErrorMessage: Int? = null,
     val hasNext: Boolean = false,
     val expandedReviewIds: Set<String> = emptySet(),
     val friendsEmptyReason: FriendsEmptyReason = FriendsEmptyReason.NONE,
@@ -49,8 +49,8 @@ data class ActivityUiState(
     val isLoadingInitial: Boolean get() = activeFeed.isLoadingInitial
     val isLoadingMore: Boolean get() = activeFeed.isLoadingMore
     val isRefreshing: Boolean get() = activeFeed.isRefreshing
-    val errorMessage: String? get() = activeFeed.errorMessage
-    val loadMoreErrorMessage: String? get() = activeFeed.loadMoreErrorMessage
+    val errorMessage: Int? get() = activeFeed.errorMessage
+    val loadMoreErrorMessage: Int? get() = activeFeed.loadMoreErrorMessage
     val hasNext: Boolean get() = activeFeed.hasNext
     val expandedReviewIds: Set<String> get() = activeFeed.expandedReviewIds
     val friendsEmptyReason: FriendsEmptyReason get() = activeFeed.friendsEmptyReason
@@ -127,7 +127,7 @@ class ActivityViewModel @Inject constructor(
                     }
                 }
                 is RepositoryResult.Failure -> updateFeed(scope) {
-                    it.copy(isLoadingMore = false, loadMoreErrorMessage = result.error.toUserMessage())
+                    it.copy(isLoadingMore = false, loadMoreErrorMessage = result.error.toUserMessageRes())
                 }
             }
         }
@@ -174,8 +174,8 @@ class ActivityViewModel @Inject constructor(
                 is RepositoryResult.Failure -> updateFeed(scope) {
                     it.copy(
                         isRefreshing = false,
-                        errorMessage = if (it.items.isEmpty()) result.error.toUserMessage() else null,
-                        loadMoreErrorMessage = if (it.items.isNotEmpty()) result.error.toUserMessage() else null,
+                        errorMessage = if (it.items.isEmpty()) result.error.toUserMessageRes() else null,
+                        loadMoreErrorMessage = if (it.items.isNotEmpty()) result.error.toUserMessageRes() else null,
                     )
                 }
             }
@@ -210,7 +210,7 @@ class ActivityViewModel @Inject constructor(
                 is RepositoryResult.Failure -> updateFeed(scope) {
                     FeedStatus(
                         isLoadingInitial = false,
-                        errorMessage = result.error.toUserMessage(),
+                        errorMessage = result.error.toUserMessageRes(),
                         hasLoaded = true,
                         expandedReviewIds = it.expandedReviewIds,
                     )
@@ -266,8 +266,8 @@ class ActivityViewModel @Inject constructor(
         val isLoadingInitial: Boolean = false,
         val isLoadingMore: Boolean = false,
         val isRefreshing: Boolean = false,
-        val errorMessage: String? = null,
-        val loadMoreErrorMessage: String? = null,
+        val errorMessage: Int? = null,
+        val loadMoreErrorMessage: Int? = null,
         val expandedReviewIds: Set<String> = emptySet(),
         val friendsEmptyReason: FriendsEmptyReason = FriendsEmptyReason.NONE,
         val hasLoaded: Boolean = false,

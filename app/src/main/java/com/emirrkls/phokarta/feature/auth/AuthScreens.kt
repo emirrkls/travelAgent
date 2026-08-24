@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.ui.theme.Sand
 
 @Composable
@@ -50,14 +52,14 @@ fun LoginScreen(
             .padding(horizontal = 24.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("Phokarta", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text("Sign in to continue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.auth_sign_in_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(28.dp))
         OutlinedTextField(
             value = form.identifier,
             onValueChange = { viewModel.updateLogin(identifier = it) },
-            label = { Text("Email or username") },
+            label = { Text(stringResource(R.string.auth_email_or_username)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -66,7 +68,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = form.password,
             onValueChange = { viewModel.updateLogin(password = it) },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.auth_password)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -79,15 +81,15 @@ fun LoginScreen(
                 IconButton(onClick = viewModel::toggleLoginPasswordVisible) {
                     Icon(
                         if (form.passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = "Toggle password",
+                        contentDescription = stringResource(R.string.a11y_toggle_password),
                     )
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-        form.error?.let {
+        form.error?.let { msg ->
             Spacer(Modifier.height(10.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(msg), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(20.dp))
         Button(
@@ -96,10 +98,10 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             if (form.loading) CircularProgressIndicator(Modifier.size(22.dp))
-            else Text("Sign in")
+            else Text(stringResource(R.string.auth_sign_in))
         }
         TextButton(onClick = onCreateAccount, enabled = !form.loading, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("Create an account")
+            Text(stringResource(R.string.auth_create_account_link))
         }
     }
 }
@@ -118,14 +120,14 @@ fun RegisterScreen(
             .padding(horizontal = 24.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("Create account", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.auth_register), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text("Join Phokarta with email and password", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.auth_register_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(28.dp))
         OutlinedTextField(
             value = form.displayName,
             onValueChange = { viewModel.updateRegister(displayName = it) },
-            label = { Text("Display name") },
+            label = { Text(stringResource(R.string.auth_display_name)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -134,7 +136,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = form.username,
             onValueChange = { viewModel.updateRegister(username = it) },
-            label = { Text("Username") },
+            label = { Text(stringResource(R.string.auth_username)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -143,7 +145,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = form.email,
             onValueChange = { viewModel.updateRegister(email = it) },
-            label = { Text("Email") },
+            label = { Text(stringResource(R.string.auth_email)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -153,7 +155,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = form.password,
             onValueChange = { viewModel.updateRegister(password = it) },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.auth_password)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !form.loading,
@@ -166,15 +168,15 @@ fun RegisterScreen(
                 IconButton(onClick = viewModel::toggleRegisterPasswordVisible) {
                     Icon(
                         if (form.passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = "Toggle password",
+                        contentDescription = stringResource(R.string.a11y_toggle_password),
                     )
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-        form.error?.let {
+        form.error?.let { msg ->
             Spacer(Modifier.height(10.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(msg), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
         Spacer(Modifier.height(20.dp))
         Button(
@@ -183,10 +185,10 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             if (form.loading) CircularProgressIndicator(Modifier.size(22.dp))
-            else Text("Create account")
+            else Text(stringResource(R.string.auth_register))
         }
         TextButton(onClick = onHaveAccount, enabled = !form.loading, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("Already have an account")
+            Text(stringResource(R.string.auth_already_have_account))
         }
     }
 }

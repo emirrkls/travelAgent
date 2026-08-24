@@ -43,7 +43,7 @@ class SocialListViewModelTest {
             repository,
         )
         advanceUntilIdle()
-        assertEquals("Followers", viewModel.uiState.value.title)
+        assertEquals(com.emirrkls.phokarta.R.string.followers, viewModel.uiState.value.title)
         assertEquals(1, viewModel.uiState.value.items.size)
 
         viewModel.toggleFollow(otherId)
@@ -67,7 +67,7 @@ class SocialListViewModelTest {
             repository,
         )
         advanceUntilIdle()
-        assertEquals("Friends", viewModel.uiState.value.title)
+        assertEquals(com.emirrkls.phokarta.R.string.friends, viewModel.uiState.value.title)
         assertEquals(otherId, viewModel.uiState.value.items.single().id)
     }
 }

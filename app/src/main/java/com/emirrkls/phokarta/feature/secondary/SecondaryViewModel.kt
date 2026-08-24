@@ -8,7 +8,7 @@ import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.Visibility
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,13 +22,13 @@ data class SecondaryUiState(
     val collections: List<Collection> = emptyList(),
     val places: List<Place> = emptyList(),
     val savedPlaceIds: Set<String> = emptySet(),
-    val collectionsError: String? = null,
-    val detailError: String? = null,
+    val collectionsError: Int? = null,
+    val detailError: Int? = null,
     val detailNotFound: Boolean = false,
     val isCreatingCollection: Boolean = false,
-    val createCollectionError: String? = null,
+    val createCollectionError: Int? = null,
     val createdCollectionId: String? = null,
-    val membershipError: String? = null,
+    val membershipError: Int? = null,
 )
 
 @HiltViewModel
@@ -41,7 +41,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
             repository.refreshCatalog()
             when (val result = repository.refreshCollections()) {
                 is RepositoryResult.Success -> _uiState.update { it.copy(collectionsError = null) }
-                is RepositoryResult.Failure -> _uiState.update { it.copy(collectionsError = result.error.toUserMessage()) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(collectionsError = result.error.toUserMessageRes()) }
             }
         }
         viewModelScope.launch {
@@ -76,7 +76,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                         result.error is TravelError.Forbidden
                     _uiState.update {
                         it.copy(
-                            detailError = result.error.toUserMessage(),
+                            detailError = result.error.toUserMessageRes(),
                             detailNotFound = inaccessible,
                             collections = if (inaccessible) {
                                 it.collections.filterNot { collection -> collection.id == collectionId }
@@ -122,7 +122,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                 is RepositoryResult.Failure -> _uiState.update {
                     it.copy(
                         isCreatingCollection = false,
-                        createCollectionError = result.error.toUserMessage(),
+                        createCollectionError = result.error.toUserMessageRes(),
                     )
                 }
             }
@@ -145,7 +145,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                     repository.refreshCollectionDetail(collectionId)
                 }
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(membershipError = result.error.toUserMessage())
+                    it.copy(membershipError = result.error.toUserMessageRes())
                 }
             }
         }

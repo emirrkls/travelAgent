@@ -1,8 +1,11 @@
 package com.emirrkls.phokarta.feature.rating
 
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
+import com.emirrkls.phokarta.ui.localization.ScoreBand
+import com.emirrkls.phokarta.ui.localization.labelRes
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,12 +22,17 @@ class VisitDraftLogicTest {
     }
 
     @Test
-    fun scoreLabelsCoverAnchors() {
-        assertEquals("Terrible", VisitDraftLogic.scoreLabel(0f))
-        assertEquals("Okay", VisitDraftLogic.scoreLabel(5f))
-        assertEquals("Good", VisitDraftLogic.scoreLabel(7f))
-        assertEquals("Amazing", VisitDraftLogic.scoreLabel(9f))
-        assertEquals("Exceptional", VisitDraftLogic.scoreLabel(10f))
+    fun scoreBandsCoverAnchors() {
+        assertEquals(ScoreBand.TERRIBLE, VisitDraftLogic.scoreBand(0f))
+        assertEquals(ScoreBand.OKAY, VisitDraftLogic.scoreBand(5f))
+        assertEquals(ScoreBand.GOOD, VisitDraftLogic.scoreBand(7f))
+        assertEquals(ScoreBand.AMAZING, VisitDraftLogic.scoreBand(9f))
+        assertEquals(ScoreBand.EXCEPTIONAL, VisitDraftLogic.scoreBand(10f))
+        assertEquals(R.string.score_terrible, VisitDraftLogic.scoreBand(0f).labelRes())
+        assertEquals(R.string.score_okay, VisitDraftLogic.scoreBand(5f).labelRes())
+        assertEquals(R.string.score_good, VisitDraftLogic.scoreBand(7f).labelRes())
+        assertEquals(R.string.score_amazing, VisitDraftLogic.scoreBand(9f).labelRes())
+        assertEquals(R.string.score_exceptional, VisitDraftLogic.scoreBand(10f).labelRes())
     }
 
     @Test
@@ -34,7 +42,7 @@ class VisitDraftLogicTest {
 
         val future = valid.copy(visitDate = today.plusDays(1))
         assertFalse(VisitDraftLogic.canPublish(future, today))
-        assertEquals("Visit date can't be in the future.", VisitDraftLogic.validateDate(future.visitDate, today))
+        assertEquals(R.string.visit_date_future_error, VisitDraftLogic.validateDateRes(future.visitDate, today))
     }
 
     @Test
@@ -90,46 +98,28 @@ class VisitDraftLogicTest {
     @Test
     fun historicalDateIsAllowed() {
         val draft = VisitDraft(visitDate = today.minusYears(1))
-        assertNull(VisitDraftLogic.validateDate(draft.visitDate, today))
+        assertNull(VisitDraftLogic.validateDateRes(draft.visitDate, today))
         assertTrue(VisitDraftLogic.canPublish(draft, today))
     }
 
     @Test
     fun reviewHelperCopyMatchesVisibilitySemantics() {
-        assertEquals("Shared with the community", VisitVisibilityCopy.reviewHelper(Visibility.PUBLIC))
-        assertEquals("Shared with your friends", VisitVisibilityCopy.reviewHelper(Visibility.FRIENDS))
-        assertEquals("Only visible to you", VisitVisibilityCopy.reviewHelper(Visibility.PRIVATE))
+        assertEquals(R.string.visibility_public_review_helper, VisitVisibilityCopy.reviewHelperRes(Visibility.PUBLIC))
+        assertEquals(R.string.visibility_friends_review_helper, VisitVisibilityCopy.reviewHelperRes(Visibility.FRIENDS))
+        assertEquals(R.string.visibility_private_review_helper, VisitVisibilityCopy.reviewHelperRes(Visibility.PRIVATE))
     }
 
     @Test
     fun impactHintCopyMatchesVisibilitySemantics() {
-        assertEquals(
-            "This can contribute to Community and Friends discovery.",
-            VisitVisibilityCopy.impactHint(Visibility.PUBLIC),
-        )
-        assertEquals(
-            "This won't affect the Community score.",
-            VisitVisibilityCopy.impactHint(Visibility.FRIENDS),
-        )
-        assertEquals(
-            "This won't affect Community or Friends scores.",
-            VisitVisibilityCopy.impactHint(Visibility.PRIVATE),
-        )
+        assertEquals(R.string.visibility_public_impact, VisitVisibilityCopy.impactHintRes(Visibility.PUBLIC))
+        assertEquals(R.string.visibility_friends_impact, VisitVisibilityCopy.impactHintRes(Visibility.FRIENDS))
+        assertEquals(R.string.visibility_private_impact, VisitVisibilityCopy.impactHintRes(Visibility.PRIVATE))
     }
 
     @Test
     fun sheetDescriptionCopyMatchesVisibilitySemantics() {
-        assertEquals(
-            "Visible to the Phokarta community",
-            VisitVisibilityCopy.sheetDescription(Visibility.PUBLIC),
-        )
-        assertEquals(
-            "Visible to your friends",
-            VisitVisibilityCopy.sheetDescription(Visibility.FRIENDS),
-        )
-        assertEquals(
-            "Only you can see this",
-            VisitVisibilityCopy.sheetDescription(Visibility.PRIVATE),
-        )
+        assertEquals(R.string.visibility_public_sheet, VisitVisibilityCopy.sheetDescriptionRes(Visibility.PUBLIC))
+        assertEquals(R.string.visibility_friends_sheet, VisitVisibilityCopy.sheetDescriptionRes(Visibility.FRIENDS))
+        assertEquals(R.string.visibility_private_sheet, VisitVisibilityCopy.sheetDescriptionRes(Visibility.PRIVATE))
     }
 }

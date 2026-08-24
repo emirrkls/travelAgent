@@ -1,14 +1,16 @@
 package com.emirrkls.phokarta.feature.social
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.RelationshipState
 import com.emirrkls.phokarta.core.model.SocialListKind
 import com.emirrkls.phokarta.core.model.UserSummary
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +20,12 @@ import kotlinx.coroutines.launch
 
 data class SocialListUiState(
     val kind: SocialListKind,
-    val title: String,
+    @StringRes val title: Int,
     val items: List<UserSummary> = emptyList(),
     val isLoading: Boolean = true,
     val loadingMore: Boolean = false,
     val mutatingUserIds: Set<String> = emptySet(),
-    val error: String? = null,
+    @StringRes val error: Int? = null,
     val hasNext: Boolean = false,
     val page: Int = 0,
 )
@@ -49,7 +51,7 @@ class SocialListViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             when (val result = loadPage(0)) {
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(isLoading = false, error = result.error.toUserMessage())
+                    it.copy(isLoading = false, error = result.error.toUserMessageRes())
                 }
                 is RepositoryResult.Success -> _uiState.update {
                     it.copy(
@@ -72,7 +74,7 @@ class SocialListViewModel @Inject constructor(
             _uiState.update { it.copy(loadingMore = true, error = null) }
             when (val result = loadPage(state.page + 1)) {
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(loadingMore = false, error = result.error.toUserMessage())
+                    it.copy(loadingMore = false, error = result.error.toUserMessageRes())
                 }
                 is RepositoryResult.Success -> _uiState.update {
                     it.copy(
@@ -122,7 +124,7 @@ class SocialListViewModel @Inject constructor(
                             val i = list.indexOfFirst { row -> row.id == userId }
                             if (i >= 0) list[i] = current
                         },
-                        error = result.error.toUserMessage(),
+                        error = result.error.toUserMessageRes(),
                     )
                 }
                 is RepositoryResult.Success -> _uiState.update {
@@ -138,9 +140,10 @@ class SocialListViewModel @Inject constructor(
         SocialListKind.FRIENDS -> repository.loadFriends(page)
     }
 
-    private fun titleFor(kind: SocialListKind): String = when (kind) {
-        SocialListKind.FOLLOWERS -> "Followers"
-        SocialListKind.FOLLOWING -> "Following"
-        SocialListKind.FRIENDS -> "Friends"
+    @StringRes
+    private fun titleFor(kind: SocialListKind): Int = when (kind) {
+        SocialListKind.FOLLOWERS -> R.string.followers
+        SocialListKind.FOLLOWING -> R.string.following
+        SocialListKind.FRIENDS -> R.string.friends
     }
 }

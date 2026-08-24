@@ -101,7 +101,7 @@ object SearchLogic {
         place.name.contains(needle, ignoreCase = true) ||
             place.city.contains(needle, ignoreCase = true) ||
             place.region.contains(needle, ignoreCase = true) ||
-            place.category.label.contains(needle, ignoreCase = true)
+            place.category.searchToken.contains(needle, ignoreCase = true)
 
     fun emptyReason(
         results: List<Place>,

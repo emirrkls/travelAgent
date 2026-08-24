@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.UserSummary
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
@@ -22,7 +22,7 @@ data class UserSearchUiState(
     val items: List<UserSummary> = emptyList(),
     val initialLoading: Boolean = false,
     val loadingMore: Boolean = false,
-    val error: String? = null,
+    val error: Int? = null,
     val hasNext: Boolean = false,
     val page: Int = 0,
 )
@@ -62,7 +62,7 @@ class UserSearchViewModel @Inject constructor(
             _uiState.update { it.copy(loadingMore = true, error = null) }
             when (val result = repository.searchUsers(state.query.trim(), state.page + 1)) {
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(loadingMore = false, error = result.error.toUserMessage())
+                    it.copy(loadingMore = false, error = result.error.toUserMessageRes())
                 }
                 is RepositoryResult.Success -> _uiState.update {
                     it.copy(
@@ -96,7 +96,7 @@ class UserSearchViewModel @Inject constructor(
         }
         when (val result = repository.searchUsers(text, 0)) {
             is RepositoryResult.Failure -> _uiState.update {
-                it.copy(initialLoading = false, error = result.error.toUserMessage(), items = emptyList())
+                it.copy(initialLoading = false, error = result.error.toUserMessageRes(), items = emptyList())
             }
             is RepositoryResult.Success -> _uiState.update {
                 it.copy(

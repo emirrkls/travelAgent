@@ -23,8 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,10 +39,10 @@ fun SocialListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.title) },
+                title = { Text(stringResource(state.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -56,16 +58,16 @@ fun SocialListScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.error!!)
+                    Text(stringResource(state.error!!))
                     Button(onClick = viewModel::refresh, modifier = Modifier.padding(top = 12.dp)) {
-                        Text("Retry")
+                        Text(stringResource(R.string.action_retry))
                     }
                 }
             }
             state.items.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
-            ) { Text("No one here yet") }
+            ) { Text(stringResource(R.string.no_one_here_yet)) }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(bottom = 24.dp),

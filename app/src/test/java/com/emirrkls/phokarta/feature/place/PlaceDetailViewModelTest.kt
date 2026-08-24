@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -142,7 +143,7 @@ class PlaceDetailViewModelTest {
     }
 
     @Test
-    fun `share text omits private memory`() = runTest(dispatcher) {
+    fun `share text stays empty until prepared with resources`() = runTest(dispatcher) {
         val placeId = seedPlaceId()
         val repository = CollectionAwareRepository().apply {
             visits.value = listOf(
@@ -151,11 +152,8 @@ class PlaceDetailViewModelTest {
         }
         val viewModel = createViewModel(placeId, repository)
         advanceUntilIdle()
-        viewModel.prepareShare()
-        advanceUntilIdle()
-        val text = viewModel.uiState.value.shareText.orEmpty()
-        assertTrue(text.contains("on Phokarta"))
-        assertFalse(text.contains("SECRET"))
+        assertNull(viewModel.uiState.value.shareText)
+        assertTrue(repository.visits.value.any { it.personalNote == "SECRET" })
     }
 
     private fun seedPlaceId(): String =

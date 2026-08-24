@@ -1,35 +1,42 @@
 package com.emirrkls.phokarta.core.model
 
 import java.time.LocalDate
+import java.util.Locale
 
-enum class RatingDimension(val apiKey: String, val label: String) {
-    SEA("SEA", "Sea"),
-    ATMOSPHERE("ATMOSPHERE", "Atmosphere"),
-    SERVICE("SERVICE", "Service"),
-    CLEANLINESS("CLEANLINESS", "Cleanliness"),
-    VALUE("VALUE", "Value"),
-    CROWD("CROWD", "Crowd"),
-    FOOD("FOOD", "Food"),
-    PRESENTATION("PRESENTATION", "Presentation"),
-    LOCATION("LOCATION", "Location"),
-    ROOM("ROOM", "Room"),
-    BREAKFAST("BREAKFAST", "Breakfast"),
-    DRINKS("DRINKS", "Drinks"),
-    MUSIC("MUSIC", "Music"),
-    EXPERIENCE("EXPERIENCE", "Experience"),
-    ACCESS("ACCESS", "Access"),
-    SAFETY("SAFETY", "Safety"),
-    GUIDE("GUIDE", "Guide"),
-    SCENERY("SCENERY", "Scenery"),
-    TRANQUILITY("TRANQUILITY", "Tranquility");
+enum class RatingDimension(val apiKey: String) {
+    SEA("SEA"),
+    ATMOSPHERE("ATMOSPHERE"),
+    SERVICE("SERVICE"),
+    CLEANLINESS("CLEANLINESS"),
+    VALUE("VALUE"),
+    CROWD("CROWD"),
+    FOOD("FOOD"),
+    PRESENTATION("PRESENTATION"),
+    LOCATION("LOCATION"),
+    ROOM("ROOM"),
+    BREAKFAST("BREAKFAST"),
+    DRINKS("DRINKS"),
+    MUSIC("MUSIC"),
+    EXPERIENCE("EXPERIENCE"),
+    ACCESS("ACCESS"),
+    SAFETY("SAFETY"),
+    GUIDE("GUIDE"),
+    SCENERY("SCENERY"),
+    TRANQUILITY("TRANQUILITY");
 
     companion object {
-        fun fromStoredKey(key: String): RatingDimension? =
-            entries.firstOrNull { it.apiKey == key.uppercase() || it.label.equals(key, ignoreCase = true) }
+        fun fromStoredKey(key: String): RatingDimension? {
+            val normalized = key.uppercase(Locale.ROOT)
+            return entries.firstOrNull { it.apiKey == normalized }
+        }
     }
 }
 
-enum class PlaceCategory(val label: String) {
+/**
+ * @param searchToken stable English token for local search matching only — not UI copy.
+ * UI labels come from string resources via [com.emirrkls.phokarta.ui.localization.labelRes].
+ */
+enum class PlaceCategory(val searchToken: String) {
     BEACH("Beach"),
     RESTAURANT("Food"),
     CAFE("Cafe"),

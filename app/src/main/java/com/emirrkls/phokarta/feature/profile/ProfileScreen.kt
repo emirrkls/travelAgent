@@ -48,6 +48,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.emirrkls.phokarta.core.model.RepeatVisitCopy
+import com.emirrkls.phokarta.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -59,6 +63,10 @@ import com.emirrkls.phokarta.ui.components.SectionHeader
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.theme.Coral
+import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
+import androidx.compose.material.icons.rounded.Settings
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
 
 @Composable
 fun ProfileScreen(
@@ -69,6 +77,7 @@ fun ProfileScreen(
     onFollowers: () -> Unit = {},
     onFollowing: () -> Unit = {},
     onFriends: () -> Unit = {},
+    onSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -81,9 +90,9 @@ fun ProfileScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onUserSearch) { Icon(Icons.Rounded.PersonSearch, "Find people") }
-                IconButton(onClick = {}) { Icon(Icons.Rounded.IosShare, "Share profile") }
-                IconButton(onClick = viewModel::logout) { Icon(Icons.Rounded.MoreHoriz, "Sign out") }
+                IconButton(onClick = onUserSearch) { Icon(Icons.Rounded.PersonSearch, stringResource(R.string.find_people)) }
+                IconButton(onClick = {}) { Icon(Icons.Rounded.IosShare, stringResource(R.string.share_profile)) }
+                IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, stringResource(R.string.settings)) }
             }
             val identityContainer = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.secondaryContainer
             Surface(
@@ -96,7 +105,7 @@ fun ProfileScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TravelImage(state.user.avatarUrl, state.user.displayName, Modifier.size(82.dp).clip(CircleShape))
                         Column(Modifier.weight(1f).padding(start = 15.dp)) {
-                            Text("TRAVEL IDENTITY", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.travel_identity), color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text(state.user.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text("@${state.user.username}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
@@ -104,27 +113,27 @@ fun ProfileScreen(
                     }
                     Text(state.user.bio, Modifier.fillMaxWidth().padding(vertical = 12.dp), style = MaterialTheme.typography.bodyMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        ProfileStat(state.user.countryCount.toString(), "Countries", true)
-                        ProfileStat(state.user.cityCount.toString(), "Cities", true)
-                        ProfileStat(state.visitedPlaces.size.toString(), "Places", true)
+                        ProfileStat(state.user.countryCount.toString(), stringResource(R.string.countries), true)
+                        ProfileStat(state.user.cityCount.toString(), stringResource(R.string.cities), true)
+                        ProfileStat(state.visitedPlaces.size.toString(), stringResource(R.string.places), true)
                     }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                ProfileStat(compactCount(state.followerCount), "Followers", onClick = onFollowers)
+                ProfileStat(compactCount(state.followerCount), stringResource(R.string.followers), onClick = onFollowers)
                 Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                ProfileStat(state.followingCount.toString(), "Following", onClick = onFollowing)
+                ProfileStat(state.followingCount.toString(), stringResource(R.string.following), onClick = onFollowing)
                 Box(Modifier.size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                ProfileStat(state.friendCount.toString(), "Friends", onClick = onFriends)
+                ProfileStat(state.friendCount.toString(), stringResource(R.string.friends), onClick = onFriends)
             }
             Spacer(Modifier.height(26.dp))
-            Text("Travel taste", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.travel_taste), Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge)
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.user.travelTaste) { taste -> Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape) { Text(taste, Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelLarge) } }
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(4.dp)) {
-                listOf(Icons.Rounded.GridView to "Places", Icons.Rounded.FolderCopy to "Lists", Icons.Rounded.Map to "Map", Icons.Rounded.FlightTakeoff to "Trips").forEachIndexed { index, item ->
+                listOf(Icons.Rounded.GridView to stringResource(R.string.places), Icons.Rounded.FolderCopy to stringResource(R.string.lists), Icons.Rounded.Map to stringResource(R.string.map_tab), Icons.Rounded.FlightTakeoff to stringResource(R.string.trips)).forEachIndexed { index, item ->
                     Surface(Modifier.weight(1f).clickable { tab = index }, color = if (tab == index) MaterialTheme.colorScheme.surface else Color.Transparent, shape = RoundedCornerShape(13.dp)) {
                         Column(Modifier.padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(item.first, null, Modifier.size(18.dp), tint = if (tab == index) Coral else MaterialTheme.colorScheme.onSurfaceVariant); Text(item.second, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
                     }
@@ -143,8 +152,8 @@ fun ProfileScreen(
                             .padding(4.dp),
                     ) {
                         listOf(
-                            ProfilePlacesSegment.VISITS to "Visits",
-                            ProfilePlacesSegment.SAVED to "Saved",
+                            ProfilePlacesSegment.VISITS to stringResource(R.string.visits),
+                            ProfilePlacesSegment.SAVED to stringResource(R.string.saved),
                         ).forEach { (segment, label) ->
                             val selected = state.placesSegment == segment
                             Surface(
@@ -170,7 +179,7 @@ fun ProfileScreen(
                 state.saveErrorMessage?.let { message ->
                     item {
                         Text(
-                            message,
+                            stringResource(message),
                             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -184,17 +193,17 @@ fun ProfileScreen(
                                 .padding(horizontal = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            ProfileSummaryChip("${state.visitSummary.totalVisits} visits")
-                            ProfileSummaryChip("${state.visitSummary.placesVisited} places")
+                            ProfileSummaryChip(pluralStringResource(R.plurals.visits_count, state.visitSummary.totalVisits, state.visitSummary.totalVisits))
+                            ProfileSummaryChip(pluralStringResource(R.plurals.places_count, state.visitSummary.placesVisited, state.visitSummary.placesVisited))
                             state.visitSummary.averageGivenScore?.let {
-                                ProfileSummaryChip(String.format("Avg %.1f", it))
+                                ProfileSummaryChip(stringResource(R.string.avg_score, formatScoreLocalized(it)))
                             }
                         }
                         Spacer(Modifier.height(12.dp))
                     }
                     item {
                         Box(Modifier.padding(horizontal = 16.dp)) {
-                            SectionHeader("Your visits", "${state.visitSummary.totalVisits} total")
+                            SectionHeader(stringResource(R.string.your_visits), stringResource(R.string.total_visits_label, state.visitSummary.totalVisits))
                         }
                     }
                     items(state.visitedPlaces, key = { it.visit.id }) { visited ->
@@ -216,16 +225,26 @@ fun ProfileScreen(
                             ) {
                                 Column {
                                     Text(
-                                        visited.visit.visitedAt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")),
+                                        formatMediumDateLocalized(visited.visit.visitedAt),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
-                                    VisitStateLogic.repeatVisitLabel(state.placeVisitCounts[visited.place.id] ?: 1)?.let { label ->
-                                        Text(label, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                                    when (val copy = VisitStateLogic.repeatVisitCopy(state.placeVisitCounts[visited.place.id] ?: 1)) {
+                                        is RepeatVisitCopy.Twice -> Text(
+                                            stringResource(R.string.visited_twice),
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                        is RepeatVisitCopy.Times -> Text(
+                                            pluralStringResource(R.plurals.visited_times, copy.count, copy.count),
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                        null -> Unit
                                     }
                                 }
                                 Text(
-                                    String.format("%.1f", visited.visit.overallRating),
+                                    formatScoreLocalized(visited.visit.overallRating),
                                     color = Coral,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.bodyMedium,
@@ -236,13 +255,13 @@ fun ProfileScreen(
                 } else {
                     item {
                         Box(Modifier.padding(horizontal = 16.dp)) {
-                            SectionHeader("Want to Go", "See all", onWantToGo)
+                            SectionHeader(stringResource(WantToGoCopy.SURFACE), stringResource(R.string.action_see_all), onWantToGo)
                         }
                     }
                     if (state.savedPlaces.isEmpty()) {
                         item {
                             Text(
-                                "Nothing saved yet",
+                                stringResource(R.string.nothing_saved_yet),
                                 Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -268,7 +287,7 @@ fun ProfileScreen(
             }
             2 -> item {
                 Box(Modifier.padding(16.dp).fillMaxWidth().height(280.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Map, null, Modifier.size(58.dp), tint = MaterialTheme.colorScheme.secondary); Text("${state.user.cityCount} cities explored", style = MaterialTheme.typography.titleLarge); Text("Your travel map will grow with every visit", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Map, null, Modifier.size(58.dp), tint = MaterialTheme.colorScheme.secondary); Text(pluralStringResource(R.plurals.cities_explored, state.user.cityCount, state.user.cityCount), style = MaterialTheme.typography.titleLarge); Text(stringResource(R.string.travel_map_grows), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
             else -> item {
@@ -276,9 +295,9 @@ fun ProfileScreen(
                     Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.FlightTakeoff, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(12.dp))
-                        Text("Trips, coming into focus", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.trips_coming_into_focus), style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(6.dp))
-                        Text("Your saved places and visits will become trip stories here.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.trips_placeholder_body), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

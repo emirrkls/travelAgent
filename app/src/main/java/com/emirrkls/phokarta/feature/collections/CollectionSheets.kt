@@ -34,20 +34,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Visibility
+import com.emirrkls.phokarta.ui.localization.labelRes
 import com.emirrkls.phokarta.ui.theme.Coral
-
-fun visibilityLabel(visibility: Visibility): String = when (visibility) {
-    Visibility.PRIVATE -> "Private"
-    Visibility.FRIENDS -> "Friends"
-    Visibility.PUBLIC -> "Public"
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,13 +54,14 @@ fun CreateCollectionSheet(
     onDismiss: () -> Unit,
     onSubmit: (title: String, description: String, visibility: Visibility) -> Unit,
     isSubmitting: Boolean = false,
-    errorMessage: String? = null,
+    errorMessage: Int? = null,
     coverImage: String? = null,
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var visibility by remember { mutableStateOf(Visibility.PRIVATE) }
     val titleValid = title.trim().length in 1..120
+    val collectionTitleA11y = stringResource(R.string.a11y_collection_title)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -77,9 +76,9 @@ fun CreateCollectionSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
-            Text("New collection", style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.new_collection), style = MaterialTheme.typography.headlineMedium)
             Text(
-                "A shortlist with a point of view.",
+                stringResource(R.string.collection_shortlist_pov),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -89,9 +88,9 @@ fun CreateCollectionSheet(
                 onValueChange = { if (it.length <= 120) title = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Collection title" },
-                label = { Text("Title") },
-                placeholder = { Text("Bodrum Summer") },
+                    .semantics { contentDescription = collectionTitleA11y },
+                label = { Text(stringResource(R.string.collection_title)) },
+                placeholder = { Text(stringResource(R.string.collection_title_hint)) },
                 singleLine = true,
                 enabled = !isSubmitting,
                 shape = RoundedCornerShape(18.dp),
@@ -101,14 +100,14 @@ fun CreateCollectionSheet(
                 value = description,
                 onValueChange = { if (it.length <= 1000) description = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Description (optional)") },
-                placeholder = { Text("What ties these places together?") },
+                label = { Text(stringResource(R.string.collection_description_optional)) },
+                placeholder = { Text(stringResource(R.string.collection_description_placeholder)) },
                 minLines = 2,
                 enabled = !isSubmitting,
                 shape = RoundedCornerShape(18.dp),
             )
             Spacer(Modifier.height(16.dp))
-            Text("Visibility", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.visibility), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Visibility.entries.forEach { option ->
@@ -116,21 +115,21 @@ fun CreateCollectionSheet(
                         selected = visibility == option,
                         onClick = { visibility = option },
                         enabled = !isSubmitting,
-                        label = { Text(visibilityLabel(option)) },
+                        label = { Text(stringResource(option.labelRes())) },
                     )
                 }
             }
             if (visibility == Visibility.FRIENDS) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Friends visibility is ready for when your circle is connected.",
+                    stringResource(R.string.friends_visibility_ready),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            errorMessage?.let {
+            errorMessage?.let { msg ->
                 Spacer(Modifier.height(12.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(msg), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(20.dp))
             Button(
@@ -146,7 +145,7 @@ fun CreateCollectionSheet(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text("Create collection")
+                    Text(stringResource(R.string.create_collection))
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -155,7 +154,7 @@ fun CreateCollectionSheet(
                 enabled = !isSubmitting,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     }
@@ -167,7 +166,7 @@ fun CollectionPickerSheet(
     collections: List<Collection>,
     placeId: String,
     membershipBusyIds: Set<String> = emptySet(),
-    errorMessage: String? = null,
+    errorMessage: Int? = null,
     onDismiss: () -> Unit,
     onToggle: (collectionId: String) -> Unit,
     onCreateNew: () -> Unit,
@@ -185,9 +184,9 @@ fun CollectionPickerSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
-            Text("Add to list", style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.add_to_list), style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Choose shortlists for this place.",
+                stringResource(R.string.choose_shortlists_for_place),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -195,6 +194,12 @@ fun CollectionPickerSheet(
             collections.forEach { collection ->
                 val selected = placeId in collection.placeIds
                 val busy = collection.id in membershipBusyIds
+                val placesLabel = pluralStringResource(
+                    R.plurals.places_count,
+                    collection.placeIds.size,
+                    collection.placeIds.size,
+                )
+                val visibilityLabel = stringResource(collection.visibility.labelRes())
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -211,34 +216,38 @@ fun CollectionPickerSheet(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "${collection.placeIds.size} ${if (collection.placeIds.size == 1) "place" else "places"} · ${visibilityLabel(collection.visibility)}",
+                            stringResource(R.string.places_count_with_visibility, placesLabel, visibilityLabel),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     when {
                         busy -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Coral)
-                        selected -> Icon(Icons.Rounded.Check, "In ${collection.title}", tint = Coral)
+                        selected -> Icon(
+                            Icons.Rounded.Check,
+                            stringResource(R.string.a11y_in_collection, collection.title),
+                            tint = Coral,
+                        )
                     }
                 }
             }
             if (collections.isEmpty()) {
                 Text(
-                    "No shortlists yet. Create one to start.",
+                    stringResource(R.string.no_shortlists_yet),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
             }
-            errorMessage?.let {
+            errorMessage?.let { msg ->
                 Spacer(Modifier.height(8.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(msg), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onCreateNew) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
                 Spacer(Modifier.size(6.dp))
-                Text("Create new collection")
+                Text(stringResource(R.string.create_new_collection))
             }
         }
     }

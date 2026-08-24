@@ -6,7 +6,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
@@ -26,8 +26,8 @@ data class SearchUiState(
     val savedPlaceIds: Set<String> = emptySet(),
     val visitedPlaceIds: Set<String> = emptySet(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val saveErrorMessage: String? = null,
+    val errorMessage: Int? = null,
+    val saveErrorMessage: Int? = null,
     val page: Int = 0,
     val totalPages: Int = 0,
     val totalElements: Long = 0,
@@ -132,7 +132,7 @@ class SearchViewModel @Inject constructor(private val repository: TravelReposito
         viewModelScope.launch {
             when (val result = repository.toggleSaved(placeId)) {
                 is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(saveErrorMessage = result.error.toUserMessage())
+                    it.copy(saveErrorMessage = result.error.toUserMessageRes())
                 }
                 is RepositoryResult.Success -> _uiState.update { it.copy(saveErrorMessage = null) }
             }
@@ -225,7 +225,7 @@ class SearchViewModel @Inject constructor(private val repository: TravelReposito
                         totalPages = _uiState.value.totalPages,
                         totalElements = _uiState.value.totalElements,
                         hasNext = _uiState.value.hasNext,
-                        errorMessage = result.error.toUserMessage(),
+                        errorMessage = result.error.toUserMessageRes(),
                         filters = snapshot.filters,
                         savedCount = snapshot.savedOrder.size,
                         visitedCount = snapshot.visitedIds.size,
@@ -254,7 +254,7 @@ class SearchViewModel @Inject constructor(private val repository: TravelReposito
         totalPages: Int,
         totalElements: Long,
         hasNext: Boolean,
-        errorMessage: String?,
+        errorMessage: Int?,
         filters: SearchFilters,
         savedCount: Int,
         visitedCount: Int,

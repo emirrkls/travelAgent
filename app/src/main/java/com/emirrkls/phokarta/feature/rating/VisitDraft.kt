@@ -1,8 +1,16 @@
 package com.emirrkls.phokarta.feature.rating
 
+import androidx.annotation.StringRes
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.ui.localization.ScoreBand
+import com.emirrkls.phokarta.ui.localization.impactHintRes
+import com.emirrkls.phokarta.ui.localization.labelRes
+import com.emirrkls.phokarta.ui.localization.reviewHelperRes
+import com.emirrkls.phokarta.ui.localization.scoreBandFor
+import com.emirrkls.phokarta.ui.localization.sheetDescriptionRes
 import java.time.LocalDate
 import java.util.UUID
 import kotlin.math.roundToInt
@@ -18,8 +26,7 @@ data class VisitDraft(
 )
 
 /**
- * User-facing copy for visit visibility.
- *
+ * User-facing copy for visit visibility — resource IDs only.
  * PUBLIC — community + mutual friends. FRIENDS — mutual friends only.
  * PRIVATE — owner only. Backend is authoritative for audience.
  */
@@ -30,49 +37,21 @@ object VisitVisibilityCopy {
         Visibility.PRIVATE,
     )
 
-    fun label(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "Public"
-        Visibility.FRIENDS -> "Friends"
-        Visibility.PRIVATE -> "Private"
-    }
-
-    fun sheetDescription(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "Visible to the Phokarta community"
-        Visibility.FRIENDS -> "Visible to your friends"
-        Visibility.PRIVATE -> "Only you can see this"
-    }
-
-    fun reviewHelper(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "Shared with the community"
-        Visibility.FRIENDS -> "Shared with your friends"
-        Visibility.PRIVATE -> "Only visible to you"
-    }
-
-    fun impactHint(visibility: Visibility): String = when (visibility) {
-        Visibility.PUBLIC -> "This can contribute to Community and Friends discovery."
-        Visibility.FRIENDS -> "This won't affect the Community score."
-        Visibility.PRIVATE -> "This won't affect Community or Friends scores."
-    }
-
-    fun contentDescription(visibility: Visibility): String =
-        "Visibility, ${label(visibility)}"
+    @StringRes fun labelRes(visibility: Visibility): Int = visibility.labelRes()
+    @StringRes fun sheetDescriptionRes(visibility: Visibility): Int = visibility.sheetDescriptionRes()
+    @StringRes fun reviewHelperRes(visibility: Visibility): Int = visibility.reviewHelperRes()
+    @StringRes fun impactHintRes(visibility: Visibility): Int = visibility.impactHintRes()
 }
 
 object VisitDraftLogic {
-    fun scoreLabel(score: Float): String = when {
-        score >= 9.5f -> "Exceptional"
-        score >= 9f -> "Amazing"
-        score >= 7f -> "Good"
-        score >= 5f -> "Okay"
-        score >= 2f -> "Disappointing"
-        else -> "Terrible"
-    }
+    fun scoreBand(score: Float): ScoreBand = scoreBandFor(score)
 
-    fun validateDate(date: LocalDate, today: LocalDate = LocalDate.now()): String? =
-        if (date.isAfter(today)) "Visit date can't be in the future." else null
+    @StringRes
+    fun validateDateRes(date: LocalDate, today: LocalDate = LocalDate.now()): Int? =
+        if (date.isAfter(today)) R.string.visit_date_future_error else null
 
     fun canPublish(draft: VisitDraft, today: LocalDate = LocalDate.now()): Boolean =
-        validateDate(draft.visitDate, today) == null &&
+        validateDateRes(draft.visitDate, today) == null &&
             draft.overallScore in 0f..10f
 
     fun toVisit(

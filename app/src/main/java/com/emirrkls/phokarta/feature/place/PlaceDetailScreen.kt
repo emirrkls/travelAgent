@@ -63,6 +63,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
@@ -86,6 +90,8 @@ import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.theme.Coral
+import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 
 @Composable
 fun PlaceDetailScreen(
@@ -110,11 +116,11 @@ fun PlaceDetailScreen(
     val visitCount = state.visits.size
     val latestVisit = state.visits.firstOrNull()
     val inAnyList = state.collections.any { place?.id in it.placeIds }
-    val rateLabel = if (hasVisited) "Rate another visit" else "Been here"
+    val rateLabel = if (hasVisited) stringResource(R.string.rate_another_visit) else stringResource(R.string.place_been_here)
 
     LaunchedEffect(visitPublished) {
         if (visitPublished) {
-            snackbarHostState.showSnackbar("Visit added")
+            snackbarHostState.showSnackbar(context.getString(R.string.place_visit_added))
             viewModel.refreshCommunityReviews()
             onVisitPublishedConsumed()
         }
@@ -136,12 +142,12 @@ fun PlaceDetailScreen(
                 CircularProgressIndicator()
             } else {
                 Text(
-                    if (state.isNotFound) "Place not found" else state.errorMessage.orEmpty(),
+                    if (state.isNotFound) stringResource(R.string.place_not_found) else state.errorMessage?.let { stringResource(it) }.orEmpty(),
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = viewModel::retry) { Text("Retry") }
-                Button(onClick = onBack) { Text("Back") }
+                Button(onClick = viewModel::retry) { Text(stringResource(R.string.action_retry)) }
+                Button(onClick = onBack) { Text(stringResource(R.string.action_back)) }
             }
         }
         return
@@ -190,7 +196,7 @@ fun PlaceDetailScreen(
                         .padding(16.dp)
                         .background(Color.White.copy(.92f), CircleShape),
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.Black)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), tint = Color.Black)
                 }
                 IconButton(
                     onClick = {
@@ -205,7 +211,7 @@ fun PlaceDetailScreen(
                     AnimatedContent(state.isSaved, label = "heroBookmark") { saved ->
                         Icon(
                             if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            if (saved) "Saved" else "Want to go",
+                            if (saved) stringResource(WantToGoCopy.STATE_SAVED) else stringResource(WantToGoCopy.ACTION),
                             tint = if (saved) Coral else Color.Black,
                         )
                     }
@@ -224,7 +230,7 @@ fun PlaceDetailScreen(
                         ) {
                             CategoryIcon(place.category, size = 16.dp, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             Text(
-                                place.category.label.uppercase(),
+                                stringResource(place.category.labelRes()).uppercase(appLocale()),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 style = MaterialTheme.typography.labelMedium,
                             )
@@ -240,12 +246,12 @@ fun PlaceDetailScreen(
                 Text(place.name, style = MaterialTheme.typography.headlineLarge)
                 Text(place.address, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 state.errorMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 state.saveErrorMessage?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(it, Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = viewModel::toggleSaved) { Text("Retry") }
+                        Text(stringResource(it), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = viewModel::toggleSaved) { Text(stringResource(R.string.action_retry)) }
                     }
                 }
                 Spacer(Modifier.height(22.dp))
@@ -254,20 +260,20 @@ fun PlaceDetailScreen(
                         Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    "MATCH FOR YOUR TASTE",
+                                    stringResource(R.string.match_for_your_taste),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                                 Spacer(Modifier.height(3.dp))
                                 Text(
-                                    "Highly recommended for you",
+                                    stringResource(R.string.highly_recommended_for_you),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                             }
                             Text(
-                                String.format("%.1f", personalizedScore),
+                                formatScoreLocalized(personalizedScore),
                                 style = MaterialTheme.typography.headlineLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -297,60 +303,60 @@ fun PlaceDetailScreen(
                 }
                 state.friendSummary.errorMessage?.let { friendError ->
                     Spacer(Modifier.height(8.dp))
-                    Text(friendError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = viewModel::retryFriendSummary) { Text("Retry friends score") }
+                    Text(stringResource(friendError), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = viewModel::retryFriendSummary) { Text(stringResource(R.string.retry_friends_score)) }
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     DetailAction(
                         icon = Icons.Rounded.AddLocationAlt,
-                        label = "Been here",
+                        label = stringResource(R.string.place_been_here),
                         onClick = onRate,
                         modifier = Modifier.weight(1f),
                         selected = hasVisited,
                         contentDescription = if (hasVisited) {
-                            "Been here. Rate another visit"
+                            stringResource(R.string.been_here_rate_another)
                         } else {
-                            "Been here. Rate this place"
+                            stringResource(R.string.been_here_rate_place)
                         },
                     )
                     DetailAction(
                         icon = if (state.isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        label = if (state.isSaved) "Saved" else "Want to go",
+                        label = if (state.isSaved) stringResource(WantToGoCopy.STATE_SAVED) else stringResource(WantToGoCopy.ACTION),
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             viewModel.toggleSaved()
                         },
                         modifier = Modifier.weight(1f),
                         selected = state.isSaved,
-                        contentDescription = if (state.isSaved) "Saved" else "Want to go",
+                        contentDescription = if (state.isSaved) stringResource(WantToGoCopy.STATE_SAVED) else stringResource(WantToGoCopy.ACTION),
                         animateIcon = true,
                         iconTarget = state.isSaved,
                     )
                     DetailAction(
                         icon = Icons.Rounded.FolderCopy,
-                        label = "Add to list",
+                        label = stringResource(R.string.add_to_list),
                         onClick = { showPicker = true },
                         modifier = Modifier.weight(1f),
                         selected = inAnyList,
-                        contentDescription = "Add to list",
+                        contentDescription = stringResource(R.string.add_to_list),
                     )
                     DetailAction(
                         icon = Icons.Rounded.IosShare,
-                        label = "Share",
-                        onClick = viewModel::prepareShare,
+                        label = stringResource(R.string.action_share),
+                        onClick = { viewModel.prepareShare(context.resources) },
                         modifier = Modifier.weight(1f),
-                        contentDescription = "Share place",
+                        contentDescription = stringResource(R.string.a11y_share_place),
                     )
                 }
                 state.membershipErrorMessage?.let {
                     Spacer(Modifier.height(10.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 if (state.visits.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Your visits", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.your_visits), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                         Text(
                             if (visitCount == 1) "1 visit" else "$visitCount visits",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -361,22 +367,22 @@ fun PlaceDetailScreen(
                     state.visits.forEach { visit ->
                         VisitHistoryRow(
                             visit = visit,
-                            repeatLabel = if (visitCount > 1 && visit.id == latestVisit?.id) "Most recent" else null,
+                            repeatLabel = if (visitCount > 1 && visit.id == latestVisit?.id) stringResource(R.string.most_recent) else null,
                             onClick = { selectedVisit = visit },
                         )
                         Spacer(Modifier.height(10.dp))
                     }
                 }
                 Spacer(Modifier.height(28.dp))
-                Text("Why people love it", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.place_why_people_love_it), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(10.dp))
                 Text(place.description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(28.dp))
-                Text("The scores", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.the_scores), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(14.dp))
                 place.ratingBreakdown.forEach { (dimension, score) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(dimension.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(dimension.labelRes()), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                         Box(
                             Modifier
                                 .weight(1.5f)
@@ -392,7 +398,7 @@ fun PlaceDetailScreen(
                             )
                         }
                         Text(
-                            String.format("%.1f", score),
+                            formatScoreLocalized(score),
                             Modifier.width(42.dp),
                             textAlign = TextAlign.End,
                             fontWeight = FontWeight.Bold,
@@ -402,17 +408,21 @@ fun PlaceDetailScreen(
                 val friendsPreview = state.friendSummary.summary?.friends.orEmpty()
                 if (friendsPreview.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
-                    Text("Friends who visited", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.place_friends_who_visited), style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(14.dp))
                     friendsPreview.take(5).forEach { friend ->
+                        val friendA11y = stringResource(
+                            R.string.a11y_friend_visited,
+                            friend.displayName,
+                            formatScoreLocalized(friend.latestScore),
+                        )
                         Row(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { onAuthor(friend.userId) }
                                 .padding(vertical = 6.dp)
                                 .semantics {
-                                    contentDescription =
-                                        "Friend who visited ${friend.displayName}, latest score ${String.format("%.1f", friend.latestScore)}"
+                                    contentDescription = friendA11y
                                 },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -426,7 +436,7 @@ fun PlaceDetailScreen(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    String.format("%.1f", friend.latestScore),
+                                    formatScoreLocalized(friend.latestScore),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.secondary,
                                 )
@@ -440,9 +450,9 @@ fun PlaceDetailScreen(
                 CommunityReviewsSectionHeader(
                     totalElements = activeReviews.totalElements,
                     title = if (state.activeReviewScope == ActivityScope.FRIENDS) {
-                        "Friend reviews"
+                        stringResource(R.string.place_friend_reviews)
                     } else {
-                        "Community reviews"
+                        stringResource(R.string.place_community_reviews)
                     },
                 )
                 Spacer(Modifier.height(10.dp))
@@ -456,7 +466,7 @@ fun PlaceDetailScreen(
                         CommunityReviewsLoadingIndicator()
                     activeReviews.errorMessage != null && activeReviews.reviews.isEmpty() ->
                         CommunityReviewsErrorState(
-                            message = activeReviews.errorMessage.orEmpty(),
+                            message = activeReviews.errorMessage?.let { stringResource(it) }.orEmpty(),
                             onRetry = viewModel::retryActiveReviews,
                         )
                     activeReviews.reviews.isEmpty() -> {
@@ -484,13 +494,13 @@ fun PlaceDetailScreen(
                                 onClick = { onSeeAllReviews(state.activeReviewScope) },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("See all reviews")
+                                Text(stringResource(R.string.place_see_all_reviews))
                             }
                         }
                     }
                 }
                 Spacer(Modifier.height(28.dp))
-                Text("Photos", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.photos), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()),

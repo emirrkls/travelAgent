@@ -43,11 +43,11 @@ enum class SocialListKind {
     ;
 
     val routeValue: String
-        get() = name.lowercase()
+        get() = name.lowercase(java.util.Locale.ROOT)
 
     companion object {
         fun fromRoute(value: String): SocialListKind =
-            entries.first { it.routeValue == value.lowercase() }
+            entries.first { it.routeValue == value.lowercase(java.util.Locale.ROOT) }
     }
 }
 

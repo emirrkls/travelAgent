@@ -31,16 +31,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.feature.search.SearchSort
 import com.emirrkls.phokarta.ui.components.CategoryChip
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.components.vectorIcon
+import com.emirrkls.phokarta.ui.localization.labelRes
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 
 @Composable
@@ -51,48 +54,52 @@ fun WantToGoScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var sortMenuOpen by remember { mutableStateOf(false) }
+    val sortA11y = stringResource(R.string.a11y_sort_saved_places)
+    val searchA11y = stringResource(R.string.a11y_search_within_want_to_go)
 
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
+            }
             Column(Modifier.weight(1f)) {
-                Text(WantToGoCopy.SURFACE, style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(WantToGoCopy.SURFACE), style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "${state.totalCount} saved",
+                    stringResource(R.string.saved_count, state.totalCount),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
             IconButton(
                 onClick = { sortMenuOpen = true },
-                modifier = Modifier.semantics { contentDescription = "Sort saved places" },
+                modifier = Modifier.semantics { contentDescription = sortA11y },
             ) {
                 Icon(Icons.Rounded.Sort, contentDescription = null)
             }
             DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Recently saved") },
+                    text = { Text(stringResource(R.string.sort_recently_saved)) },
                     onClick = {
                         viewModel.setSort(SearchSort.RECENTLY_SAVED)
                         sortMenuOpen = false
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Community rating") },
+                    text = { Text(stringResource(R.string.sort_community_rating)) },
                     onClick = {
                         viewModel.setSort(SearchSort.RATING)
                         sortMenuOpen = false
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Friends score") },
+                    text = { Text(stringResource(R.string.sort_friends_score)) },
                     onClick = {
                         viewModel.setSort(SearchSort.FRIENDS_SCORE)
                         sortMenuOpen = false
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Most friends visited") },
+                    text = { Text(stringResource(R.string.sort_most_friends_visited)) },
                     onClick = {
                         viewModel.setSort(SearchSort.MOST_FRIENDS_VISITED)
                         sortMenuOpen = false
@@ -104,13 +111,13 @@ fun WantToGoScreen(
             value = state.query,
             onValueChange = viewModel::setQuery,
             singleLine = true,
-            placeholder = { Text("Search saved places") },
+            placeholder = { Text(stringResource(R.string.want_to_go_search_hint)) },
             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .semantics { contentDescription = "Search within Want to Go" },
+                .semantics { contentDescription = searchA11y },
         )
         Spacer(Modifier.height(12.dp))
         LazyRow(
@@ -119,7 +126,7 @@ fun WantToGoScreen(
         ) {
             item {
                 CategoryChip(
-                    "All",
+                    stringResource(R.string.filter_all),
                     state.category == null &&
                         state.destination == null &&
                         !state.highlyRatedOnly &&
@@ -130,17 +137,21 @@ fun WantToGoScreen(
             }
             item {
                 CategoryChip(
-                    "Friends visited",
+                    stringResource(R.string.friends_visited),
                     state.friendsVisitedOnly,
                     onClick = viewModel::toggleFriendsVisited,
                 )
             }
             item {
-                CategoryChip("9+ Rated", state.highlyRatedOnly, onClick = viewModel::toggleHighlyRated)
+                CategoryChip(
+                    stringResource(R.string.search_rated_9_plus),
+                    state.highlyRatedOnly,
+                    onClick = viewModel::toggleHighlyRated,
+                )
             }
             items(PlaceCategory.entries) { category ->
                 CategoryChip(
-                    category.label,
+                    stringResource(category.labelRes()),
                     state.category == category,
                     category.vectorIcon,
                 ) { viewModel.setCategory(if (state.category == category) null else category) }
@@ -161,12 +172,12 @@ fun WantToGoScreen(
             TextButton(
                 onClick = viewModel::clearFilters,
                 modifier = Modifier.padding(horizontal = 8.dp),
-            ) { Text("Clear filters") }
+            ) { Text(stringResource(R.string.search_clear_filters)) }
         }
         state.saveErrorMessage?.let { message ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(message, Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = viewModel::dismissSaveError) { Text("Dismiss") }
+                Text(stringResource(message), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = viewModel::dismissSaveError) { Text(stringResource(R.string.action_dismiss)) }
             }
         }
         LazyColumn(
@@ -189,31 +200,33 @@ fun WantToGoScreen(
                     Column(Modifier.padding(top = 40.dp, start = 8.dp, end = 8.dp)) {
                         when {
                             state.totalCount == 0 -> {
-                                Text("Nothing saved yet", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.want_to_go_nothing_saved), style = MaterialTheme.typography.titleMedium)
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    "Save places you want to remember and they’ll appear here.",
+                                    stringResource(R.string.want_to_go_nothing_saved_body),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             state.friendsVisitedOnly -> {
                                 Text(
-                                    "No friend activity on your saved places yet.",
+                                    stringResource(R.string.want_to_go_no_friend_activity),
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    WantToGoLogic.friendsVisitedEmptyMessage(
-                                        hasFriends = state.friendCount?.let { it > 0 },
+                                    stringResource(
+                                        WantToGoLogic.friendsVisitedEmptyMessageRes(
+                                            hasFriends = state.friendCount?.let { it > 0 },
+                                        ),
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             else -> {
-                                Text("No matches", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.want_to_go_no_matches), style = MaterialTheme.typography.titleMedium)
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    "Try another filter or clear your search.",
+                                    stringResource(R.string.want_to_go_no_matches_body),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

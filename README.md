@@ -6,6 +6,8 @@ Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure ema
 
 Android uses JDK 17, Kotlin, Compose, Hilt, Room 2.7.2, EncryptedSharedPreferences (`androidx.security:security-crypto`), Google Maps Compose, Retrofit, OkHttp, and kotlinx serialization. The backend is Java 21 / Spring Boot 3.5 with Spring Security, JWT access tokens, opaque refresh sessions, PostgreSQL/PostGIS, and Flyway.
 
+All new user-facing Android copy must use string resources with English (default) + Turkish (`values-tr`) translations. Keep API/enum values unlocalized.
+
 Data flows through one boundary:
 
 `Auth session + Remote API + Room (owner-scoped user state) -> TravelRepository -> StateFlow ViewModels -> Compose UI`

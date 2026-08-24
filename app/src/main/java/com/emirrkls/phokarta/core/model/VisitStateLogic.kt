@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.core.model
 
-import java.time.LocalDate
+import android.content.res.Resources
+import com.emirrkls.phokarta.R
 
 object VisitStateLogic {
     fun visitedPlaceIds(visits: List<Visit>): Set<String> = visits.map { it.placeId }.toSet()
@@ -37,11 +38,16 @@ object VisitStateLogic {
     fun sortedNewestFirst(visits: List<Visit>): List<Visit> =
         visits.sortedWith(compareByDescending<Visit> { it.visitedAt }.thenByDescending { it.id })
 
-    fun repeatVisitLabel(count: Int): String? = when {
+    fun repeatVisitCopy(count: Int): RepeatVisitCopy? = when {
         count <= 1 -> null
-        count == 2 -> "Visited twice"
-        else -> "Visited $count times"
+        count == 2 -> RepeatVisitCopy.Twice
+        else -> RepeatVisitCopy.Times(count)
     }
+}
+
+sealed interface RepeatVisitCopy {
+    data object Twice : RepeatVisitCopy
+    data class Times(val count: Int) : RepeatVisitCopy
 }
 
 enum class MapMarkerBadge { NONE, SAVED, VISITED, BOTH }
@@ -67,12 +73,11 @@ object MapMarkerLogic {
         placeName: String,
         communityScore: String,
         flags: MapMarkerFlags,
+        resources: Resources,
     ): String = buildString {
-        append(placeName)
-        append(", rated ")
-        append(communityScore)
-        if (flags.saved) append(", saved")
-        if (flags.visited) append(", visited")
-        if (flags.friendsVisited) append(", friends visited")
+        append(resources.getString(R.string.a11y_map_marker_rated, placeName, communityScore))
+        if (flags.saved) append(resources.getString(R.string.a11y_map_marker_saved))
+        if (flags.visited) append(resources.getString(R.string.a11y_map_marker_visited))
+        if (flags.friendsVisited) append(resources.getString(R.string.a11y_map_marker_friends_visited))
     }
 }

@@ -24,11 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RelationshipState
 import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.ui.components.TravelImage
@@ -43,9 +45,9 @@ fun FollowActionButton(
 ) {
     val view = LocalView.current
     val label = when {
-        relationship?.isFriend == true -> "Friends"
-        relationship?.isFollowing == true -> "Following"
-        else -> "Follow"
+        relationship?.isFriend == true -> stringResource(R.string.friends)
+        relationship?.isFollowing == true -> stringResource(R.string.following)
+        else -> stringResource(R.string.action_follow)
     }
     val outlined = relationship?.isFollowing == true || relationship?.isFriend == true
     val buttonModifier = modifier
@@ -86,6 +88,10 @@ fun SocialUserRow(
     onToggleFollow: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val friendsLabel = stringResource(R.string.friends)
+    val followingLabel = stringResource(R.string.following)
+    val followsYouLabel = stringResource(R.string.follows_you)
+    val notFollowingLabel = stringResource(R.string.not_following)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -100,10 +106,10 @@ fun SocialUserRow(
                         append(", ")
                         append(
                             when {
-                                rel.isFriend -> "Friends"
-                                rel.isFollowing -> "Following"
-                                rel.followsYou -> "Follows you"
-                                else -> "Not following"
+                                rel.isFriend -> friendsLabel
+                                rel.isFollowing -> followingLabel
+                                rel.followsYou -> followsYouLabel
+                                else -> notFollowingLabel
                             },
                         )
                     }
@@ -129,7 +135,7 @@ fun SocialUserRow(
             )
             if (user.relationship?.followsYou == true && user.relationship?.isFollowing != true) {
                 Text(
-                    "Follows you",
+                    stringResource(R.string.follows_you),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -149,7 +155,7 @@ fun SocialUserRow(
 fun FollowsYouHint(relationship: RelationshipState?, modifier: Modifier = Modifier) {
     if (relationship?.followsYou == true && relationship.isFollowing != true) {
         Text(
-            "Follows you",
+            stringResource(R.string.follows_you),
             modifier = modifier,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelLarge,
@@ -172,9 +178,9 @@ fun SocialCountersRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        Counter(followerCount.toString(), "Followers", onFollowers)
-        Counter(followingCount.toString(), "Following", onFollowing)
-        Counter(friendCount.toString(), "Friends", onFriends)
+        Counter(followerCount.toString(), stringResource(R.string.followers), onFollowers)
+        Counter(followingCount.toString(), stringResource(R.string.following), onFollowing)
+        Counter(friendCount.toString(), stringResource(R.string.friends), onFriends)
     }
 }
 

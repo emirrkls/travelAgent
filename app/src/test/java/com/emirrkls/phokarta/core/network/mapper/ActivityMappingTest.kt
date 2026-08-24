@@ -46,7 +46,7 @@ class ActivityMappingTest {
         assertEquals(9.2, event.overallScore, 0.001)
         assertEquals("Great atmosphere and very good service.", event.publicReview)
         assertEquals(LocalDate.of(2026, 8, 12), event.visitDate)
-        assertEquals("Amazing", VisitDraftLogic.scoreLabel(event.overallScore.toFloat()))
+        assertEquals(com.emirrkls.phokarta.ui.localization.ScoreBand.AMAZING, VisitDraftLogic.scoreBand(event.overallScore.toFloat()))
     }
 
     @Test

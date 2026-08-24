@@ -10,7 +10,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.VisitStateLogic
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -25,10 +25,10 @@ data class RatingUiState(
     val draft: VisitDraft = VisitDraft(),
     val isPublishing: Boolean = false,
     val published: Boolean = false,
-    val publishError: String? = null,
-    val dateError: String? = null,
+    val publishError: Int? = null,
+    val dateError: Int? = null,
     val isLoading: Boolean = true,
-    val loadError: String? = null,
+    val loadError: Int? = null,
     val isNotFound: Boolean = false,
     val hasExistingVisits: Boolean = false,
     val existingVisitCount: Int = 0,
@@ -81,7 +81,7 @@ class RatingViewModel @Inject constructor(
                         it.copy(
                             place = cached,
                             isLoading = false,
-                            loadError = result.error.toUserMessage(),
+                            loadError = result.error.toUserMessageRes(),
                             isNotFound = result.error is TravelError.NotFound && cached == null,
                         )
                     }
@@ -113,7 +113,7 @@ class RatingViewModel @Inject constructor(
     fun setVisibility(value: Visibility) = updateDraft { it.copy(visibility = value) }
 
     fun setVisitedAt(value: LocalDate) {
-        val error = VisitDraftLogic.validateDate(value)
+        val error = VisitDraftLogic.validateDateRes(value)
         updateDraft { it.copy(visitDate = value) }
         _uiState.update { it.copy(dateError = error) }
     }
@@ -139,7 +139,7 @@ class RatingViewModel @Inject constructor(
                     _uiState.update { it.copy(published = true) }
                 }
                 is RepositoryResult.Failure -> {
-                    _uiState.update { it.copy(publishError = result.error.toUserMessage()) }
+                    _uiState.update { it.copy(publishError = result.error.toUserMessageRes()) }
                 }
             }
             publishInFlight = false
@@ -152,7 +152,7 @@ class RatingViewModel @Inject constructor(
             val nextDraft = transform(state.draft)
             state.copy(
                 draft = nextDraft,
-                dateError = VisitDraftLogic.validateDate(nextDraft.visitDate),
+                dateError = VisitDraftLogic.validateDateRes(nextDraft.visitDate),
             )
         }
     }

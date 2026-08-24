@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Visit / friend / review counts. Turkish uses the same form after numerals. -->
+    <plurals name="visits_count">
+        <item quantity="one">%d visit</item>
+        <item quantity="other">%d visits</item>
+    </plurals>
+    <plurals name="friends_visited_count">
+        <item quantity="one">%d friend visited</item>
+        <item quantity="other">%d friends visited</item>
+    </plurals>
+    <plurals name="places_count">
+        <item quantity="one">%d place</item>
+        <item quantity="other">%d places</item>
+    </plurals>
+    <plurals name="reviews_count">
+        <item quantity="one">%d review</item>
+        <item quantity="other">%d reviews</item>
+    </plurals>
+    <plurals name="filters_count">
+        <item quantity="one">%d filter</item>
+        <item quantity="other">%d filters</item>
+    </plurals>
+    <plurals name="visited_times">
+        <item quantity="one">Visited %d time</item>
+        <item quantity="other">Visited %d times</item>
+    </plurals>
+    <plurals name="cities_explored">
+        <item quantity="one">%d city explored</item>
+        <item quantity="other">%d cities explored</item>
+    </plurals>
+    <plurals name="ratings_count_plural">
+        <item quantity="one">%d rating</item>
+        <item quantity="other">%d ratings</item>
+    </plurals>
+    <plurals name="active_filters_count">
+        <item quantity="one">%d active filter</item>
+        <item quantity="other">%d active filters</item>
+    </plurals>
+</resources>

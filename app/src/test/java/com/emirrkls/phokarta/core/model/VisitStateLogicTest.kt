@@ -53,9 +53,9 @@ class VisitStateLogicTest {
         assertEquals(2, summary.placesVisited)
         assertEquals(8.0, summary.averageGivenScore!!, 0.001)
 
-        assertNull(VisitStateLogic.repeatVisitLabel(1))
-        assertEquals("Visited twice", VisitStateLogic.repeatVisitLabel(2))
-        assertEquals("Visited 3 times", VisitStateLogic.repeatVisitLabel(3))
+        assertNull(VisitStateLogic.repeatVisitCopy(1))
+        assertEquals(RepeatVisitCopy.Twice, VisitStateLogic.repeatVisitCopy(2))
+        assertEquals(RepeatVisitCopy.Times(3), VisitStateLogic.repeatVisitCopy(3))
     }
 
     @Test

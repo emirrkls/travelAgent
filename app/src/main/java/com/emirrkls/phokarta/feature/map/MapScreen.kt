@@ -72,6 +72,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.formatScore
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
+import com.emirrkls.phokarta.R
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -101,6 +107,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import java.util.Locale
+import androidx.compose.ui.res.pluralStringResource
+import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 
 private val DefaultMapCenter = LatLng(37.085, 27.53)
 
@@ -114,6 +122,8 @@ fun MapScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val locale = appLocale()
+    val notRatedLabel = stringResource(R.string.not_rated)
     val darkTheme = isSystemInDarkTheme()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val initialViewport = state.cameraViewport
@@ -134,7 +144,7 @@ fun MapScreen(
         ) {
             requestSingleLocation(context, viewModel)
         } else {
-            viewModel.onLocationUnavailable("Location permission was denied. You can keep browsing the full map.")
+            viewModel.onLocationUnavailable(R.string.map_location_denied)
         }
     }
 
@@ -179,21 +189,25 @@ fun MapScreen(
     }
 
     state.locationMessage?.let { message ->
+        val text = stringResource(message)
         LaunchedEffect(message) {
-            scaffoldState.snackbarHostState.showSnackbar(message)
+            scaffoldState.snackbarHostState.showSnackbar(text)
             viewModel.dismissLocationMessage()
         }
     }
     state.boundsErrorMessage?.let { message ->
-        LaunchedEffect(message) {
-            if (scaffoldState.snackbarHostState.showSnackbar(message, actionLabel = "Retry") == SnackbarResult.ActionPerformed) {
-                viewModel.retryBounds()
+        val text = stringResource(message)
+            val retryLabel = stringResource(R.string.action_retry)
+            LaunchedEffect(message) {
+                if (scaffoldState.snackbarHostState.showSnackbar(text, actionLabel = retryLabel) == SnackbarResult.ActionPerformed) {
+                    viewModel.retryBounds()
+                }
             }
-        }
     }
     state.saveErrorMessage?.let { message ->
+        val text = stringResource(message)
         LaunchedEffect(message) {
-            scaffoldState.snackbarHostState.showSnackbar(message)
+            scaffoldState.snackbarHostState.showSnackbar(text)
             viewModel.dismissSaveError()
         }
     }
@@ -228,7 +242,7 @@ fun MapScreen(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                contentDescription = "Travel discovery map",
+                contentDescription = stringResource(R.string.a11y_travel_discovery_map),
                 properties = remember(darkTheme) {
                     MapProperties(
                         mapStyleOptions = if (darkTheme) {
@@ -266,8 +280,9 @@ fun MapScreen(
                             state = remember(place.id) { MarkerState(LatLng(place.latitude, place.longitude)) },
                             contentDescription = MapMarkerLogic.contentDescription(
                                 place.name,
-                                formatScore(place.communityScore),
+                                formatMapScore(place.communityScore, locale, notRatedLabel),
                                 flags,
+                                context.resources,
                             ),
                             title = place.name,
                             zIndex = 1f,
@@ -284,7 +299,7 @@ fun MapScreen(
                     MarkerComposable(
                         "user-location",
                         state = remember(latitude, longitude) { MarkerState(LatLng(latitude, longitude)) },
-                        contentDescription = "Your current location",
+                        contentDescription = stringResource(R.string.a11y_current_location),
                         zIndex = 3f,
                     ) {
                         Box(
@@ -322,19 +337,20 @@ fun MapScreen(
             )
 
             if (state.showSearchThisArea) {
+                val searchAreaA11y = stringResource(R.string.a11y_search_this_map_area)
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 118.dp)
                         .clickable(onClick = viewModel::searchThisArea)
-                        .semantics { contentDescription = "Search this map area" },
+                        .semantics { contentDescription = searchAreaA11y },
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.inverseSurface,
                     contentColor = MaterialTheme.colorScheme.inverseOnSurface,
                     shadowElevation = 8.dp,
                 ) {
                     Text(
-                        "Search this area",
+                        stringResource(R.string.map_search_this_area),
                         Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
                         style = MaterialTheme.typography.labelLarge,
                     )
@@ -373,7 +389,7 @@ private fun TravelMapMarker(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             CategoryIcon(place.category, size = if (selected) 17.dp else 14.dp, tint = content)
-            Text(formatScore(place.communityScore), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Text(formatMapScore(place.communityScore, appLocale(), stringResource(R.string.not_rated)), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             if (saved || visited || friendsVisited) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (saved) {
@@ -432,16 +448,16 @@ private fun MapControls(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Map discovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Places through people you trust", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.map_discovery), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.map_places_through_people), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (filters.activeCount > 0) {
-                    IconButton(onClick = onClear) { Icon(Icons.Rounded.ClearAll, "Clear map filters") }
+                    IconButton(onClick = onClear) { Icon(Icons.Rounded.ClearAll, stringResource(R.string.a11y_clear_map_filters)) }
                 }
                 IconButton(onClick = onLocation) {
                     Icon(
                         Icons.Rounded.LocationSearching,
-                        if (hasUserLocation) "Center again on my location" else "Use my location",
+                        if (hasUserLocation) stringResource(R.string.a11y_center_on_location) else stringResource(R.string.a11y_use_my_location),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -457,7 +473,7 @@ private fun MapControls(
                     FilterChip(
                         selected = filters.category != null,
                         onClick = { onCategoryMenuChange(true) },
-                        label = { Text(filters.category?.label ?: "Category") },
+                        label = { Text(filters.category?.let { stringResource(it.labelRes()) } ?: stringResource(R.string.category)) },
                         leadingIcon = filters.category?.let { category ->
                             { CategoryIcon(category, size = 17.dp) }
                         },
@@ -468,38 +484,38 @@ private fun MapControls(
                         onDismissRequest = { onCategoryMenuChange(false) },
                     ) {
                         androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("All categories") },
+                            text = { Text(stringResource(R.string.all_categories)) },
                             onClick = { onCategory(null); onCategoryMenuChange(false) },
                         )
                         PlaceCategory.entries.forEach { category ->
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(category.label) },
+                                text = { Text(stringResource(category.labelRes())) },
                                 leadingIcon = { Icon(category.vectorIcon, null) },
                                 onClick = { onCategory(category); onCategoryMenuChange(false) },
                             )
                         }
                     }
                 }
-                MapFilterChip("9+ rated", filters.highlyRatedOnly, onHighlyRated)
+                MapFilterChip(stringResource(R.string.search_rated_9_plus), filters.highlyRatedOnly, onHighlyRated)
                 MapFilterChip(
-                    "Friends visited",
+                    stringResource(R.string.friends_visited),
                     filters.friendsVisitedOnly,
                     onFriendsVisited,
                     contentDescription = if (filters.friendsVisitedOnly) {
-                        "Friends visited filter, selected"
+                        stringResource(R.string.a11y_friends_visited_filter_selected)
                     } else {
-                        "Friends visited filter"
+                        stringResource(R.string.a11y_friends_visited_filter)
                     },
                 )
-                MapFilterChip("Visited", filters.visitedOnly, onVisited)
+                MapFilterChip(stringResource(R.string.visited), filters.visitedOnly, onVisited)
                 MapFilterChip(
-                    "Want to Go",
+                    stringResource(WantToGoCopy.SURFACE),
                     filters.wantToGoOnly,
                     onWantToGo,
                     contentDescription = if (filters.wantToGoOnly) {
-                        "Want to Go filter, selected"
+                        stringResource(R.string.a11y_want_to_go_filter_selected)
                     } else {
-                        "Want to Go filter"
+                        stringResource(R.string.a11y_want_to_go_filter)
                     },
                 )
             }
@@ -559,9 +575,9 @@ private fun MapPlaceSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Places in this area", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.places_in_this_area), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    if (state.filters.activeCount == 0) "Move the map or choose a place" else "${state.filters.activeCount} active ${if (state.filters.activeCount == 1) "filter" else "filters"}",
+                    if (state.filters.activeCount == 0) stringResource(R.string.map_move_or_choose) else pluralStringResource(R.plurals.active_filters_count, state.filters.activeCount, state.filters.activeCount),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -572,13 +588,13 @@ private fun MapPlaceSheet(
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp)) {
                 Text(
                     if (state.filters.friendsVisitedOnly) {
-                        "Friend visits couldn’t be loaded for this area."
+                        stringResource(R.string.map_friend_visits_load_failed)
                     } else {
-                        "Friend signals are unavailable right now."
+                        stringResource(R.string.map_friend_signals_unavailable)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                TextButton(onClick = onRetryFriends) { Text("Retry friends") }
+                TextButton(onClick = onRetryFriends) { Text(stringResource(R.string.retry_friends)) }
             }
         }
         if (state.visiblePlaces.isEmpty()) {
@@ -590,17 +606,17 @@ private fun MapPlaceSheet(
                     friendsFilterPending && state.friendMetricsLoading -> {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(8.dp))
-                        Text("Loading friend visits…", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.loading_friend_visits), style = MaterialTheme.typography.titleMedium)
                     }
                     state.filters.friendsVisitedOnly && state.friendMetricsErrorMessage != null -> {
-                        Text("Friends visited isn’t available", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.friends_visited_unavailable), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(5.dp))
-                        Text("This isn’t an empty result. Retry to load friend visits.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.friends_visited_unavailable_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     else -> {
-                        Text("No places match this view", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.map_no_places_match), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(5.dp))
-                        Text("Pan the map or adjust a filter.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.map_pan_or_adjust), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -669,7 +685,7 @@ private fun MapPlaceRow(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     CategoryIcon(place.category, size = 15.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        "${place.category.label} · ${place.city}",
+                        "${stringResource(place.category.labelRes())} · ${place.city}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
@@ -677,11 +693,11 @@ private fun MapPlaceRow(
                     )
                 }
                 if (visited) {
-                    Text("Visited", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.visited), color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
                 } else if (saved) {
-                    Text("Saved", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.saved), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                 } else if (selected) {
-                    Text("Tap again to open", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.map_tap_again_to_open), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                 }
                 if (friendsVisitedCount > 0) {
                     Row(
@@ -690,7 +706,7 @@ private fun MapPlaceRow(
                     ) {
                         if (friendAverageScore != null) {
                             Text(
-                                "Friends ${String.format("%.1f", friendAverageScore)}",
+                                stringResource(R.string.friends_score_value, formatScoreLocalized(friendAverageScore)),
                                 color = MaterialTheme.colorScheme.tertiary,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
@@ -708,7 +724,7 @@ private fun MapPlaceRow(
             IconButton(onClick = onSave) {
                 Icon(
                     if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    if (saved) "Remove ${place.name} from Want to Go" else "Save ${place.name} to Want to Go",
+                    if (saved) stringResource(R.string.a11y_remove_place_want_to_go, place.name) else stringResource(R.string.a11y_save_place_want_to_go, place.name),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -733,7 +749,7 @@ private fun Context.hasLocationPermission(): Boolean =
 @SuppressLint("MissingPermission")
 private fun requestSingleLocation(context: Context, viewModel: MapViewModel) {
     if (!context.hasLocationPermission()) {
-        viewModel.onLocationUnavailable("Location permission is needed only to center the map on you.")
+        viewModel.onLocationUnavailable(R.string.map_location_permission_rationale)
         return
     }
     val request = CurrentLocationRequest.Builder()
@@ -751,11 +767,11 @@ private fun requestSingleLocation(context: Context, viewModel: MapViewModel) {
                 if (location != null && ageMillis != null && ageMillis <= 120_000L) {
                     viewModel.onLocationFound(location.latitude, location.longitude)
                 } else {
-                    viewModel.onLocationUnavailable("Current location is unavailable. The rest of the map still works.")
+                    viewModel.onLocationUnavailable(R.string.map_location_unavailable)
                 }
             }
             .addOnFailureListener {
-                viewModel.onLocationUnavailable("Couldn’t get your location. The rest of the map still works.")
+                viewModel.onLocationUnavailable(R.string.map_location_unavailable)
             }
     }
     client
@@ -769,5 +785,5 @@ private fun requestSingleLocation(context: Context, viewModel: MapViewModel) {
         }
 }
 
-private fun formatScore(score: Double?): String =
-    score?.let { String.format(Locale.US, "%.1f", it) } ?: "Not rated"
+private fun formatMapScore(score: Double?, locale: Locale, notRated: String): String =
+    score?.let { formatScore(it, locale) } ?: notRated

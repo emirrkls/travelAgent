@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.feature.place
 
 import androidx.lifecycle.SavedStateHandle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.model.ActivityScope
@@ -227,18 +228,18 @@ class PlaceDetailCommunityReviewsViewModelTest {
 
 class FriendsScoreCopyTest {
     @Test
-    fun `visited label singular plural and zero`() {
-        assertEquals("No friend visits yet", FriendsScoreCopy.visitedLabel(0))
-        assertEquals("1 friend visited", FriendsScoreCopy.visitedLabel(1))
-        assertEquals("3 friends visited", FriendsScoreCopy.visitedLabel(3))
+    fun `visited label mapping uses zero string or friends-visited plurals`() {
+        assertEquals(R.string.no_friend_visits_yet, FriendsScoreCopy.visitedLabelRes(0))
+        assertEquals(R.plurals.friends_visited_count, FriendsScoreCopy.visitedPluralRes(1))
+        assertEquals(R.plurals.friends_visited_count, FriendsScoreCopy.visitedPluralRes(3))
     }
 
     @Test
     fun `community and friends labels stay independent`() {
-        assertEquals("No community ratings yet", CommunityScoreCopy.visitCountLabel(0))
-        assertEquals("No friend visits yet", FriendsScoreCopy.visitedLabel(0))
-        assertEquals("1 visit", CommunityScoreCopy.visitCountLabel(1))
-        assertEquals("1 friend visited", FriendsScoreCopy.visitedLabel(1))
+        assertEquals(R.string.no_community_ratings_yet, CommunityScoreCopy.visitCountLabelRes(0))
+        assertEquals(R.string.no_friend_visits_yet, FriendsScoreCopy.visitedLabelRes(0))
+        assertEquals(R.plurals.visits_count, CommunityScoreCopy.visitPluralRes(1))
+        assertEquals(R.plurals.friends_visited_count, FriendsScoreCopy.visitedPluralRes(1))
     }
 }
 

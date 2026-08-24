@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="visits_count">
+        <item quantity="one">%d ziyaret</item>
+        <item quantity="other">%d ziyaret</item>
+    </plurals>
+    <plurals name="friends_visited_count">
+        <item quantity="one">%d arkadaş gitti</item>
+        <item quantity="other">%d arkadaş gitti</item>
+    </plurals>
+    <plurals name="places_count">
+        <item quantity="one">%d yer</item>
+        <item quantity="other">%d yer</item>
+    </plurals>
+    <plurals name="reviews_count">
+        <item quantity="one">%d yorum</item>
+        <item quantity="other">%d yorum</item>
+    </plurals>
+    <plurals name="filters_count">
+        <item quantity="one">%d filtre</item>
+        <item quantity="other">%d filtre</item>
+    </plurals>
+    <plurals name="visited_times">
+        <item quantity="one">%d kez gittim</item>
+        <item quantity="other">%d kez gittim</item>
+    </plurals>
+    <plurals name="cities_explored">
+        <item quantity="one">%d şehir keşfedildi</item>
+        <item quantity="other">%d şehir keşfedildi</item>
+    </plurals>
+    <plurals name="ratings_count_plural">
+        <item quantity="one">%d puan</item>
+        <item quantity="other">%d puan</item>
+    </plurals>
+    <plurals name="active_filters_count">
+        <item quantity="one">%d aktif filtre</item>
+        <item quantity="other">%d aktif filtre</item>
+    </plurals>
+</resources>

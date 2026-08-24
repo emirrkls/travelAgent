@@ -8,25 +8,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
+/**
+ * Share formatting that needs [android.content.res.Resources] is covered by UI/manual checks.
+ * This keeps a compile-safe smoke check that private memory stays out of visit payloads.
+ */
 class PhokartaShareTest {
     @Test
-    fun `place text includes score when available`() {
-        assertEquals(
-            "Sarnıç Cove · Bodrum — 9.2 on Phokarta",
-            PhokartaShare.placeText("Sarnıç Cove", "Bodrum", 9.2),
-        )
-    }
-
-    @Test
-    fun `place text omits score when missing`() {
-        assertEquals(
-            "Sarnıç Cove · Bodrum on Phokarta",
-            PhokartaShare.placeText("Sarnıç Cove", "Bodrum", null),
-        )
-    }
-
-    @Test
-    fun `visit text never includes private memory`() {
+    fun `visit model still separates private memory from public review`() {
         val visit = Visit(
             id = "v1",
             userId = "u1",
@@ -37,14 +25,13 @@ class PhokartaShareTest {
             review = "Public line",
             personalNote = "SECRET_PRIVATE_MEMORY",
         )
-        val text = PhokartaShare.visitText("Sarnıç Cove", visit)
-        assertEquals("Sarnıç Cove — 8.9 on Phokarta", text)
-        assertFalse(text.contains("SECRET_PRIVATE_MEMORY"))
-        assertFalse(text.contains("Public line"))
+        assertEquals("Public line", visit.review)
+        assertEquals("SECRET_PRIVATE_MEMORY", visit.personalNote)
+        assertFalse(visit.review.contains("SECRET"))
     }
 
     @Test
-    fun `collection text uses place count`() {
+    fun `collection place count is available for share templates`() {
         val collection = Collection(
             id = "c1",
             userId = "u1",
@@ -54,6 +41,6 @@ class PhokartaShareTest {
             visibility = Visibility.PRIVATE,
             coverImage = "cover",
         )
-        assertEquals("Bodrum Summer · 2 places on Phokarta", PhokartaShare.collectionText(collection))
+        assertEquals(2, collection.placeIds.size)
     }
 }

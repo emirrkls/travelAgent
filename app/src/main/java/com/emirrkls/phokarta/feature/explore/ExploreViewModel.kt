@@ -7,7 +7,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.User
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,7 +25,7 @@ data class ExploreUiState(
     val visitedPlaceIds: Set<String> = emptySet(),
     val currentUser: User? = null,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null,
+    val errorMessage: Int? = null,
 ) {
     val filteredPlaces: List<Place> get() = selectedCategory?.let { category -> places.filter { it.category == category } } ?: places
 }
@@ -33,7 +33,7 @@ data class ExploreUiState(
 @HiltViewModel
 class ExploreViewModel @Inject constructor(private val repository: TravelRepository) : ViewModel() {
     private val selectedCategory = MutableStateFlow<PlaceCategory?>(null)
-    private val refreshState = MutableStateFlow(true to null as String?)
+    private val refreshState = MutableStateFlow(true to null as Int?)
     val uiState = combine(
         repository.observePlaces(),
         selectedCategory,
@@ -64,7 +64,7 @@ class ExploreViewModel @Inject constructor(private val repository: TravelReposit
         viewModelScope.launch {
             val result = repository.toggleSaved(placeId)
             if (result is RepositoryResult.Failure) {
-                refreshState.update { (loading, _) -> loading to result.error.toUserMessage() }
+                refreshState.update { (loading, _) -> loading to result.error.toUserMessageRes() }
             }
         }
     }
@@ -77,7 +77,7 @@ class ExploreViewModel @Inject constructor(private val repository: TravelReposit
             repository.refreshSaved()
             repository.refreshOwnerVisits()
             repository.refreshCollections()
-            refreshState.value = false to ((result as? RepositoryResult.Failure)?.error?.toUserMessage())
+            refreshState.value = false to ((result as? RepositoryResult.Failure)?.error?.toUserMessageRes())
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.core.model
 
+import java.util.Locale
+
 enum class ActivityScope {
     COMMUNITY,
     FRIENDS,
@@ -13,7 +15,7 @@ enum class ActivityScope {
 
     companion object {
         fun fromQueryParam(value: String?): ActivityScope =
-            when (value?.lowercase()) {
+            when (value?.lowercase(Locale.ROOT)) {
                 "friends" -> FRIENDS
                 else -> COMMUNITY
             }

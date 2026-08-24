@@ -1,23 +1,33 @@
 package com.emirrkls.phokarta.ui.presentation
 
+import androidx.annotation.StringRes
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.data.TravelError
+import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.roundToInt
 
-fun formatDistance(distanceMeters: Double): String =
+fun formatDistance(distanceMeters: Double, locale: Locale = Locale.getDefault()): String =
     if (distanceMeters < 1_000.0) {
-        "${distanceMeters.coerceAtLeast(0.0).roundToInt()} m"
+        // Unit labels stay short SI abbreviations; number is locale-aware.
+        val meters = distanceMeters.coerceAtLeast(0.0).roundToInt()
+        "$meters m"
     } else {
-        String.format(Locale.US, "%.1f km", distanceMeters / 1_000.0)
+        val km = NumberFormat.getNumberInstance(locale).apply {
+            minimumFractionDigits = 1
+            maximumFractionDigits = 1
+        }.format(distanceMeters / 1_000.0)
+        "$km km"
     }
 
-fun TravelError.toUserMessage(): String = when (this) {
-    is TravelError.Offline -> "You appear to be offline. Check your connection and try again."
-    is TravelError.Timeout -> "The request took too long. Please try again."
-    is TravelError.Validation -> "That request could not be completed."
-    is TravelError.Forbidden -> "This content isn't available."
-    is TravelError.NotFound -> "We couldn’t find what you were looking for."
-    is TravelError.Conflict -> "This changed elsewhere. Refresh and try again."
-    is TravelError.Server -> "The service is temporarily unavailable. Please try again."
-    is TravelError.Unknown -> "Something went wrong. Please try again."
+@StringRes
+fun TravelError.toUserMessageRes(): Int = when (this) {
+    is TravelError.Offline -> R.string.error_offline
+    is TravelError.Timeout -> R.string.error_timeout
+    is TravelError.Validation -> R.string.error_validation
+    is TravelError.Forbidden -> R.string.error_forbidden
+    is TravelError.NotFound -> R.string.error_not_found
+    is TravelError.Conflict -> R.string.error_conflict
+    is TravelError.Server -> R.string.error_server
+    is TravelError.Unknown -> R.string.error_unknown
 }

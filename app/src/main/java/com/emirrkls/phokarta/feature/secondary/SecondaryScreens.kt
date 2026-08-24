@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -59,7 +60,9 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.feature.activity.ActivityViewModel
 import com.emirrkls.phokarta.feature.activity.FriendsEmptyReason
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
-import com.emirrkls.phokarta.feature.collections.visibilityLabel
+import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.ui.localization.labelRes
+import androidx.compose.ui.res.pluralStringResource
 import com.emirrkls.phokarta.ui.components.ActivityEmptyState
 import com.emirrkls.phokarta.ui.components.ActivityErrorState
 import com.emirrkls.phokarta.ui.components.ActivityEventCard
@@ -120,7 +123,7 @@ fun ActivityScreen(
                         onSelectScope = viewModel::selectScope,
                     )
                     ActivityErrorState(
-                        message = state.errorMessage.orEmpty(),
+                        message = state.errorMessage?.let { stringResource(it) }.orEmpty(),
                         onRetry = viewModel::retry,
                     )
                 }
@@ -161,8 +164,8 @@ fun ActivityScreen(
                                 Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = viewModel::retryLoadMore) { Text("Retry") }
+                                Text(stringResource(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = viewModel::retryLoadMore) { Text(stringResource(R.string.action_retry)) }
                             }
                         }
                     }
@@ -182,14 +185,14 @@ private fun ActivityHeader(
 ) {
     Column(Modifier.padding(20.dp)) {
         Text(
-            if (activeScope == ActivityScope.FRIENDS) "Friends activity" else "Community activity",
+            if (activeScope == ActivityScope.FRIENDS) stringResource(R.string.friends_activity) else stringResource(R.string.community_activity),
             style = MaterialTheme.typography.headlineLarge,
         )
         Text(
             if (activeScope == ActivityScope.FRIENDS) {
-                "Visits from people you mutually follow."
+                stringResource(R.string.activity_friends_subtitle)
             } else {
-                "Recent public visits from travelers."
+                stringResource(R.string.activity_community_subtitle_short)
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -206,12 +209,12 @@ fun ActivityScopeSelector(
 ) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ScopeChip(
-            label = "Friends",
+            label = stringResource(R.string.friends),
             selected = activeScope == ActivityScope.FRIENDS,
             onClick = { onSelectScope(ActivityScope.FRIENDS) },
         )
         ScopeChip(
-            label = "Community",
+            label = stringResource(R.string.community),
             selected = activeScope == ActivityScope.COMMUNITY,
             onClick = { onSelectScope(ActivityScope.COMMUNITY) },
         )
@@ -224,6 +227,11 @@ fun ScopeChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val scopeA11y = if (selected) {
+        stringResource(R.string.a11y_scope_selected, label)
+    } else {
+        stringResource(R.string.a11y_scope, label)
+    }
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -231,22 +239,22 @@ fun ScopeChip(
         modifier = Modifier.semantics {
             this.selected = selected
             role = Role.Tab
-            // Distinct from score-section labels like "Friends" / "Community".
-            contentDescription = if (selected) "$label scope selected" else "$label scope"
+            contentDescription = scopeA11y
         },
     )
 }
 
+@Composable
 private fun activityEmptyCopy(
     scope: ActivityScope,
     friendsEmptyReason: FriendsEmptyReason,
 ): Pair<String, String> = when (scope) {
-    ActivityScope.COMMUNITY -> "No activity yet" to "Community visits will appear here."
+    ActivityScope.COMMUNITY -> stringResource(R.string.activity_empty_generic_title) to stringResource(R.string.activity_empty_generic_body)
     ActivityScope.FRIENDS -> when (friendsEmptyReason) {
         FriendsEmptyReason.NO_FRIENDS ->
-            "No friends yet" to "Mutual follows become friends on Phokarta."
+            stringResource(R.string.activity_empty_no_friends_title) to stringResource(R.string.activity_empty_no_friends_body)
         FriendsEmptyReason.NO_ACTIVITY, FriendsEmptyReason.NONE ->
-            "No friend activity yet" to "When your friends visit places, you'll see them here."
+            stringResource(R.string.activity_empty_friends_title) to stringResource(R.string.activity_empty_friends_body_alt)
     }
 }
 
@@ -266,24 +274,24 @@ fun CollectionsScreen(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Text("Curated collections", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
+            Text(stringResource(R.string.curated_collections), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             TextButton(
                 onClick = {
                     if (onCreateCollection != null) onCreateCollection() else showCreate = true
                 },
             ) {
-                Text("+ New")
+                Text(stringResource(R.string.new_collection_short))
             }
         }
         Text(
-            "Shortlists with a point of view",
+            stringResource(R.string.collections_shortlist_subtitle),
             Modifier.padding(horizontal = 20.dp),
             style = MaterialTheme.typography.headlineLarge,
         )
         state.collectionsError?.let { error ->
             Text(
-                error,
+                stringResource(error),
                 Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
@@ -295,10 +303,10 @@ fun CollectionsScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Start your first shortlist", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.start_your_first_shortlist), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Save places you want to remember together.",
+                    stringResource(R.string.collections_empty_save_together),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
@@ -309,7 +317,7 @@ fun CollectionsScreen(
                         if (onCreateCollection != null) onCreateCollection() else showCreate = true
                     },
                 ) {
-                    Text("+ New collection")
+                    Text(stringResource(R.string.new_collection_full))
                 }
             }
         } else {
@@ -321,7 +329,7 @@ fun CollectionsScreen(
                     CollectionListCard(
                         collection = collection,
                         placeCount = collection.placeIds.size,
-                        visibilityLabel = visibilityLabel(collection.visibility),
+                        visibilityLabel = stringResource(collection.visibility.labelRes()),
                         onClick = { onCollection(collection.id) },
                     )
                 }
@@ -368,13 +376,13 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("Collection not found", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.collection_not_found), style = MaterialTheme.typography.headlineSmall)
             state.detailError?.let {
                 Spacer(Modifier.height(8.dp))
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(16.dp))
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
         }
         return
     }
@@ -384,7 +392,7 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
             Box {
                 AsyncImage(collection?.coverImage, collection?.title, Modifier.fillMaxWidth().height(285.dp), contentScale = ContentScale.Crop)
                 IconButton(onClick = onBack, Modifier.padding(16.dp).background(Color.White.copy(.92f), CircleShape)) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.Black)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), tint = Color.Black)
                 }
             }
             Column(Modifier.padding(20.dp)) {
@@ -399,27 +407,31 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${places.size} ${if (places.size == 1) "place" else "places"} · ${collection?.visibility?.let { visibilityLabel(it) }.orEmpty()}",
+                    stringResource(
+                        R.string.places_count_with_visibility,
+                        pluralStringResource(R.plurals.places_count, places.size, places.size),
+                        collection?.visibility?.let { stringResource(it.labelRes()) }.orEmpty(),
+                    ),
                     color = Coral,
                     style = MaterialTheme.typography.labelLarge,
                 )
                 state.detailError?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 state.membershipError?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         if (places.isEmpty()) {
             item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No places here yet", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.no_places_here_yet), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Add places from any Place page.",
+                        stringResource(R.string.add_places_from_place_page),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center,
@@ -434,7 +446,7 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
                 ) {
                     CompactPlaceCard(place, { onPlace(place.id) }, Modifier.weight(1f))
                     IconButton(onClick = { viewModel.removePlaceFromCollection(collectionId, place.id) }) {
-                        Icon(Icons.Rounded.Clear, "Remove ${place.name} from collection")
+                        Icon(Icons.Rounded.Clear, stringResource(R.string.a11y_remove_from_collection, place.name))
                     }
                 }
             }
@@ -446,9 +458,9 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
 fun SuccessScreen(placeName: String, onProfile: () -> Unit, onExplore: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(112.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Star, null, Modifier.size(60.dp), tint = Coral) }
-        Spacer(Modifier.height(28.dp)); Text("Visit published", style = MaterialTheme.typography.headlineLarge)
-        Text("$placeName is now part of your travel history.", Modifier.padding(vertical = 12.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
-        Surface(Modifier.fillMaxWidth().clickable(onClick = onProfile), color = Coral, shape = RoundedCornerShape(18.dp)) { Text("See it on your profile", Modifier.padding(18.dp), color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge) }
-        Spacer(Modifier.height(10.dp)); Surface(Modifier.fillMaxWidth().clickable(onClick = onExplore), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(18.dp)) { Text("Back to Explore", Modifier.padding(18.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge) }
+        Spacer(Modifier.height(28.dp)); Text(stringResource(R.string.visit_published), style = MaterialTheme.typography.headlineLarge)
+        Text(stringResource(R.string.visit_published_body, placeName), Modifier.padding(vertical = 12.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
+        Surface(Modifier.fillMaxWidth().clickable(onClick = onProfile), color = Coral, shape = RoundedCornerShape(18.dp)) { Text(stringResource(R.string.see_it_on_your_profile), Modifier.padding(18.dp), color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge) }
+        Spacer(Modifier.height(10.dp)); Surface(Modifier.fillMaxWidth().clickable(onClick = onExplore), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(18.dp)) { Text(stringResource(R.string.back_to_explore), Modifier.padding(18.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge) }
     }
 }

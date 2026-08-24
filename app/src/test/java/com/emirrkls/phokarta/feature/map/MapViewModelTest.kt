@@ -82,7 +82,7 @@ class MapViewModelTest {
         advanceUntilIdle()
 
         assertEquals(before, viewModel.uiState.value.visiblePlaces)
-        assertFalse(viewModel.uiState.value.boundsErrorMessage.isNullOrBlank())
+        assertFalse(viewModel.uiState.value.boundsErrorMessage == null)
     }
 
     @Test
@@ -150,7 +150,7 @@ class MapViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.visiblePlaces.isNotEmpty())
-        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage.isNullOrBlank())
+        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage == null)
         assertTrue(viewModel.uiState.value.friendMetricsByPlaceId.isEmpty())
     }
 
@@ -171,7 +171,7 @@ class MapViewModelTest {
         viewModel.searchThisArea()
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage.isNullOrBlank())
+        assertFalse(viewModel.uiState.value.friendMetricsErrorMessage == null)
         assertEquals(listOf(first.id), viewModel.uiState.value.visiblePlaces.map { it.id })
     }
 

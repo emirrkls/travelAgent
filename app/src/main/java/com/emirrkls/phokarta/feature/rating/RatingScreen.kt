@@ -51,13 +51,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
+import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.labelRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.RatingControl
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,10 +81,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             if (state.isLoading) {
                 CircularProgressIndicator()
             } else {
-                Text(if (state.isNotFound) "Place not found" else state.loadError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                Text(if (state.isNotFound) stringResource(R.string.place_not_found) else state.loadError?.let { stringResource(it) }.orEmpty(), color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = viewModel::retryLoad) { Text("Retry") }
-                Button(onClick = onBack) { Text("Back") }
+                Button(onClick = viewModel::retryLoad) { Text(stringResource(R.string.action_retry)) }
+                Button(onClick = onBack) { Text(stringResource(R.string.action_back)) }
             }
         }
         return
@@ -109,10 +114,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         }
                         showDatePicker = false
                     },
-                ) { Text("Set date") }
+                ) { Text(stringResource(R.string.set_date)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         ) {
             DatePicker(state = pickerState)
@@ -133,14 +138,14 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         if (state.isPublishing) {
                             CircularProgressIndicator(Modifier.height(22.dp), strokeWidth = 2.dp)
                         } else {
-                            Text("Publish visit")
+                            Text(stringResource(R.string.publish_visit))
                         }
                     }
                     state.publishError?.let { message ->
-                        Text(message, Modifier.fillMaxWidth().padding(top = 7.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(message), Modifier.fillMaxWidth().padding(top = 7.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                     }
                     state.dateError?.let { message ->
-                        Text(message, Modifier.fillMaxWidth().padding(top = 7.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(message), Modifier.fillMaxWidth().padding(top = 7.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -154,37 +159,44 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 .padding(horizontal = 20.dp),
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
                 Text(
-                    if (state.hasExistingVisits) "Rate another visit" else "Record a visit",
+                    if (state.hasExistingVisits) stringResource(R.string.rate_another_visit) else stringResource(R.string.record_a_visit),
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
             if (state.hasExistingVisits) {
                 Text(
-                    "You've visited ${place.name} ${state.existingVisitCount} ${if (state.existingVisitCount == 1) "time" else "times"}. Each visit stays in your history.",
+                    stringResource(
+                        R.string.visited_before_hint,
+                        place.name,
+                        pluralStringResource(R.plurals.visits_count, state.existingVisitCount, state.existingVisitCount),
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
             }
-            Text("How was ${place.name}?", style = MaterialTheme.typography.headlineLarge)
+            val reviewInputA11y = stringResource(R.string.a11y_review_input)
+            val privateMemoryInputA11y = stringResource(R.string.a11y_private_memory_input)
+            Text(stringResource(R.string.how_was_place, place.name), style = MaterialTheme.typography.headlineLarge)
             Text(
-                "Start with one score. Add detail only if it helps tell the story.",
+                stringResource(R.string.rating_intro_hint),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(26.dp))
             Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(26.dp)) {
                 Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     val animatedScore by animateFloatAsState(state.overall, label = "overallScore")
+                    val overallScoreA11y = stringResource(R.string.overall_score_a11y, formatScoreLocalized(animatedScore))
                     Text(
-                        String.format("%.1f", animatedScore),
+                        formatScoreLocalized(animatedScore),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.semantics { contentDescription = "Overall score ${String.format("%.1f", animatedScore)}" },
+                        modifier = Modifier.semantics { contentDescription = overallScoreA11y },
                     )
-                    AnimatedContent(VisitDraftLogic.scoreLabel(state.overall), label = "scoreLabel") { label ->
+                    AnimatedContent(stringResource(VisitDraftLogic.scoreBand(state.overall).labelRes()), label = "scoreLabel") { label ->
                         Text(label, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(8.dp))
@@ -195,8 +207,8 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         onThresholdCrossed = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Terrible", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text("Exceptional", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.score_terrible), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.score_exceptional), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             }
@@ -208,12 +220,16 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Rate the details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Optional", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.rate_the_details), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.optional), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(
                         Icons.Rounded.ExpandMore,
-                        contentDescription = if (state.dimensionsExpanded) "Collapse details" else "Expand details",
+                        contentDescription = if (state.dimensionsExpanded) {
+                            stringResource(R.string.a11y_collapse_details)
+                        } else {
+                            stringResource(R.string.a11y_expand_details)
+                        },
                     )
                 }
             }
@@ -229,19 +245,22 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                                 shape = RoundedCornerShape(16.dp),
                             ) {
                                 Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(dimension.label, Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                                    Text(stringResource(dimension.labelRes()), Modifier.weight(1f), fontWeight = FontWeight.Medium)
                                     Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text("Add score", Modifier.padding(start = 5.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                                    Text(stringResource(R.string.add_score), Modifier.padding(start = 5.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                                 }
                             }
                         } else {
                             Surface(Modifier.fillMaxWidth().padding(vertical = 4.dp), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(18.dp)) {
                                 Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(dimension.label, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                                        Text(String.format("%.1f", value), fontWeight = FontWeight.Bold)
+                                        Text(stringResource(dimension.labelRes()), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                        Text(formatScoreLocalized(value), fontWeight = FontWeight.Bold)
                                         IconButton(onClick = { viewModel.removeDimension(dimension) }) {
-                                            Icon(Icons.Rounded.Close, "Remove ${dimension.label} score")
+                                            Icon(
+                                                Icons.Rounded.Close,
+                                                stringResource(R.string.remove_dimension_score, stringResource(dimension.labelRes())),
+                                            )
                                         }
                                     }
                                     RatingControl(
@@ -257,9 +276,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 }
             }
             Spacer(Modifier.height(22.dp))
-            Text("Review", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.review), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                VisitVisibilityCopy.reviewHelper(state.visibility),
+                stringResource(VisitVisibilityCopy.reviewHelperRes(state.visibility)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
             )
@@ -269,24 +288,24 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 viewModel::setReview,
                 Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Review input" },
-                label = { Text("Review") },
-                placeholder = { Text("What stood out?") },
+                    .semantics { contentDescription = reviewInputA11y },
+                label = { Text(stringResource(R.string.review)) },
+                placeholder = { Text(stringResource(R.string.review_placeholder)) },
                 minLines = 3,
                 shape = RoundedCornerShape(18.dp),
             )
             Spacer(Modifier.height(18.dp))
-            Text("Private memory", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Only you can see this", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.private_memory), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.only_you_can_see_this), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(9.dp))
             OutlinedTextField(
                 state.note,
                 viewModel::setNote,
                 Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Private memory input" },
-                label = { Text("Private memory") },
-                placeholder = { Text("A detail only you need") },
+                    .semantics { contentDescription = privateMemoryInputA11y },
+                label = { Text(stringResource(R.string.private_memory)) },
+                placeholder = { Text(stringResource(R.string.private_memory_placeholder)) },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null) },
                 minLines = 2,
                 shape = RoundedCornerShape(18.dp),
@@ -300,16 +319,16 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.CalendarMonth, null)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("Visit date", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.visit_date), style = MaterialTheme.typography.labelLarge)
                         Text(
-                            state.visitedAt.format(DateTimeFormatter.ofPattern("d MMMM yyyy")),
+                            formatLongDateLocalized(state.visitedAt),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     if (state.visitedAt != LocalDate.now()) {
-                        TextButton(onClick = viewModel::resetVisitedAtToToday) { Text("Today") }
+                        TextButton(onClick = viewModel::resetVisitedAtToToday) { Text(stringResource(R.string.today)) }
                     } else {
-                        Text("Today", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.today), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

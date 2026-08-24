@@ -11,7 +11,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
-import com.emirrkls.phokarta.ui.presentation.toUserMessage
+import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +38,7 @@ data class ProfileUiState(
     val visitedPlaceIds: Set<String> = emptySet(),
     val collections: List<Collection> = emptyList(),
     val placesSegment: ProfilePlacesSegment = ProfilePlacesSegment.VISITS,
-    val saveErrorMessage: String? = null,
+    val saveErrorMessage: Int? = null,
 )
 
 @HiltViewModel
@@ -47,7 +47,7 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
 ) : ViewModel() {
     private val placesSegment = MutableStateFlow(ProfilePlacesSegment.VISITS)
-    private val saveError = MutableStateFlow<String?>(null)
+    private val saveError = MutableStateFlow<Int?>(null)
     private val socialCounts = MutableStateFlow(OwnerSocialCounts(0, 0, 0))
 
     init {
@@ -80,7 +80,7 @@ class ProfileViewModel @Inject constructor(
     fun toggleSaved(placeId: String) {
         viewModelScope.launch {
             when (val result = repository.toggleSaved(placeId)) {
-                is RepositoryResult.Failure -> saveError.value = result.error.toUserMessage()
+                is RepositoryResult.Failure -> saveError.value = result.error.toUserMessageRes()
                 is RepositoryResult.Success -> saveError.value = null
             }
         }

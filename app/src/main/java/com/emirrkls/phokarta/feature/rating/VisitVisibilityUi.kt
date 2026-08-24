@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -35,6 +36,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.Visibility
 
 fun visibilityIcon(visibility: Visibility): ImageVector = when (visibility) {
@@ -49,12 +51,17 @@ fun VisitVisibilityRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val visibilityLabel = stringResource(VisitVisibilityCopy.labelRes(visibility))
+    val visibilityA11y = stringResource(
+        R.string.visibility_content_description,
+        visibilityLabel,
+    )
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .semantics {
-                contentDescription = VisitVisibilityCopy.contentDescription(visibility)
+                contentDescription = visibilityA11y
             },
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(18.dp),
@@ -63,9 +70,9 @@ fun VisitVisibilityRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(visibilityIcon(visibility), contentDescription = null)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text("Visibility", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.visibility), style = MaterialTheme.typography.labelLarge)
                     Text(
-                        VisitVisibilityCopy.label(visibility),
+                        visibilityLabel,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -74,7 +81,7 @@ fun VisitVisibilityRow(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                VisitVisibilityCopy.impactHint(visibility),
+                stringResource(VisitVisibilityCopy.impactHintRes(visibility)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -102,36 +109,39 @@ fun VisitVisibilitySheet(
                 .padding(bottom = 28.dp),
         ) {
             Text(
-                "Who can see this visit?",
+                stringResource(R.string.visibility_sheet_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(16.dp))
             VisitVisibilityCopy.selectionOrder.forEach { option ->
                 val isSelected = option == selectedVisibility
+                val optionLabel = stringResource(VisitVisibilityCopy.labelRes(option))
+                val optionDescription = stringResource(VisitVisibilityCopy.sheetDescriptionRes(option))
+                val optionA11y = stringResource(
+                    R.string.visibility_option_content_description,
+                    optionLabel,
+                    optionDescription,
+                )
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .semantics(mergeDescendants = true) {
-                            contentDescription =
-                                "${VisitVisibilityCopy.label(option)}. ${VisitVisibilityCopy.sheetDescription(option)}"
+                            contentDescription = optionA11y
                             this.selected = isSelected
                             role = Role.RadioButton
                         }
-                        .clickable {
-                            onSelect(option)
-                            onDismiss()
-                        },
+                        .clickable { onSelect(option) },
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.secondaryContainer
                     } else {
-                        MaterialTheme.colorScheme.surfaceContainerLow
+                        MaterialTheme.colorScheme.surface
                     },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Row(
-                        Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -139,16 +149,15 @@ fun VisitVisibilitySheet(
                             visibilityIcon(option),
                             contentDescription = null,
                             modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary,
                         )
                         Column(Modifier.weight(1f)) {
                             Text(
-                                VisitVisibilityCopy.label(option),
-                                style = MaterialTheme.typography.titleMedium,
+                                optionLabel,
                                 fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                VisitVisibilityCopy.sheetDescription(option),
+                                optionDescription,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -156,19 +165,13 @@ fun VisitVisibilitySheet(
                         if (isSelected) {
                             Icon(
                                 Icons.Rounded.Check,
-                                contentDescription = "Selected",
+                                contentDescription = stringResource(R.string.action_selected),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Friends are people you mutually follow.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }

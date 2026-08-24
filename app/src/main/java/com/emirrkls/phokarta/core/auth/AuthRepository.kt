@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.core.auth
 
+import androidx.annotation.StringRes
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.AuthApi
@@ -134,7 +136,7 @@ class AuthRepository @Inject constructor(
 
 sealed interface AuthResult {
     data object Success : AuthResult
-    data class Error(val message: String) : AuthResult
+    data class Error(@StringRes val message: Int) : AuthResult
 }
 
 fun UserProfileDto.toAuthenticatedUser() = AuthenticatedUser(
@@ -146,21 +148,14 @@ fun UserProfileDto.toAuthenticatedUser() = AuthenticatedUser(
     avatarUrl = avatarUrl.orEmpty(),
 )
 
-private fun NetworkError.toAuthMessage(): String = when (this) {
-    NetworkError.Connection ->
-        "You appear to be offline. Check your connection and try again."
-    NetworkError.Timeout ->
-        "The request took too long. Please try again."
-    is NetworkError.Validation ->
-        apiError?.message ?: "That request could not be completed."
-    is NetworkError.Forbidden ->
-        apiError?.message ?: "This content isn't available."
-    is NetworkError.NotFound ->
-        apiError?.message ?: "We couldn’t find what you were looking for."
-    is NetworkError.Conflict ->
-        apiError?.message ?: "This changed elsewhere. Refresh and try again."
-    is NetworkError.Server ->
-        apiError?.message ?: "The service is temporarily unavailable. Please try again."
-    is NetworkError.Unknown ->
-        apiError?.message ?: cause?.message ?: "Something went wrong. Please try again."
+@StringRes
+private fun NetworkError.toAuthMessage(): Int = when (this) {
+    NetworkError.Connection -> R.string.error_offline
+    NetworkError.Timeout -> R.string.error_timeout
+    is NetworkError.Validation -> R.string.error_validation
+    is NetworkError.Forbidden -> R.string.error_forbidden
+    is NetworkError.NotFound -> R.string.error_not_found
+    is NetworkError.Conflict -> R.string.error_conflict
+    is NetworkError.Server -> R.string.error_server
+    is NetworkError.Unknown -> R.string.error_unknown
 }

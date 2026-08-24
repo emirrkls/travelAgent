@@ -15,6 +15,13 @@ import java.util.UUID;
 
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
     @EntityGraph(attributePaths = {"place", "user"})
+    java.util.Optional<Visit> findByUserIdAndClientMutationId(UUID userId, UUID clientMutationId);
+
+    /** Serializes concurrent first delivery for one ownership-scoped mutation key. */
+    @Query(value = "select pg_advisory_xact_lock(hashtextextended(cast(:userId as text) || ':' || cast(:mutationId as text), 0))", nativeQuery = true)
+    void lockClientMutation(@Param("userId") UUID userId, @Param("mutationId") UUID mutationId);
+
+    @EntityGraph(attributePaths = {"place", "user"})
     Page<Visit> findByUserIdOrderByVisitedAtDescCreatedAtDescIdDesc(
             UUID userId, Pageable pageable);
 

@@ -105,9 +105,57 @@ class VisitServiceTest {
         verify(scores).saveAll(List.of());
     }
 
+    @Test
+    void sameClientMutationAndPayloadReturnsOriginalVisit() {
+        UUID mutationId = UUID.randomUUID();
+        CreateVisitRequest request = request(mutationId, 8.5);
+        when(place.getCategory()).thenReturn(PlaceCategory.BEACH);
+        when(place.getId()).thenReturn(placeId);
+        when(visits.findByUserIdAndClientMutationId(userId, mutationId))
+                .thenReturn(Optional.empty());
+        when(visits.save(any(Visit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.create(userId, request);
+        ArgumentCaptor<Visit> captor = ArgumentCaptor.forClass(Visit.class);
+        verify(visits).save(captor.capture());
+        Visit created = captor.getValue();
+        when(visits.findByUserIdAndClientMutationId(userId, mutationId))
+                .thenReturn(Optional.of(created));
+
+        service.create(userId, request);
+
+        verify(visits, org.mockito.Mockito.times(1)).save(any(Visit.class));
+        verify(scores, org.mockito.Mockito.times(1)).saveAll(any());
+    }
+
+    @Test
+    void conflictingClientMutationPayloadReturnsConflict() {
+        UUID mutationId = UUID.randomUUID();
+        CreateVisitRequest first = request(mutationId, 8.5);
+        when(place.getCategory()).thenReturn(PlaceCategory.BEACH);
+        when(place.getId()).thenReturn(placeId);
+        when(visits.findByUserIdAndClientMutationId(userId, mutationId)).thenReturn(Optional.empty());
+        when(visits.save(any(Visit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        service.create(userId, first);
+        ArgumentCaptor<Visit> captor = ArgumentCaptor.forClass(Visit.class);
+        verify(visits).save(captor.capture());
+        when(visits.findByUserIdAndClientMutationId(userId, mutationId))
+                .thenReturn(Optional.of(captor.getValue()));
+
+        assertThatThrownBy(() -> service.create(userId, request(mutationId, 2.0)))
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.status().value()).isEqualTo(409));
+        verify(visits, org.mockito.Mockito.times(1)).save(any(Visit.class));
+    }
+
     private CreateVisitRequest request(List<CreateVisitRequest.DimensionScore> dimensions) {
         return new CreateVisitRequest(placeId, LocalDate.of(2025, 8, 1), 8.5,
                 dimensions, "review", "memory", List.of(), Visibility.PUBLIC);
+    }
+
+    private CreateVisitRequest request(UUID mutationId, double score) {
+        return new CreateVisitRequest(mutationId, placeId, LocalDate.of(2025, 8, 1), score,
+                validBeachScores(), "review", "memory", List.of(), Visibility.PUBLIC);
     }
 
     private List<CreateVisitRequest.DimensionScore> validBeachScores() {

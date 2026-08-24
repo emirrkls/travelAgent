@@ -5,7 +5,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity
+import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -25,11 +27,17 @@ interface SavedPlaceDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSavedPlace(savedPlace: SavedPlaceEntity)
 
+    @Upsert
+    suspend fun upsertSavedPlace(savedPlace: SavedPlaceEntity)
+
     @Query("DELETE FROM saved_places WHERE ownerUserId = :ownerUserId AND placeId = :placeId")
     suspend fun deleteSavedPlace(ownerUserId: String, placeId: String)
 
     @Query("DELETE FROM saved_places WHERE ownerUserId = :ownerUserId")
     suspend fun deleteSavedPlacesForOwner(ownerUserId: String)
+
+    @Query("SELECT * FROM pending_mutations WHERE userId = :ownerUserId AND type = 'SET_SAVED_STATE'")
+    suspend fun pendingSavedIntents(ownerUserId: String): List<PendingMutationEntity>
 
     @Transaction
     suspend fun setSaved(
@@ -50,7 +58,16 @@ interface SavedPlaceDao {
         ownerUserId: String,
         entries: List<SavedPlaceEntity>,
     ) {
+        val localIntents = pendingSavedIntents(ownerUserId)
         deleteSavedPlacesForOwner(ownerUserId)
         entries.forEach { insertSavedPlace(it) }
+        localIntents.forEach { intent ->
+            setSaved(
+                ownerUserId = ownerUserId,
+                placeId = intent.resourceKey,
+                saved = intent.desiredSaved == true,
+                nowEpochMillis = intent.updatedAtEpochMillis,
+            )
+        }
     }
 }

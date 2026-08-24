@@ -31,6 +31,10 @@ import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
+import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.MutationSyncEngine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -52,6 +56,8 @@ class DefaultTravelRepository @Inject constructor(
     private val sessionManager: SessionManager,
     private val activityFeedInvalidator: ActivityFeedInvalidator,
     private val placeCache: PlaceCacheDataSource = NoOpPlaceCacheDataSource,
+    private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
+    private val immediateSyncEngine: MutationSyncEngine? = null,
 ) : TravelRepository {
     private val remotePlaces = MutableStateFlow<List<Place>>(emptyList())
     private val savedFriendMetrics = MutableStateFlow<Map<String, SavedFriendMetrics>>(emptyMap())
@@ -425,6 +431,18 @@ class DefaultTravelRepository @Inject constructor(
             placeId.toCanonicalUuid()
         } catch (error: IllegalArgumentException) {
             return RepositoryResult.Failure(TravelError.Validation(error.message))
+        }
+        if (offlineMutations !== NoOpOfflineMutationRepository) {
+            return try {
+                val desired = offlineMutations.toggleSaved(canonicalPlaceId)
+                withTimeoutOrNull(1_500L) { immediateSyncEngine?.drain() }
+                if (offlineMutations.savedMutationState(canonicalPlaceId) == null) {
+                    refreshSaved()
+                }
+                RepositoryResult.Success(desired)
+            } catch (error: Exception) {
+                RepositoryResult.Failure(TravelError.Validation(error.message))
+            }
         }
         val wasSaved = localUserState.isSaved(canonicalPlaceId)
         val target = !wasSaved

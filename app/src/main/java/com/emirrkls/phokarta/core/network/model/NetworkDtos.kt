@@ -155,6 +155,7 @@ data class DimensionScoreDto(
 
 @Serializable
 data class CreateVisitDto(
+    val clientMutationId: String? = null,
     val placeId: String,
     val visitedAt: String,
     val overallRating: Double,

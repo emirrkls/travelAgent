@@ -13,6 +13,10 @@ import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
+import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.MutationSyncEngine
+import com.emirrkls.phokarta.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -25,12 +29,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class RatingUiState(
     val place: Place? = null,
     val draft: VisitDraft = VisitDraft(),
     val isPublishing: Boolean = false,
     val published: Boolean = false,
+    val queuedForSync: Boolean = false,
     val publishError: Int? = null,
     val dateError: Int? = null,
     val isLoading: Boolean = true,
@@ -63,6 +69,8 @@ class RatingViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val draftRepository: VisitDraftRepository,
     sessionManager: SessionManager,
+    private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
+    private val immediateSyncEngine: MutationSyncEngine? = null,
 ) : ViewModel() {
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val ownerUserId: String? = sessionManager.currentUserId()
@@ -230,6 +238,33 @@ class RatingViewModel @Inject constructor(
         val snapshot = state.draft
         _uiState.update { it.copy(isPublishing = true, publishError = null) }
         viewModelScope.launch {
+            if (offlineMutations !== NoOpOfflineMutationRepository) {
+                try {
+                    val mutationId = offlineMutations.commitVisit(VisitDraftLogic.toVisit(
+                        draft = snapshot,
+                        placeId = placeId,
+                        userId = repository.currentUser.id,
+                    ))
+                    lastPersistedDraft = null
+                    hadPersistedDraft = false
+                    withTimeoutOrNull(IMMEDIATE_SYNC_TIMEOUT_MS) {
+                        immediateSyncEngine?.drain()
+                    }
+                    if (offlineMutations.mutationState(mutationId) == null) {
+                        repository.refreshOwnerVisits()
+                        _uiState.update { it.copy(published = true, hasPersistedDraft = false) }
+                    } else {
+                        _uiState.update { it.copy(queuedForSync = true, hasPersistedDraft = false) }
+                    }
+                } catch (_: Exception) {
+                    persistFrozen = false
+                    _uiState.update { it.copy(draft = snapshot, publishError = R.string.sync_queue_failed) }
+                    schedulePersist(immediate = true)
+                }
+                publishInFlight = false
+                _uiState.update { it.copy(isPublishing = false) }
+                return@launch
+            }
             val result = repository.publishVisit(
                 VisitDraftLogic.toVisit(
                     draft = snapshot,
@@ -314,5 +349,6 @@ class RatingViewModel @Inject constructor(
 
     companion object {
         private const val KEY_RESTORED_NOTICE_SHOWN = "draft_restored_notice_shown"
+        private const val IMMEDIATE_SYNC_TIMEOUT_MS = 2_500L
     }
 }

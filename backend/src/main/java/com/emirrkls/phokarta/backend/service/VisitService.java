@@ -36,6 +36,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
+import java.util.HexFormat;
 
 @Service
 public class VisitService {
@@ -62,6 +67,21 @@ public class VisitService {
 
     @Transactional
     public VisitOwnerResponse create(UUID userId, CreateVisitRequest request) {
+        String fingerprint = request.clientMutationId() == null ? null : fingerprint(request);
+        if (request.clientMutationId() != null) {
+            visits.lockClientMutation(userId, request.clientMutationId());
+            Visit existing = visits.findByUserIdAndClientMutationId(userId, request.clientMutationId())
+                    .orElse(null);
+            if (existing != null) {
+                if (!fingerprint.equals(existing.getClientPayloadFingerprint())) {
+                    throw ApiException.conflict("clientMutationId was already used with a different Visit payload");
+                }
+                List<VisitDimensionScore> existingScores = scores.findByIdVisitIdIn(List.of(existing.getId()));
+                VisitRepository.ScoreAggregate rating = visits.aggregate(existing.getPlace().getId());
+                return mapper.toOwner(existing, toDimensionResponses(existingScores),
+                        rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+            }
+        }
         User user = users.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("User", userId));
         Place place = places.findById(request.placeId())
@@ -81,7 +101,8 @@ public class VisitService {
             throw ApiException.validation(ex.getMessage());
         }
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        Visit visit = visits.save(new Visit(UUID.randomUUID(), user, place, request.visitedAt(),
+        Visit visit = visits.save(new Visit(UUID.randomUUID(), user, place,
+                request.clientMutationId(), fingerprint, request.visitedAt(),
                 request.overallRating(), value(request.publicReview()), value(request.privateMemory()),
                 request.photos() == null ? List.of() : request.photos(), request.visibility(),
                 VerificationStatus.UNVERIFIED, now));
@@ -92,6 +113,24 @@ public class VisitService {
         VisitRepository.ScoreAggregate rating = visits.aggregate(place.getId());
         return mapper.toOwner(visit, toDimensionResponses(entities),
                 rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+    }
+
+    private String fingerprint(CreateVisitRequest request) {
+        String dimensions = (request.dimensions() == null ? List.<CreateVisitRequest.DimensionScore>of() : request.dimensions())
+                .stream().sorted(Comparator.comparing(CreateVisitRequest.DimensionScore::key))
+                .map(item -> item.key() + "=" + Double.toString(item.score()))
+                .reduce((left, right) -> left + "," + right).orElse("");
+        String photos = request.photos() == null ? "" : String.join("\u001f", request.photos());
+        String canonical = request.placeId() + "\u001e" + request.visitedAt() + "\u001e"
+                + Double.toString(request.overallRating()) + "\u001e" + dimensions + "\u001e"
+                + value(request.publicReview()) + "\u001e" + value(request.privateMemory()) + "\u001e"
+                + photos + "\u001e" + request.visibility();
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        }
     }
 
     @Transactional(readOnly = true)

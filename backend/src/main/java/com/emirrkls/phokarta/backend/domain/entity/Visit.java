@@ -35,6 +35,12 @@ public class Visit {
     @JoinColumn(name = "place_id", nullable = false)
     private Place place;
 
+    @Column(name = "client_mutation_id")
+    private UUID clientMutationId;
+
+    @Column(name = "client_payload_fingerprint", length = 64)
+    private String clientPayloadFingerprint;
+
     @Column(name = "visited_at", nullable = false)
     private LocalDate visitedAt;
 
@@ -68,12 +74,15 @@ public class Visit {
     protected Visit() {
     }
 
-    public Visit(UUID id, User user, Place place, LocalDate visitedAt, double overallRating,
+    public Visit(UUID id, User user, Place place, UUID clientMutationId,
+                 String clientPayloadFingerprint, LocalDate visitedAt, double overallRating,
                  String publicReview, String privateMemory, List<String> photos,
                  Visibility visibility, VerificationStatus verificationStatus, OffsetDateTime now) {
         this.id = id;
         this.user = user;
         this.place = place;
+        this.clientMutationId = clientMutationId;
+        this.clientPayloadFingerprint = clientPayloadFingerprint;
         this.visitedAt = visitedAt;
         this.overallRating = overallRating;
         this.publicReview = publicReview;
@@ -88,6 +97,8 @@ public class Visit {
     public UUID getId() { return id; }
     public User getUser() { return user; }
     public Place getPlace() { return place; }
+    public UUID getClientMutationId() { return clientMutationId; }
+    public String getClientPayloadFingerprint() { return clientPayloadFingerprint; }
     public LocalDate getVisitedAt() { return visitedAt; }
     public double getOverallRating() { return overallRating; }
     public String getPublicReview() { return publicReview; }

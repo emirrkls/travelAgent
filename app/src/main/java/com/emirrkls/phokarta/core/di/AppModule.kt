@@ -8,6 +8,10 @@ import com.emirrkls.phokarta.core.data.RoomPlaceCacheDataSource
 import com.emirrkls.phokarta.core.data.RoomVisitDraftRepository
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.core.sync.MutationSyncScheduler
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.RoomOfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.WorkManagerMutationSyncScheduler
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -38,4 +42,10 @@ abstract class AppModule {
     abstract fun bindVisitDraftRepository(
         repository: RoomVisitDraftRepository,
     ): VisitDraftRepository
+
+    @Binds @Singleton
+    abstract fun bindOfflineMutationRepository(repository: RoomOfflineMutationRepository): OfflineMutationRepository
+
+    @Binds @Singleton
+    abstract fun bindMutationSyncScheduler(scheduler: WorkManagerMutationSyncScheduler): MutationSyncScheduler
 }

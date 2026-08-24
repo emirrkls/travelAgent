@@ -98,3 +98,16 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_mutations` (`mutationId` TEXT NOT NULL, `userId` TEXT NOT NULL, `type` TEXT NOT NULL, `resourceKey` TEXT NOT NULL, `state` TEXT NOT NULL, `generation` INTEGER NOT NULL, `desiredSaved` INTEGER, `attemptCount` INTEGER NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, `lastErrorCategory` TEXT, PRIMARY KEY(`mutationId`))""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_mutations_userId_state_createdAtEpochMillis` ON `pending_mutations` (`userId`, `state`, `createdAtEpochMillis`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_pending_mutations_userId_type_resourceKey` ON `pending_mutations` (`userId`, `type`, `resourceKey`)")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_visit_payloads` (`mutationId` TEXT NOT NULL, `placeId` TEXT NOT NULL, `visitedAtEpochDay` INTEGER NOT NULL, `overallRating` REAL NOT NULL, `publicReview` TEXT NOT NULL, `privateMemory` TEXT NOT NULL, `visibility` TEXT NOT NULL, PRIMARY KEY(`mutationId`), FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_visit_dimension_scores` (`mutationId` TEXT NOT NULL, `dimensionKey` TEXT NOT NULL, `score` REAL NOT NULL, PRIMARY KEY(`mutationId`, `dimensionKey`), FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_visit_dimension_scores_mutationId` ON `pending_visit_dimension_scores` (`mutationId`)")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_visit_photos` (`mutationId` TEXT NOT NULL, `position` INTEGER NOT NULL, `url` TEXT NOT NULL, PRIMARY KEY(`mutationId`, `position`), FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_visit_photos_mutationId` ON `pending_visit_photos` (`mutationId`)")
+    }
+}

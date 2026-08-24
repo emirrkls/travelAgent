@@ -16,6 +16,9 @@ import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
+import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.PendingVisit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,6 +49,7 @@ data class PlaceDetailUiState(
     val place: Place? = null,
     val isSaved: Boolean = false,
     val visits: List<Visit> = emptyList(),
+    val pendingVisits: List<PendingVisit> = emptyList(),
     val collections: List<Collection> = emptyList(),
     val membershipBusyIds: Set<String> = emptySet(),
     val currentUserId: String,
@@ -73,6 +77,7 @@ class PlaceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: TravelRepository,
     private val draftRepository: VisitDraftRepository,
+    private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
 ) : ViewModel() {
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val place = MutableStateFlow<Place?>(null)
@@ -106,11 +111,13 @@ class PlaceDetailViewModel @Inject constructor(
             Triple(friendReviewsState, friendSummaryState, reviewScope)
         },
         draftRepository.observeHasDraft(placeId),
-    ) { (current, saved, visits), (collections, detailStatus, reviewsState), (friendReviewsState, friendSummaryState, reviewScope), hasDraft ->
+        offlineMutations.observePendingVisits(),
+    ) { (current, saved, visits), (collections, detailStatus, reviewsState), (friendReviewsState, friendSummaryState, reviewScope), hasDraft, pending ->
         PlaceDetailUiState(
             place = current,
             isSaved = placeId in saved,
             visits = visits.filter { it.placeId == placeId }.sortedByDescending { it.visitedAt },
+            pendingVisits = pending.filter { it.visit.placeId == placeId }.sortedByDescending { it.visit.visitedAt },
             collections = collections,
             membershipBusyIds = detailStatus.membershipBusyIds,
             currentUserId = repository.currentUser.id,
@@ -147,6 +154,10 @@ class PlaceDetailViewModel @Inject constructor(
     }
 
     fun retry() = load()
+
+    fun retryMutation(mutationId: String) {
+        viewModelScope.launch { offlineMutations.retry(mutationId) }
+    }
 
     fun refreshCommunityReviews() = loadCommunityReviews(force = true)
 

@@ -262,6 +262,11 @@
     <string name="a11y_discard_draft">Discard unfinished visit draft</string>
     <string name="a11y_draft_menu">Visit draft options</string>
     <string name="visit_published">Visit published</string>
+    <string name="pending_sync">Pending sync</string>
+    <string name="sync_failed">Sync failed</string>
+    <string name="sync_status_visibility">%1$s · %2$s</string>
+    <string name="visit_saved_for_sync">Visit saved. Pending sync.</string>
+    <string name="sync_queue_failed">Couldn’t save this visit for sync. Your draft is still here.</string>
     <string name="see_it_on_your_profile">See it on your profile</string>
     <string name="back_to_explore">Back to Explore</string>
 

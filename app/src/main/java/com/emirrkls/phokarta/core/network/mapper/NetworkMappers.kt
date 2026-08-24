@@ -184,7 +184,8 @@ fun FriendMetricsDto.toFriendMetrics(): SavedFriendMetrics {
     )
 }
 
-fun Visit.toCreateDto(): CreateVisitDto = CreateVisitDto(
+fun Visit.toCreateDto(clientMutationId: String? = null): CreateVisitDto = CreateVisitDto(
+    clientMutationId = clientMutationId,
     placeId = placeId.toCanonicalUuid(),
     visitedAt = visitedAt.toString(),
     overallRating = overallRating,

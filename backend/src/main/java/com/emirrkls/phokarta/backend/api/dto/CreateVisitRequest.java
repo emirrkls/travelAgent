@@ -15,6 +15,10 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateVisitRequest(
+        @Schema(description = "Client-generated idempotency key. Retries with the same authenticated "
+                + "user, key, and payload return the original Visit; a different payload returns 409. "
+                + "Optional only for backward compatibility with legacy clients.")
+        UUID clientMutationId,
         @NotNull UUID placeId,
         @NotNull @PastOrPresent LocalDate visitedAt,
         @NotNull @DecimalMin("0.0") @DecimalMax("10.0") Double overallRating,
@@ -29,6 +33,14 @@ public record CreateVisitRequest(
                 + "discovery. PRIVATE is owner-only and never appears in discovery. "
                 + "Required; clients must send an explicit value.")
         Visibility visibility) {
+
+    /** Source-compatible constructor for server tests and legacy in-process callers. */
+    public CreateVisitRequest(UUID placeId, LocalDate visitedAt, Double overallRating,
+                              List<DimensionScore> dimensions, String publicReview,
+                              String privateMemory, List<String> photos, Visibility visibility) {
+        this(null, placeId, visitedAt, overallRating, dimensions, publicReview,
+                privateMemory, photos, visibility);
+    }
 
     public record DimensionScore(
             @NotBlank @Size(max = 40) String key,

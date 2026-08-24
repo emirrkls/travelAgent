@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.emirrkls.phokarta.ui.localization.appLocale
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.labelRes
@@ -73,6 +74,7 @@ import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.share.PhokartaShare
+import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
 import com.emirrkls.phokarta.feature.collections.CollectionPickerSheet
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
 import com.emirrkls.phokarta.feature.secondary.ActivityScopeSelector
@@ -358,17 +360,39 @@ fun PlaceDetailScreen(
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-                if (state.visits.isNotEmpty()) {
+                if (state.visits.isNotEmpty() || state.pendingVisits.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.your_visits), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                         Text(
-                            if (visitCount == 1) "1 visit" else "$visitCount visits",
+                            pluralStringResource(R.plurals.visits_count, visitCount, visitCount),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelLarge,
                         )
                     }
                     Spacer(Modifier.height(12.dp))
+                    state.pendingVisits.forEach { pending ->
+                        VisitHistoryRow(visit = pending.visit, repeatLabel = null, onClick = {})
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(
+                                    R.string.sync_status_visibility,
+                                    stringResource(if (pending.failed) R.string.sync_failed else R.string.pending_sync),
+                                    stringResource(VisitVisibilityCopy.labelRes(pending.visit.visibility)),
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                            if (pending.failed) TextButton(onClick = { viewModel.retryMutation(pending.mutationId) }) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
                     state.visits.forEach { visit ->
                         VisitHistoryRow(
                             visit = visit,

@@ -85,11 +85,15 @@ public class MeController {
     }
 
     @PostMapping("/saved-places/{placeId}")
+    @Operation(summary = "Set saved state to saved",
+            description = "Idempotent desired-state operation. Saving an already-saved Place succeeds and returns the current saved row.")
     public SavedPlaceResponse savePlace(@PathVariable UUID placeId) {
         return savedPlaceService.save(SecurityUtils.requireCurrentUserId(), placeId);
     }
 
     @DeleteMapping("/saved-places/{placeId}")
+    @Operation(summary = "Set saved state to not saved",
+            description = "Idempotent desired-state operation. Removing an already-absent saved Place succeeds.")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeSavedPlace(@PathVariable UUID placeId) {
         savedPlaceService.remove(SecurityUtils.requireCurrentUserId(), placeId);

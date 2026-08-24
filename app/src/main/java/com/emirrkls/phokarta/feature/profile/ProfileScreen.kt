@@ -33,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,6 +68,7 @@ import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import androidx.compose.material.icons.rounded.Settings
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
+import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
 
 @Composable
 fun ProfileScreen(
@@ -204,6 +206,37 @@ fun ProfileScreen(
                     item {
                         Box(Modifier.padding(horizontal = 16.dp)) {
                             SectionHeader(stringResource(R.string.your_visits), stringResource(R.string.total_visits_label, state.visitSummary.totalVisits))
+                        }
+                    }
+                    items(state.pendingVisits, key = { "pending-${it.pending.mutationId}" }) { pending ->
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                            CompactPlaceCard(
+                                place = pending.place,
+                                onClick = { onPlace(pending.place.id) },
+                                saved = pending.place.id in state.savedPlaceIds,
+                                visited = false,
+                                onSave = { viewModel.toggleSaved(pending.place.id) },
+                            )
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.sync_status_visibility,
+                                        stringResource(if (pending.pending.failed) R.string.sync_failed else R.string.pending_sync),
+                                        stringResource(VisitVisibilityCopy.labelRes(pending.pending.visit.visibility)),
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                                if (pending.pending.failed) {
+                                    TextButton(onClick = { viewModel.retryMutation(pending.pending.mutationId) }) {
+                                        Text(stringResource(R.string.action_retry))
+                                    }
+                                }
+                            }
                         }
                     }
                     items(state.visitedPlaces, key = { it.visit.id }) { visited ->

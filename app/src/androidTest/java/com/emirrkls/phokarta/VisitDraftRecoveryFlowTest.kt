@@ -13,6 +13,8 @@ import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.feature.rating.VisitDraft
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import kotlinx.coroutines.flow.first
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import java.time.LocalDate
@@ -36,6 +38,7 @@ class VisitDraftRecoveryFlowTest {
     @Inject lateinit var draftRepository: VisitDraftRepository
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var fakeVisits: FakeVisits
+    @Inject lateinit var offlineMutations: OfflineMutationRepository
 
     @Before
     fun inject() {
@@ -211,7 +214,7 @@ class VisitDraftRecoveryFlowTest {
     }
 
     @Test
-    fun publishFailure_keepsDraftValues() {
+    fun publishFailure_keepsCommittedPendingPayloadNotDraft() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
@@ -240,11 +243,13 @@ class VisitDraftRecoveryFlowTest {
         }
         composeRule.onNodeWithText("Publish visit").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Keep after failure").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Sync failed", substring = true).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Keep after failure").assertIsDisplayed()
         runBlocking {
-            assertTrue(draftRepository.hasDraft(PLACE_ID))
+            assertFalse(draftRepository.hasDraft(PLACE_ID))
+            val pending = offlineMutations.observePendingVisits().first().single { it.visit.placeId == PLACE_ID }
+            assertEquals("Keep after failure", pending.visit.review)
+            assertTrue(pending.failed)
         }
     }
 

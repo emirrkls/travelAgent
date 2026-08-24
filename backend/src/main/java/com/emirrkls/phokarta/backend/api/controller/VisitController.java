@@ -38,7 +38,9 @@ public class VisitController {
     }
 
     @Operation(summary = "Append a visit",
-            description = "Visits are append-only. Ownership is taken from the authenticated principal.")
+            description = "Visits are append-only. Ownership is taken from the authenticated principal. "
+                    + "clientMutationId is an ownership-scoped idempotency key: an identical retry returns "
+                    + "the original Visit and conflicting key reuse returns 409.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/visits")
     @ResponseStatus(HttpStatus.CREATED)

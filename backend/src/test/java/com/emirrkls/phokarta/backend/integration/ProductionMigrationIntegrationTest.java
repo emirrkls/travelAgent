@@ -34,7 +34,7 @@ class ProductionMigrationIntegrationTest {
                 "select count(*) from flyway_schema_history where success", Integer.class);
         Long userCount = jdbc.queryForObject("select count(*) from users", Long.class);
 
-        assertThat(migrationCount).isEqualTo(4);
+        assertThat(migrationCount).isEqualTo(5);
         assertThat(userCount).isZero();
         Integer emailColumn = jdbc.queryForObject("""
                 select count(*) from information_schema.columns
@@ -46,5 +46,10 @@ class ProductionMigrationIntegrationTest {
                 """, Integer.class);
         assertThat(emailColumn).isEqualTo(1);
         assertThat(refreshTable).isEqualTo(1);
+        Integer mutationColumn = jdbc.queryForObject("""
+                select count(*) from information_schema.columns
+                where table_name = 'visits' and column_name = 'client_mutation_id'
+                """, Integer.class);
+        assertThat(mutationColumn).isEqualTo(1);
     }
 }

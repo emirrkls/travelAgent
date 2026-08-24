@@ -94,6 +94,12 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             onPublished()
         }
     }
+    LaunchedEffect(state.queuedForSync) {
+        if (state.queuedForSync) {
+            snackbarHostState.showSnackbar(context.getString(R.string.visit_saved_for_sync))
+            onBack()
+        }
+    }
     LaunchedEffect(state.discarded) {
         if (state.discarded) onBack()
     }
@@ -122,7 +128,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     if (showVisibilitySheet) {
         VisitVisibilitySheet(
             selectedVisibility = state.visibility,
-            onSelect = viewModel::setVisibility,
+            onSelect = { visibility ->
+                viewModel.setVisibility(visibility)
+                showVisibilitySheet = false
+            },
             onDismiss = { showVisibilitySheet = false },
         )
     }

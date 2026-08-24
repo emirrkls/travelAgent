@@ -243,6 +243,11 @@
     <string name="a11y_discard_draft">Tamamlanmamış ziyaret taslağını sil</string>
     <string name="a11y_draft_menu">Ziyaret taslağı seçenekleri</string>
     <string name="visit_published">Ziyaret yayınlandı</string>
+    <string name="pending_sync">Senkronizasyon bekleniyor</string>
+    <string name="sync_failed">Senkronizasyon başarısız</string>
+    <string name="sync_status_visibility">%1$s · %2$s</string>
+    <string name="visit_saved_for_sync">Ziyaret kaydedildi. Senkronizasyon bekleniyor.</string>
+    <string name="sync_queue_failed">Bu ziyaret senkronizasyon için kaydedilemedi. Taslağınız korunuyor.</string>
     <string name="see_it_on_your_profile">Profilinde gör</string>
     <string name="back_to_explore">Keşfet\'e dön</string>
 

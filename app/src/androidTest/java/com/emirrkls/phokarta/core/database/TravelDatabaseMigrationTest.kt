@@ -153,6 +153,39 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration5To6PreservesStateAndAddsTypedMutationQueue() {
+        val userId = "20000000-0000-4000-8000-000000000002"
+        val placeId = "30000000-0000-4000-8000-000000000003"
+        helper.createDatabase(TEST_DATABASE, 5).apply {
+            execSQL(
+                """INSERT INTO visit_drafts
+                    (userId, placeId, overallScore, publicReview, privateMemory, visitedAtEpochDay,
+                     visibility, dimensionsExpanded, createdAtEpochMillis, updatedAtEpochMillis)
+                    VALUES (?, ?, 8.5, 'Draft', 'Memory', 21000, 'PRIVATE', 0, 400, 400)""".trimIndent(),
+                arrayOf<Any>(userId, placeId),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 6, true, MIGRATION_5_6).apply {
+            assertEquals(1, rowCount("visit_drafts"))
+            assertEquals(0, rowCount("pending_mutations"))
+            assertEquals(0, rowCount("pending_visit_payloads"))
+            assertEquals(0, rowCount("pending_visit_dimension_scores"))
+            assertEquals(0, rowCount("pending_visit_photos"))
+            execSQL(
+                """INSERT INTO pending_mutations
+                    (mutationId, userId, type, resourceKey, state, generation, desiredSaved,
+                     attemptCount, createdAtEpochMillis, updatedAtEpochMillis, lastErrorCategory)
+                    VALUES ('m1', ?, 'SET_SAVED_STATE', ?, 'PENDING', 1, 1, 0, 500, 500, NULL)""".trimIndent(),
+                arrayOf<Any>(userId, placeId),
+            )
+            assertEquals(1, rowCount("pending_mutations"))
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits

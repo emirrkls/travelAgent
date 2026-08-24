@@ -12,6 +12,9 @@ import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
+import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.sync.PendingVisit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class VisitedPlace(val visit: Visit, val place: Place)
+data class PendingVisitedPlace(val pending: PendingVisit, val place: Place)
 
 enum class ProfilePlacesSegment { VISITS, SAVED }
 
@@ -31,6 +35,7 @@ data class ProfileUiState(
     val followingCount: Long = 0,
     val friendCount: Long = 0,
     val visitedPlaces: List<VisitedPlace> = emptyList(),
+    val pendingVisits: List<PendingVisitedPlace> = emptyList(),
     val visitSummary: VisitStateLogic.ProfileVisitSummary = VisitStateLogic.ProfileVisitSummary(0, 0, null),
     val placeVisitCounts: Map<String, Int> = emptyMap(),
     val savedPlaces: List<Place> = emptyList(),
@@ -45,6 +50,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val authRepository: AuthRepository,
+    private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
 ) : ViewModel() {
     private val placesSegment = MutableStateFlow(ProfilePlacesSegment.VISITS)
     private val saveError = MutableStateFlow<Int?>(null)
@@ -90,7 +96,11 @@ class ProfileViewModel @Inject constructor(
         saveError.value = null
     }
 
-    private val catalogState = combine(
+    fun retryMutation(mutationId: String) {
+        viewModelScope.launch { offlineMutations.retry(mutationId) }
+    }
+
+    private val canonicalCatalogState = combine(
         repository.observeVisits(),
         repository.observePlaces(),
         repository.observeCollections(),
@@ -98,6 +108,9 @@ class ProfileViewModel @Inject constructor(
         repository.observeVisitedPlaceIds(),
     ) { visits, places, collections, saved, visited ->
         CatalogSnapshot(visits, places, collections, saved, visited)
+    }
+    private val catalogState = combine(canonicalCatalogState, offlineMutations.observePendingVisits()) { catalog, pending ->
+        catalog.copy(pending = pending)
     }
 
     val uiState = combine(catalogState, placesSegment, saveError, socialCounts) { catalog, segment, error, counts ->
@@ -111,6 +124,9 @@ class ProfileViewModel @Inject constructor(
             friendCount = counts.friendCount,
             visitedPlaces = sortedVisits.mapNotNull { visit ->
                 byId[visit.placeId]?.let { VisitedPlace(visit, it) }
+            },
+            pendingVisits = catalog.pending.mapNotNull { pending ->
+                byId[pending.visit.placeId]?.let { PendingVisitedPlace(pending, it) }
             },
             visitSummary = VisitStateLogic.profileSummary(catalog.visits),
             placeVisitCounts = visitCounts,
@@ -133,5 +149,6 @@ class ProfileViewModel @Inject constructor(
         val collections: List<Collection>,
         val saved: Set<String>,
         val visited: Set<String>,
+        val pending: List<PendingVisit> = emptyList(),
     )
 }

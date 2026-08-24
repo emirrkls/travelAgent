@@ -112,7 +112,7 @@ class CollectionsAndVisitHistoryFlowTest {
         }
         composeRule.onNodeWithText("Your visits").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Rate another visit").performClick()
+        composeRule.onAllNodesWithText("Rate another visit").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
@@ -122,6 +122,6 @@ class CollectionsAndVisitHistoryFlowTest {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Your visits").assertIsDisplayed()
-        composeRule.onNodeWithText("Rate another visit").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Rate another visit").onFirst().assertIsDisplayed()
     }
 }

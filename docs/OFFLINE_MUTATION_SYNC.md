@@ -13,9 +13,11 @@ the start of the next unique drain. Transport failures, 408, 429, 5xx, and an ul
 `FAILED_PERMANENT`. Manual retry returns either failure state to `PENDING`. Successful rows and
 their cascade-owned typed payload are deleted after local reconciliation.
 
-One WorkManager chain named `phokarta_mutation_sync` drains batches with a connected-network
-constraint and exponential backoff. `APPEND_OR_REPLACE` retains a successor trigger when an
-enqueue races an active drain. Tokens and private content never enter WorkManager input data.
+One unique WorkManager job named `phokarta_mutation_sync` drains batches with a connected-network
+constraint and exponential backoff. A fresh trigger uses `REPLACE`, so login or relaunch can
+supersede an obsolete backoff; the replacement drain recovers any interrupted `SYNCING` rows.
+The app disables WorkManager's default Startup initializer and supplies Hilt's worker factory.
+Tokens and private content never enter WorkManager input data.
 
 ## Visit idempotency
 
@@ -24,6 +26,8 @@ canonical SHA-256 request fingerprint and enforces a partial unique index on
 `(user_id, client_mutation_id)`. A PostgreSQL transaction advisory lock serializes concurrent
 first delivery. An identical retry returns the original Visit; reuse with a different payload
 returns 409. The nullable column keeps legacy clients additive and backward compatible.
+Each queued Visit also uses that mutation UUID as its local resource key, allowing multiple
+append-only Visits for the same Place to remain pending at once.
 
 ## Saved generations
 
@@ -36,3 +40,7 @@ local intent time until a matching save ACK replaces it with canonical server `s
 All rows are user-scoped. Logout retains them; workers process only the currently authenticated
 owner. Pending Visits are owner-only local presentation and never enter Community, Friends,
 review, score, activity, or map inputs before server acknowledgement.
+
+Session restoration keeps the stored owner and queue presentation on retryable offline/server
+failures, but still clears invalid credentials. Every authenticated owner transition schedules an
+immediate drain, while the Settings screen exposes Sign out so account switching is explicit.

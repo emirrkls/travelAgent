@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,7 +38,10 @@ import com.emirrkls.phokarta.ui.localization.AppLanguageController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onSignOut: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -61,6 +66,26 @@ fun SettingsScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(vertical = 12.dp),
             )
             LanguageSettingsContent()
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onSignOut)
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ExitToApp,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    stringResource(R.string.action_sign_out),
+                    modifier = Modifier.padding(start = 16.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         }
     }
 }

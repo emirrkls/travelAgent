@@ -1,6 +1,8 @@
 package com.emirrkls.phokarta
 
 import android.app.Application
+import com.emirrkls.phokarta.core.auth.AuthState
+import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import dagger.hilt.android.HiltAndroidApp
 import androidx.hilt.work.HiltWorkerFactory
@@ -10,12 +12,16 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class PhokartaApplication : Application(), Configuration.Provider {
     @Inject lateinit var visitDraftRepository: VisitDraftRepository
     @Inject lateinit var mutationRepository: OfflineMutationRepository
+    @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
@@ -28,6 +34,13 @@ class PhokartaApplication : Application(), Configuration.Provider {
         applicationScope.launch {
             visitDraftRepository.deleteExpiredDrafts()
             mutationRepository.scheduleSync()
+        }
+        applicationScope.launch {
+            sessionManager.state
+                .filterIsInstance<AuthState.Authenticated>()
+                .map { it.user.id }
+                .distinctUntilChanged()
+                .collect { mutationRepository.scheduleSync() }
         }
     }
 }

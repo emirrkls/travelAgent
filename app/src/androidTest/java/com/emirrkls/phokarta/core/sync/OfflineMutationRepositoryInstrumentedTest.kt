@@ -81,6 +81,22 @@ class OfflineMutationRepositoryInstrumentedTest {
         assertTrue(database.savedPlaceDao().getSavedPlace(USER_A, PLACE) != null)
     }
 
+    @Test fun multiplePendingVisitsForSamePlaceRemainDistinct() = runTest {
+        val visit = Visit(
+            "local", USER_A, PLACE, LocalDate.of(2026, 8, 20), 9.0,
+            emptyMap(), "review", "", visibility = Visibility.PUBLIC,
+        )
+
+        val first = repository.commitVisit(visit)
+        val second = repository.commitVisit(visit.copy(review = "another review"))
+
+        val rows = database.pendingMutationDao().observeForUser(USER_A).first()
+            .filter { it.type == MutationTypeValue.PUBLISH_VISIT }
+        assertEquals(2, rows.size)
+        assertEquals(setOf(first, second), rows.map { it.mutationId }.toSet())
+        assertEquals(setOf(first, second), rows.map { it.resourceKey }.toSet())
+    }
+
     @Test fun logoutAndAccountSwitchRetainButHideOriginalQueue() = runTest {
         repository.toggleSaved(PLACE)
         session.clearSession()

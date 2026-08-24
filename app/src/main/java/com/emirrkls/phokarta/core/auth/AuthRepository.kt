@@ -56,21 +56,34 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun restoreSession(): AuthState {
-        sessionManager.markLoading()
         val refresh = sessionManager.refreshToken()
         if (refresh.isNullOrBlank()) {
             sessionManager.clearSession()
             return AuthState.LoggedOut
         }
-        when (refreshTokens(refresh)) {
-            is AuthResult.Error -> {
+        sessionManager.markLoading()
+        when (val refreshed = safeApiCall(json) {
+            authApi.refresh(RefreshRequestDto(refreshToken = refresh))
+        }) {
+            is RemoteResult.Failure -> {
+                if (refreshed.error.isOfflineRetryable()) {
+                    sessionManager.restoreFromStore()
+                    return sessionManager.state.value
+                }
                 sessionManager.clearSession()
                 return AuthState.LoggedOut
             }
-            AuthResult.Success -> Unit
+            is RemoteResult.Success -> sessionManager.updateTokens(
+                refreshed.value.accessToken,
+                refreshed.value.refreshToken,
+            )
         }
         return when (val me = safeApiCall(json) { meApi.profile() }) {
             is RemoteResult.Failure -> {
+                if (me.error.isOfflineRetryable()) {
+                    sessionManager.restoreFromStore()
+                    return sessionManager.state.value
+                }
                 sessionManager.clearSession()
                 AuthState.LoggedOut
             }
@@ -158,4 +171,11 @@ private fun NetworkError.toAuthMessage(): Int = when (this) {
     is NetworkError.Conflict -> R.string.error_conflict
     is NetworkError.Server -> R.string.error_server
     is NetworkError.Unknown -> R.string.error_unknown
+}
+
+private fun NetworkError.isOfflineRetryable(): Boolean = when (this) {
+    NetworkError.Connection, NetworkError.Timeout, is NetworkError.Server -> true
+    is NetworkError.Unknown -> status == 408 || status == 429 || status == null
+    is NetworkError.Validation, is NetworkError.Forbidden,
+    is NetworkError.NotFound, is NetworkError.Conflict -> false
 }

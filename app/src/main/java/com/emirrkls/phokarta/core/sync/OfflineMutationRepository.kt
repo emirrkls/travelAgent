@@ -68,7 +68,7 @@ class RoomOfflineMutationRepository @Inject constructor(
         val now = clock.nowMillis()
         database.withTransaction {
             mutations.insertMutation(PendingMutationEntity(
-                mutationId, userId, MutationTypeValue.PUBLISH_VISIT, visit.placeId,
+                mutationId, userId, MutationTypeValue.PUBLISH_VISIT, mutationId,
                 MutationStateValue.PENDING, 1, null, 0, now, now, null,
             ))
             mutations.insertVisitPayload(PendingVisitPayloadEntity(

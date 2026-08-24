@@ -30,4 +30,8 @@ class AppStartViewModel @Inject constructor(
 
     fun isOnboardingComplete(): Boolean = onboardingStore.isComplete()
     fun completeOnboarding() = onboardingStore.markComplete()
+
+    fun logout() {
+        viewModelScope.launch { authRepository.logout() }
+    }
 }

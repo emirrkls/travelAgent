@@ -235,7 +235,10 @@ fun PhokartaApp() {
                     )
                 }
                 composable(Route.Settings) {
-                    SettingsScreen(onBack = { navController.popBackStack() })
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onSignOut = startViewModel::logout,
+                    )
                 }
                 composable(Route.UserSearch) {
                     UserSearchScreen(

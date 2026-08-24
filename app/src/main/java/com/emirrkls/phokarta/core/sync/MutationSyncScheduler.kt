@@ -23,11 +23,11 @@ class WorkManagerMutationSyncScheduler @Inject constructor(
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
             .build()
-        // If an enqueue races an active drain, retain one successor so a newer Saved generation
-        // cannot be stranded after the active worker's eligibility snapshot.
+        // A new trigger (especially a fresh login) must supersede an old worker in exponential
+        // backoff. Interrupted SYNCING rows are recovered at the start of the replacement drain.
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            ExistingWorkPolicy.REPLACE,
             request,
         )
     }

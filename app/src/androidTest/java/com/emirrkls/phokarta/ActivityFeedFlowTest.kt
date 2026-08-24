@@ -142,6 +142,9 @@ class ActivityFeedFlowTest {
         composeRule.waitForExplore()
 
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onAllNodesWithText("Been here").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()

@@ -21,6 +21,9 @@ interface VisitDraftRepository {
     suspend fun deleteDraft(placeId: String, ownerUserId: String)
     suspend fun deleteExpiredDrafts()
 
+    /** Session-only photos for drafts recovered from pending payloads (not in Room). */
+    suspend fun attachSessionPhotos(placeId: String, photos: List<String>, ownerUserId: String)
+
     companion object {
         const val EXPIRY_MS: Long = 30L * 24 * 60 * 60 * 1000
         const val AUTOSAVE_DEBOUNCE_MS: Long = 400L

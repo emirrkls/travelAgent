@@ -248,6 +248,25 @@
     <string name="sync_status_visibility">%1$s · %2$s</string>
     <string name="visit_saved_for_sync">Ziyaret kaydedildi. Senkronizasyon bekleniyor.</string>
     <string name="sync_queue_failed">Bu ziyaret senkronizasyon için kaydedilemedi. Taslağınız korunuyor.</string>
+    <string name="action_edit_and_retry">Düzenle ve tekrar dene</string>
+    <string name="action_remove_failed_visit">Kaldır</string>
+    <string name="visit_restored_for_editing">Ziyaret düzenlemek için geri yüklendi</string>
+    <string name="replace_existing_draft_title">Mevcut taslak değiştirilsin mi?</string>
+    <string name="replace_existing_draft_message">Bu mekân için tamamlanmamış bir ziyaretin var. Değiştirmek o taslağı silecek.</string>
+    <string name="action_replace">Değiştir</string>
+    <string name="remove_failed_visit_title">Başarısız ziyaret kaldırılsın mı?</string>
+    <string name="remove_failed_visit_message">Bu senkronize edilmemiş ziyaret bu cihazdan silinecek.</string>
+    <string name="sync_failure_validation">Bazı ziyaret bilgileri geçersiz olduğu için yayınlanamadı.</string>
+    <string name="sync_failure_forbidden">Bu ziyareti yayınlama iznin yok.</string>
+    <string name="sync_failure_not_found">Bu mekân artık kullanılamıyor.</string>
+    <string name="sync_failure_idempotency">Bu ziyaret güvenli şekilde senkronize edilemedi.</string>
+    <string name="sync_failure_generic">Bu ziyaret senkronize edilemedi.</string>
+    <string name="a11y_edit_and_retry">Başarısız ziyareti düzenle ve tekrar yayınla</string>
+    <string name="a11y_remove_failed_visit">Başarısız ziyareti bu cihazdan kaldır</string>
+    <string name="a11y_confirm_remove_failed_visit">Başarısız ziyareti kaldırmayı onayla</string>
+    <string name="a11y_replace_draft">Mevcut ziyaret taslağını değiştir</string>
+    <string name="a11y_retry_sync">Ziyaret senkronizasyonunu tekrar dene</string>
+    <string name="a11y_pending_visit_detail">Bekleyen ziyaret ayrıntılarını aç</string>
     <string name="see_it_on_your_profile">Profilinde gör</string>
     <string name="back_to_explore">Keşfet\'e dön</string>
 

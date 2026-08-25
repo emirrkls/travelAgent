@@ -23,6 +23,8 @@ data class VisitDraft(
     val visitDate: LocalDate = LocalDate.now(),
     val visibility: Visibility = Visibility.PUBLIC,
     val dimensionsExpanded: Boolean = false,
+    /** Recovered from pending payload; included on publish but not persisted in draft Room tables. */
+    val photos: List<String> = emptyList(),
 )
 
 /**
@@ -82,6 +84,7 @@ object VisitDraftLogic {
         ratingDimensions = draft.dimensions.mapValues { it.value.roundToTenth().toDouble() },
         review = draft.publicReview.trim(),
         personalNote = draft.privateMemory.trim(),
+        photos = draft.photos,
         visibility = draft.visibility,
     )
 }

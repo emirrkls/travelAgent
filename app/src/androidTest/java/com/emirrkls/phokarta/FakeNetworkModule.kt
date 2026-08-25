@@ -134,6 +134,7 @@ class FakeVisits(
     private val friendReadableReviews = mutableListOf<PublicVisitDto>()
     private val friendReadableActivity = mutableListOf<PublicActivityDto>()
     @Volatile var failCreate: Boolean = false
+    @Volatile var failCreatePermanent: NetworkError? = null
 
     init {
         fun indexActivity(event: PublicActivityDto, friendOnly: Boolean = false) {
@@ -272,6 +273,7 @@ class FakeVisits(
     }
 
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
+        failCreatePermanent?.let { return RemoteResult.Failure(it) }
         if (failCreate) return RemoteResult.Failure(NetworkError.Server(500, null))
         val visitId = UUID.randomUUID().toString()
         val visit = VisitOwnerDto(

@@ -225,6 +225,11 @@ fun PhokartaApp() {
                 composable(Route.Profile) {
                     ProfileScreen(
                         onPlace = { navController.navigate("place/$it") },
+                        onEditVisit = { placeId ->
+                            navController.navigate("rating/$placeId") {
+                                launchSingleTop = true
+                            }
+                        },
                         onCollection = { navController.navigate("collection/$it") },
                         onWantToGo = { navController.navigate(Route.WantToGo) },
                         onUserSearch = { navController.navigate(Route.UserSearch) },

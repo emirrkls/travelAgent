@@ -18,6 +18,7 @@ class RoomVisitDraftRepository @Inject constructor(
     private val sessionManager: SessionManager,
     private val clock: EpochClock,
 ) : VisitDraftRepository {
+    private val sessionPhotos = mutableMapOf<Pair<String, String>, List<String>>()
     private fun sessionUserId(): String? = sessionManager.currentUserId()
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -39,8 +40,11 @@ class RoomVisitDraftRepository @Inject constructor(
             dao.deleteDraft(userId, placeId)
             return null
         }
-        return entity.toDomain(dimensions)
+        return entity.toDomain(dimensions).withSessionPhotos(userId, placeId)
     }
+
+    private fun VisitDraft.withSessionPhotos(userId: String, placeId: String): VisitDraft =
+        copy(photos = sessionPhotos[userId to placeId].orEmpty().ifEmpty { photos })
 
     override suspend fun hasDraft(placeId: String): Boolean {
         val userId = sessionUserId() ?: return false
@@ -67,12 +71,28 @@ class RoomVisitDraftRepository @Inject constructor(
             ),
             scores = draft.toDraftDimensionEntities(ownerUserId, placeId),
         )
+        if (draft.photos.isEmpty()) {
+            sessionPhotos.remove(ownerUserId to placeId)
+        } else {
+            sessionPhotos[ownerUserId to placeId] = draft.photos.toList()
+        }
     }
 
     override suspend fun deleteDraft(placeId: String, ownerUserId: String) {
         val sessionId = sessionUserId() ?: return
         if (sessionId != ownerUserId) return
         dao.deleteDraft(ownerUserId, placeId)
+        sessionPhotos.remove(ownerUserId to placeId)
+    }
+
+    override suspend fun attachSessionPhotos(placeId: String, photos: List<String>, ownerUserId: String) {
+        val sessionId = sessionUserId() ?: return
+        if (sessionId != ownerUserId) return
+        if (photos.isEmpty()) {
+            sessionPhotos.remove(ownerUserId to placeId)
+        } else {
+            sessionPhotos[ownerUserId to placeId] = photos.toList()
+        }
     }
 
     override suspend fun deleteExpiredDrafts() {

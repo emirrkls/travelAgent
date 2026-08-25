@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.emirrkls.phokarta.core.auth.AuthenticatedUser
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.auth.TokenStore
+import com.emirrkls.phokarta.core.data.RoomVisitDraftRepository
 import com.emirrkls.phokarta.core.data.ActivityFeedInvalidator
 import com.emirrkls.phokarta.core.data.RoomLocalUserStateDataSource
 import com.emirrkls.phokarta.core.database.TravelDatabase
@@ -45,7 +46,9 @@ class MutationSyncEngineInstrumentedTest {
         session = SessionManager(TokenStore(context.getSharedPreferences("sync-engine-test", Context.MODE_PRIVATE)))
         session.setAuthenticated(AuthenticatedUser(USER, "u@test", "u", "U", "", ""), "access", "refresh")
         queue = RoomOfflineMutationRepository(
-            database, database.pendingMutationDao(), database.visitDraftDao(), database.savedPlaceDao(),
+            database, database.pendingMutationDao(), database.visitDraftDao(),
+            RoomVisitDraftRepository(database.visitDraftDao(), session, EpochClock { 1_000 }),
+            database.savedPlaceDao(),
             session, EpochClock { 1_000 }, object : MutationSyncScheduler { override fun schedule() = Unit },
         )
         visits = FakeVisits()

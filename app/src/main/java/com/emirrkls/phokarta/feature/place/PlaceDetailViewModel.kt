@@ -19,6 +19,7 @@ import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.PendingVisit
+import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,6 +80,8 @@ class PlaceDetailViewModel @Inject constructor(
     private val draftRepository: VisitDraftRepository,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
 ) : ViewModel() {
+    private val recoveryCoordinator = PendingVisitRecoveryCoordinator(offlineMutations)
+    val recoveryEvents = recoveryCoordinator.events
     private val placeId: String = checkNotNull(savedStateHandle["placeId"])
     private val place = MutableStateFlow<Place?>(null)
     private val status = MutableStateFlow(DetailStatus())
@@ -156,7 +159,19 @@ class PlaceDetailViewModel @Inject constructor(
     fun retry() = load()
 
     fun retryMutation(mutationId: String) {
-        viewModelScope.launch { offlineMutations.retry(mutationId) }
+        viewModelScope.launch { recoveryCoordinator.retry(mutationId) }
+    }
+
+    fun editAndRetryFailedVisit(mutationId: String, placeId: String) {
+        viewModelScope.launch { recoveryCoordinator.editAndRetry(mutationId, placeId) }
+    }
+
+    fun confirmReplaceDraftAndRecover(mutationId: String, placeId: String) {
+        viewModelScope.launch { recoveryCoordinator.confirmReplaceDraft(mutationId, placeId) }
+    }
+
+    fun removeFailedVisit(mutationId: String) {
+        viewModelScope.launch { recoveryCoordinator.removeFailedVisit(mutationId) }
     }
 
     fun refreshCommunityReviews() = loadCommunityReviews(force = true)

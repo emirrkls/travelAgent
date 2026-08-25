@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.time.EpochClock
 import java.util.UUID
@@ -22,19 +23,39 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import com.emirrkls.phokarta.core.auth.AuthState
-import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.core.data.toDraftDimensionEntities
+import com.emirrkls.phokarta.core.data.toDraftEntity
+import com.emirrkls.phokarta.core.data.toDomain
 import com.emirrkls.phokarta.core.model.Visibility
 import java.time.LocalDate
 
-data class PendingVisit(val mutationId: String, val visit: Visit, val state: String) {
+data class PendingVisit(
+    val mutationId: String,
+    val visit: Visit,
+    val state: String,
+    val lastErrorCategory: String? = null,
+) {
     val failed: Boolean get() = state == MutationStateValue.FAILED_PERMANENT ||
         state == MutationStateValue.FAILED_RETRYABLE
+
+    val failureReason: SyncFailureReason?
+        get() = if (state == MutationStateValue.FAILED_PERMANENT) {
+            SyncFailureReason.fromCategory(lastErrorCategory)
+        } else {
+            null
+        }
+
+    val actions: PendingVisitActions
+        get() = FailedVisitRecoveryPolicy.actionsFor(state, lastErrorCategory)
 }
 
 interface OfflineMutationRepository {
     suspend fun commitVisit(visit: Visit): String
     suspend fun toggleSaved(placeId: String): Boolean
     suspend fun retry(mutationId: String)
+    suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean = false): RecoverFailedVisitResult
+    suspend fun removeFailedVisit(mutationId: String): RemoveFailedVisitResult
     fun scheduleSync()
     fun observePendingVisits(): Flow<List<PendingVisit>>
     suspend fun mutationState(mutationId: String): String?
@@ -46,6 +67,9 @@ object NoOpOfflineMutationRepository : OfflineMutationRepository {
     override suspend fun commitVisit(visit: Visit) = error("Offline mutation repository unavailable")
     override suspend fun toggleSaved(placeId: String) = error("Offline mutation repository unavailable")
     override suspend fun retry(mutationId: String) = Unit
+    override suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean) =
+        RecoverFailedVisitResult.NOT_FOUND
+    override suspend fun removeFailedVisit(mutationId: String) = RemoveFailedVisitResult.NOT_FOUND
     override fun scheduleSync() = Unit
     override fun observePendingVisits(): Flow<List<PendingVisit>> = flowOf(emptyList())
     override suspend fun mutationState(mutationId: String): String? = null
@@ -57,6 +81,7 @@ class RoomOfflineMutationRepository @Inject constructor(
     private val database: TravelDatabase,
     private val mutations: PendingMutationDao,
     private val drafts: VisitDraftDao,
+    private val draftRepository: VisitDraftRepository,
     private val saved: SavedPlaceDao,
     private val session: SessionManager,
     private val clock: EpochClock,
@@ -123,6 +148,61 @@ class RoomOfflineMutationRepository @Inject constructor(
         scheduler.schedule()
     }
 
+    override suspend fun recoverFailedVisitForEditing(
+        mutationId: String,
+        replaceExisting: Boolean,
+    ): RecoverFailedVisitResult {
+        val userId = session.currentUserId() ?: return RecoverFailedVisitResult.NOT_OWNER
+        val item = mutations.getVisit(mutationId) ?: return RecoverFailedVisitResult.NOT_FOUND
+        if (item.mutation.userId != userId) return RecoverFailedVisitResult.NOT_OWNER
+        if (item.mutation.state != MutationStateValue.FAILED_PERMANENT) {
+            return RecoverFailedVisitResult.INVALID_STATE
+        }
+        val placeId = item.payload.placeId
+        if (!replaceExisting) {
+            val existing = drafts.getDraftWithDimensions(userId, placeId)
+            val existingDraft = existing?.let { (entity, dimensions) -> entity.toDomain(dimensions) }
+            if (FailedVisitRecoveryMapper.hasMeaningfulDraftConflict(existingDraft)) {
+                return RecoverFailedVisitResult.EXISTING_DRAFT_CONFLICT
+            }
+        }
+        val recovered = FailedVisitRecoveryMapper.toDraft(item)
+        val now = clock.nowMillis()
+        return try {
+            database.withTransaction {
+                val existing = drafts.getDraft(userId, placeId)
+                val createdAt = existing?.createdAtEpochMillis ?: now
+                drafts.upsertDraftWithDimensions(
+                    draft = recovered.toDraftEntity(userId, placeId, createdAt, now),
+                    scores = recovered.toDraftDimensionEntities(userId, placeId),
+                )
+                val deleted = mutations.deleteIfState(
+                    mutationId, userId, MutationStateValue.FAILED_PERMANENT,
+                )
+                if (deleted != 1) {
+                    throw IllegalStateException("Failed mutation state changed during recovery")
+                }
+            }
+            if (recovered.photos.isNotEmpty()) {
+                draftRepository.attachSessionPhotos(placeId, recovered.photos, userId)
+            }
+            RecoverFailedVisitResult.SUCCESS
+        } catch (_: IllegalStateException) {
+            RecoverFailedVisitResult.INVALID_STATE
+        }
+    }
+
+    override suspend fun removeFailedVisit(mutationId: String): RemoveFailedVisitResult {
+        val userId = session.currentUserId() ?: return RemoveFailedVisitResult.NOT_OWNER
+        val row = mutations.get(mutationId) ?: return RemoveFailedVisitResult.NOT_FOUND
+        if (row.userId != userId) return RemoveFailedVisitResult.NOT_OWNER
+        if (row.state != MutationStateValue.FAILED_PERMANENT) {
+            return RemoveFailedVisitResult.INVALID_STATE
+        }
+        val deleted = mutations.deleteIfState(mutationId, userId, MutationStateValue.FAILED_PERMANENT)
+        return if (deleted == 1) RemoveFailedVisitResult.SUCCESS else RemoveFailedVisitResult.INVALID_STATE
+    }
+
     override fun scheduleSync() = scheduler.schedule()
 
     override suspend fun mutationState(mutationId: String): String? = mutations.get(mutationId)?.state
@@ -142,6 +222,7 @@ class RoomOfflineMutationRepository @Inject constructor(
                     PendingVisit(
                         mutationId = row.mutationId,
                         state = row.state,
+                        lastErrorCategory = row.lastErrorCategory,
                         visit = Visit(
                             id = row.mutationId,
                             userId = row.userId,

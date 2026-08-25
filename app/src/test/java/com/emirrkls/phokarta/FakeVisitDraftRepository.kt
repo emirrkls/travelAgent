@@ -60,6 +60,8 @@ class FakeVisitDraftRepository(
         store.value = store.value.filterValues { it.updatedAt >= cutoff }
     }
 
+    override suspend fun attachSessionPhotos(placeId: String, photos: List<String>, ownerUserId: String) = Unit
+
     fun seed(
         userId: String,
         placeId: String,

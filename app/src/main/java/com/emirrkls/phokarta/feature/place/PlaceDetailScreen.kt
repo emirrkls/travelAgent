@@ -71,6 +71,11 @@ import com.emirrkls.phokarta.ui.localization.labelRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
+import com.emirrkls.phokarta.ui.components.PendingVisitDetailSheet
+import com.emirrkls.phokarta.ui.components.RemoveFailedVisitDialog
+import com.emirrkls.phokarta.ui.components.ReplaceDraftDialog
+import com.emirrkls.phokarta.core.sync.PendingVisit
+import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryEvent
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.core.share.PhokartaShare
@@ -114,6 +119,9 @@ fun PlaceDetailScreen(
     var showCreate by remember { mutableStateOf(false) }
     var awaitingCreateSuccess by remember { mutableStateOf(false) }
     var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
+    var selectedPending by remember { mutableStateOf<PendingVisit?>(null) }
+    var replaceDraftTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var removeTargetMutationId by remember { mutableStateOf<String?>(null) }
     val hasVisited = state.visits.isNotEmpty()
     val visitCount = state.visits.size
     val latestVisit = state.visits.firstOrNull()
@@ -127,6 +135,21 @@ fun PlaceDetailScreen(
         state.hasUnfinishedDraft -> stringResource(R.string.a11y_continue_draft)
         hasVisited -> stringResource(R.string.been_here_rate_another)
         else -> stringResource(R.string.been_here_rate_place)
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.recoveryEvents.collect { event ->
+            when (event) {
+                is PendingVisitRecoveryEvent.NavigateToRating -> {
+                    selectedPending = null
+                    snackbarHostState.showSnackbar(context.getString(R.string.visit_restored_for_editing))
+                    onRate()
+                }
+                is PendingVisitRecoveryEvent.ShowReplaceDraftDialog -> {
+                    replaceDraftTarget = event.mutationId to event.placeId
+                }
+            }
+        }
     }
 
     LaunchedEffect(visitPublished) {
@@ -372,10 +395,9 @@ fun PlaceDetailScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     state.pendingVisits.forEach { pending ->
-                        VisitHistoryRow(visit = pending.visit, repeatLabel = null, onClick = {})
+                        VisitHistoryRow(visit = pending.visit, repeatLabel = null, onClick = { selectedPending = pending })
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -387,9 +409,6 @@ fun PlaceDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium,
                             )
-                            if (pending.failed) TextButton(onClick = { viewModel.retryMutation(pending.mutationId) }) {
-                                Text(stringResource(R.string.action_retry))
-                            }
                         }
                         Spacer(Modifier.height(10.dp))
                     }
@@ -606,6 +625,43 @@ fun PlaceDetailScreen(
             placeName = place.name,
             visit = visit,
             onDismiss = { selectedVisit = null },
+        )
+    }
+    selectedPending?.let { pending ->
+        PendingVisitDetailSheet(
+            place = place,
+            pending = pending,
+            onDismiss = { selectedPending = null },
+            onRetry = {
+                viewModel.retryMutation(pending.mutationId)
+                selectedPending = null
+            },
+            onEditAndRetry = {
+                viewModel.editAndRetryFailedVisit(pending.mutationId, place.id)
+            },
+            onRemove = {
+                removeTargetMutationId = pending.mutationId
+            },
+        )
+    }
+    replaceDraftTarget?.let { (mutationId, placeId) ->
+        ReplaceDraftDialog(
+            onDismiss = { replaceDraftTarget = null },
+            onConfirm = {
+                viewModel.confirmReplaceDraftAndRecover(mutationId, placeId)
+                replaceDraftTarget = null
+                selectedPending = null
+            },
+        )
+    }
+    removeTargetMutationId?.let { mutationId ->
+        RemoveFailedVisitDialog(
+            onDismiss = { removeTargetMutationId = null },
+            onConfirm = {
+                viewModel.removeFailedVisit(mutationId)
+                removeTargetMutationId = null
+                selectedPending = null
+            },
         )
     }
 }

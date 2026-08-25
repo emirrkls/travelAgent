@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.emirrkls.phokarta.core.auth.AuthenticatedUser
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.auth.TokenStore
+import com.emirrkls.phokarta.core.data.RoomVisitDraftRepository
 import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
 import com.emirrkls.phokarta.core.database.entity.VisitDraftEntity
@@ -31,6 +32,7 @@ class OfflineMutationRepositoryInstrumentedTest {
     private lateinit var database: TravelDatabase
     private lateinit var session: SessionManager
     private lateinit var scheduler: RecordingScheduler
+    private lateinit var draftRepository: RoomVisitDraftRepository
     private lateinit var repository: RoomOfflineMutationRepository
 
     @Before fun setUp() {
@@ -39,8 +41,12 @@ class OfflineMutationRepositoryInstrumentedTest {
             .allowMainThreadQueries().build()
         session = SessionManager(TokenStore(context.getSharedPreferences("mutation-test", Context.MODE_PRIVATE)))
         scheduler = RecordingScheduler()
+        draftRepository = RoomVisitDraftRepository(
+            database.visitDraftDao(), session, EpochClock { 5_000L },
+        )
         repository = RoomOfflineMutationRepository(
-            database, database.pendingMutationDao(), database.visitDraftDao(), database.savedPlaceDao(),
+            database, database.pendingMutationDao(), database.visitDraftDao(),
+            draftRepository, database.savedPlaceDao(),
             session, EpochClock { 1_000L }, scheduler,
         )
         login(USER_A)

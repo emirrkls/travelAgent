@@ -64,6 +64,17 @@ interface PendingMutationDao {
     @Query("DELETE FROM pending_mutations WHERE mutationId = :mutationId AND generation = :generation")
     suspend fun deleteIfGeneration(mutationId: String, generation: Long): Int
 
+    @Query(
+        """
+        DELETE FROM pending_mutations
+        WHERE mutationId = :mutationId
+          AND userId = :userId
+          AND state = :expectedState
+          AND type = 'PUBLISH_VISIT'
+        """,
+    )
+    suspend fun deleteIfState(mutationId: String, userId: String, expectedState: String): Int
+
     @Query("UPDATE pending_mutations SET state = 'PENDING', lastErrorCategory = NULL, updatedAtEpochMillis = :now WHERE mutationId = :mutationId")
     suspend fun retry(mutationId: String, now: Long): Int
 

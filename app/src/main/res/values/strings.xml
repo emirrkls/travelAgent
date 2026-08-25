@@ -267,6 +267,25 @@
     <string name="sync_status_visibility">%1$s · %2$s</string>
     <string name="visit_saved_for_sync">Visit saved. Pending sync.</string>
     <string name="sync_queue_failed">Couldn’t save this visit for sync. Your draft is still here.</string>
+    <string name="action_edit_and_retry">Edit &amp; retry</string>
+    <string name="action_remove_failed_visit">Remove</string>
+    <string name="visit_restored_for_editing">Visit restored for editing</string>
+    <string name="replace_existing_draft_title">Replace existing draft?</string>
+    <string name="replace_existing_draft_message">You already have an unfinished visit for this place. Replacing it will delete that draft.</string>
+    <string name="action_replace">Replace</string>
+    <string name="remove_failed_visit_title">Remove failed visit?</string>
+    <string name="remove_failed_visit_message">This unsynced visit will be deleted from this device.</string>
+    <string name="sync_failure_validation">Couldn\'t publish because some visit details were invalid.</string>
+    <string name="sync_failure_forbidden">You don\'t have permission to publish this visit.</string>
+    <string name="sync_failure_not_found">This place is no longer available.</string>
+    <string name="sync_failure_idempotency">This visit couldn\'t be synchronized safely.</string>
+    <string name="sync_failure_generic">This visit couldn\'t be synced.</string>
+    <string name="a11y_edit_and_retry">Edit failed visit and retry publishing</string>
+    <string name="a11y_remove_failed_visit">Remove failed visit from this device</string>
+    <string name="a11y_confirm_remove_failed_visit">Confirm remove failed visit</string>
+    <string name="a11y_replace_draft">Replace existing visit draft</string>
+    <string name="a11y_retry_sync">Retry syncing visit</string>
+    <string name="a11y_pending_visit_detail">Open pending visit details</string>
     <string name="see_it_on_your_profile">See it on your profile</string>
     <string name="back_to_explore">Back to Explore</string>
 

@@ -69,10 +69,17 @@ import androidx.compose.material.icons.rounded.Settings
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
 import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryEvent
+import com.emirrkls.phokarta.ui.components.PendingVisitDetailSheet
+import com.emirrkls.phokarta.ui.components.RemoveFailedVisitDialog
+import com.emirrkls.phokarta.ui.components.ReplaceDraftDialog
 
 @Composable
 fun ProfileScreen(
     onPlace: (String) -> Unit,
+    onEditVisit: (String) -> Unit,
     onCollection: (String) -> Unit,
     onWantToGo: () -> Unit,
     onUserSearch: () -> Unit = {},
@@ -86,9 +93,27 @@ fun ProfileScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshSocialCounts()
     }
+    val context = LocalContext.current
     var tab by remember { mutableIntStateOf(0) }
     var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
     var selectedPlaceName by remember { mutableStateOf("") }
+    var selectedPending by remember { mutableStateOf<PendingVisitedPlace?>(null) }
+    var replaceDraftTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var removeTargetMutationId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.recoveryEvents.collect { event ->
+            when (event) {
+                is PendingVisitRecoveryEvent.NavigateToRating -> {
+                    selectedPending = null
+                    onEditVisit(event.placeId)
+                }
+                is PendingVisitRecoveryEvent.ShowReplaceDraftDialog -> {
+                    replaceDraftTarget = event.mutationId to event.placeId
+                }
+            }
+        }
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 110.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
@@ -212,7 +237,7 @@ fun ProfileScreen(
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
                             CompactPlaceCard(
                                 place = pending.place,
-                                onClick = { onPlace(pending.place.id) },
+                                onClick = { selectedPending = pending },
                                 saved = pending.place.id in state.savedPlaceIds,
                                 visited = false,
                                 onSave = { viewModel.toggleSaved(pending.place.id) },
@@ -230,12 +255,10 @@ fun ProfileScreen(
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = context.resources.getString(R.string.a11y_pending_visit_detail)
+                                    },
                                 )
-                                if (pending.pending.failed) {
-                                    TextButton(onClick = { viewModel.retryMutation(pending.pending.mutationId) }) {
-                                        Text(stringResource(R.string.action_retry))
-                                    }
-                                }
                             }
                         }
                     }
@@ -341,6 +364,43 @@ fun ProfileScreen(
             placeName = selectedPlaceName,
             visit = visit,
             onDismiss = { selectedVisit = null },
+        )
+    }
+    selectedPending?.let { pending ->
+        PendingVisitDetailSheet(
+            place = pending.place,
+            pending = pending.pending,
+            onDismiss = { selectedPending = null },
+            onRetry = {
+                viewModel.retryMutation(pending.pending.mutationId)
+                selectedPending = null
+            },
+            onEditAndRetry = {
+                viewModel.editAndRetryFailedVisit(pending.pending.mutationId, pending.place.id)
+            },
+            onRemove = {
+                removeTargetMutationId = pending.pending.mutationId
+            },
+        )
+    }
+    replaceDraftTarget?.let { (mutationId, placeId) ->
+        ReplaceDraftDialog(
+            onDismiss = { replaceDraftTarget = null },
+            onConfirm = {
+                viewModel.confirmReplaceDraftAndRecover(mutationId, placeId)
+                replaceDraftTarget = null
+                selectedPending = null
+            },
+        )
+    }
+    removeTargetMutationId?.let { mutationId ->
+        RemoveFailedVisitDialog(
+            onDismiss = { removeTargetMutationId = null },
+            onConfirm = {
+                viewModel.removeFailedVisit(mutationId)
+                removeTargetMutationId = null
+                selectedPending = null
+            },
         )
     }
 }

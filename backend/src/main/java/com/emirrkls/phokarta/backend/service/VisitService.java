@@ -84,6 +84,7 @@ public class VisitService {
 
     @Transactional
     public VisitOwnerResponse create(UUID userId, CreateVisitRequest request) {
+        users.lockAccount(userId);
         String fingerprint = request.clientMutationId() == null ? null : fingerprint(request);
         if (request.clientMutationId() != null) {
             visits.lockClientMutation(userId, request.clientMutationId());

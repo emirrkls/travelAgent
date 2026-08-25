@@ -76,6 +76,12 @@ interface VisitDao {
     @Delete
     suspend fun deleteVisit(visit: VisitEntity)
 
+    @Query("DELETE FROM visits WHERE userId = :ownerUserId")
+    suspend fun deleteVisitsForUser(ownerUserId: String)
+
+    @Query("DELETE FROM visit_media WHERE ownerUserId = :ownerUserId")
+    suspend fun deleteMediaForOwner(ownerUserId: String)
+
     @Transaction
     suspend fun upsertVisitWithDimensions(
         visit: VisitEntity,

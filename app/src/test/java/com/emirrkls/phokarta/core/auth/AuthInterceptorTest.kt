@@ -130,4 +130,40 @@ class TokenAuthenticatorTest {
         assertEquals("fresh-access", session.accessToken())
         assertEquals("refresh-2", session.refreshToken())
     }
+
+    @Test
+    fun `refresh 401 purges local account and stops retry loop`() {
+        val session = testSessionManager(
+            accessToken = "stale-access",
+            refreshToken = "refresh-deleted",
+        )
+        val purger = object : LocalAccountPurger {
+            val ids = mutableListOf<String>()
+            override suspend fun purge(userId: String) {
+                ids += userId
+            }
+            override fun purgeBlocking(userId: String) {
+                ids += userId
+            }
+        }
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        val authenticator = TokenAuthenticator(session, json, server.url("/").toString(), purger)
+        val client = OkHttpClient.Builder()
+            .authenticator(authenticator)
+            .build()
+
+        client.newCall(
+            Request.Builder()
+                .url(server.url("/api/v1/me"))
+                .header("Authorization", "Bearer stale-access")
+                .get()
+                .build(),
+        ).execute().close()
+
+        assertEquals(listOf("11111111-1111-1111-1111-111111111111"), purger.ids)
+        assertNull(session.accessToken())
+        assertEquals(2, server.requestCount)
+    }
 }

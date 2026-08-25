@@ -22,6 +22,7 @@ Data flows through one boundary:
 - [Production deployment](docs/PRODUCTION_DEPLOYMENT.md)
 - [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
 - [Media storage](docs/MEDIA_STORAGE.md)
+- [Account deletion](docs/ACCOUNT_DELETION.md)
 - [Staging readiness](docs/STAGING.md)
 
 Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example` or `.env.staging.example`; never commit the resulting env files.

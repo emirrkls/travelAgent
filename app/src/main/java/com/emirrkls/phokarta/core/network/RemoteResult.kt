@@ -18,6 +18,7 @@ sealed interface NetworkError {
     data object Connection : NetworkError
     data object Timeout : NetworkError
     data class Validation(val apiError: ApiErrorDto?) : NetworkError
+    data class Unauthorized(val apiError: ApiErrorDto?) : NetworkError
     data class Forbidden(val apiError: ApiErrorDto?) : NetworkError
     data class NotFound(val apiError: ApiErrorDto?) : NetworkError
     data class Conflict(val apiError: ApiErrorDto?) : NetworkError
@@ -77,6 +78,7 @@ private fun Response<*>.toNetworkError(json: Json): NetworkError {
     }
     return when (code()) {
         400, 422 -> NetworkError.Validation(apiError)
+        401 -> NetworkError.Unauthorized(apiError)
         403 -> NetworkError.Forbidden(apiError)
         404 -> NetworkError.NotFound(apiError)
         409 -> NetworkError.Conflict(apiError)

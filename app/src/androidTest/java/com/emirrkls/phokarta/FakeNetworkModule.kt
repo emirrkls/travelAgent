@@ -12,6 +12,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
@@ -601,6 +602,9 @@ private class FakeMeApi(
     override suspend fun friendMetrics(
         request: FriendMetricsRequestDto,
     ): Response<List<FriendMetricsDto>> = Response.success(emptyList())
+
+    override suspend fun deleteAccount(request: DeleteAccountRequestDto): Response<Unit> =
+        Response.success(Unit)
 }
 
 class FakeSocial : SocialRemoteDataSource {

@@ -15,6 +15,8 @@ public class ApplicationMetrics {
     private final Map<String, Counter> mediaUploadCounters = new ConcurrentHashMap<>();
     private final Map<String, Counter> mediaConfirmCounters = new ConcurrentHashMap<>();
     private final Map<String, Counter> mediaCleanupCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> accountDeletionCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> accountMediaCleanupCounters = new ConcurrentHashMap<>();
 
     public ApplicationMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -53,6 +55,16 @@ public class ApplicationMetrics {
     public void mediaCleanup(String outcome) {
         mediaCounter(mediaCleanupCounters, "phokarta.media.cleanup",
                 "Media orphan cleanup outcomes", outcome).increment();
+    }
+
+    public void accountDeletion(String outcome) {
+        mediaCounter(accountDeletionCounters, "phokarta.account.deletion",
+                "Account deletion request outcomes", outcome).increment();
+    }
+
+    public void accountMediaCleanup(String outcome) {
+        mediaCounter(accountMediaCleanupCounters, "phokarta.account.media_cleanup",
+                "Account-deletion object cleanup outcomes", outcome).increment();
     }
 
     private Counter visit(String outcome) {

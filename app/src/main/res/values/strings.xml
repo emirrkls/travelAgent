@@ -339,6 +339,16 @@
     <string name="language_system_default">System default</string>
     <string name="language_english" translatable="false">English</string>
     <string name="language_turkish" translatable="false">Türkçe</string>
+    <string name="settings_account">Account</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_confirm_title">Permanently delete your account?</string>
+    <string name="delete_account_confirm_body">Your profile, visits, saved places, collections, social connections, and uploaded photos will be permanently deleted. Your account will become inaccessible immediately. Stored media may take a short time to be physically removed. This cannot be undone.</string>
+    <string name="delete_account_password">Current password</string>
+    <string name="delete_account_confirm_action">Delete</string>
+    <string name="delete_account_offline">Connect to the internet to delete your account.</string>
+    <string name="delete_account_wrong_password">Current password is incorrect.</string>
+    <string name="delete_account_failed">Account deletion failed. Try again.</string>
+    <string name="delete_account_in_progress">Deleting account</string>
 
     <!-- Add sheet -->
     <string name="add_to_your_journey">Add to your journey</string>

@@ -315,6 +315,16 @@
     <string name="settings">Ayarlar</string>
     <string name="language">Dil</string>
     <string name="language_system_default">Sistem varsayılanı</string>
+    <string name="settings_account">Hesap</string>
+    <string name="delete_account">Hesabı sil</string>
+    <string name="delete_account_confirm_title">Hesabın kalıcı olarak silinsin mi?</string>
+    <string name="delete_account_confirm_body">Profilin, ziyaretlerin, kaydedilen yerlerin, koleksiyonların, sosyal bağlantıların ve yüklediğin fotoğraflar kalıcı olarak silinecek. Hesabına hemen erişilemez. Depolanan medyanın fiziksel olarak kaldırılması kısa sürebilir. Bu işlem geri alınamaz.</string>
+    <string name="delete_account_password">Mevcut şifre</string>
+    <string name="delete_account_confirm_action">Sil</string>
+    <string name="delete_account_offline">Hesabını silmek için internete bağlan.</string>
+    <string name="delete_account_wrong_password">Mevcut şifre yanlış.</string>
+    <string name="delete_account_failed">Hesap silinemedi. Tekrar dene.</string>
+    <string name="delete_account_in_progress">Hesap siliniyor</string>
 
     <string name="add_to_your_journey">Yolculuğuna ekle</string>
     <string name="rate_a_place">Bir yer puanla</string>

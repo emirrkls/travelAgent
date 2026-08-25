@@ -66,6 +66,7 @@ public class MediaService {
     @Transactional
     public MediaUploadIntentResponse createUploadIntent(UUID ownerId, MediaUploadIntentRequest request) {
         requireEnabled();
+        users.lockAccount(ownerId);
         validateMetadata(request);
         assets.lockClientMedia(ownerId, request.clientMediaId());
         MediaAsset asset = assets.findByOwnerIdAndClientMediaId(ownerId, request.clientMediaId())
@@ -108,6 +109,7 @@ public class MediaService {
     @Transactional
     public MediaStateResponse confirm(UUID ownerId, UUID mediaId) {
         requireEnabled();
+        users.lockAccount(ownerId);
         MediaAsset asset = assets.findByIdForUpdate(mediaId)
                 .orElseThrow(() -> ApiException.notFound("Media", mediaId));
         if (!asset.getOwner().getId().equals(ownerId)) {

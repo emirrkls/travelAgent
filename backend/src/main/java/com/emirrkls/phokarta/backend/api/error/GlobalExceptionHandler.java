@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.OffsetDateTime;
@@ -64,6 +65,13 @@ public class GlobalExceptionHandler {
                                        HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, "CONFLICT",
                 "The request conflicts with existing data", request, Map.of());
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ApiError> methodNotAllowed(HttpRequestMethodNotSupportedException ex,
+                                              HttpServletRequest request) {
+        return response(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                "This method is not supported", request, Map.of());
     }
 
     @ExceptionHandler(Exception.class)

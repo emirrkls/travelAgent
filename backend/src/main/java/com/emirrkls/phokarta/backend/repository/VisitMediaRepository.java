@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.backend.domain.entity.VisitMedia;
 import com.emirrkls.phokarta.backend.domain.entity.VisitMediaId;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -23,4 +24,12 @@ public interface VisitMediaRepository extends JpaRepository<VisitMedia, VisitMed
             order by vm.visit.id, vm.sortOrder
             """)
     List<VisitMedia> findByVisitIds(@Param("visitIds") List<UUID> visitIds);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            delete from visit_media
+            where visit_id in (select id from visits where user_id = :userId)
+               or media_id in (select id from media_assets where owner_user_id = :userId)
+            """, nativeQuery = true)
+    int deleteForUser(@Param("userId") UUID userId);
 }

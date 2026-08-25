@@ -24,6 +24,7 @@ internal fun NetworkError.toTravelError(): TravelError = when (this) {
     NetworkError.Connection -> TravelError.Offline()
     NetworkError.Timeout -> TravelError.Timeout()
     is NetworkError.Validation -> TravelError.Validation(apiError?.message)
+    is NetworkError.Unauthorized -> TravelError.Unknown(apiError?.message)
     is NetworkError.Forbidden -> TravelError.Forbidden(apiError?.message)
     is NetworkError.NotFound -> TravelError.NotFound(apiError?.message)
     is NetworkError.Conflict -> TravelError.Conflict(apiError?.message)

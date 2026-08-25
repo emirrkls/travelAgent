@@ -48,6 +48,9 @@ interface CollectionDao {
     @Query("DELETE FROM collections WHERE userId = :ownerUserId")
     suspend fun deleteCollectionsForOwner(ownerUserId: String)
 
+    @Query("DELETE FROM collection_places WHERE collectionId IN (SELECT id FROM collections WHERE userId = :ownerUserId)")
+    suspend fun deleteCollectionPlacesForOwner(ownerUserId: String)
+
     @Query("SELECT COUNT(*) FROM collection_places WHERE collectionId = :collectionId")
     suspend fun countCollectionPlaces(collectionId: String): Int
 

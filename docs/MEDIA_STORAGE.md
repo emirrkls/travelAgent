@@ -134,6 +134,8 @@ Both `PENDING_UPLOAD` and unattached `READY` assets expire **48 hours** after cr
 
 Cleanup claims are atomic and leased, making repeated and overlapping runs idempotent. The current beta still uses the application scheduler rather than a dedicated distributed scheduling product. Monitor `phokarta.media.cleanup` outcomes (`deleted`/`failed`) and provider-side object/byte growth.
 
+Account deletion copies owned storage keys into `account_deletion_media_jobs` before the user and `media_assets` rows disappear, then deletes objects asynchronously. See [Account deletion](ACCOUNT_DELETION.md). Already issued signed read URLs may remain usable until their short TTL expires.
+
 ## Signed URL security model
 
 Signed PUT and GET URLs are bearer credentials: anyone holding one can perform the signed operation until expiry. Do not log, persist outside the documented short-lived Android display cache, place in analytics/crash reports, copy to tickets, or share them. Redact the entire query string, especially `X-Amz-*` parameters, from reverse-proxy, client, tracing, and exception logs. Do not key a shared cache by a signed URL or let a CDN cache private responses. The access authorization response is `no-store`; object-provider cache behavior must not be treated as authorization.

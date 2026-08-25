@@ -119,6 +119,13 @@ class VisitMediaStore @Inject constructor(
         relativePath?.let { resolveOwned(ownerUserId, it)?.delete() }
     }
 
+    fun deleteAllOwned(ownerUserId: String) {
+        val ownerRoot = File(context.filesDir, "visit-media/${safeOwner(ownerUserId)}")
+        if (ownerRoot.exists()) {
+            ownerRoot.deleteRecursively()
+        }
+    }
+
     private fun stripGps(file: File) {
         val exif = ExifInterface(file)
         GPS_TAGS.forEach { exif.setAttribute(it, null) }

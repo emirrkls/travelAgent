@@ -135,7 +135,7 @@ Production loads only `classpath:db/migration/schema`; never enable the `dev` pr
    curl --fail --silent --show-error 'https://api.example.com/api/v1/places?size=1'
    ```
 
-6. Verify TLS, expected security headers, login/refresh/logout, an authenticated read, latency, errors, database connections, and storage-provider health. In staging, verify the complete media intent, direct PUT, confirm, Visit attach, and authorized signed-read path. Run write-path smoke tests in production only when explicitly approved.
+6. Verify TLS, expected security headers, login/refresh/logout, account deletion cleanup worker metrics if accounts have been deleted, an authenticated read, latency, errors, database connections, and storage-provider health. In staging, verify the complete media intent, direct PUT, confirm, Visit attach, and authorized signed-read path. Run write-path smoke tests in production only when explicitly approved.
 
 ## Rollback truth
 

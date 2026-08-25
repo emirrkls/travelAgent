@@ -78,7 +78,13 @@ public final class S3ObjectStorageService implements ObjectStorageService {
     public void delete(String key) {
         try {
             client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+        } catch (NoSuchKeyException ex) {
+            // S3 DeleteObject is normally idempotent; treat an explicit miss as success.
         } catch (Exception ex) {
+            if (ex instanceof software.amazon.awssdk.services.s3.model.S3Exception s3
+                    && s3.statusCode() == 404) {
+                return;
+            }
             throw new ObjectStorageException("Unable to delete stored object", ex);
         }
     }

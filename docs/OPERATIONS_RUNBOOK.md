@@ -16,6 +16,7 @@ Suggested starting alerts, to tune from measured baselines:
 - memory above 85% for 10 minutes, OOM/restart count above zero, or restart loop: page
 - database connections above 80% of limit, replication/backup failure, or backup older than 26 hours: page
 - media upload-intent/confirm storage errors above baseline, orphan cleanup failures, or provider availability alarm: page
+- `phokarta.account.media_cleanup.backlog` growing across several cleanup intervals, or `phokarta.account.media_cleanup` `failed` outcomes above baseline: warn (do not fail readiness)
 - unexpected provider object-count or bucket-byte growth: warn and investigate orphan cleanup/abuse
 - object backup/replication failure or object recovery point outside the approved RPO: page
 - TLS certificate expiry below 21 days: warn; below 7 days: page
@@ -117,6 +118,14 @@ Readiness includes the database but not object storage. If ordinary API reads pa
 4. Cleanup commits `DELETING` before provider deletion, then removes the database row. If provider deletion or finalization fails, retain the unattachable row for retry; do not manually restore it to `READY`.
 5. Never bulk-delete keys based only on age. Exclude `ATTACHED` assets and verify bucket/prefix and ownership. Take/export an inventory before approved manual remediation.
 6. If backlog exceeds normal batch throughput, temporarily tune interval/batch only after provider limits and database load are reviewed. Observe failure rate and object count until the backlog clears.
+
+## Incident: account deletion media cleanup backlog
+
+1. Confirm `DELETE /api/v1/me` itself succeeds. Account product data is already gone; this incident is only leftover object bytes.
+2. Check `phokarta.account.deletion` and `phokarta.account.media_cleanup` outcomes plus `phokarta.account.media_cleanup.backlog`. Correlate with provider delete errors. Do not log storage keys.
+3. Query `select count(*) from account_deletion_media_jobs` and how many are due (`next_attempt_at <= now()`). The same cleanup interval/batch as orphan media applies.
+4. Do not restore deleted users. Do not fail readiness because jobs are retrying.
+5. After provider access is restored, the scheduler or a process restart resumes deletes. Missing objects are treated as success.
 
 ## Incident: missing media object
 

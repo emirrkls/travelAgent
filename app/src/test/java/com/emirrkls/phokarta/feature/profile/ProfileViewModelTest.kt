@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.feature.profile
 
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.auth.AuthRepository
+import com.emirrkls.phokarta.core.auth.NoOpLocalAccountPurger
 import com.emirrkls.phokarta.core.auth.testSessionManager
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Visit
@@ -43,6 +44,7 @@ class ProfileViewModelTest {
         meApi = UnusedMeApi,
         sessionManager = testSessionManager(),
         json = Json { ignoreUnknownKeys = true; explicitNulls = true },
+        localAccountPurger = NoOpLocalAccountPurger,
     )
 
     @Before
@@ -141,4 +143,5 @@ private object UnusedMeApi : MeApi {
     override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun following(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
+    override suspend fun deleteAccount(request: com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto): Response<Unit> = error("unused")
 }

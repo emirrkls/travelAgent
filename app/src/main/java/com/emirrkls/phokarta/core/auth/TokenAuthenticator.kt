@@ -25,6 +25,7 @@ class TokenAuthenticator : Authenticator {
     private val sessionManager: SessionManager
     private val json: Json
     private val apiBaseUrl: String
+    private val localAccountPurger: LocalAccountPurger
 
     private val refreshing = AtomicBoolean(false)
     @Volatile private var inFlight: CompletableFuture<String?>? = null
@@ -33,16 +34,19 @@ class TokenAuthenticator : Authenticator {
     constructor(
         sessionManager: SessionManager,
         json: Json,
-    ) : this(sessionManager, json, BuildConfig.PHOKARTA_API_BASE_URL)
+        localAccountPurger: LocalAccountPurger,
+    ) : this(sessionManager, json, BuildConfig.PHOKARTA_API_BASE_URL, localAccountPurger)
 
     internal constructor(
         sessionManager: SessionManager,
         json: Json,
         apiBaseUrl: String,
+        localAccountPurger: LocalAccountPurger = NoOpLocalAccountPurger,
     ) {
         this.sessionManager = sessionManager
         this.json = json
         this.apiBaseUrl = apiBaseUrl.trimEnd('/') + "/"
+        this.localAccountPurger = localAccountPurger
     }
 
     private val refreshClient: OkHttpClient by lazy {
@@ -103,7 +107,11 @@ class TokenAuthenticator : Authenticator {
             .build()
         refreshClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                sessionManager.clearSession()
+                if (response.code == 401 || response.code == 403) {
+                    invalidateDeletedAccount()
+                } else {
+                    sessionManager.clearSession()
+                }
                 return null
             }
             val payload = response.body?.string() ?: return null
@@ -121,5 +129,13 @@ class TokenAuthenticator : Authenticator {
             prior = prior.priorResponse
         }
         return result
+    }
+
+    private fun invalidateDeletedAccount() {
+        val userId = sessionManager.currentUserId()
+        if (userId != null) {
+            localAccountPurger.purgeBlocking(userId)
+        }
+        sessionManager.clearSession()
     }
 }

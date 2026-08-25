@@ -312,6 +312,11 @@ data class LogoutRequestDto(
 )
 
 @Serializable
+data class DeleteAccountRequestDto(
+    val currentPassword: String? = null,
+)
+
+@Serializable
 data class UserProfileDto(
     val id: String,
     val email: String,

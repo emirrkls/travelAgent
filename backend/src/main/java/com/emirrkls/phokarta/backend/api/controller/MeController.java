@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.backend.api.controller;
 import com.emirrkls.phokarta.backend.api.dto.CollectionDetailResponse;
 import com.emirrkls.phokarta.backend.api.dto.CollectionSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.CreateCollectionRequest;
+import com.emirrkls.phokarta.backend.api.dto.DeleteAccountRequest;
 import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsRequest;
 import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
@@ -10,7 +11,9 @@ import com.emirrkls.phokarta.backend.api.dto.SavedPlaceResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserProfileResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
+import com.emirrkls.phokarta.backend.security.AuthRateLimiter;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
+import com.emirrkls.phokarta.backend.service.AccountDeletionService;
 import com.emirrkls.phokarta.backend.service.AuthService;
 import com.emirrkls.phokarta.backend.service.CollectionService;
 import com.emirrkls.phokarta.backend.service.SavedPlaceService;
@@ -48,20 +51,37 @@ public class MeController {
     private final SavedPlaceService savedPlaceService;
     private final CollectionService collectionService;
     private final SocialService socialService;
+    private final AccountDeletionService accountDeletionService;
+    private final AuthRateLimiter rateLimiter;
 
     public MeController(AuthService authService, VisitService visitService,
                         SavedPlaceService savedPlaceService, CollectionService collectionService,
-                        SocialService socialService) {
+                        SocialService socialService, AccountDeletionService accountDeletionService,
+                        AuthRateLimiter rateLimiter) {
         this.authService = authService;
         this.visitService = visitService;
         this.savedPlaceService = savedPlaceService;
         this.collectionService = collectionService;
         this.socialService = socialService;
+        this.accountDeletionService = accountDeletionService;
+        this.rateLimiter = rateLimiter;
     }
 
     @GetMapping
     public UserProfileResponse me() {
         return authService.me(SecurityUtils.requireCurrentUserId());
+    }
+
+    @Operation(summary = "Permanently delete the authenticated account",
+            description = "Hard-deletes the caller's identity and all user-owned product data. "
+                    + "Password accounts must send currentPassword. Object-storage bytes are "
+                    + "removed asynchronously after the account becomes inaccessible.")
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@Valid @RequestBody(required = false) DeleteAccountRequest request) {
+        var userId = SecurityUtils.requireCurrentUserId();
+        rateLimiter.check("account_delete", userId.toString());
+        accountDeletionService.deleteCurrentAccount(userId, request);
     }
 
     @GetMapping("/visits")

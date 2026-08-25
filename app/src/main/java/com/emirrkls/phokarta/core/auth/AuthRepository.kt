@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
+import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
@@ -24,6 +25,7 @@ class AuthRepository @Inject constructor(
     private val meApi: MeApi,
     private val sessionManager: SessionManager,
     private val json: Json,
+    private val localAccountPurger: LocalAccountPurger,
 ) {
     suspend fun register(
         email: String,
@@ -70,7 +72,7 @@ class AuthRepository @Inject constructor(
                     sessionManager.restoreFromStore()
                     return sessionManager.state.value
                 }
-                sessionManager.clearSession()
+                purgeAndClearSession()
                 return AuthState.LoggedOut
             }
             is RemoteResult.Success -> sessionManager.updateTokens(
@@ -84,7 +86,7 @@ class AuthRepository @Inject constructor(
                     sessionManager.restoreFromStore()
                     return sessionManager.state.value
                 }
-                sessionManager.clearSession()
+                purgeAndClearSession()
                 AuthState.LoggedOut
             }
             is RemoteResult.Success -> {
@@ -108,6 +110,36 @@ class AuthRepository @Inject constructor(
                 }
             }
         }
+        sessionManager.clearSession()
+    }
+
+    suspend fun deleteAccount(currentPassword: String?): AuthResult {
+        val userId = sessionManager.currentUserId()
+        return when (
+            val result = safeUnitApiCall(json) {
+                meApi.deleteAccount(DeleteAccountRequestDto(currentPassword = currentPassword))
+            }
+        ) {
+            is RemoteResult.Success -> {
+                if (userId != null) localAccountPurger.purge(userId)
+                sessionManager.clearSession()
+                AuthResult.Success
+            }
+            is RemoteResult.Failure -> {
+                if (result.error.isTerminalAccountLoss()) {
+                    if (userId != null) localAccountPurger.purge(userId)
+                    sessionManager.clearSession()
+                    AuthResult.Success
+                } else {
+                    AuthResult.Error(result.error.toDeleteAccountMessage())
+                }
+            }
+        }
+    }
+
+    private suspend fun purgeAndClearSession() {
+        val userId = sessionManager.currentUserId()
+        if (userId != null) localAccountPurger.purge(userId)
         sessionManager.clearSession()
     }
 
@@ -166,6 +198,7 @@ private fun NetworkError.toAuthMessage(): Int = when (this) {
     NetworkError.Connection -> R.string.error_offline
     NetworkError.Timeout -> R.string.error_timeout
     is NetworkError.Validation -> R.string.error_validation
+    is NetworkError.Unauthorized -> R.string.error_unknown
     is NetworkError.Forbidden -> R.string.error_forbidden
     is NetworkError.NotFound -> R.string.error_not_found
     is NetworkError.Conflict -> R.string.error_conflict
@@ -176,6 +209,24 @@ private fun NetworkError.toAuthMessage(): Int = when (this) {
 private fun NetworkError.isOfflineRetryable(): Boolean = when (this) {
     NetworkError.Connection, NetworkError.Timeout, is NetworkError.Server -> true
     is NetworkError.Unknown -> status == 408 || status == 429 || status == null
-    is NetworkError.Validation, is NetworkError.Forbidden,
+    is NetworkError.Validation, is NetworkError.Unauthorized, is NetworkError.Forbidden,
     is NetworkError.NotFound, is NetworkError.Conflict -> false
+}
+
+@StringRes
+private fun NetworkError.toDeleteAccountMessage(): Int = when (this) {
+    NetworkError.Connection, NetworkError.Timeout -> R.string.delete_account_offline
+    is NetworkError.Validation ->
+        if (apiError?.code == "INVALID_CURRENT_PASSWORD") {
+            R.string.delete_account_wrong_password
+        } else {
+            R.string.delete_account_failed
+        }
+    else -> R.string.delete_account_failed
+}
+
+private fun NetworkError.isTerminalAccountLoss(): Boolean = when (this) {
+    is NetworkError.Unauthorized, is NetworkError.NotFound -> true
+    is NetworkError.Unknown -> status == 401
+    else -> false
 }

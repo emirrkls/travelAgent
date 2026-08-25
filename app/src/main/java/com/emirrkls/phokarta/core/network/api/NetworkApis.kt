@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
@@ -33,6 +34,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -77,6 +79,9 @@ interface MeApi {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<UserSummaryDto>>
+
+    @HTTP(method = "DELETE", path = "api/v1/me", hasBody = true)
+    suspend fun deleteAccount(@Body request: DeleteAccountRequestDto): Response<Unit>
 }
 
 interface UserApi {

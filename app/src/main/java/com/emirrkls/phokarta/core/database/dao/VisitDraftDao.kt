@@ -81,6 +81,9 @@ interface VisitDraftDao {
     @Query("DELETE FROM visit_drafts WHERE userId = :userId AND placeId = :placeId")
     suspend fun deleteDraft(userId: String, placeId: String)
 
+    @Query("DELETE FROM visit_drafts WHERE userId = :userId")
+    suspend fun deleteDraftsForUser(userId: String)
+
     @Query("DELETE FROM visit_drafts WHERE updatedAtEpochMillis < :cutoffEpochMillis")
     suspend fun deleteExpired(cutoffEpochMillis: Long): Int
 

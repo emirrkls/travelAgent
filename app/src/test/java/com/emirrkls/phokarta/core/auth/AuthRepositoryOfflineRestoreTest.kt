@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.core.auth
 
+import com.emirrkls.phokarta.core.auth.NoOpLocalAccountPurger
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
@@ -27,9 +28,10 @@ class AuthRepositoryOfflineRestoreTest {
         val session = testSessionManager()
         val repository = AuthRepository(
             authApi = OfflineAuthApi,
-            meApi = UnusedMeApi,
+            meApi = OfflineUnusedMeApi,
             sessionManager = session,
             json = Json { ignoreUnknownKeys = true },
+            localAccountPurger = NoOpLocalAccountPurger,
         )
 
         val restored = repository.restoreSession()
@@ -50,10 +52,11 @@ private object OfflineAuthApi : AuthApi {
     override suspend fun logout(request: LogoutRequestDto): Response<Unit> = error("unused")
 }
 
-private object UnusedMeApi : MeApi {
+private object OfflineUnusedMeApi : MeApi {
     override suspend fun profile(): Response<UserProfileDto> = error("unused")
     override suspend fun friendMetrics(request: FriendMetricsRequestDto): Response<List<FriendMetricsDto>> = error("unused")
     override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun following(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
+    override suspend fun deleteAccount(request: com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto): Response<Unit> = error("unused")
 }

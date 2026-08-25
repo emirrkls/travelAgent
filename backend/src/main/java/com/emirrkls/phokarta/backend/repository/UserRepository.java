@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.backend.domain.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -49,4 +50,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> searchByUsernameOrDisplayName(@Param("query") String query,
                                              @Param("excludeId") UUID excludeId,
                                              Pageable pageable);
+
+    /**
+     * Serializes account deletion with Visit create and media upload intent
+     * so new owned rows cannot commit after the deletion boundary.
+     */
+    @Query(value = "select pg_advisory_xact_lock(hashtextextended(cast(:userId as text), 2))",
+            nativeQuery = true)
+    void lockAccount(@Param("userId") UUID userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "delete from users where id = :id", nativeQuery = true)
+    int deleteUserById(@Param("id") UUID id);
 }

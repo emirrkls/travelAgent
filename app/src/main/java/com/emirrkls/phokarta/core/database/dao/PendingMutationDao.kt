@@ -130,4 +130,7 @@ interface PendingMutationDao {
 
     @Upsert
     suspend fun upsertMutation(value: PendingMutationEntity)
+
+    @Query("DELETE FROM pending_mutations WHERE userId = :userId")
+    suspend fun deleteMutationsForUser(userId: String)
 }

@@ -17,6 +17,7 @@ import com.emirrkls.phokarta.backend.domain.model.FeedScope;
 import com.emirrkls.phokarta.backend.domain.model.VerificationStatus;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.domain.service.RatingDimensionRegistry;
+import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
@@ -53,16 +54,19 @@ public class VisitService {
     private final PlaceRepository places;
     private final RatingDimensionRegistry registry;
     private final VisitMapper mapper;
+    private final ApplicationMetrics metrics;
 
     public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
                         UserRepository users, PlaceRepository places,
-                        RatingDimensionRegistry registry, VisitMapper mapper) {
+                        RatingDimensionRegistry registry, VisitMapper mapper,
+                        ApplicationMetrics metrics) {
         this.visits = visits;
         this.scores = scores;
         this.users = users;
         this.places = places;
         this.registry = registry;
         this.mapper = mapper;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -74,12 +78,15 @@ public class VisitService {
                     .orElse(null);
             if (existing != null) {
                 if (!fingerprint.equals(existing.getClientPayloadFingerprint())) {
+                    metrics.visitCreateConflict();
                     throw ApiException.conflict("clientMutationId was already used with a different Visit payload");
                 }
                 List<VisitDimensionScore> existingScores = scores.findByIdVisitIdIn(List.of(existing.getId()));
                 VisitRepository.ScoreAggregate rating = visits.aggregate(existing.getPlace().getId());
-                return mapper.toOwner(existing, toDimensionResponses(existingScores),
+                VisitOwnerResponse response = mapper.toOwner(existing, toDimensionResponses(existingScores),
                         rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+                metrics.visitCreateIdempotencyHit();
+                return response;
             }
         }
         User user = users.findById(userId)
@@ -111,8 +118,10 @@ public class VisitService {
                 .toList();
         scores.saveAll(entities);
         VisitRepository.ScoreAggregate rating = visits.aggregate(place.getId());
-        return mapper.toOwner(visit, toDimensionResponses(entities),
+        VisitOwnerResponse response = mapper.toOwner(visit, toDimensionResponses(entities),
                 rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+        metrics.visitCreateSuccess();
+        return response;
     }
 
     private String fingerprint(CreateVisitRequest request) {

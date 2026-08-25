@@ -17,6 +17,13 @@ Data flows through one boundary:
 - `core/database` owns Room v4 entities/DAOs with `ownerUserId` / `userId` scoping for private state.
 - Owner resources use `/api/v1/me/**` and never accept client-supplied ownership IDs.
 
+## Production operations
+
+- [Production deployment](docs/PRODUCTION_DEPLOYMENT.md)
+- [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+
+Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example`; never commit the resulting `.env.production`.
+
 ## Authentication (v0.6)
 
 ### Backend

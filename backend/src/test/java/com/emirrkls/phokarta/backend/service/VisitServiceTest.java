@@ -10,6 +10,7 @@ import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.domain.model.VerificationStatus;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.domain.service.RatingDimensionRegistry;
+import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
@@ -41,6 +42,7 @@ class VisitServiceTest {
     @Mock private UserRepository users;
     @Mock private PlaceRepository places;
     @Mock private VisitMapper mapper;
+    @Mock private ApplicationMetrics metrics;
     @Mock private User user;
     @Mock private Place place;
 
@@ -51,7 +53,7 @@ class VisitServiceTest {
     @BeforeEach
     void setUp() {
         service = new VisitService(visits, scores, users, places,
-                new RatingDimensionRegistry(), mapper);
+                new RatingDimensionRegistry(), mapper, metrics);
         userId = UUID.randomUUID();
         placeId = UUID.randomUUID();
         when(users.findById(userId)).thenReturn(Optional.of(user));

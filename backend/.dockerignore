@@ -1,0 +1,11 @@
+target/
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+boot-*.log
+*.log
+compose*.yml
+Caddyfile
+README*

@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.backend.security;
 
 import com.emirrkls.phokarta.backend.api.error.ApiException;
+import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,11 @@ public class AuthRateLimiter {
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
     private final Map<String, Deque<Long>> attempts = new ConcurrentHashMap<>();
+    private final ApplicationMetrics metrics;
+
+    public AuthRateLimiter(ApplicationMetrics metrics) {
+        this.metrics = metrics;
+    }
 
     public void check(String action, String clientKey) {
         String key = action + ":" + clientKey;
@@ -31,6 +37,7 @@ public class AuthRateLimiter {
                 stamps.removeFirst();
             }
             if (stamps.size() >= MAX_ATTEMPTS) {
+                metrics.authRateLimited(action);
                 throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED",
                         "Too many attempts. Try again shortly.");
             }

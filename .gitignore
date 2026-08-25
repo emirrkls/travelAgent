@@ -12,3 +12,10 @@ app/build/
 /screenshots/
 backend/target/
 backend/.env
+.env.production
+backend/.env.production
+backups/
+*.dump
+*.dump.partial
+*.dump.managed-by-phokarta-backup
+backend/boot-*.log

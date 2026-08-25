@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -15,8 +16,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Testcontainers
+@ActiveProfiles("prod")
 @TestPropertySource(properties = {
-        "spring.flyway.locations=classpath:db/migration/schema"
+        "APP_ENVIRONMENT=production-test",
+        "PHOKARTA_JWT_SECRET=phokarta-production-test-secret-at-least-32",
+        "PHOKARTA_CORS_ALLOWED_ORIGINS=https://app.example.test",
+        "MANAGEMENT_SERVER_PORT=8080"
 })
 class ProductionMigrationIntegrationTest {
 
@@ -29,7 +34,7 @@ class ProductionMigrationIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
 
     @Test
-    void defaultProfileAppliesSchemaWithoutDemoSeed() {
+    void productionProfileAppliesSchemaWithoutDemoSeed() {
         Integer migrationCount = jdbc.queryForObject(
                 "select count(*) from flyway_schema_history where success", Integer.class);
         Long userCount = jdbc.queryForObject("select count(*) from users", Long.class);

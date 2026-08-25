@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.backend.api.error;
 
+import com.emirrkls.phokarta.backend.web.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -67,7 +68,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> internal(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled API error for {}", request.getRequestURI(), ex);
+        log.error("Unhandled API error path={} requestId={}", request.getRequestURI(),
+                RequestIdFilter.from(request), ex);
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                 "An unexpected error occurred", request, Map.of());
     }
@@ -76,6 +78,7 @@ public class GlobalExceptionHandler {
                                                HttpServletRequest request,
                                                Map<String, String> fields) {
         return ResponseEntity.status(status).body(new ApiError(OffsetDateTime.now(ZoneOffset.UTC),
-                status.value(), code, message, request.getRequestURI(), fields));
+                status.value(), code, message, request.getRequestURI(),
+                RequestIdFilter.from(request), fields));
     }
 }

@@ -1,0 +1,59 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		max_header_size 32KB
+	}
+}
+
+{$PHOKARTA_DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@live path /health/live
+	handle @live {
+		rewrite * /actuator/health/liveness
+		reverse_proxy backend:8081 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	@ready path /health/ready
+	handle @ready {
+		rewrite * /actuator/health/readiness
+		reverse_proxy backend:8081 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy backend:8080 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 30s
+			}
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

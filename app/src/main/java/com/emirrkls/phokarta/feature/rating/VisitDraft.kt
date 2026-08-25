@@ -23,7 +23,7 @@ data class VisitDraft(
     val visitDate: LocalDate = LocalDate.now(),
     val visibility: Visibility = Visibility.PUBLIC,
     val dimensionsExpanded: Boolean = false,
-    /** Recovered from pending payload; included on publish but not persisted in draft Room tables. */
+    /** App-private relative paths. Metadata and remote identity live in Room media rows. */
     val photos: List<String> = emptyList(),
 )
 
@@ -67,7 +67,8 @@ object VisitDraftLogic {
             draft.publicReview.isNotBlank() ||
             draft.privateMemory.isNotBlank() ||
             draft.visitDate != today ||
-            draft.visibility != Visibility.PUBLIC
+            draft.visibility != Visibility.PUBLIC ||
+            draft.photos.isNotEmpty()
     }
 
     fun toVisit(

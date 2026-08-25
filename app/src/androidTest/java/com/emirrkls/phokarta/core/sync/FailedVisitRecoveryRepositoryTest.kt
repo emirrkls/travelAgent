@@ -20,6 +20,8 @@ import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.time.EpochClock
+import com.emirrkls.phokarta.core.media.MediaFileMutationLock
+import com.emirrkls.phokarta.core.media.VisitMediaStore
 import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -45,6 +47,7 @@ class FailedVisitRecoveryRepositoryTest {
         session = SessionManager(TokenStore(context.getSharedPreferences("recovery-test", Context.MODE_PRIVATE)))
         draftRepository = RoomVisitDraftRepository(
             database.visitDraftDao(), session, EpochClock { 5_000L },
+            VisitMediaStore(context), MediaFileMutationLock(),
         )
         repository = RoomOfflineMutationRepository(
             database,
@@ -55,6 +58,7 @@ class FailedVisitRecoveryRepositoryTest {
             session,
             EpochClock { 5_000L },
             object : MutationSyncScheduler { override fun schedule() = Unit },
+            VisitMediaStore(context),
         )
         login(USER_A)
     }

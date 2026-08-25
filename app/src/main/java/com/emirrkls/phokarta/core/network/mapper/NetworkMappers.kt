@@ -10,6 +10,7 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewAuthor
+import com.emirrkls.phokarta.core.model.PublicReviewMedia
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.RelationshipState
@@ -17,6 +18,7 @@ import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitMedia
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
@@ -113,7 +115,15 @@ fun VisitOwnerDto.toDomain(userId: String): Visit = Visit(
     ratingDimensions = dimensions.associate { it.key.toDomain() to it.score },
     review = publicReview,
     personalNote = privateMemory,
-    photos = photos,
+    photos = media.sortedBy { it.order }.mapNotNull { it.accessUrl }.ifEmpty { photos },
+    media = media.sortedBy { it.order }.map {
+        VisitMedia(
+            mediaId = it.mediaId,
+            order = it.order,
+            accessUrl = it.accessUrl,
+            accessUrlExpiresAtEpochMillis = it.accessUrlExpiresAt?.toEpochMillisSafely(),
+        )
+    },
     visibility = visibility.toDomain(),
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
 )
@@ -131,6 +141,14 @@ fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(
     publicReview = publicReview,
     visitDate = visitedAt.toLocalDateSafely(),
     photos = photos,
+    media = media.sortedBy { it.order }.map {
+        PublicReviewMedia(
+            mediaId = it.mediaId,
+            order = it.order,
+            accessUrl = it.accessUrl,
+            accessUrlExpiresAtEpochMillis = it.accessUrlExpiresAt?.toEpochMillisSafely(),
+        )
+    },
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
 )
 

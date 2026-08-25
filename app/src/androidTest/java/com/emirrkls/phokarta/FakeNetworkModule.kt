@@ -3,6 +3,7 @@ package com.emirrkls.phokarta
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.NetworkModule
 import com.emirrkls.phokarta.core.network.RemoteResult
+import com.emirrkls.phokarta.core.network.UploadHttpClient
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
@@ -41,6 +42,11 @@ import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.MediaRemoteDataSource
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentResponseDto
+import com.emirrkls.phokarta.core.network.model.MediaStateDto
+import com.emirrkls.phokarta.core.network.model.MediaAccessDto
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
@@ -50,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import retrofit2.Response
+import okhttp3.OkHttpClient
 
 private const val USER_ID = "11111111-1111-1111-1111-111111111111"
 private const val OTHER_USER_ID = "22222222-2222-2222-2222-222222222222"
@@ -77,6 +84,15 @@ object FakeNetworkModule {
     @Provides @Singleton fun social(fake: FakeSocial): SocialRemoteDataSource = fake
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
     @Provides @Singleton fun meApi(fake: FakeSocial): MeApi = FakeMeApi(fake)
+    @Provides @Singleton @UploadHttpClient fun uploadClient(): OkHttpClient = OkHttpClient()
+    @Provides @Singleton fun media(): MediaRemoteDataSource = object : MediaRemoteDataSource {
+        override suspend fun createIntent(request: MediaUploadIntentRequestDto) =
+            RemoteResult.Success(MediaUploadIntentResponseDto(request.clientMediaId, "READY"))
+        override suspend fun confirm(mediaId: String) =
+            RemoteResult.Success(MediaStateDto(mediaId, "READY"))
+        override suspend fun access(mediaId: String) =
+            RemoteResult.Success(MediaAccessDto("https://example.test/$mediaId", TIMESTAMP))
+    }
 }
 
 private val summary = PlaceSummaryDto(

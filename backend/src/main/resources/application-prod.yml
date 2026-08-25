@@ -39,6 +39,14 @@ phokarta:
     secret: ${PHOKARTA_JWT_SECRET}
   cors:
     allowed-origins: ${PHOKARTA_CORS_ALLOWED_ORIGINS}
+  media:
+    enabled: true
+    bucket: ${PHOKARTA_MEDIA_BUCKET}
+    region: ${PHOKARTA_MEDIA_REGION}
+    endpoint: ${PHOKARTA_MEDIA_ENDPOINT:}
+    path-style: ${PHOKARTA_MEDIA_PATH_STYLE:false}
+    access-key: ${PHOKARTA_MEDIA_ACCESS_KEY:}
+    secret-key: ${PHOKARTA_MEDIA_SECRET_KEY:}
 
 springdoc:
   api-docs:

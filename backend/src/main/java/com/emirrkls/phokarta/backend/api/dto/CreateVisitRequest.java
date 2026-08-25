@@ -25,7 +25,9 @@ public record CreateVisitRequest(
         @Valid @Size(max = 20) List<DimensionScore> dimensions,
         @Size(max = 4000) String publicReview,
         @Size(max = 4000) String privateMemory,
+        @Schema(description = "Legacy compatibility field. New Visits must omit it or send an empty list.")
         @Size(max = 20) List<@NotBlank @Size(max = 500) String> photos,
+        @Size(max = 20) List<UUID> mediaIds,
         @NotNull
         @Schema(description = "Visit audience. PUBLIC is community-readable and friend-readable "
                 + "(community score/reviews/activity plus mutual-friend discovery). "
@@ -39,7 +41,16 @@ public record CreateVisitRequest(
                               List<DimensionScore> dimensions, String publicReview,
                               String privateMemory, List<String> photos, Visibility visibility) {
         this(null, placeId, visitedAt, overallRating, dimensions, publicReview,
-                privateMemory, photos, visibility);
+                privateMemory, photos, List.of(), visibility);
+    }
+
+    /** Compatibility constructor for pre-media idempotent callers. */
+    public CreateVisitRequest(UUID clientMutationId, UUID placeId, LocalDate visitedAt,
+                              Double overallRating, List<DimensionScore> dimensions,
+                              String publicReview, String privateMemory, List<String> photos,
+                              Visibility visibility) {
+        this(clientMutationId, placeId, visitedAt, overallRating, dimensions, publicReview,
+                privateMemory, photos, List.of(), visibility);
     }
 
     public record DimensionScore(

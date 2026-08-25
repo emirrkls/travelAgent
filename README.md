@@ -4,7 +4,7 @@ Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure ema
 
 ## Stack and architecture
 
-Android uses JDK 17, Kotlin, Compose, Hilt, Room 2.7.2, EncryptedSharedPreferences (`androidx.security:security-crypto`), Google Maps Compose, Retrofit, OkHttp, and kotlinx serialization. The backend is Java 21 / Spring Boot 3.5 with Spring Security, JWT access tokens, opaque refresh sessions, PostgreSQL/PostGIS, and Flyway.
+Android uses JDK 17, Kotlin, Compose, Hilt, Room 2.7.2, EncryptedSharedPreferences (`androidx.security:security-crypto`), Google Maps Compose, Retrofit, OkHttp, and kotlinx serialization. The backend is Java 21 / Spring Boot 3.5 with Spring Security, JWT access tokens, opaque refresh sessions, PostgreSQL/PostGIS, Flyway, and private S3-compatible storage for managed Visit media.
 
 All new user-facing Android copy must use string resources with English (default) + Turkish (`values-tr`) translations. Keep API/enum values unlocalized.
 
@@ -14,15 +14,18 @@ Data flows through one boundary:
 
 - `core/auth` owns TokenStore, SessionManager, AuthRepository, AuthInterceptor, and TokenAuthenticator.
 - `core/network` owns Retrofit APIs, DTOs, and remote data sources. Authenticated calls receive `Authorization: Bearer <access>` automatically.
-- `core/database` owns Room v4 entities/DAOs with `ownerUserId` / `userId` scoping for private state.
+- `core/database` owns Room v7 entities/DAOs with `ownerUserId` / `userId` scoping for private state and durable offline media mutations.
 - Owner resources use `/api/v1/me/**` and never accept client-supplied ownership IDs.
 
 ## Production operations
 
 - [Production deployment](docs/PRODUCTION_DEPLOYMENT.md)
 - [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+- [Media storage](docs/MEDIA_STORAGE.md)
 
 Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example`; never commit the resulting `.env.production`.
+
+Production also requires a pre-provisioned private S3-compatible bucket and independently tested object backup/restore. The production Compose file forwards the documented `PHOKARTA_MEDIA_*` values; provide credentials through the environment file or platform secret manager.
 
 ## Authentication (v0.6)
 
@@ -81,7 +84,8 @@ Prerequisites: Java 21, Maven 3.9+, Docker Desktop.
 ```powershell
 cd backend
 Copy-Item .env.example .env
-docker compose up -d db
+docker compose up -d db minio
+docker compose run --rm minio-init
 $env:SPRING_PROFILES_ACTIVE = "dev"
 mvn spring-boot:run
 ```
@@ -125,7 +129,7 @@ Never commit keys, `.env`, `local.properties`, or `secrets.properties`.
 - Google Sign-In / Apple Sign-In via `auth_identities`
 - Password reset and email verification delivery
 - Redis-backed auth rate limiting for multi-node production
-- v0.7 social graph / friends discovery (mutual follows + friend-readable Visits)
+- Media malware scanning, thumbnails/transcoding, CDN integration, and distributed orphan-cleanup coordination
 
 ## Build and test
 

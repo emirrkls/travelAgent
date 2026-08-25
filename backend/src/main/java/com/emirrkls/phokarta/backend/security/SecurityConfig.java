@@ -69,6 +69,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/activity")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/media/{mediaId}/access")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/collections/{collectionId}")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/search").permitAll()

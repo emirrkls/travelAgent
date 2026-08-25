@@ -111,3 +111,71 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_visit_photos_mutationId` ON `pending_visit_photos` (`mutationId`)")
     }
 }
+
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `visit_draft_photos` (
+                `ownerUserId` TEXT NOT NULL, `placeId` TEXT NOT NULL, `position` INTEGER NOT NULL,
+                `clientMediaId` TEXT NOT NULL, `localRelativePath` TEXT NOT NULL,
+                `contentType` TEXT NOT NULL, `byteSize` INTEGER NOT NULL, `width` INTEGER,
+                `height` INTEGER, `remoteMediaId` TEXT, `uploadState` TEXT NOT NULL,
+                `failureCategory` TEXT, `legacyUrl` TEXT,
+                PRIMARY KEY(`ownerUserId`, `placeId`, `position`),
+                FOREIGN KEY(`ownerUserId`, `placeId`) REFERENCES `visit_drafts`(`userId`, `placeId`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )""",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_visit_draft_photos_ownerUserId_placeId` ON `visit_draft_photos` (`ownerUserId`, `placeId`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_visit_draft_photos_clientMediaId` ON `visit_draft_photos` (`clientMediaId`)")
+
+        db.execSQL("ALTER TABLE `pending_visit_photos` RENAME TO `pending_visit_photos_v6`")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `pending_visit_photos` (
+                `mutationId` TEXT NOT NULL, `position` INTEGER NOT NULL, `ownerUserId` TEXT NOT NULL,
+                `clientMediaId` TEXT NOT NULL, `localRelativePath` TEXT, `contentType` TEXT,
+                `byteSize` INTEGER, `width` INTEGER, `height` INTEGER, `remoteMediaId` TEXT,
+                `uploadState` TEXT NOT NULL, `failureCategory` TEXT, `legacyUrl` TEXT,
+                PRIMARY KEY(`mutationId`, `position`),
+                FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )""",
+        )
+        db.execSQL(
+            """INSERT INTO `pending_visit_photos`
+                (`mutationId`,`position`,`ownerUserId`,`clientMediaId`,`localRelativePath`,
+                 `contentType`,`byteSize`,`width`,`height`,`remoteMediaId`,`uploadState`,
+                 `failureCategory`,`legacyUrl`)
+               SELECT p.`mutationId`,p.`position`,m.`userId`,
+                      lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||
+                      substr(lower(hex(randomblob(2))),2)||'-a'||substr(lower(hex(randomblob(2))),2)||
+                      '-'||lower(hex(randomblob(6))),
+                      NULL,NULL,NULL,NULL,NULL,NULL,'READY_REMOTE',NULL,p.`url`
+               FROM `pending_visit_photos_v6` p
+               JOIN `pending_mutations` m ON m.`mutationId`=p.`mutationId`""",
+        )
+        db.execSQL(
+            """UPDATE `pending_mutations`
+               SET `state`='FAILED_PERMANENT',
+                   `lastErrorCategory`='LEGACY_MEDIA_RESELECT_REQUIRED'
+               WHERE `type`='PUBLISH_VISIT'
+                 AND EXISTS (
+                     SELECT 1 FROM `pending_visit_photos_v6` p
+                     WHERE p.`mutationId`=`pending_mutations`.`mutationId`
+                 )""",
+        )
+        db.execSQL("DROP TABLE `pending_visit_photos_v6`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_visit_photos_mutationId` ON `pending_visit_photos` (`mutationId`)")
+
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `visit_media` (
+                `ownerUserId` TEXT NOT NULL, `visitId` TEXT NOT NULL, `position` INTEGER NOT NULL,
+                `mediaId` TEXT NOT NULL, `accessUrl` TEXT, `accessUrlExpiresAtEpochMillis` INTEGER,
+                PRIMARY KEY(`ownerUserId`, `visitId`, `position`),
+                FOREIGN KEY(`visitId`) REFERENCES `visits`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )""",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_visit_media_visitId` ON `visit_media` (`visitId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_visit_media_ownerUserId_mediaId` ON `visit_media` (`ownerUserId`, `mediaId`)")
+    }
+}

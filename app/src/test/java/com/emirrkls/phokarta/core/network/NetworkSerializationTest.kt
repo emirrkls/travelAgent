@@ -9,7 +9,9 @@ import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
+import com.emirrkls.phokarta.core.network.model.VisitMediaDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -112,6 +114,41 @@ class NetworkSerializationTest {
     }
 
     @Test
+    fun `new visit media serializes ordered media ids without signed urls`() {
+        val request = CreateVisitDto(
+            clientMutationId = "10000000-0000-4000-8000-000000000001",
+            placeId = "20000000-0000-4000-8000-000000000001",
+            visitedAt = "2026-08-22",
+            overallRating = 8.0,
+            dimensions = null,
+            publicReview = null,
+            privateMemory = null,
+            mediaIds = listOf("m-first", "m-second"),
+            visibility = VisibilityDto.PRIVATE,
+        )
+
+        val encoded = json.parseToJsonElement(json.encodeToString(request)).jsonObject
+        assertEquals(
+            listOf("m-first", "m-second"),
+            encoded.getValue("mediaIds").jsonArray.map { it.jsonPrimitive.content },
+        )
+        assertFalse(encoded.toString().contains("uploadUrl"))
+        assertFalse(encoded.toString().contains("accessUrl"))
+    }
+
+    @Test
+    fun `visit media descriptor decodes backend field names`() {
+        val descriptor = json.decodeFromString<VisitMediaDto>(
+            """{"id":"30000000-0000-4000-8000-000000000001","sortOrder":2,"accessUrl":"https://storage.test/read","accessExpiresAt":"2026-08-25T12:00:00Z"}""",
+        )
+
+        assertEquals("30000000-0000-4000-8000-000000000001", descriptor.mediaId)
+        assertEquals(2, descriptor.order)
+        assertEquals("https://storage.test/read", descriptor.accessUrl)
+        assertEquals("2026-08-25T12:00:00Z", descriptor.accessUrlExpiresAt)
+    }
+
+    @Test
     fun `public visit serialization cannot expose private memory while create request can carry it`() {
         val publicVisit = PublicVisitDto(
             id = "30000000-0000-0000-0000-000000000001",
@@ -125,6 +162,14 @@ class NetworkSerializationTest {
             overallRating = 9.1,
             publicReview = "Visible review",
             photos = emptyList(),
+            media = listOf(
+                VisitMediaDto(
+                    "30000000-0000-4000-8000-000000000099",
+                    0,
+                    "https://storage.test/signed",
+                    "2026-08-25T12:00:00Z",
+                ),
+            ),
             verificationStatus = VerificationStatusDto.UNVERIFIED,
         )
         val createRequest = CreateVisitDto(
@@ -144,6 +189,10 @@ class NetworkSerializationTest {
         assertFalse(publicJson.containsKey("privateMemory"))
         assertFalse(createJson.containsKey("userId"))
         assertEquals("Visible review", publicJson.getValue("publicReview").jsonPrimitive.content)
+        val mediaJson = publicJson.getValue("media").jsonArray.single().jsonObject
+        assertEquals("30000000-0000-4000-8000-000000000099", mediaJson.getValue("id").jsonPrimitive.content)
+        assertEquals(0, mediaJson.getValue("sortOrder").jsonPrimitive.content.toInt())
+        assertEquals("2026-08-25T12:00:00Z", mediaJson.getValue("accessExpiresAt").jsonPrimitive.content)
         assertEquals("Owner-only memory", createJson.getValue("privateMemory").jsonPrimitive.content)
     }
 

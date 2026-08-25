@@ -7,7 +7,13 @@ import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import dagger.hilt.android.HiltAndroidApp
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.emirrkls.phokarta.core.media.MediaFileReconciler
+import com.emirrkls.phokarta.core.media.MediaReconciliationWorker
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +28,7 @@ class PhokartaApplication : Application(), Configuration.Provider {
     @Inject lateinit var visitDraftRepository: VisitDraftRepository
     @Inject lateinit var mutationRepository: OfflineMutationRepository
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var mediaFileReconciler: MediaFileReconciler
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
@@ -33,8 +40,14 @@ class PhokartaApplication : Application(), Configuration.Provider {
         super.onCreate()
         applicationScope.launch {
             visitDraftRepository.deleteExpiredDrafts()
+            mediaFileReconciler.reconcile()
             mutationRepository.scheduleSync()
         }
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            MEDIA_RECONCILIATION_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<MediaReconciliationWorker>(12, TimeUnit.HOURS).build(),
+        )
         applicationScope.launch {
             sessionManager.state
                 .filterIsInstance<AuthState.Authenticated>()
@@ -42,5 +55,9 @@ class PhokartaApplication : Application(), Configuration.Provider {
                 .distinctUntilChanged()
                 .collect { mutationRepository.scheduleSync() }
         }
+    }
+
+    private companion object {
+        const val MEDIA_RECONCILIATION_WORK = "visit-media-reconciliation"
     }
 }

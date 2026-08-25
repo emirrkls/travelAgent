@@ -8,6 +8,14 @@ springdoc:
   swagger-ui:
     enabled: true
 
+phokarta:
+  media:
+    enabled: ${PHOKARTA_MEDIA_ENABLED:true}
+    endpoint: ${PHOKARTA_MEDIA_ENDPOINT:http://localhost:9000}
+    path-style: true
+    access-key: ${PHOKARTA_MEDIA_ACCESS_KEY:phokarta-minio}
+    secret-key: ${PHOKARTA_MEDIA_SECRET_KEY:phokarta-minio-dev-only}
+
 logging:
   level:
     com.emirrkls.phokarta.backend: DEBUG

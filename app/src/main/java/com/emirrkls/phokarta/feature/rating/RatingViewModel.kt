@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.feature.rating
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +18,7 @@ import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.MutationSyncEngine
 import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.core.media.MediaImportResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -30,6 +32,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class RatingUiState(
     val place: Place? = null,
@@ -48,6 +52,7 @@ data class RatingUiState(
     val hasPersistedDraft: Boolean = false,
     val showDraftRestoredMessage: Boolean = false,
     val discarded: Boolean = false,
+    val photoError: Int? = null,
 ) {
     val overall: Float get() = draft.overallScore
     val dimensions: Map<RatingDimension, Float> get() = draft.dimensions
@@ -82,6 +87,7 @@ class RatingViewModel @Inject constructor(
     private var lastPersistedDraft: VisitDraft? = null
     private var hadPersistedDraft = false
     private var initialized = false
+    private val photoMutationMutex = Mutex()
 
     init {
         load()
@@ -198,6 +204,60 @@ class RatingViewModel @Inject constructor(
     }
 
     fun resetVisitedAtToToday() = setVisitedAt(LocalDate.now())
+
+    fun addPhoto(uri: Uri) = addPhotos(listOf(uri))
+
+    fun addPhotos(uris: List<Uri>) {
+        val owner = ownerUserId ?: return
+        if (uris.isEmpty() || _uiState.value.isPublishing || _uiState.value.isDraftInitializing) return
+        viewModelScope.launch {
+            photoMutationMutex.withLock {
+                persistJob?.cancel()
+                // The parent draft must exist before its FK-scoped photo rows.
+                draftRepository.saveDraft(placeId, _uiState.value.draft, owner)
+                for (uri in uris) {
+                    when (val result = draftRepository.importPhoto(placeId, uri, owner)) {
+                        is MediaImportResult.Success -> {
+                            val next = _uiState.value.draft.copy(
+                                photos = _uiState.value.draft.photos + result.photo.localRelativePath,
+                            )
+                            _uiState.update {
+                                it.copy(draft = next, photoError = null, hasPersistedDraft = true)
+                            }
+                            lastPersistedDraft = next
+                            hadPersistedDraft = true
+                        }
+                        MediaImportResult.MaxCount -> {
+                            setPhotoError(R.string.photo_error_max_count)
+                            break
+                        }
+                        MediaImportResult.UnsupportedType ->
+                            setPhotoError(R.string.photo_error_unsupported_type)
+                        MediaImportResult.TooLarge -> setPhotoError(R.string.photo_error_too_large)
+                        MediaImportResult.Unreadable -> setPhotoError(R.string.photo_error_unreadable)
+                    }
+                }
+            }
+        }
+    }
+
+    fun removePhoto(relativePath: String) {
+        val owner = ownerUserId ?: return
+        viewModelScope.launch {
+            photoMutationMutex.withLock {
+                draftRepository.removePhoto(placeId, relativePath, owner)
+                val next = _uiState.value.draft.copy(
+                    photos = _uiState.value.draft.photos.filterNot { it == relativePath },
+                )
+                _uiState.update { it.copy(draft = next, photoError = null) }
+                lastPersistedDraft = next
+            }
+        }
+    }
+
+    fun consumePhotoError() = _uiState.update { it.copy(photoError = null) }
+
+    private fun setPhotoError(message: Int) = _uiState.update { it.copy(photoError = message) }
 
     fun flushDraft() {
         viewModelScope.launch { flushDraftInternal() }

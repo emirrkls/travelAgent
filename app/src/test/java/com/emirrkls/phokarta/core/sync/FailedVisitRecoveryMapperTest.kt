@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.core.sync
 
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.database.dao.PendingVisitMutation
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
@@ -52,6 +53,22 @@ class FailedVisitRecoveryMapperTest {
 
     @Test
     fun permanentFailureActionsFollowPolicy() {
+        assertEquals(
+            SyncFailureReason.LEGACY_MEDIA_RESELECT_REQUIRED,
+            SyncFailureReason.fromCategory("LEGACY_MEDIA_RESELECT_REQUIRED"),
+        )
+        assertEquals(
+            R.string.sync_failure_legacy_media_reselect,
+            SyncFailureReason.LEGACY_MEDIA_RESELECT_REQUIRED.labelRes(),
+        )
+        val legacyMedia = FailedVisitRecoveryPolicy.actionsFor(
+            MutationStateValue.FAILED_PERMANENT,
+            "LEGACY_MEDIA_RESELECT_REQUIRED",
+        )
+        assertFalse(legacyMedia.showRetry)
+        assertTrue(legacyMedia.showEditAndRetry)
+        assertTrue(legacyMedia.showRemove)
+
         val validation = FailedVisitRecoveryPolicy.actionsFor(
             MutationStateValue.FAILED_PERMANENT,
             "VALIDATION",

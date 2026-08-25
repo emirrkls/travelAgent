@@ -1,6 +1,8 @@
 package com.emirrkls.phokarta
 
+import android.net.Uri
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.core.media.MediaImportResult
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +63,9 @@ class FakeVisitDraftRepository(
     }
 
     override suspend fun attachSessionPhotos(placeId: String, photos: List<String>, ownerUserId: String) = Unit
+    override suspend fun importPhoto(placeId: String, uri: Uri, ownerUserId: String) =
+        MediaImportResult.Unreadable
+    override suspend fun removePhoto(placeId: String, relativePath: String, ownerUserId: String) = Unit
 
     fun seed(
         userId: String,

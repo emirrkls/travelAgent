@@ -3,3 +3,21 @@ phokarta:
     secret: phokarta-test-jwt-secret-do-not-use-elsewhere-32
     access-token-ttl: 15m
     refresh-token-ttl: 30d
+  media:
+    enabled: false
+    bucket: test-media
+    region: us-east-1
+    path-style: true
+    access-key: test-only
+    secret-key: test-only-secret
+    max-bytes: 15728640
+    max-per-visit: 20
+    accepted-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+    upload-ttl: 15m
+    read-ttl: 10m
+    unattached-ttl: 48h
+    cleanup-batch-size: 100
+    cleanup-interval: 1h

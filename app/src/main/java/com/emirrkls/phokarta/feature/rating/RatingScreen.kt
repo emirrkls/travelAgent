@@ -1,5 +1,8 @@
 package com.emirrkls.phokarta.feature.rating
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -7,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
@@ -58,6 +65,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import java.io.File
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -84,6 +94,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     var showVisibilitySheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(20),
+    ) { uris -> viewModel.addPhotos(uris) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         viewModel.flushDraft()
@@ -107,6 +120,12 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
         if (state.showDraftRestoredMessage) {
             snackbarHostState.showSnackbar(context.getString(R.string.draft_restored))
             viewModel.consumeDraftRestoredMessage()
+        }
+    }
+    LaunchedEffect(state.photoError) {
+        state.photoError?.let {
+            snackbarHostState.showSnackbar(context.getString(it))
+            viewModel.consumePhotoError()
         }
     }
 
@@ -396,6 +415,49 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 minLines = 2,
                 shape = RoundedCornerShape(18.dp),
             )
+            Spacer(Modifier.height(18.dp))
+            Text(stringResource(R.string.visit_photos_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.visit_photos_hint, state.draft.photos.size, 20),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(Modifier.height(9.dp))
+            if (state.draft.photos.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.draft.photos, key = { it }) { relativePath ->
+                        Box(Modifier.size(84.dp)) {
+                            AsyncImage(
+                                model = if (relativePath.startsWith("https://")) {
+                                    relativePath
+                                } else {
+                                    File(context.filesDir, relativePath)
+                                },
+                                contentDescription = stringResource(R.string.visit_photo_preview),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            IconButton(
+                                onClick = { viewModel.removePhoto(relativePath) },
+                                enabled = draftEditsEnabled,
+                                modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
+                            ) {
+                                Icon(Icons.Rounded.Close, stringResource(R.string.remove_photo))
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            TextButton(
+                onClick = {
+                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                enabled = draftEditsEnabled && state.draft.photos.size < 20,
+            ) {
+                Icon(Icons.Rounded.Add, null)
+                Text(stringResource(R.string.add_photos), Modifier.padding(start = 6.dp))
+            }
             Spacer(Modifier.height(18.dp))
             Surface(
                 Modifier.fillMaxWidth().clickable(enabled = draftEditsEnabled) { showDatePicker = true },

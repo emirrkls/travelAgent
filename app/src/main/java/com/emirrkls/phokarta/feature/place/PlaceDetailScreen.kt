@@ -532,6 +532,7 @@ fun PlaceDetailScreen(
                                 expanded = review.id in activeReviews.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
                                 onOpenAuthor = onAuthor,
+                                onRefreshMedia = viewModel::refreshActiveReviews,
                             )
                             Spacer(Modifier.height(10.dp))
                         }
@@ -625,6 +626,7 @@ fun PlaceDetailScreen(
             placeName = place.name,
             visit = visit,
             onDismiss = { selectedVisit = null },
+            refreshMediaUrl = viewModel::mediaAccessUrl,
         )
     }
     selectedPending?.let { pending ->

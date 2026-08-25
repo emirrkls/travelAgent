@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.database.dao.VisitDao
 import com.emirrkls.phokarta.core.database.mapper.toDimensionEntities
 import com.emirrkls.phokarta.core.database.mapper.toDomain
 import com.emirrkls.phokarta.core.database.mapper.toEntity
+import com.emirrkls.phokarta.core.database.mapper.toMediaEntities
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Visit
 import javax.inject.Inject
@@ -72,6 +73,7 @@ class RoomLocalUserStateDataSource @Inject constructor(
         visitDao.upsertVisitWithDimensions(
             visit = visit.toEntity(System.currentTimeMillis()),
             scores = visit.toDimensionEntities(),
+            media = visit.toMediaEntities(),
         )
     }
 
@@ -80,6 +82,7 @@ class RoomLocalUserStateDataSource @Inject constructor(
         visitDao.upsertVisitsWithDimensions(
             visits = visits.map { it.toEntity(now) },
             scores = visits.flatMap { it.toDimensionEntities() },
+            media = visits.flatMap { it.toMediaEntities() },
         )
     }
 

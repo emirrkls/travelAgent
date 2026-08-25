@@ -364,6 +364,7 @@ fun ProfileScreen(
             placeName = selectedPlaceName,
             visit = visit,
             onDismiss = { selectedVisit = null },
+            refreshMediaUrl = viewModel::mediaAccessUrl,
         )
     }
     selectedPending?.let { pending ->

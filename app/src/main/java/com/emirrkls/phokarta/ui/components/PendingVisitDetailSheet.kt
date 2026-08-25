@@ -91,6 +91,7 @@ fun PendingVisitDetailSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            VisitPhotoStrip(pending.visit)
             Spacer(Modifier.height(12.dp))
             Text(
                 stringResource(

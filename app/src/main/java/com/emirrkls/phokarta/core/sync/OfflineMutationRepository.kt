@@ -12,6 +12,8 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.VisitDraftPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.MediaUploadState
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.time.EpochClock
@@ -29,6 +31,7 @@ import com.emirrkls.phokarta.core.data.toDraftEntity
 import com.emirrkls.phokarta.core.data.toDomain
 import com.emirrkls.phokarta.core.model.Visibility
 import java.time.LocalDate
+import com.emirrkls.phokarta.core.media.VisitMediaStore
 
 data class PendingVisit(
     val mutationId: String,
@@ -86,12 +89,14 @@ class RoomOfflineMutationRepository @Inject constructor(
     private val session: SessionManager,
     private val clock: EpochClock,
     private val scheduler: MutationSyncScheduler,
+    private val mediaStore: VisitMediaStore,
 ) : OfflineMutationRepository {
     override suspend fun commitVisit(visit: Visit): String {
         val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
         val mutationId = UUID.randomUUID().toString()
         val now = clock.nowMillis()
         database.withTransaction {
+            val draftPhotos = drafts.getPhotos(userId, visit.placeId)
             mutations.insertMutation(PendingMutationEntity(
                 mutationId, userId, MutationTypeValue.PUBLISH_VISIT, mutationId,
                 MutationStateValue.PENDING, 1, null, 0, now, now, null,
@@ -105,7 +110,26 @@ class RoomOfflineMutationRepository @Inject constructor(
                     PendingVisitDimensionScoreEntity(mutationId, key.name, score)
                 })
             }
-            if (visit.photos.isNotEmpty()) {
+            if (draftPhotos.isNotEmpty()) {
+                mutations.insertVisitPhotos(draftPhotos.sortedBy { it.position }.map { photo ->
+                    PendingVisitPhotoEntity(
+                        mutationId = mutationId,
+                        position = photo.position,
+                        ownerUserId = userId,
+                        clientMediaId = photo.clientMediaId,
+                        localRelativePath = photo.localRelativePath,
+                        contentType = photo.contentType,
+                        byteSize = photo.byteSize,
+                        width = photo.width,
+                        height = photo.height,
+                        remoteMediaId = photo.remoteMediaId,
+                        uploadState = photo.uploadState,
+                        failureCategory = photo.failureCategory,
+                        legacyUrl = photo.legacyUrl,
+                    )
+                })
+            } else if (visit.photos.isNotEmpty()) {
+                // Explicit legacy compatibility for old in-process callers/tests only.
                 mutations.insertVisitPhotos(visit.photos.mapIndexed { index, url ->
                     PendingVisitPhotoEntity(mutationId, index, url)
                 })
@@ -168,6 +192,7 @@ class RoomOfflineMutationRepository @Inject constructor(
         }
         val recovered = FailedVisitRecoveryMapper.toDraft(item)
         val now = clock.nowMillis()
+        val displacedPhotos = drafts.getPhotos(userId, placeId)
         return try {
             database.withTransaction {
                 val existing = drafts.getDraft(userId, placeId)
@@ -176,6 +201,27 @@ class RoomOfflineMutationRepository @Inject constructor(
                     draft = recovered.toDraftEntity(userId, placeId, createdAt, now),
                     scores = recovered.toDraftDimensionEntities(userId, placeId),
                 )
+                drafts.replacePhotos(
+                    userId,
+                    placeId,
+                    item.photos.map { photo ->
+                        VisitDraftPhotoEntity(
+                            ownerUserId = userId,
+                            placeId = placeId,
+                            position = photo.position,
+                            clientMediaId = photo.clientMediaId,
+                            localRelativePath = photo.localRelativePath.orEmpty(),
+                            contentType = photo.contentType ?: "application/octet-stream",
+                            byteSize = photo.byteSize ?: 0,
+                            width = photo.width,
+                            height = photo.height,
+                            remoteMediaId = photo.remoteMediaId,
+                            uploadState = photo.uploadState,
+                            failureCategory = photo.failureCategory,
+                            legacyUrl = photo.legacyUrl,
+                        )
+                    },
+                )
                 val deleted = mutations.deleteIfState(
                     mutationId, userId, MutationStateValue.FAILED_PERMANENT,
                 )
@@ -183,8 +229,9 @@ class RoomOfflineMutationRepository @Inject constructor(
                     throw IllegalStateException("Failed mutation state changed during recovery")
                 }
             }
-            if (recovered.photos.isNotEmpty()) {
-                draftRepository.attachSessionPhotos(placeId, recovered.photos, userId)
+            val retained = item.photos.mapNotNull { it.localRelativePath }.toSet()
+            displacedPhotos.filterNot { it.localRelativePath in retained }.forEach {
+                mediaStore.deleteOwned(userId, it.localRelativePath)
             }
             RecoverFailedVisitResult.SUCCESS
         } catch (_: IllegalStateException) {
@@ -199,7 +246,9 @@ class RoomOfflineMutationRepository @Inject constructor(
         if (row.state != MutationStateValue.FAILED_PERMANENT) {
             return RemoveFailedVisitResult.INVALID_STATE
         }
+        val files = mutations.getVisitPhotos(mutationId)
         val deleted = mutations.deleteIfState(mutationId, userId, MutationStateValue.FAILED_PERMANENT)
+        if (deleted == 1) files.forEach { mediaStore.deleteOwned(userId, it.localRelativePath) }
         return if (deleted == 1) RemoveFailedVisitResult.SUCCESS else RemoveFailedVisitResult.INVALID_STATE
     }
 
@@ -234,7 +283,7 @@ class RoomOfflineMutationRepository @Inject constructor(
                             },
                             review = item.payload.publicReview,
                             personalNote = item.payload.privateMemory,
-                            photos = item.photos.sortedBy { it.position }.map { it.url },
+                            photos = item.photos.sortedBy { it.position }.mapNotNull { it.localRelativePath ?: it.legacyUrl },
                             visibility = Visibility.valueOf(item.payload.visibility),
                         ),
                     )

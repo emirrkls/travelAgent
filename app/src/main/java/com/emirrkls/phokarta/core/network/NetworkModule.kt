@@ -10,6 +10,9 @@ import com.emirrkls.phokarta.core.network.api.PlaceApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
 import com.emirrkls.phokarta.core.network.api.UserApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
+import com.emirrkls.phokarta.core.network.api.MediaApi
+import com.emirrkls.phokarta.core.network.source.MediaRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.RetrofitMediaRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.RetrofitCollectionRemoteDataSource
@@ -26,12 +29,17 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import javax.inject.Qualifier
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class UploadHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -69,6 +77,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @UploadHttpClient
+    fun provideUploadOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.MINUTES)
+        .writeTimeout(2, TimeUnit.MINUTES)
+        .callTimeout(3, TimeUnit.MINUTES)
+        .build()
+
+    @Provides
+    @Singleton
     fun provideRetrofit(json: Json, client: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl(BuildConfig.PHOKARTA_API_BASE_URL)
@@ -91,6 +109,9 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideVisitApi(retrofit: Retrofit): VisitApi = retrofit.create(VisitApi::class.java)
+
+    @Provides
+    fun provideMediaApi(retrofit: Retrofit): MediaApi = retrofit.create(MediaApi::class.java)
 
     @Provides
     @Singleton
@@ -118,6 +139,12 @@ object NetworkModule {
     fun provideVisitRemoteDataSource(
         source: RetrofitVisitRemoteDataSource,
     ): VisitRemoteDataSource = source
+
+    @Provides
+    @Singleton
+    fun provideMediaRemoteDataSource(
+        source: RetrofitMediaRemoteDataSource,
+    ): MediaRemoteDataSource = source
 
     @Provides
     @Singleton

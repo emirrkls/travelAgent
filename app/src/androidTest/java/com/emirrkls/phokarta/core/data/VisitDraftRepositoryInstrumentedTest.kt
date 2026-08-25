@@ -11,6 +11,8 @@ import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.time.EpochClock
+import com.emirrkls.phokarta.core.media.MediaFileMutationLock
+import com.emirrkls.phokarta.core.media.VisitMediaStore
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -44,6 +46,8 @@ class VisitDraftRepositoryInstrumentedTest {
             dao = database.visitDraftDao(),
             sessionManager = sessionManager,
             clock = EpochClock { nowMillis },
+            mediaStore = VisitMediaStore(context),
+            fileMutationLock = MediaFileMutationLock(),
         )
         loginAs(USER_A)
     }

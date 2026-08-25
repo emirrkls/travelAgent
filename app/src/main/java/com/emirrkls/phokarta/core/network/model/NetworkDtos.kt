@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.core.network.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 @Serializable
 enum class PlaceCategoryDto {
@@ -87,6 +88,7 @@ data class PublicVisitDto(
     val overallRating: Double,
     val publicReview: String,
     val photos: List<String>,
+    val media: List<VisitMediaDto> = emptyList(),
     val verificationStatus: VerificationStatusDto,
 )
 
@@ -142,9 +144,11 @@ data class VisitOwnerDto(
     val dimensions: List<DimensionScoreDto>,
     val publicReview: String,
     val privateMemory: String,
-    val photos: List<String>,
+    /** Legacy response compatibility. */
+    val photos: List<String> = emptyList(),
     val visibility: VisibilityDto,
     val verificationStatus: VerificationStatusDto,
+    val media: List<VisitMediaDto> = emptyList(),
 )
 
 @Serializable
@@ -162,9 +166,46 @@ data class CreateVisitDto(
     val dimensions: List<DimensionScoreDto>?,
     val publicReview: String?,
     val privateMemory: String?,
-    val photos: List<String>?,
+    /** Legacy requests only; new mutations send [mediaIds]. */
+    val photos: List<String>? = null,
+    val mediaIds: List<String>? = null,
     val visibility: VisibilityDto,
 )
+
+@Serializable
+data class VisitMediaDto(
+    @SerialName("id")
+    val mediaId: String,
+    @SerialName("sortOrder")
+    val order: Int,
+    val accessUrl: String? = null,
+    @SerialName("accessExpiresAt")
+    val accessUrlExpiresAt: String? = null,
+)
+
+@Serializable
+data class MediaUploadIntentRequestDto(
+    val clientMediaId: String,
+    val contentType: String,
+    val byteSize: Long,
+    val width: Int? = null,
+    val height: Int? = null,
+)
+
+@Serializable
+data class MediaUploadIntentResponseDto(
+    val mediaId: String,
+    val status: String,
+    val uploadUrl: String? = null,
+    val requiredHeaders: Map<String, String> = emptyMap(),
+    val expiresAt: String? = null,
+)
+
+@Serializable
+data class MediaStateDto(val mediaId: String, val status: String)
+
+@Serializable
+data class MediaAccessDto(val url: String, val expiresAt: String)
 
 @Serializable
 data class SavedPlaceDto(

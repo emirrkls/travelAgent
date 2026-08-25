@@ -20,6 +20,7 @@ import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryCoordinator
+import com.emirrkls.phokarta.core.media.MediaAccessRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,6 +80,7 @@ class PlaceDetailViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val draftRepository: VisitDraftRepository,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
+    private val mediaAccess: MediaAccessRepository? = null,
 ) : ViewModel() {
     private val recoveryCoordinator = PendingVisitRecoveryCoordinator(offlineMutations)
     val recoveryEvents = recoveryCoordinator.events
@@ -157,6 +159,9 @@ class PlaceDetailViewModel @Inject constructor(
     }
 
     fun retry() = load()
+
+    suspend fun mediaAccessUrl(visitId: String, mediaId: String): String? =
+        mediaAccess?.accessUrl(visitId, mediaId)
 
     fun retryMutation(mutationId: String) {
         viewModelScope.launch { recoveryCoordinator.retry(mutationId) }

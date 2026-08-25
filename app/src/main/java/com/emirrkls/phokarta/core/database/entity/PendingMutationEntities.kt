@@ -88,5 +88,32 @@ data class PendingVisitDimensionScoreEntity(
 data class PendingVisitPhotoEntity(
     val mutationId: String,
     val position: Int,
-    val url: String,
-)
+    val ownerUserId: String,
+    val clientMediaId: String,
+    val localRelativePath: String?,
+    val contentType: String?,
+    val byteSize: Long?,
+    val width: Int?,
+    val height: Int?,
+    val remoteMediaId: String?,
+    val uploadState: String,
+    val failureCategory: String?,
+    /** v6 compatibility only. New rows never store a URL here. */
+    val legacyUrl: String?,
+) {
+    constructor(mutationId: String, position: Int, url: String) : this(
+        mutationId = mutationId,
+        position = position,
+        ownerUserId = "",
+        clientMediaId = "",
+        localRelativePath = null,
+        contentType = null,
+        byteSize = null,
+        width = null,
+        height = null,
+        remoteMediaId = null,
+        uploadState = MediaUploadState.READY_REMOTE,
+        failureCategory = null,
+        legacyUrl = url,
+    )
+}

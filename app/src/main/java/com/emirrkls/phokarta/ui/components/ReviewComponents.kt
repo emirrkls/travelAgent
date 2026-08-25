@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -20,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -36,6 +39,7 @@ import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
 import com.emirrkls.phokarta.R
+import coil.compose.AsyncImage
 
 object CommunityScoreCopy {
     @androidx.annotation.StringRes
@@ -272,6 +276,7 @@ fun CommunityReviewCard(
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onOpenAuthor: ((String) -> Unit)? = null,
+    onRefreshMedia: (() -> Unit)? = null,
     previewMaxLines: Int = 3,
     modifier: Modifier = Modifier,
 ) {
@@ -285,6 +290,15 @@ fun CommunityReviewCard(
     val reviewByA11y = stringResource(R.string.a11y_review_by, authorLabel)
     val scoreA11y = stringResource(R.string.a11y_score_with_band, scoreText, scoreDescriptor)
     val visitedA11y = stringResource(R.string.activity_visited_date, dateLabel)
+    val now = System.currentTimeMillis()
+    val orderedMedia = review.media.sortedBy { it.order }
+    val mediaPhotos = orderedMedia.mapNotNull { media ->
+        media.accessUrl?.takeIf {
+            (media.accessUrlExpiresAtEpochMillis ?: Long.MAX_VALUE) > now + 30_000L
+        }
+    }
+    val displayedPhotos = mediaPhotos.ifEmpty { review.photos }
+    val needsMediaRefresh = orderedMedia.isNotEmpty() && mediaPhotos.size < orderedMedia.size
 
     Card(
         modifier = modifier
@@ -345,6 +359,24 @@ fun CommunityReviewCard(
                     ) {
                         Text(if (expanded) stringResource(R.string.show_less) else stringResource(R.string.read_more))
                     }
+                }
+            }
+            if (displayedPhotos.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(displayedPhotos) { index, url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = stringResource(R.string.visit_photo_a11y, index + 1),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(88.dp),
+                        )
+                    }
+                }
+            }
+            if (needsMediaRefresh && onRefreshMedia != null) {
+                TextButton(onClick = onRefreshMedia) {
+                    Text(stringResource(R.string.action_retry))
                 }
             }
         }

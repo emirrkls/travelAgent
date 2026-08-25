@@ -76,7 +76,9 @@ object FailedVisitRecoveryMapper {
             visibility = runCatching { Visibility.valueOf(payload.visibility) }
                 .getOrDefault(Visibility.PUBLIC),
             dimensionsExpanded = item.dimensions.isNotEmpty(),
-            photos = item.photos.sortedBy { it.position }.map { it.url },
+            photos = item.photos.sortedBy { it.position }.mapNotNull {
+                it.localRelativePath ?: it.legacyUrl
+            },
         )
     }
 

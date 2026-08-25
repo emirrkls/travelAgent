@@ -186,6 +186,47 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration6To7PreservesLegacyPhotosAndAddsDurableMediaTables() {
+        val userId = "20000000-0000-4000-8000-000000000002"
+        helper.createDatabase(TEST_DATABASE, 6).apply {
+            execSQL(
+                """INSERT INTO pending_mutations
+                    (mutationId,userId,type,resourceKey,state,generation,desiredSaved,attemptCount,
+                     createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory)
+                   VALUES ('m1',?,'PUBLISH_VISIT','m1','PENDING',1,NULL,0,1,1,NULL)""",
+                arrayOf<Any>(userId),
+            )
+            execSQL(
+                """INSERT INTO pending_visit_photos (mutationId,position,url)
+                   VALUES ('m1',0,'https://legacy.invalid/photo.jpg')""",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 7, true, MIGRATION_6_7).apply {
+            assertEquals(1, rowCount("pending_visit_photos"))
+            assertEquals(0, rowCount("visit_draft_photos"))
+            assertEquals(0, rowCount("visit_media"))
+            query(
+                "SELECT ownerUserId, legacyUrl, uploadState FROM pending_visit_photos WHERE mutationId='m1'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(userId, cursor.getString(0))
+                assertEquals("https://legacy.invalid/photo.jpg", cursor.getString(1))
+                assertEquals("READY_REMOTE", cursor.getString(2))
+            }
+            query(
+                "SELECT state, lastErrorCategory FROM pending_mutations WHERE mutationId='m1'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("FAILED_PERMANENT", cursor.getString(0))
+                assertEquals("LEGACY_MEDIA_RESELECT_REQUIRED", cursor.getString(1))
+            }
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits

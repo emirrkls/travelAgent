@@ -20,6 +20,8 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.VisitDraftPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.VisitMediaEntity
 
 @Database(
     entities = [
@@ -35,8 +37,10 @@ import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
         PendingVisitPayloadEntity::class,
         PendingVisitDimensionScoreEntity::class,
         PendingVisitPhotoEntity::class,
+        VisitDraftPhotoEntity::class,
+        VisitMediaEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class TravelDatabase : RoomDatabase() {

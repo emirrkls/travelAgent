@@ -103,6 +103,14 @@ data class NearbyPlace(
 enum class Visibility { PRIVATE, FRIENDS, PUBLIC }
 enum class VerificationStatus { UNVERIFIED, LOCATION_CONFIRMED }
 
+data class VisitMedia(
+    val mediaId: String,
+    val order: Int,
+    /** Refreshable display cache; never an identity. */
+    val accessUrl: String? = null,
+    val accessUrlExpiresAtEpochMillis: Long? = null,
+)
+
 data class Visit(
     val id: String,
     val userId: String,
@@ -113,6 +121,7 @@ data class Visit(
     val review: String,
     val personalNote: String,
     val photos: List<String> = emptyList(),
+    val media: List<VisitMedia> = emptyList(),
     val visibility: Visibility = Visibility.PUBLIC,
     val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
 )

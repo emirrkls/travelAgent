@@ -164,6 +164,7 @@ fun PlaceReviewsScreen(
                                 expanded = review.id in state.expandedReviewIds,
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
                                 onOpenAuthor = onAuthor,
+                                onRefreshMedia = viewModel::retry,
                                 previewMaxLines = Int.MAX_VALUE,
                             )
                         }

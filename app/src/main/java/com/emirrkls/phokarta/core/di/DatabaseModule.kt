@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.database.MIGRATION_2_3
 import com.emirrkls.phokarta.core.database.MIGRATION_3_4
 import com.emirrkls.phokarta.core.database.MIGRATION_4_5
 import com.emirrkls.phokarta.core.database.MIGRATION_5_6
+import com.emirrkls.phokarta.core.database.MIGRATION_6_7
 import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
 import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.dao.CachedPlaceDao
@@ -28,7 +29,10 @@ object DatabaseModule {
     @Singleton
     fun provideTravelDatabase(@ApplicationContext context: Context): TravelDatabase =
         Room.databaseBuilder(context, TravelDatabase::class.java, TravelDatabase.NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                MIGRATION_5_6, MIGRATION_6_7,
+            )
             .build()
 
     @Provides

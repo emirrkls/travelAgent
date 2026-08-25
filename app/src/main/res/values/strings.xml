@@ -275,6 +275,7 @@
     <string name="action_replace">Replace</string>
     <string name="remove_failed_visit_title">Remove failed visit?</string>
     <string name="remove_failed_visit_message">This unsynced visit will be deleted from this device.</string>
+    <string name="sync_failure_legacy_media_reselect">This photo was added by an older app version. Edit the visit to remove it or select it again.</string>
     <string name="sync_failure_validation">Couldn\'t publish because some visit details were invalid.</string>
     <string name="sync_failure_forbidden">You don\'t have permission to publish this visit.</string>
     <string name="sync_failure_not_found">This place is no longer available.</string>
@@ -506,4 +507,16 @@
     <string name="record_a_visit">Record a visit</string>
     <string name="a11y_collapse_details">Collapse details</string>
     <string name="a11y_expand_details">Expand details</string>
+    <string name="visit_photos_title">Photos</string>
+    <string name="visit_photos_hint">%1$d of %2$d · JPEG, PNG or WebP · 15 MB max each</string>
+    <string name="add_photos">Add photos</string>
+    <string name="remove_photo">Remove photo</string>
+    <string name="visit_photo_preview">Selected visit photo</string>
+    <string name="photo_error_max_count">You can add up to 20 photos.</string>
+    <string name="photo_error_unsupported_type">Choose a JPEG, PNG or WebP image.</string>
+    <string name="photo_error_too_large">That photo is larger than 15 MB.</string>
+    <string name="photo_error_unreadable">That photo could not be read. Choose another one.</string>
+    <string name="photo_error_missing">A selected photo is missing from this device.</string>
+    <string name="photo_upload_failed">A photo could not be uploaded. Your visit was not published.</string>
+    <string name="visit_photo_a11y">Visit photo %1$d</string>
 </resources>

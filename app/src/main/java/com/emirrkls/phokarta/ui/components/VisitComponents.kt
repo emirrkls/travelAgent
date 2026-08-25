@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -21,8 +23,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +46,8 @@ import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.labelRes
+import coil.compose.AsyncImage
+import java.io.File
 
 @Composable
 fun VisitedBadge(modifier: Modifier = Modifier) {
@@ -66,6 +75,7 @@ fun OwnerVisitDetailSheet(
     placeName: String,
     visit: Visit,
     onDismiss: () -> Unit,
+    refreshMediaUrl: suspend (visitId: String, mediaId: String) -> String? = { _, _ -> null },
 ) {
     val dateLabel = formatLongDateLocalized(visit.visitedAt)
     val scoreLabel = stringResource(VisitDraftLogic.scoreBand(visit.overallRating.toFloat()).labelRes())
@@ -92,6 +102,7 @@ fun OwnerVisitDetailSheet(
             )
             Text(scoreLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Text(dateLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            VisitPhotoStrip(visit = visit, refreshMediaUrl = refreshMediaUrl)
             Spacer(Modifier.height(16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -150,6 +161,65 @@ fun OwnerVisitDetailSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun VisitPhotoStrip(
+    visit: Visit,
+    refreshMediaUrl: suspend (visitId: String, mediaId: String) -> String? = { _, _ -> null },
+) {
+    val context = LocalContext.current
+    val refreshed = remember(visit.id) { mutableStateMapOf<String, String>() }
+    if (visit.media.isNotEmpty()) {
+        val ordered = visit.media.sortedBy { it.order }
+        ordered.forEach { media ->
+            LaunchedEffect(visit.id, media.mediaId, media.accessUrlExpiresAtEpochMillis) {
+                if (
+                    media.accessUrl == null ||
+                    (media.accessUrlExpiresAtEpochMillis ?: 0L) <= System.currentTimeMillis() + 30_000L
+                ) {
+                    refreshMediaUrl(visit.id, media.mediaId)?.let { refreshed[media.mediaId] = it }
+                }
+            }
+        }
+        val displayable = ordered.mapNotNull { media ->
+            (refreshed[media.mediaId] ?: media.accessUrl)?.let { media.mediaId to it }
+        }
+        if (displayable.isEmpty()) return
+        Spacer(Modifier.height(16.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(displayable, key = { _, item -> item.first }) { index, item ->
+                AsyncImage(
+                    model = item.second,
+                    contentDescription = stringResource(R.string.visit_photo_a11y, index + 1),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(112.dp),
+                )
+            }
+        }
+        return
+    }
+
+    val localOrLegacy = visit.photos.mapNotNull { value ->
+        when {
+            value.startsWith("https://") -> value
+            value.startsWith("visit-media/") && !value.contains("..") && '\\' !in value ->
+                File(context.filesDir, value)
+            else -> null
+        }
+    }
+    if (localOrLegacy.isEmpty()) return
+    Spacer(Modifier.height(16.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        itemsIndexed(localOrLegacy) { index, model ->
+            AsyncImage(
+                model = model,
+                contentDescription = stringResource(R.string.visit_photo_a11y, index + 1),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(112.dp),
+            )
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.core.data
 
+import android.net.Uri
+import com.emirrkls.phokarta.core.media.MediaImportResult
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import kotlinx.coroutines.flow.Flow
 
@@ -20,8 +22,10 @@ interface VisitDraftRepository {
 
     suspend fun deleteDraft(placeId: String, ownerUserId: String)
     suspend fun deleteExpiredDrafts()
+    suspend fun importPhoto(placeId: String, uri: Uri, ownerUserId: String): MediaImportResult
+    suspend fun removePhoto(placeId: String, relativePath: String, ownerUserId: String)
 
-    /** Session-only photos for drafts recovered from pending payloads (not in Room). */
+    /** Compatibility facade; implementations must persist these references durably. */
     suspend fun attachSessionPhotos(placeId: String, photos: List<String>, ownerUserId: String)
 
     companion object {

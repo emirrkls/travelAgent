@@ -21,6 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
         "APP_ENVIRONMENT=production-test",
         "PHOKARTA_JWT_SECRET=phokarta-production-test-secret-at-least-32",
         "PHOKARTA_CORS_ALLOWED_ORIGINS=https://app.example.test",
+        "PHOKARTA_MEDIA_BUCKET=production-test-media",
+        "PHOKARTA_MEDIA_REGION=us-east-1",
+        "PHOKARTA_MEDIA_ACCESS_KEY=test-only",
+        "PHOKARTA_MEDIA_SECRET_KEY=test-only-secret",
         "MANAGEMENT_SERVER_PORT=8080"
 })
 class ProductionMigrationIntegrationTest {
@@ -39,7 +43,7 @@ class ProductionMigrationIntegrationTest {
                 "select count(*) from flyway_schema_history where success", Integer.class);
         Long userCount = jdbc.queryForObject("select count(*) from users", Long.class);
 
-        assertThat(migrationCount).isEqualTo(5);
+        assertThat(migrationCount).isEqualTo(6);
         assertThat(userCount).isZero();
         Integer emailColumn = jdbc.queryForObject("""
                 select count(*) from information_schema.columns
@@ -56,5 +60,10 @@ class ProductionMigrationIntegrationTest {
                 where table_name = 'visits' and column_name = 'client_mutation_id'
                 """, Integer.class);
         assertThat(mutationColumn).isEqualTo(1);
+        Integer mediaTable = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'media_assets'
+                """, Integer.class);
+        assertThat(mediaTable).isEqualTo(1);
     }
 }

@@ -6,6 +6,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import com.emirrkls.phokarta.core.database.entity.VisitDraftDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.VisitDraftEntity
+import com.emirrkls.phokarta.core.database.entity.VisitDraftPhotoEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -44,6 +45,25 @@ interface VisitDraftDao {
     )
     suspend fun getDimensionScores(userId: String, placeId: String): List<VisitDraftDimensionScoreEntity>
 
+    @Query(
+        "SELECT * FROM visit_draft_photos WHERE ownerUserId = :userId AND placeId = :placeId ORDER BY position",
+    )
+    suspend fun getPhotos(userId: String, placeId: String): List<VisitDraftPhotoEntity>
+
+    @Query("SELECT * FROM visit_draft_photos")
+    suspend fun getAllPhotos(): List<VisitDraftPhotoEntity>
+
+    @Query(
+        "SELECT * FROM visit_draft_photos WHERE ownerUserId = :userId AND placeId = :placeId ORDER BY position",
+    )
+    fun observePhotos(userId: String, placeId: String): Flow<List<VisitDraftPhotoEntity>>
+
+    @Upsert
+    suspend fun upsertPhotos(photos: List<VisitDraftPhotoEntity>)
+
+    @Query("DELETE FROM visit_draft_photos WHERE ownerUserId = :userId AND placeId = :placeId")
+    suspend fun deletePhotos(userId: String, placeId: String)
+
     @Upsert
     suspend fun upsertDraft(draft: VisitDraftEntity)
 
@@ -64,6 +84,15 @@ interface VisitDraftDao {
     @Query("DELETE FROM visit_drafts WHERE updatedAtEpochMillis < :cutoffEpochMillis")
     suspend fun deleteExpired(cutoffEpochMillis: Long): Int
 
+    @Query(
+        """
+        SELECT p.* FROM visit_draft_photos p
+        INNER JOIN visit_drafts d ON d.userId = p.ownerUserId AND d.placeId = p.placeId
+        WHERE d.updatedAtEpochMillis < :cutoffEpochMillis
+        """,
+    )
+    suspend fun getExpiredPhotos(cutoffEpochMillis: Long): List<VisitDraftPhotoEntity>
+
     @Transaction
     suspend fun upsertDraftWithDimensions(
         draft: VisitDraftEntity,
@@ -81,5 +110,11 @@ interface VisitDraftDao {
     ): Pair<VisitDraftEntity, List<VisitDraftDimensionScoreEntity>>? {
         val draft = getDraft(userId, placeId) ?: return null
         return draft to getDimensionScores(userId, placeId)
+    }
+
+    @Transaction
+    suspend fun replacePhotos(userId: String, placeId: String, photos: List<VisitDraftPhotoEntity>) {
+        deletePhotos(userId, placeId)
+        if (photos.isNotEmpty()) upsertPhotos(photos)
     }
 }

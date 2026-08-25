@@ -19,6 +19,15 @@ import com.emirrkls.phokarta.core.network.model.*
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
 import com.emirrkls.phokarta.core.time.EpochClock
+import com.emirrkls.phokarta.core.media.MediaFileMutationLock
+import com.emirrkls.phokarta.core.media.VisitMediaStore
+import com.emirrkls.phokarta.core.network.source.MediaRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.DirectMediaUploader
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentResponseDto
+import com.emirrkls.phokarta.core.network.model.MediaStateDto
+import com.emirrkls.phokarta.core.network.model.MediaAccessDto
+import okhttp3.OkHttpClient
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -47,9 +56,13 @@ class MutationSyncEngineInstrumentedTest {
         session.setAuthenticated(AuthenticatedUser(USER, "u@test", "u", "U", "", ""), "access", "refresh")
         queue = RoomOfflineMutationRepository(
             database, database.pendingMutationDao(), database.visitDraftDao(),
-            RoomVisitDraftRepository(database.visitDraftDao(), session, EpochClock { 1_000 }),
+            RoomVisitDraftRepository(
+                database.visitDraftDao(), session, EpochClock { 1_000 }, VisitMediaStore(context),
+                MediaFileMutationLock(),
+            ),
             database.savedPlaceDao(),
             session, EpochClock { 1_000 }, object : MutationSyncScheduler { override fun schedule() = Unit },
+            VisitMediaStore(context),
         )
         visits = FakeVisits()
         saved = FakeSaved()
@@ -57,6 +70,16 @@ class MutationSyncEngineInstrumentedTest {
             database, database.pendingMutationDao(), database.savedPlaceDao(), visits, saved,
             RoomLocalUserStateDataSource(database.visitDao(), database.savedPlaceDao(), database.collectionDao(), session),
             session, EpochClock { 2_000 }, ActivityFeedInvalidator(),
+            object : MediaRemoteDataSource {
+                override suspend fun createIntent(request: MediaUploadIntentRequestDto) =
+                    RemoteResult.Success(MediaUploadIntentResponseDto("unused", "READY"))
+                override suspend fun confirm(mediaId: String) =
+                    RemoteResult.Success(MediaStateDto(mediaId, "READY"))
+                override suspend fun access(mediaId: String) =
+                    RemoteResult.Success(MediaAccessDto("https://example.test/$mediaId", "2026-08-25T12:00:00Z"))
+            },
+            DirectMediaUploader(OkHttpClient()),
+            VisitMediaStore(context),
         )
     }
 
@@ -87,6 +110,20 @@ class MutationSyncEngineInstrumentedTest {
         assertEquals(2, result.processed)
         assertTrue(database.savedPlaceDao().getSavedPlace(USER, PLACE) != null)
         assertEquals(1, database.pendingMutationDao().eligible(USER, 20).size)
+    }
+
+    @Test fun legacyPhotoIsFailedPermanentlyWithoutCallingCreateVisit() = runTest {
+        val mutationId = queue.commitVisit(
+            visit().copy(photos = listOf("https://legacy.invalid/photo.jpg")),
+        )
+
+        val result = engine.drain()
+
+        assertFalse(result.retryableFailure)
+        assertTrue(visits.requests.isEmpty())
+        val mutation = database.pendingMutationDao().get(mutationId)!!
+        assertEquals("FAILED_PERMANENT", mutation.state)
+        assertEquals("LEGACY_MEDIA_RESELECT_REQUIRED", mutation.lastErrorCategory)
     }
 
     private fun visit() = Visit(

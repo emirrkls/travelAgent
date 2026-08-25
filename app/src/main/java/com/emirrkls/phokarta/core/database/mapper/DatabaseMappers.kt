@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.VisitMedia
 import com.emirrkls.phokarta.core.model.Visibility
 import java.time.LocalDate
 
@@ -46,7 +47,22 @@ fun VisitWithDimensions.toDomain(): Visit = Visit(
     personalNote = visit.privateMemory,
     visibility = visit.visibility.toVisibility(),
     verificationStatus = visit.verificationStatus.toVerificationStatus(),
+    photos = media.sortedBy { it.position }.mapNotNull { it.accessUrl },
+    media = media.sortedBy { it.position }.map {
+        VisitMedia(it.mediaId, it.position, it.accessUrl, it.accessUrlExpiresAtEpochMillis)
+    },
 )
+
+fun Visit.toMediaEntities() = media.map {
+    com.emirrkls.phokarta.core.database.entity.VisitMediaEntity(
+        ownerUserId = userId,
+        visitId = id,
+        position = it.order,
+        mediaId = it.mediaId,
+        accessUrl = it.accessUrl,
+        accessUrlExpiresAtEpochMillis = it.accessUrlExpiresAtEpochMillis,
+    )
+}
 
 fun Collection.toEntity(
     createdAtEpochMillis: Long,

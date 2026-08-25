@@ -38,6 +38,47 @@ interface PendingMutationDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertVisitPhotos(values: List<PendingVisitPhotoEntity>)
 
+    @Query("SELECT * FROM pending_visit_photos WHERE mutationId = :mutationId ORDER BY position")
+    suspend fun getVisitPhotos(mutationId: String): List<PendingVisitPhotoEntity>
+
+    @Query("SELECT * FROM pending_visit_photos")
+    suspend fun getAllVisitPhotos(): List<PendingVisitPhotoEntity>
+
+    @Query(
+        """
+        UPDATE pending_visit_photos
+        SET remoteMediaId = :mediaId, uploadState = :state, failureCategory = NULL
+        WHERE mutationId = :mutationId AND position = :position AND ownerUserId = :ownerUserId
+        """,
+    )
+    suspend fun updatePhotoRemoteState(
+        mutationId: String,
+        position: Int,
+        ownerUserId: String,
+        mediaId: String,
+        state: String,
+    ): Int
+
+    @Query(
+        "UPDATE pending_visit_photos SET failureCategory = :category WHERE mutationId = :mutationId AND position = :position",
+    )
+    suspend fun markPhotoFailure(mutationId: String, position: Int, category: String): Int
+
+    @Query(
+        """
+        UPDATE pending_visit_photos
+        SET clientMediaId = :newClientMediaId, remoteMediaId = NULL,
+            uploadState = 'LOCAL_ONLY', failureCategory = NULL
+        WHERE mutationId = :mutationId AND position = :position AND ownerUserId = :ownerUserId
+        """,
+    )
+    suspend fun resetAttachedPhoto(
+        mutationId: String,
+        position: Int,
+        ownerUserId: String,
+        newClientMediaId: String,
+    ): Int
+
     @Query("SELECT * FROM pending_mutations WHERE mutationId = :mutationId")
     suspend fun get(mutationId: String): PendingMutationEntity?
 

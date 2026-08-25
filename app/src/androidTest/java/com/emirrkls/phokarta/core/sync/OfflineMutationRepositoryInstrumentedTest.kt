@@ -15,6 +15,8 @@ import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.time.EpochClock
+import com.emirrkls.phokarta.core.media.MediaFileMutationLock
+import com.emirrkls.phokarta.core.media.VisitMediaStore
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -43,11 +45,13 @@ class OfflineMutationRepositoryInstrumentedTest {
         scheduler = RecordingScheduler()
         draftRepository = RoomVisitDraftRepository(
             database.visitDraftDao(), session, EpochClock { 5_000L },
+            VisitMediaStore(context), MediaFileMutationLock(),
         )
         repository = RoomOfflineMutationRepository(
             database, database.pendingMutationDao(), database.visitDraftDao(),
             draftRepository, database.savedPlaceDao(),
             session, EpochClock { 1_000L }, scheduler,
+            VisitMediaStore(context),
         )
         login(USER_A)
     }
@@ -69,7 +73,7 @@ class OfflineMutationRepositoryInstrumentedTest {
         assertEquals("private memory", pending.payload.privateMemory)
         assertEquals("FRIENDS", pending.payload.visibility)
         assertEquals(9.5, pending.dimensions.single().score, 0.0)
-        assertEquals("https://example.test/photo.jpg", pending.photos.single().url)
+        assertEquals("https://example.test/photo.jpg", pending.photos.single().legacyUrl)
         assertEquals(mutationId, repository.observePendingVisits().first().single().mutationId)
         assertEquals(1, scheduler.calls)
     }

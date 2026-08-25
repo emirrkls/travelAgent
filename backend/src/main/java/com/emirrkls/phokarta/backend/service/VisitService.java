@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicActivityResponse;
 import com.emirrkls.phokarta.backend.api.dto.PublicVisitResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
+import com.emirrkls.phokarta.backend.api.dto.VisitMediaResponse;
 import com.emirrkls.phokarta.backend.api.error.ApiException;
 import com.emirrkls.phokarta.backend.api.mapper.VisitMapper;
 import com.emirrkls.phokarta.backend.domain.entity.Place;
@@ -26,6 +27,7 @@ import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -55,11 +57,13 @@ public class VisitService {
     private final RatingDimensionRegistry registry;
     private final VisitMapper mapper;
     private final ApplicationMetrics metrics;
+    private final MediaService media;
 
+    @Autowired
     public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
-                        ApplicationMetrics metrics) {
+                        ApplicationMetrics metrics, MediaService media) {
         this.visits = visits;
         this.scores = scores;
         this.users = users;
@@ -67,6 +71,15 @@ public class VisitService {
         this.registry = registry;
         this.mapper = mapper;
         this.metrics = metrics;
+        this.media = media;
+    }
+
+    /** Source-compatible constructor for focused unit tests predating managed media. */
+    public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
+                        UserRepository users, PlaceRepository places,
+                        RatingDimensionRegistry registry, VisitMapper mapper,
+                        ApplicationMetrics metrics) {
+        this(visits, scores, users, places, registry, mapper, metrics, null);
     }
 
     @Transactional
@@ -84,11 +97,17 @@ public class VisitService {
                 List<VisitDimensionScore> existingScores = scores.findByIdVisitIdIn(List.of(existing.getId()));
                 VisitRepository.ScoreAggregate rating = visits.aggregate(existing.getPlace().getId());
                 VisitOwnerResponse response = mapper.toOwner(existing, toDimensionResponses(existingScores),
-                        rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+                        rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount(),
+                        descriptors(existing.getId()));
                 metrics.visitCreateIdempotencyHit();
                 return response;
             }
         }
+        if (request.photos() != null && !request.photos().isEmpty()) {
+            throw ApiException.validation("photos is legacy read-only; use mediaIds");
+        }
+        List<UUID> mediaIds = media == null
+                ? legacyMediaIds(request.mediaIds()) : media.normalizeAndValidateIds(request.mediaIds());
         User user = users.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("User", userId));
         Place place = places.findById(request.placeId())
@@ -111,15 +130,18 @@ public class VisitService {
         Visit visit = visits.save(new Visit(UUID.randomUUID(), user, place,
                 request.clientMutationId(), fingerprint, request.visitedAt(),
                 request.overallRating(), value(request.publicReview()), value(request.privateMemory()),
-                request.photos() == null ? List.of() : request.photos(), request.visibility(),
+                List.of(), request.visibility(),
                 VerificationStatus.UNVERIFIED, now));
+        List<VisitMediaResponse> attachedMedia = media == null
+                ? List.of() : media.attach(visit, userId, mediaIds);
         List<VisitDimensionScore> entities = dimensions.entrySet().stream()
                 .map(entry -> new VisitDimensionScore(visit, entry.getKey(), entry.getValue()))
                 .toList();
         scores.saveAll(entities);
         VisitRepository.ScoreAggregate rating = visits.aggregate(place.getId());
         VisitOwnerResponse response = mapper.toOwner(visit, toDimensionResponses(entities),
-                rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount());
+                rating == null ? null : rating.getAverage(), rating == null ? 0 : rating.getCount(),
+                attachedMedia);
         metrics.visitCreateSuccess();
         return response;
     }
@@ -130,10 +152,16 @@ public class VisitService {
                 .map(item -> item.key() + "=" + Double.toString(item.score()))
                 .reduce((left, right) -> left + "," + right).orElse("");
         String photos = request.photos() == null ? "" : String.join("\u001f", request.photos());
+        String mediaIds = request.mediaIds() == null ? "" : request.mediaIds().stream()
+                .map(id -> id == null ? "<null>" : id.toString())
+                .reduce((left, right) -> left + "\u001f" + right).orElse("");
         String canonical = request.placeId() + "\u001e" + request.visitedAt() + "\u001e"
                 + Double.toString(request.overallRating()) + "\u001e" + dimensions + "\u001e"
                 + value(request.publicReview()) + "\u001e" + value(request.privateMemory()) + "\u001e"
                 + photos + "\u001e" + request.visibility();
+        if (!mediaIds.isEmpty()) {
+            canonical += "\u001e" + mediaIds;
+        }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(canonical.getBytes(StandardCharsets.UTF_8)));
@@ -159,12 +187,14 @@ public class VisitService {
                     .map(v -> v.getPlace().getId()).distinct().toList();
             places.aggregateByIds(placeIds).forEach(row -> byPlace.put(row.getId(), row));
         }
+        Map<UUID, List<VisitMediaResponse>> mediaByVisit = mediaByVisit(ids);
         List<VisitOwnerResponse> content = result.getContent().stream()
                 .map(v -> {
                     PlaceRepository.RatingAggregate rating = byPlace.get(v.getPlace().getId());
                     return mapper.toOwner(v, byVisit.getOrDefault(v.getId(), List.of()),
                             rating == null ? null : rating.getAverageScore(),
-                            rating == null ? 0 : rating.getRatingCount());
+                            rating == null ? 0 : rating.getRatingCount(),
+                            mediaByVisit.getOrDefault(v.getId(), List.of()));
                 }).toList();
         return new PageResponse<>(content, result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages(), result.hasNext());
@@ -180,16 +210,18 @@ public class VisitService {
             UUID placeId, FeedScope scope, int page, int size) {
         if (!places.existsById(placeId)) throw ApiException.notFound("Place", placeId);
         FeedScope resolved = scope == null ? FeedScope.COMMUNITY : scope;
+        Page<Visit> result;
         if (resolved == FeedScope.COMMUNITY) {
-            return PageResponse.from(visits
-                    .findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
-                            placeId, Visibility.PUBLIC, PageRequest.of(page, size)),
-                    mapper::toPublic);
+            result = visits.findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                    placeId, Visibility.PUBLIC, PageRequest.of(page, size));
+        } else {
+            UUID viewerId = SecurityUtils.requireCurrentUserId();
+            result = visits.findFriendsReviews(placeId, viewerId, PageRequest.of(page, size));
         }
-        UUID viewerId = SecurityUtils.requireCurrentUserId();
-        return PageResponse.from(
-                visits.findFriendsReviews(placeId, viewerId, PageRequest.of(page, size)),
-                mapper::toPublic);
+        List<UUID> ids = result.getContent().stream().map(Visit::getId).toList();
+        Map<UUID, List<VisitMediaResponse>> mediaByVisit = mediaByVisit(ids);
+        return PageResponse.from(result,
+                visit -> mapper.toPublic(visit, mediaByVisit.getOrDefault(visit.getId(), List.of())));
     }
 
     @Transactional(readOnly = true)
@@ -284,6 +316,21 @@ public class VisitService {
             List<VisitDimensionScore> values) {
         return values.stream().map(score -> new VisitOwnerResponse.DimensionScoreResponse(
                 score.getId().getDimensionKey(), score.getScore())).toList();
+    }
+
+    private List<VisitMediaResponse> descriptors(UUID visitId) {
+        return mediaByVisit(List.of(visitId)).getOrDefault(visitId, List.of());
+    }
+
+    private Map<UUID, List<VisitMediaResponse>> mediaByVisit(List<UUID> visitIds) {
+        return media == null ? Map.of() : media.descriptorsForVisits(visitIds);
+    }
+
+    private List<UUID> legacyMediaIds(List<UUID> ids) {
+        if (ids != null && !ids.isEmpty()) {
+            throw new IllegalStateException("Managed media is unavailable in this test configuration");
+        }
+        return List.of();
     }
 
     private void requireUser(UUID id) {

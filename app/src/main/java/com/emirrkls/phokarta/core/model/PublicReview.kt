@@ -9,6 +9,13 @@ data class PublicReviewAuthor(
     val avatarUrl: String?,
 )
 
+data class PublicReviewMedia(
+    val mediaId: String,
+    val order: Int,
+    val accessUrl: String?,
+    val accessUrlExpiresAtEpochMillis: Long?,
+)
+
 data class PublicReview(
     val id: String,
     val placeId: String,
@@ -17,6 +24,7 @@ data class PublicReview(
     val publicReview: String,
     val visitDate: LocalDate,
     val photos: List<String> = emptyList(),
+    val media: List<PublicReviewMedia> = emptyList(),
     val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
 )
 

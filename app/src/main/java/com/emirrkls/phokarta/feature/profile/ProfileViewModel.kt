@@ -16,6 +16,7 @@ import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryCoordinator
+import com.emirrkls.phokarta.core.media.MediaAccessRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +53,7 @@ class ProfileViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val authRepository: AuthRepository,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
+    private val mediaAccess: MediaAccessRepository? = null,
 ) : ViewModel() {
     private val recoveryCoordinator = PendingVisitRecoveryCoordinator(offlineMutations)
     val recoveryEvents = recoveryCoordinator.events
@@ -77,6 +79,9 @@ class ProfileViewModel @Inject constructor(
             }
         }
     }
+
+    suspend fun mediaAccessUrl(visitId: String, mediaId: String): String? =
+        mediaAccess?.accessUrl(visitId, mediaId)
 
     fun logout() {
         viewModelScope.launch { authRepository.logout() }

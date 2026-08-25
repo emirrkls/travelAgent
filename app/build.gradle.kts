@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -40,7 +42,16 @@ android {
                 ?.trim()
                 ?.takeIf(String::isNotEmpty)
                 ?: "https://api.phokarta.invalid/"
-            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"${baseUrl.trimEnd('/')}/\"")
+            val parsedBaseUrl = runCatching { URI(baseUrl) }.getOrNull()
+            require(
+                parsedBaseUrl?.isAbsolute == true &&
+                    parsedBaseUrl.scheme.equals("https", ignoreCase = true) &&
+                    !parsedBaseUrl.host.isNullOrBlank() &&
+                    baseUrl.endsWith("/"),
+            ) {
+                "Release PHOKARTA_API_BASE_URL must be an absolute https:// URL with a trailing slash."
+            }
+            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -96,6 +107,7 @@ dependencies {
     ksp("androidx.hilt:hilt-compiler:1.2.0")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")

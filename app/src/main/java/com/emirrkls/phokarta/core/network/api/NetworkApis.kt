@@ -25,6 +25,10 @@ import com.emirrkls.phokarta.core.network.model.TokenPairDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
+import com.emirrkls.phokarta.core.network.model.MediaAccessDto
+import com.emirrkls.phokarta.core.network.model.MediaStateDto
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -159,6 +163,19 @@ interface VisitApi {
     suspend fun friendsSummary(
         @Path("placeId") placeId: String,
     ): Response<FriendPlaceSummaryDto>
+}
+
+interface MediaApi {
+    @POST("api/v1/me/media/upload-intents")
+    suspend fun createUploadIntent(
+        @Body request: MediaUploadIntentRequestDto,
+    ): Response<MediaUploadIntentResponseDto>
+
+    @POST("api/v1/me/media/{id}/confirm")
+    suspend fun confirm(@Path("id") mediaId: String): Response<MediaStateDto>
+
+    @GET("api/v1/media/{id}/access")
+    suspend fun access(@Path("id") mediaId: String): Response<MediaAccessDto>
 }
 
 interface SavedPlaceApi {

@@ -12,6 +12,9 @@ public class ApplicationMetrics {
     private final MeterRegistry registry;
     private final Map<String, Counter> visitCounters = new ConcurrentHashMap<>();
     private final Map<String, Counter> authRateLimitCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> mediaUploadCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> mediaConfirmCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> mediaCleanupCounters = new ConcurrentHashMap<>();
 
     public ApplicationMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -37,9 +40,32 @@ public class ApplicationMetrics {
                 .increment();
     }
 
+    public void mediaUploadIntent(String outcome) {
+        mediaCounter(mediaUploadCounters, "phokarta.media.upload_intent",
+                "Media upload intent outcomes", outcome).increment();
+    }
+
+    public void mediaConfirm(String outcome) {
+        mediaCounter(mediaConfirmCounters, "phokarta.media.confirm",
+                "Media confirmation outcomes", outcome).increment();
+    }
+
+    public void mediaCleanup(String outcome) {
+        mediaCounter(mediaCleanupCounters, "phokarta.media.cleanup",
+                "Media orphan cleanup outcomes", outcome).increment();
+    }
+
     private Counter visit(String outcome) {
         return visitCounters.computeIfAbsent(outcome, value -> Counter.builder("phokarta.visit.create")
                 .description("Visit creation outcomes")
+                .tag("outcome", value)
+                .register(registry));
+    }
+
+    private Counter mediaCounter(Map<String, Counter> counters, String name,
+                                 String description, String outcome) {
+        return counters.computeIfAbsent(outcome, value -> Counter.builder(name)
+                .description(description)
                 .tag("outcome", value)
                 .register(registry));
     }

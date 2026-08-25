@@ -21,8 +21,17 @@ import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
 import com.emirrkls.phokarta.core.network.source.SavedPlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.MediaRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.DirectMediaUploader
+import com.emirrkls.phokarta.core.network.source.DirectUploadResult
+import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
+import com.emirrkls.phokarta.core.database.entity.MediaUploadState
+import com.emirrkls.phokarta.core.database.entity.MediaFailureCategory
+import com.emirrkls.phokarta.core.media.VisitMediaStore
+import com.emirrkls.phokarta.core.model.VisitMedia
 import com.emirrkls.phokarta.core.time.EpochClock
 import java.time.LocalDate
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
@@ -41,6 +50,9 @@ class MutationSyncEngine @Inject constructor(
     private val session: SessionManager,
     private val clock: EpochClock,
     private val activityInvalidator: ActivityFeedInvalidator,
+    private val mediaRemote: MediaRemoteDataSource,
+    private val mediaUploader: DirectMediaUploader,
+    private val mediaStore: VisitMediaStore,
 ) {
     private val drainMutex = Mutex()
 
@@ -76,6 +88,17 @@ class MutationSyncEngine @Inject constructor(
     private suspend fun syncVisit(mutation: PendingMutationEntity): Outcome {
         val item = mutations.getVisit(mutation.mutationId) ?: return Failure(false, "MISSING_PAYLOAD")
         val payload = item.payload
+        val orderedPhotos = item.photos.sortedBy { it.position }
+        if (orderedPhotos.any { it.legacyUrl != null }) {
+            return Failure(false, MediaFailureCategory.LEGACY_MEDIA_RESELECT_REQUIRED)
+        }
+        val mediaIds = mutableListOf<String>()
+        for (photo in orderedPhotos) {
+            when (val prepared = preparePhoto(mutation, photo)) {
+                is PhotoPrepared -> mediaIds += prepared.mediaId
+                is PhotoFailed -> return prepared.failure
+            }
+        }
         val request = CreateVisitDto(
             clientMutationId = mutation.mutationId,
             placeId = payload.placeId,
@@ -86,22 +109,124 @@ class MutationSyncEngine @Inject constructor(
             },
             publicReview = payload.publicReview.takeIf(String::isNotBlank),
             privateMemory = payload.privateMemory.takeIf(String::isNotBlank),
-            photos = item.photos.sortedBy { it.position }.map { it.url }.takeIf { it.isNotEmpty() },
+            photos = null,
+            mediaIds = mediaIds.takeIf { it.isNotEmpty() },
             visibility = VisibilityDto.valueOf(payload.visibility),
         )
         return when (val result = visitsRemote.create(request)) {
             is RemoteResult.Failure -> result.error.toOutcome()
             is RemoteResult.Success -> {
-                val canonical = runCatching { result.value.toDomain(mutation.userId) }
+                var canonical = runCatching { result.value.toDomain(mutation.userId) }
                     .getOrElse { return Failure(false, "INVALID_RESPONSE") }
-                database.withTransaction {
-                    local.upsertVisit(canonical)
-                    mutations.deleteIfGeneration(mutation.mutationId, mutation.generation)
+                if (canonical.media.isEmpty() && mediaIds.isNotEmpty()) {
+                    canonical = canonical.copy(media = mediaIds.mapIndexed { index, id ->
+                        VisitMedia(id, index)
+                    })
+                }
+                try {
+                    database.withTransaction {
+                        local.upsertVisit(canonical)
+                        check(mutations.deleteIfGeneration(mutation.mutationId, mutation.generation) == 1) {
+                            "Mutation generation changed before reconciliation"
+                        }
+                    }
+                } catch (_: IllegalStateException) {
+                    return Failure(true, "RECONCILIATION_RACE")
+                }
+                orderedPhotos.forEach {
+                    mediaStore.deleteOwned(mutation.userId, it.localRelativePath)
                 }
                 if (canonical.visibility.name == "PUBLIC") activityInvalidator.markDirty()
                 Success
             }
         }
+    }
+
+    private suspend fun preparePhoto(
+        mutation: PendingMutationEntity,
+        photo: com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity,
+    ): PhotoOutcome {
+        if (photo.ownerUserId != mutation.userId || session.currentUserId() != mutation.userId) {
+            mutations.markPhotoFailure(mutation.mutationId, photo.position, MediaFailureCategory.OWNERSHIP)
+            return PhotoFailed(Failure(false, MediaFailureCategory.OWNERSHIP))
+        }
+        if (photo.uploadState == MediaUploadState.READY_REMOTE && photo.remoteMediaId != null) {
+            return PhotoPrepared(photo.remoteMediaId)
+        }
+        val path = photo.localRelativePath
+            ?: return photoFailure(mutation, photo.position, MediaFailureCategory.MISSING_FILE)
+        val contentType = photo.contentType
+            ?: return photoFailure(mutation, photo.position, MediaFailureCategory.INVALID_STATE)
+        val byteSize = photo.byteSize
+            ?: return photoFailure(mutation, photo.position, MediaFailureCategory.INVALID_STATE)
+        if (contentType !in VisitMediaStore.SUPPORTED_TYPES) {
+            return photoFailure(mutation, photo.position, MediaFailureCategory.UNSUPPORTED_TYPE)
+        }
+        if (byteSize !in 1..VisitMediaStore.MAX_BYTES) {
+            return photoFailure(mutation, photo.position, MediaFailureCategory.TOO_LARGE)
+        }
+        val file = mediaStore.resolveOwned(mutation.userId, path)
+        if (file == null || !file.isFile || file.length() != byteSize) {
+            return photoFailure(mutation, photo.position, MediaFailureCategory.MISSING_FILE)
+        }
+
+        val intent = when (val result = mediaRemote.createIntent(
+            MediaUploadIntentRequestDto(
+                photo.clientMediaId, contentType, byteSize, photo.width, photo.height,
+            ),
+        )) {
+            is RemoteResult.Failure -> return PhotoFailed(result.error.toOutcome())
+            is RemoteResult.Success -> result.value
+        }
+        if (intent.status == "ATTACHED") {
+            mutations.resetAttachedPhoto(
+                mutation.mutationId, photo.position, mutation.userId, UUID.randomUUID().toString(),
+            )
+            return PhotoFailed(Failure(true, "MEDIA_ATTACHED_RESET"))
+        }
+        mutations.updatePhotoRemoteState(
+            mutation.mutationId, photo.position, mutation.userId,
+            intent.mediaId, if (intent.status == "READY") MediaUploadState.READY_REMOTE else MediaUploadState.INTENT_CREATED,
+        )
+        if (intent.status == "READY") return PhotoPrepared(intent.mediaId)
+        val uploadUrl = intent.uploadUrl
+            ?: return PhotoFailed(Failure(true, "UPLOAD_URL_MISSING"))
+        when (val upload = mediaUploader.put(
+            uploadUrl, intent.requiredHeaders, file, contentType, byteSize,
+        )) {
+            DirectUploadResult.Success -> Unit
+            is DirectUploadResult.Retryable -> return PhotoFailed(Failure(true, upload.category))
+            is DirectUploadResult.Permanent ->
+                return photoFailure(mutation, photo.position, upload.category)
+        }
+        return when (val confirmed = mediaRemote.confirm(intent.mediaId)) {
+            is RemoteResult.Failure -> PhotoFailed(confirmed.error.toOutcome())
+            is RemoteResult.Success -> when (confirmed.value.status) {
+                "READY" -> {
+                    mutations.updatePhotoRemoteState(
+                        mutation.mutationId, photo.position, mutation.userId,
+                        intent.mediaId, MediaUploadState.READY_REMOTE,
+                    )
+                    PhotoPrepared(intent.mediaId)
+                }
+                "ATTACHED" -> {
+                    mutations.resetAttachedPhoto(
+                        mutation.mutationId, photo.position, mutation.userId, UUID.randomUUID().toString(),
+                    )
+                    PhotoFailed(Failure(true, "MEDIA_ATTACHED_RESET"))
+                }
+                else -> PhotoFailed(Failure(true, "MEDIA_CONFIRM_PENDING"))
+            }
+        }
+    }
+
+    private suspend fun photoFailure(
+        mutation: PendingMutationEntity,
+        position: Int,
+        category: String,
+    ): PhotoFailed {
+        mutations.markPhotoFailure(mutation.mutationId, position, category)
+        return PhotoFailed(Failure(false, category))
     }
 
     private suspend fun syncSaved(mutation: PendingMutationEntity): Outcome {
@@ -132,6 +257,9 @@ class MutationSyncEngine @Inject constructor(
     private sealed interface Outcome
     private data object Success : Outcome
     private data class Failure(val retryable: Boolean, val category: String) : Outcome
+    private sealed interface PhotoOutcome
+    private data class PhotoPrepared(val mediaId: String) : PhotoOutcome
+    private data class PhotoFailed(val failure: Failure) : PhotoOutcome
 
     private fun NetworkError.toOutcome(): Failure = when (this) {
         NetworkError.Connection -> Failure(true, "CONNECTION")

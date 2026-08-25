@@ -256,6 +256,7 @@
     <string name="action_replace">Değiştir</string>
     <string name="remove_failed_visit_title">Başarısız ziyaret kaldırılsın mı?</string>
     <string name="remove_failed_visit_message">Bu senkronize edilmemiş ziyaret bu cihazdan silinecek.</string>
+    <string name="sync_failure_legacy_media_reselect">Bu fotoğraf uygulamanın eski bir sürümüyle eklendi. Ziyareti düzenleyip fotoğrafı kaldır veya yeniden seç.</string>
     <string name="sync_failure_validation">Bazı ziyaret bilgileri geçersiz olduğu için yayınlanamadı.</string>
     <string name="sync_failure_forbidden">Bu ziyareti yayınlama iznin yok.</string>
     <string name="sync_failure_not_found">Bu mekân artık kullanılamıyor.</string>
@@ -465,4 +466,16 @@
     <string name="record_a_visit">Ziyaret kaydet</string>
     <string name="a11y_collapse_details">Detayları daralt</string>
     <string name="a11y_expand_details">Detayları genişlet</string>
+    <string name="visit_photos_title">Fotoğraflar</string>
+    <string name="visit_photos_hint">%1$d / %2$d · JPEG, PNG veya WebP · Her biri en fazla 15 MB</string>
+    <string name="add_photos">Fotoğraf ekle</string>
+    <string name="remove_photo">Fotoğrafı kaldır</string>
+    <string name="visit_photo_preview">Seçilen ziyaret fotoğrafı</string>
+    <string name="photo_error_max_count">En fazla 20 fotoğraf ekleyebilirsin.</string>
+    <string name="photo_error_unsupported_type">JPEG, PNG veya WebP görsel seç.</string>
+    <string name="photo_error_too_large">Bu fotoğraf 15 MB sınırını aşıyor.</string>
+    <string name="photo_error_unreadable">Bu fotoğraf okunamadı. Başka bir fotoğraf seç.</string>
+    <string name="photo_error_missing">Seçilen bir fotoğraf bu cihazda bulunamıyor.</string>
+    <string name="photo_upload_failed">Bir fotoğraf yüklenemedi. Ziyaretin yayınlanmadı.</string>
+    <string name="visit_photo_a11y">Ziyaret fotoğrafı %1$d</string>
 </resources>

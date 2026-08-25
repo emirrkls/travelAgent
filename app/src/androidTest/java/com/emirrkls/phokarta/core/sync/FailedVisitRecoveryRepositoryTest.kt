@@ -71,6 +71,7 @@ class FailedVisitRecoveryRepositoryTest {
         assertEquals("Recover me", draft.publicReview)
         assertEquals("secret", draft.privateMemory)
         assertEquals(Visibility.FRIENDS, draft.visibility)
+        assertEquals(mapOf(RatingDimension.SEA to 9f), draft.dimensions)
     }
 
     @Test fun recoverPreservesPhotosInSessionOverlay() = runTest {
@@ -133,6 +134,35 @@ class FailedVisitRecoveryRepositoryTest {
         assertEquals(RemoveFailedVisitResult.SUCCESS, repository.removeFailedVisit(MUTATION_M1))
         assertNull(database.pendingMutationDao().get(MUTATION_M1))
         assertNull(draftRepository.getDraft(PLACE))
+    }
+
+    @Test fun existingDraftConflictCancelLeavesBothUntouched() = runTest {
+        insertFailedVisit(MUTATION_M1, review = "failed payload")
+        database.visitDraftDao().upsertDraft(
+            VisitDraftEntity(USER_A, PLACE, 7f, "existing", "", 10, "PUBLIC", false, 10, 10),
+        )
+        assertEquals(
+            RecoverFailedVisitResult.EXISTING_DRAFT_CONFLICT,
+            repository.recoverFailedVisitForEditing(MUTATION_M1),
+        )
+        assertEquals(MUTATION_M1, database.pendingMutationDao().get(MUTATION_M1)?.mutationId)
+        assertEquals("existing", draftRepository.getDraft(PLACE)!!.publicReview)
+    }
+
+    @Test fun publishSamePayloadAfterRecoveryUsesDifferentMutationId() = runTest {
+        insertFailedVisit(MUTATION_M1, review = "same payload")
+        repository.recoverFailedVisitForEditing(MUTATION_M1)
+        val draft = draftRepository.getDraft(PLACE)!!
+        val m2 = repository.commitVisit(
+            Visit(
+                "local", USER_A, PLACE, draft.visitDate, draft.overallScore.toDouble(),
+                draft.dimensions.mapValues { it.value.toDouble() },
+                draft.publicReview, draft.privateMemory,
+                photos = draft.photos, visibility = draft.visibility,
+            ),
+        )
+        assertNotEquals(MUTATION_M1, m2)
+        assertEquals("same payload", database.pendingMutationDao().getVisit(m2)!!.payload.publicReview)
     }
 
     @Test fun staleWorkerDoesNotSyncDeletedMutation() = runTest {

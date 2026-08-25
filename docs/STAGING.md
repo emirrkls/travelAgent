@@ -1,10 +1,40 @@
-# Staging provisioning and operations
+# Staging readiness
 
-This is the closed-beta staging runbook. It reuses the production Compose stack, Caddyfile, `prod` Spring profile, backup scripts, and media architecture. Staging is **not** a second application profile.
+Closed-beta staging reuses the production Compose stack, Caddyfile, `prod` Spring profile, backup scripts, and media architecture. Staging is **not** a second application profile. Set `APP_ENVIRONMENT=staging` on the same `prod` artifacts.
 
-Current status: **not operational**. External compute, DNS, TLS, and S3-compatible storage have not been supplied. Do not treat localhost MinIO or a local `mvn` process as live staging.
+**Current status: repository ready; live staging is not provisioned.**
+
+This milestone does not create a VPS, domain, DNS record, TLS certificate, or S3-compatible bucket. Localhost MinIO and a local `mvn` process are not live staging.
 
 Production procedures remain in [Production deployment](PRODUCTION_DEPLOYMENT.md), [Operations runbook](OPERATIONS_RUNBOOK.md), and [Media storage](MEDIA_STORAGE.md).
+
+## Future host needs
+
+A later live host only needs:
+
+- Linux with Docker Engine and the Compose plugin
+- a public IPv4 (IPv6 optional)
+- a non-production DNS name such as `api-staging.<domain>`
+- PostgreSQL 16 / PostGIS (self-hosted Compose profile or managed TLS endpoint)
+- a private HTTPS S3-compatible bucket with staging-only credentials
+
+Suggested starting size from production docs: 2 vCPU, 4 GB RAM, 40 GB SSD, current Ubuntu LTS, UTC/NTP. Kubernetes and multiple backend replicas are not required.
+
+Compose, Caddy, and env names are provider-neutral. Do not bind the application to one cloud vendor.
+
+## Future live-staging checklist
+
+Do **not** run this until the operator has supplied real resources. Do not invent a domain.
+
+1. **Create VPS** — Linux host, public IP, Docker Engine + Compose, SSH keys, firewall: 22 (admin), 80, 443 public; 8080, 8081, 5432, metrics closed.
+2. **Create DNS record** — A/AAAA for the staging API hostname only. Do not overwrite a production name.
+3. **Configure bucket** — private staging bucket, HTTPS endpoint, no public-read, least-privilege keys (`PutObject` / `GetObject` / `HeadObject` / `DeleteObject`). Enable versioning if the provider makes it inexpensive.
+4. **Place secrets** — copy [`.env.staging.example`](../.env.staging.example) to `/opt/phokarta/staging/.env.staging`, `chmod 600`, replace every `CHANGE_ME`. Generate staging-only JWT and database passwords. Set `PHOKARTA_DOMAIN`, `ACME_EMAIL`, media endpoint/region/path-style for the chosen provider.
+5. **Deploy exact image SHA** — build or pull `phokarta-backend:e6502d7df9cc45193c92496db8ca70d243340f32` (do not use `latest`). `scripts/deploy-staging.sh --profile self-hosted-db /opt/phokarta/staging/.env.staging` (omit the profile when using managed PostgreSQL).
+6. **Verify TLS** — publicly trusted certificate for the staging hostname; HTTP redirects to HTTPS; no self-signed staging cert.
+7. **Run smoke tests** — `/health/live`, `/health/ready`, public places, auth, PostGIS nearby/bounds, Visit create + idempotency, media intent → direct HTTPS PUT → confirm → attach → signed GET, bucket remains private, backup script.
+
+Android later: `.\gradlew.bat assembleRelease -PPHOKARTA_API_BASE_URL=https://<real-staging-host>/` (trailing slash required). No extra Gradle flavor. No secrets in the APK beyond the public API URL.
 
 ## Topology
 
@@ -37,38 +67,26 @@ Fill this table only after real resources exist. Do not invent hostnames.
 
 | Resource | Staging choice |
 | --- | --- |
-| Compute | *pending user* (single Linux VPS/VM, Docker Engine + Compose plugin) |
-| Database | *pending user* (self-hosted `postgis/postgis:16-3.5` on the VPS is the first-staging default) |
-| Object storage | *pending user* (private HTTPS S3-compatible bucket; not localhost MinIO) |
-| DNS hostname | *pending user* (`api-staging.<domain>` or equivalent non-production name) |
+| Compute | *not provisioned* (single Linux VPS/VM, Docker Engine + Compose plugin) |
+| Database | *not provisioned* (self-hosted `postgis/postgis:16-3.5` on the VPS is the first-staging default) |
+| Object storage | *not provisioned* (private HTTPS S3-compatible bucket; not localhost MinIO) |
+| DNS hostname | *not provisioned* (`api-staging.<domain>` or equivalent non-production name) |
 | TLS | Caddy automatic certificates via Let's Encrypt |
 | Backend image | build or pull immutable tag `e6502d7df9cc45193c92496db8ca70d243340f32` |
 | Android API URL | `https://<staging-host>/` via `-PPHOKARTA_API_BASE_URL` |
 
-## Minimum user actions before deploy
-
-Provisioning incurs cost and requires account credentials. Do not create paid resources from this repository automatically.
-
-1. **Linux host** with a public IPv4 (IPv6 optional). Suggested starting size from production docs: 2 vCPU, 4 GB RAM, 40 GB SSD, current Ubuntu LTS, UTC/NTP. Install Docker Engine and the Compose plugin. Prefer SSH keys and a non-password root login.
-2. **DNS** for a non-production API hostname pointing at that host. Do not overwrite a production name.
-3. **ACME email** for Caddy (`ACME_EMAIL`).
-4. **Private S3-compatible bucket** with HTTPS, no public-read, staging-only credentials. Grant the app `s3:PutObject`, `s3:GetObject`, `s3:HeadObject` / `s3:GetObjectAttributes` if required by the provider, and `s3:DeleteObject` on that bucket/prefix. ListBucket is not required by `S3ObjectStorageService`.
-5. **SSH access** from the operator machine (key path, user, host). Confirm whether any existing VPS is unused and allowed for Phokarta staging; do not reuse another product's production host.
-
-Database: either enable Compose profile `self-hosted-db` (durable `postgres-data` volume, port 5432 unpublished) or supply a managed PostGIS URL with TLS (`sslmode=require` or provider `verify-full`).
-
 ## Environment
 
-On the host, keep secrets outside Git:
+On the future host, keep secrets outside Git:
 
 ```sh
 umask 077
 mkdir -p /opt/phokarta/staging
-cp .env.production.example /opt/phokarta/staging/.env.staging
+cp .env.staging.example /opt/phokarta/staging/.env.staging
 chmod 600 /opt/phokarta/staging/.env.staging
 ```
 
-Required differences from production:
+Required values (see the example file):
 
 ```dotenv
 APP_ENVIRONMENT=staging
@@ -78,15 +96,17 @@ PHOKARTA_IMAGE=phokarta-backend:e6502d7df9cc45193c92496db8ca70d243340f32
 PHOKARTA_DOMAIN=api-staging.example.com
 ```
 
-Generate a staging-only JWT secret (≥32 random bytes) and a staging-only database password. Do not reuse the local `backend/.env` values, the Android debug URL, or a future production secret.
+Generate a staging-only JWT secret (≥32 random bytes) and a staging-only database password. Do not reuse the local `backend/.env` values or a future production secret.
 
 `PHOKARTA_CORS_ALLOWED_ORIGINS` must be an explicit HTTPS origin list, never `*`. Native Android does not need CORS. Do not add permissive bucket CORS for Android PUT.
 
-Production profile rejects `prod,dev` together, blank `APP_ENVIRONMENT`, blank datasource credentials, and a non-HTTPS media endpoint. Swagger stays disabled.
+The production profile rejects `prod,dev` together, blank `APP_ENVIRONMENT`, blank datasource credentials, and a non-HTTPS media endpoint. Swagger stays disabled.
+
+The application role currently runs Flyway at startup, so DDL on that role is acceptable for first staging. Do not introduce a separate migration account unless the app is changed to support it.
 
 ## Image
 
-No container registry is required. On the staging host, from this commit:
+No container registry is required. On the staging host, from the media milestone:
 
 ```sh
 git -C /opt/phokarta/staging/src fetch --all
@@ -109,21 +129,17 @@ Omit `--profile self-hosted-db` when using managed PostgreSQL.
 
 Helper: `scripts/deploy-staging.sh /opt/phokarta/staging/.env.staging`. The script validates required names, refuses `latest`, waits for readiness, and curls live/ready/places. Pass `--backup` only when PostgreSQL client tools can reach the staging database. It does not prune volumes or restore dumps.
 
-Expected first boot: Flyway schema `V1`, `V3`, `V5`, `V6`, `V8`, `V9` (dev seeds `V2`/`V4`/`V7` are not on the prod classpath), Hibernate `validate`, media config, no demo user `demo@phokarta.local`.
-
-## Staging places
-
-There is no public Place-create API. After an empty schema is healthy, take a baseline backup, then insert synthetic places with `scripts/staging-seed-places.sql` over an SSH tunnel or the private `db` network. Do not enable the `dev` profile to load demo seed.
+Expected first boot: Flyway schema `V1`, `V3`, `V5`, `V6`, `V8`, `V9` (dev seeds `V2`/`V4`/`V7` are not on the prod classpath), Hibernate `validate`, media config, no demo user `demo@phokarta.local`. After an empty schema is healthy, take a baseline backup, then insert synthetic places with `scripts/staging-seed-places.sql` over an SSH tunnel or the private `db` network. Do not enable the `dev` profile to load demo seed. There is no public Place-create API and no public staging-reset endpoint.
 
 ## Android
 
-No extra Gradle flavor is required. Build a release-like APK that points at the real hostname:
+No extra Gradle flavor is required. When a real hostname exists, build a release-like APK that points at it:
 
 ```powershell
 .\gradlew.bat assembleRelease -PPHOKARTA_API_BASE_URL=https://api-staging.example.com/
 ```
 
-Release `PHOKARTA_API_BASE_URL` must be absolute `https://` with a trailing slash. Debug still defaults to `http://10.0.2.2:8080/` and permits cleartext only for `10.0.2.2`, `127.0.0.1`, and `localhost`. Release builds reject HTTP API URLs and HTTP presigned media URLs (`INSECURE_UPLOAD_URL`). If the signing keystore is unavailable, a debug-signed APK with the HTTPS property is acceptable for internal validation only.
+Release `PHOKARTA_API_BASE_URL` must be an absolute `https://` URL with a trailing slash. Debug still defaults to `http://10.0.2.2:8080/` and permits cleartext only for `10.0.2.2`, `127.0.0.1`, and `localhost`. Release builds reject HTTP API URLs at configuration time and reject HTTP presigned media URLs at runtime (`INSECURE_UPLOAD_URL`). If the signing keystore is unavailable, a debug-signed APK with the HTTPS property is acceptable for internal validation only.
 
 Use synthetic staging accounts and a harmless tiny JPEG. Do not upload personal photos.
 
@@ -131,7 +147,7 @@ Use synthetic staging accounts and a harmless tiny JPEG. Do not upload personal 
 
 Current staging schema target is Flyway **V9** (`media_assets`, `visit_media`).
 
-`ff83b29` (`feat: harden backend for production operations`) does not map media entities. Extra V9 tables would likely pass Hibernate `validate`, but media APIs, Android direct upload, and Visit `mediaIds` would not work. Do **not** roll staging back to `ff83b29`.
+`ff83b29` (`feat: harden backend for production operations`) does not map media entities. Extra V9 tables would likely pass Hibernate `validate`, but media APIs, Android direct upload, and Visit `mediaIds` would not work. Do **not** roll staging back to `ff83b29`. The media commit is the minimum compatible deployment baseline.
 
 Rollback only to an image known to include the V9 mappings. Forward-fix is the default. Restoring a dump is a separate destructive incident action and must never target the live staging database during a drill (`scripts/restore-drill-postgres.sh` creates `phokarta_restore_drill_*`).
 
@@ -163,15 +179,11 @@ Run these against the public HTTPS hostname, not localhost:
 
 Caddy 2.10 redacts `Authorization`, `Cookie`, `Set-Cookie`, and `Proxy-Authorization` unless `log_credentials` is enabled. Do not enable it.
 
-## Observability
-
-Scrape Prometheus only on the private management port (`backend:8081/actuator/prometheus`). Watch `phokarta.media.upload_intent`, `phokarta.media.confirm`, `phokarta.media.cleanup`, `phokarta.visit.create`, JVM, HTTP, and Hikari. Labels are outcome/action only — never userId or mediaId.
-
-If no uptime product exists, monitor `https://<host>/health/ready` from any existing checker. Suggested pages: ready down 2–5 minutes, restart loop, disk > 80%, backup older than 26 hours.
+If no uptime product exists, monitor `https://<host>/health/ready` from any existing checker. Suggested pages: ready down 2–5 minutes, restart loop, disk > 80%, backup older than 26 hours. Scrape Prometheus only on the private management port (`backend:8081/actuator/prometheus`). Media metric labels are outcome/action only — never userId or mediaId.
 
 ## Closed-beta gate
 
-Staging is ready for closed-beta traffic only when all of the following are true on real infrastructure:
+Live staging is ready for closed-beta traffic only when all of the following are true on real infrastructure:
 
 - public HTTPS API
 - live PostGIS nearby/bounds

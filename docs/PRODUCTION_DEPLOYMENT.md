@@ -1,6 +1,6 @@
 # Production deployment
 
-This is a provider-neutral, single-node reference deployment. Adapt availability, networking, backups, and observability to the selected provider before accepting production traffic. Closed-beta staging uses the same artifacts with `APP_ENVIRONMENT=staging`; see [Staging provisioning](STAGING.md).
+This is a provider-neutral, single-node reference deployment. Adapt availability, networking, backups, and observability to the selected provider before accepting production traffic. Closed-beta staging uses the same artifacts with `APP_ENVIRONMENT=staging`; see [Staging readiness](STAGING.md). Start from `.env.staging.example`, not a copy of a production secret file.
 
 ## Topology
 

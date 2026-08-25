@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 # Staging deploy helper. Does not create cloud resources, prune volumes, or restore dumps.
+# Copy .env.staging.example to a chmod 600 env file first.
 # Usage: scripts/deploy-staging.sh [--backup] [--profile self-hosted-db] ENV_FILE
 set -eu
 

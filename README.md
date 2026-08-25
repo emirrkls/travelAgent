@@ -22,9 +22,9 @@ Data flows through one boundary:
 - [Production deployment](docs/PRODUCTION_DEPLOYMENT.md)
 - [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
 - [Media storage](docs/MEDIA_STORAGE.md)
-- [Staging provisioning](docs/STAGING.md)
+- [Staging readiness](docs/STAGING.md)
 
-Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example`; never commit the resulting `.env.production`.
+Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example` or `.env.staging.example`; never commit the resulting env files.
 
 Production also requires a pre-provisioned private S3-compatible bucket and independently tested object backup/restore. The production Compose file forwards the documented `PHOKARTA_MEDIA_*` values; provide credentials through the environment file or platform secret manager.
 

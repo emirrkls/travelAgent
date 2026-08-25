@@ -16,6 +16,7 @@ backend/.env
 backend/.env.production
 .env.staging
 backend/.env.staging
+!.env.staging.example
 backups/
 *.dump
 *.dump.partial

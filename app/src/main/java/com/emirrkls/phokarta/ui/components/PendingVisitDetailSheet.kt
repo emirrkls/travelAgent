@@ -51,6 +51,7 @@ fun PendingVisitDetailSheet(
     onRetry: () -> Unit,
     onEditAndRetry: () -> Unit,
     onRemove: () -> Unit,
+    onAcceptPolicy: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -164,6 +165,16 @@ fun PendingVisitDetailSheet(
                         }.testTag("pending_visit_retry"),
                     ) {
                         Text(stringResource(R.string.action_retry))
+                    }
+                }
+                if (actions.showAcceptPolicy) {
+                    Button(
+                        onClick = onAcceptPolicy,
+                        modifier = Modifier.semantics {
+                            contentDescription = context.resources.getString(R.string.a11y_accept_policy)
+                        }.testTag("pending_visit_accept_policy"),
+                    ) {
+                        Text(stringResource(R.string.policy_accept_action))
                     }
                 }
                 if (actions.showEditAndRetry) {

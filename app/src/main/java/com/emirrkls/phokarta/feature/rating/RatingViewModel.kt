@@ -17,6 +17,7 @@ import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.MutationSyncEngine
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceUi
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.media.MediaImportResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,6 +54,7 @@ data class RatingUiState(
     val showDraftRestoredMessage: Boolean = false,
     val discarded: Boolean = false,
     val photoError: Int? = null,
+    val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
 ) {
     val overall: Float get() = draft.overallScore
     val dimensions: Map<RatingDimension, Float> get() = draft.dimensions
@@ -88,6 +90,9 @@ class RatingViewModel @Inject constructor(
     private var hadPersistedDraft = false
     private var initialized = false
     private val photoMutationMutex = Mutex()
+    private var confirmedAcceptedVersion: String? = null
+    private var pendingAfterAccept: PendingAfterAccept = PendingAfterAccept.None
+    private var pendingPhotoUris: List<Uri> = emptyList()
 
     init {
         load()
@@ -211,33 +216,8 @@ class RatingViewModel @Inject constructor(
         val owner = ownerUserId ?: return
         if (uris.isEmpty() || _uiState.value.isPublishing || _uiState.value.isDraftInitializing) return
         viewModelScope.launch {
-            photoMutationMutex.withLock {
-                persistJob?.cancel()
-                // The parent draft must exist before its FK-scoped photo rows.
-                draftRepository.saveDraft(placeId, _uiState.value.draft, owner)
-                for (uri in uris) {
-                    when (val result = draftRepository.importPhoto(placeId, uri, owner)) {
-                        is MediaImportResult.Success -> {
-                            val next = _uiState.value.draft.copy(
-                                photos = _uiState.value.draft.photos + result.photo.localRelativePath,
-                            )
-                            _uiState.update {
-                                it.copy(draft = next, photoError = null, hasPersistedDraft = true)
-                            }
-                            lastPersistedDraft = next
-                            hadPersistedDraft = true
-                        }
-                        MediaImportResult.MaxCount -> {
-                            setPhotoError(R.string.photo_error_max_count)
-                            break
-                        }
-                        MediaImportResult.UnsupportedType ->
-                            setPhotoError(R.string.photo_error_unsupported_type)
-                        MediaImportResult.TooLarge -> setPhotoError(R.string.photo_error_too_large)
-                        MediaImportResult.Unreadable -> setPhotoError(R.string.photo_error_unreadable)
-                    }
-                }
-            }
+            if (!ensureAcceptedForUgc(pending = PendingAfterAccept.AddPhotos(uris))) return@launch
+            importPhotos(uris, owner)
         }
     }
 
@@ -291,57 +271,112 @@ class RatingViewModel @Inject constructor(
     fun publish() {
         val state = _uiState.value
         if (state.place == null || !state.canPublish || publishInFlight) return
+        viewModelScope.launch {
+            if (!ensureAcceptedForUgc(pending = PendingAfterAccept.Publish)) return@launch
+            performPublish()
+        }
+    }
+
+    fun setPolicyChecked(checked: Boolean) {
+        _uiState.update { it.copy(policy = it.policy.copy(checked = checked, error = null)) }
+    }
+
+    fun dismissPolicy() {
+        pendingAfterAccept = PendingAfterAccept.None
+        pendingPhotoUris = emptyList()
+        _uiState.update { it.copy(policy = PolicyAcceptanceUi()) }
+    }
+
+    fun acceptPolicy() {
+        val policy = _uiState.value.policy
+        if (!policy.visible || !policy.checked || policy.accepting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(policy = it.policy.copy(accepting = true, error = null)) }
+            when (val result = repository.acceptPolicy(policy.requiredVersion)) {
+                is RepositoryResult.Success -> {
+                    confirmedAcceptedVersion = result.value.requiredVersion.takeIf { result.value.accepted }
+                    val pending = pendingAfterAccept
+                    dismissPolicy()
+                    when (pending) {
+                        PendingAfterAccept.Publish -> performPublish()
+                        is PendingAfterAccept.AddPhotos -> {
+                            val owner = ownerUserId ?: return@launch
+                            importPhotos(pending.uris, owner)
+                        }
+                        PendingAfterAccept.None -> Unit
+                    }
+                }
+                is RepositoryResult.Failure -> {
+                    val error = when (result.error) {
+                        is TravelError.Offline, is TravelError.Timeout -> R.string.error_offline
+                        is TravelError.Validation -> R.string.error_validation
+                        else -> result.error.toUserMessageRes()
+                    }
+                    _uiState.update {
+                        it.copy(policy = it.policy.copy(accepting = false, error = error, checked = false))
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun performPublish() {
+        val state = _uiState.value
+        if (state.place == null || !state.canPublish || publishInFlight) return
         publishInFlight = true
         persistFrozen = true
         persistJob?.cancel()
         persistJob = null
         val snapshot = state.draft
         _uiState.update { it.copy(isPublishing = true, publishError = null) }
-        viewModelScope.launch {
-            if (offlineMutations !== NoOpOfflineMutationRepository) {
-                try {
-                    val mutationId = offlineMutations.commitVisit(VisitDraftLogic.toVisit(
-                        draft = snapshot,
-                        placeId = placeId,
-                        userId = repository.currentUser.id,
-                    ))
-                    lastPersistedDraft = null
-                    hadPersistedDraft = false
-                    withTimeoutOrNull(IMMEDIATE_SYNC_TIMEOUT_MS) {
-                        immediateSyncEngine?.drain()
-                    }
-                    if (offlineMutations.mutationState(mutationId) == null) {
-                        repository.refreshOwnerVisits()
-                        _uiState.update { it.copy(published = true, hasPersistedDraft = false) }
-                    } else {
-                        _uiState.update { it.copy(queuedForSync = true, hasPersistedDraft = false) }
-                    }
-                } catch (_: Exception) {
-                    persistFrozen = false
-                    _uiState.update { it.copy(draft = snapshot, publishError = R.string.sync_queue_failed) }
-                    schedulePersist(immediate = true)
-                }
-                publishInFlight = false
-                _uiState.update { it.copy(isPublishing = false) }
-                return@launch
-            }
-            val result = repository.publishVisit(
-                VisitDraftLogic.toVisit(
+        if (offlineMutations !== NoOpOfflineMutationRepository) {
+            try {
+                val mutationId = offlineMutations.commitVisit(VisitDraftLogic.toVisit(
                     draft = snapshot,
                     placeId = placeId,
                     userId = repository.currentUser.id,
-                ),
-            )
-            when (result) {
-                is RepositoryResult.Success -> {
-                    repository.refreshOwnerVisits()
-                    ownerUserId?.let { draftRepository.deleteDraft(placeId, it) }
-                    lastPersistedDraft = null
-                    hadPersistedDraft = false
-                    _uiState.update { it.copy(published = true, hasPersistedDraft = false) }
+                ))
+                lastPersistedDraft = null
+                hadPersistedDraft = false
+                withTimeoutOrNull(IMMEDIATE_SYNC_TIMEOUT_MS) {
+                    immediateSyncEngine?.drain()
                 }
-                is RepositoryResult.Failure -> {
-                    persistFrozen = false
+                if (offlineMutations.mutationState(mutationId) == null) {
+                    repository.refreshOwnerVisits()
+                    _uiState.update { it.copy(published = true, hasPersistedDraft = false) }
+                } else {
+                    _uiState.update { it.copy(queuedForSync = true, hasPersistedDraft = false) }
+                }
+            } catch (_: Exception) {
+                persistFrozen = false
+                _uiState.update { it.copy(draft = snapshot, publishError = R.string.sync_queue_failed) }
+                schedulePersist(immediate = true)
+            }
+            publishInFlight = false
+            _uiState.update { it.copy(isPublishing = false) }
+            return
+        }
+        val result = repository.publishVisit(
+            VisitDraftLogic.toVisit(
+                draft = snapshot,
+                placeId = placeId,
+                userId = repository.currentUser.id,
+            ),
+        )
+        when (result) {
+            is RepositoryResult.Success -> {
+                repository.refreshOwnerVisits()
+                ownerUserId?.let { draftRepository.deleteDraft(placeId, it) }
+                lastPersistedDraft = null
+                hadPersistedDraft = false
+                _uiState.update { it.copy(published = true, hasPersistedDraft = false) }
+            }
+            is RepositoryResult.Failure -> {
+                persistFrozen = false
+                if (result.error is TravelError.PolicyAcceptanceRequired) {
+                    promptPolicy(result.error.requiredVersion, PendingAfterAccept.Publish)
+                    _uiState.update { it.copy(draft = snapshot, isPublishing = false) }
+                } else {
                     _uiState.update {
                         it.copy(
                             draft = snapshot,
@@ -351,9 +386,99 @@ class RatingViewModel @Inject constructor(
                     schedulePersist(immediate = true)
                 }
             }
-            publishInFlight = false
-            _uiState.update { it.copy(isPublishing = false) }
         }
+        publishInFlight = false
+        _uiState.update { it.copy(isPublishing = false) }
+    }
+
+    private suspend fun importPhotos(uris: List<Uri>, owner: String) {
+        photoMutationMutex.withLock {
+            persistJob?.cancel()
+            draftRepository.saveDraft(placeId, _uiState.value.draft, owner)
+            for (uri in uris) {
+                when (val result = draftRepository.importPhoto(placeId, uri, owner)) {
+                    is MediaImportResult.Success -> {
+                        val next = _uiState.value.draft.copy(
+                            photos = _uiState.value.draft.photos + result.photo.localRelativePath,
+                        )
+                        _uiState.update {
+                            it.copy(draft = next, photoError = null, hasPersistedDraft = true)
+                        }
+                        lastPersistedDraft = next
+                        hadPersistedDraft = true
+                    }
+                    MediaImportResult.MaxCount -> {
+                        setPhotoError(R.string.photo_error_max_count)
+                        break
+                    }
+                    MediaImportResult.UnsupportedType ->
+                        setPhotoError(R.string.photo_error_unsupported_type)
+                    MediaImportResult.TooLarge -> setPhotoError(R.string.photo_error_too_large)
+                    MediaImportResult.Unreadable -> setPhotoError(R.string.photo_error_unreadable)
+                }
+            }
+        }
+    }
+
+    private suspend fun ensureAcceptedForUgc(pending: PendingAfterAccept): Boolean {
+        when (val result = repository.policyStatus()) {
+            is RepositoryResult.Success -> {
+                confirmedAcceptedVersion = result.value.requiredVersion.takeIf { result.value.accepted }
+                if (result.value.accepted) return true
+                promptPolicy(result.value.requiredVersion, pending)
+                return false
+            }
+            is RepositoryResult.Failure -> {
+                when (val error = result.error) {
+                    is TravelError.Offline, is TravelError.Timeout -> {
+                        if (confirmedAcceptedVersion != null) return true
+                        when (pending) {
+                            PendingAfterAccept.Publish ->
+                                _uiState.update { it.copy(publishError = R.string.error_offline) }
+                            is PendingAfterAccept.AddPhotos ->
+                                setPhotoError(R.string.error_offline)
+                            PendingAfterAccept.None -> Unit
+                        }
+                        return false
+                    }
+                    is TravelError.PolicyAcceptanceRequired -> {
+                        promptPolicy(error.requiredVersion, pending)
+                        return false
+                    }
+                    else -> {
+                        when (pending) {
+                            PendingAfterAccept.Publish ->
+                                _uiState.update { it.copy(publishError = error.toUserMessageRes()) }
+                            is PendingAfterAccept.AddPhotos ->
+                                setPhotoError(error.toUserMessageRes())
+                            PendingAfterAccept.None -> Unit
+                        }
+                        return false
+                    }
+                }
+            }
+        }
+    }
+
+    private fun promptPolicy(requiredVersion: String, pending: PendingAfterAccept) {
+        pendingAfterAccept = pending
+        _uiState.update {
+            it.copy(
+                policy = PolicyAcceptanceUi(
+                    visible = true,
+                    requiredVersion = requiredVersion,
+                    checked = false,
+                    accepting = false,
+                    error = null,
+                ),
+            )
+        }
+    }
+
+    private sealed interface PendingAfterAccept {
+        data object None : PendingAfterAccept
+        data object Publish : PendingAfterAccept
+        data class AddPhotos(val uris: List<Uri>) : PendingAfterAccept
     }
 
     private fun updateDraft(transform: (VisitDraft) -> VisitDraft) {

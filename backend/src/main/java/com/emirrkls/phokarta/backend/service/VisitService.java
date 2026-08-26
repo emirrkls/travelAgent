@@ -59,13 +59,14 @@ public class VisitService {
     private final ApplicationMetrics metrics;
     private final MediaService media;
     private final ViewerAccessPolicy access;
+    private final UgcPolicyService ugcPolicy;
 
     @Autowired
     public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
                         ApplicationMetrics metrics, MediaService media,
-                        ViewerAccessPolicy access) {
+                        ViewerAccessPolicy access, UgcPolicyService ugcPolicy) {
         this.visits = visits;
         this.scores = scores;
         this.users = users;
@@ -75,6 +76,7 @@ public class VisitService {
         this.metrics = metrics;
         this.media = media;
         this.access = access;
+        this.ugcPolicy = ugcPolicy;
     }
 
     /** Source-compatible constructor for focused unit tests predating managed media. */
@@ -82,19 +84,30 @@ public class VisitService {
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
                         ApplicationMetrics metrics) {
-        this(visits, scores, users, places, registry, mapper, metrics, null, null);
+        this(visits, scores, users, places, registry, mapper, metrics, null, null, null);
     }
 
     public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
                         ApplicationMetrics metrics, MediaService media) {
-        this(visits, scores, users, places, registry, mapper, metrics, media, null);
+        this(visits, scores, users, places, registry, mapper, metrics, media, null, null);
+    }
+
+    public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
+                        UserRepository users, PlaceRepository places,
+                        RatingDimensionRegistry registry, VisitMapper mapper,
+                        ApplicationMetrics metrics, MediaService media,
+                        ViewerAccessPolicy access) {
+        this(visits, scores, users, places, registry, mapper, metrics, media, access, null);
     }
 
     @Transactional
     public VisitOwnerResponse create(UUID userId, CreateVisitRequest request) {
         users.lockAccount(userId);
+        if (ugcPolicy != null) {
+            ugcPolicy.requireAccepted(userId);
+        }
         String fingerprint = request.clientMutationId() == null ? null : fingerprint(request);
         if (request.clientMutationId() != null) {
             visits.lockClientMutation(userId, request.clientMutationId());

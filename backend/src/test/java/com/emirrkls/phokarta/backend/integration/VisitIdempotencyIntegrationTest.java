@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.api.error.ApiException;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.service.VisitService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ class VisitIdempotencyIntegrationTest {
     @BeforeEach
     void cleanMutations() {
         jdbc.update("delete from visits where client_mutation_id is not null");
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, USER);
     }
 
     @Test

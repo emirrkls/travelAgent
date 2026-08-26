@@ -11,6 +11,7 @@ import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.ReportReason
@@ -665,6 +666,18 @@ class DefaultTravelRepository @Inject constructor(
         loadFollowers()
         loadFollowing()
     }
+
+    override suspend fun policyStatus(): RepositoryResult<PolicyStatus> =
+        when (val result = socialRemote.policyStatus()) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(result.value.toDomain())
+        }
+
+    override suspend fun acceptPolicy(policyVersion: String): RepositoryResult<PolicyStatus> =
+        when (val result = socialRemote.acceptPolicy(policyVersion)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(result.value.toDomain())
+        }
 
     private suspend fun loadSocialPage(
         page: Int,

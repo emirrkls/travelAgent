@@ -13,6 +13,7 @@ enum class SyncFailureReason {
     FORBIDDEN,
     NOT_FOUND,
     IDEMPOTENCY_CONFLICT,
+    POLICY_ACCEPTANCE_REQUIRED,
     UNKNOWN_PERMANENT,
     ;
 
@@ -23,6 +24,7 @@ enum class SyncFailureReason {
         FORBIDDEN -> R.string.sync_failure_forbidden
         NOT_FOUND -> R.string.sync_failure_not_found
         IDEMPOTENCY_CONFLICT -> R.string.sync_failure_idempotency
+        POLICY_ACCEPTANCE_REQUIRED -> R.string.sync_failure_policy_acceptance
         UNKNOWN_PERMANENT -> R.string.sync_failure_generic
     }
 
@@ -35,6 +37,7 @@ enum class SyncFailureReason {
                 "FORBIDDEN" -> FORBIDDEN
                 "NOT_FOUND" -> NOT_FOUND
                 "CONFLICT" -> IDEMPOTENCY_CONFLICT
+                "POLICY_ACCEPTANCE_REQUIRED" -> POLICY_ACCEPTANCE_REQUIRED
                 "MISSING_PAYLOAD", "INVALID_RESPONSE", "UNKNOWN_TYPE" -> UNKNOWN_PERMANENT
                 else -> if (category.startsWith("HTTP_")) UNKNOWN_PERMANENT else UNKNOWN_PERMANENT
             }

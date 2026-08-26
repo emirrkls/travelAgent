@@ -58,7 +58,11 @@ In-app today:
 - Block user (symmetric visibility barrier; not an auto-ban)
 - Account deletion
 
-Play UGC policy also expects terms/user policy **accepted before creating/uploading UGC**, plus ongoing moderation. Terms acceptance is **not** implemented in register UI. That is a **policy gap** for Play review, not a code crash. See [COMMUNITY_GUIDELINES_REQUIREMENTS.md](COMMUNITY_GUIDELINES_REQUIREMENTS.md).
+Play UGC policy also expects terms/user policy **accepted before creating/uploading UGC**, plus ongoing moderation.
+
+**Technical gate (in repo):** authenticated `GET /api/v1/me/policy-status` and `POST /api/v1/me/policy-acceptance` record a versioned acceptance (`2026-08-beta` by default). Create Visit, media upload-intent/confirm, collection create, and add-place-to-collection return `403 POLICY_ACCEPTANCE_REQUIRED` until that version is accepted. The Android client shows an unchecked checkbox + explicit Accept before those writes. Report, block, account deletion, login, and browsing are not gated. Register still has no Terms checkbox.
+
+**Hosted legal (external):** final Terms of Use / User Policy and Community Guidelines pages are **not** published. In-app draft guidelines are labeled owner/legal review required and are not final legal text. Settings legal rows stay on “not published yet” until HTTPS URLs are supplied. See [COMMUNITY_GUIDELINES_REQUIREMENTS.md](COMMUNITY_GUIDELINES_REQUIREMENTS.md).
 
 Reports do **not** auto-hide content or ban users. Operators inspect OPEN reports privately. No admin UI. Manual moderation can be acceptable for a small closed beta if an owner actually reviews the queue.
 

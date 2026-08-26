@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.service.VisitService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -542,8 +543,10 @@ class BlockReportIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode session = objectMapper.readTree(result.getResponse().getContentAsString());
+        UUID id = UUID.fromString(session.get("user").get("id").asText());
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, id);
         return new RegisteredUser(
-                UUID.fromString(session.get("user").get("id").asText()),
+                id,
                 username,
                 session.get("accessToken").asText());
     }

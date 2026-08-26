@@ -63,4 +63,6 @@ private object OfflineUnusedMeApi : MeApi {
     override suspend fun block(userId: String): Response<Unit> = error("unused")
     override suspend fun unblock(userId: String): Response<Unit> = error("unused")
     override suspend fun deleteAccount(request: com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto): Response<Unit> = error("unused")
+    override suspend fun policyStatus(): Response<com.emirrkls.phokarta.core.network.model.PolicyStatusDto> = error("unused")
+    override suspend fun acceptPolicy(request: com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto): Response<com.emirrkls.phokarta.core.network.model.PolicyStatusDto> = error("unused")
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.auth.AuthRepository
 import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
@@ -16,7 +17,9 @@ import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryCoordinator
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceUi
 import com.emirrkls.phokarta.core.media.MediaAccessRepository
+import com.emirrkls.phokarta.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +49,7 @@ data class ProfileUiState(
     val collections: List<Collection> = emptyList(),
     val placesSegment: ProfilePlacesSegment = ProfilePlacesSegment.VISITS,
     val saveErrorMessage: Int? = null,
+    val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
 )
 
 @HiltViewModel
@@ -60,6 +64,8 @@ class ProfileViewModel @Inject constructor(
     private val placesSegment = MutableStateFlow(ProfilePlacesSegment.VISITS)
     private val saveError = MutableStateFlow<Int?>(null)
     private val socialCounts = MutableStateFlow(OwnerSocialCounts(0, 0, 0))
+    private val policy = MutableStateFlow(PolicyAcceptanceUi())
+    private var pendingPolicyMutationId: String? = null
 
     init {
         viewModelScope.launch {
@@ -108,6 +114,51 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch { recoveryCoordinator.retry(mutationId) }
     }
 
+    fun openPolicyForPendingVisit(mutationId: String) {
+        pendingPolicyMutationId = mutationId
+        viewModelScope.launch {
+            when (val result = repository.policyStatus()) {
+                is RepositoryResult.Success -> policy.value = PolicyAcceptanceUi(
+                    visible = true,
+                    requiredVersion = result.value.requiredVersion,
+                )
+                is RepositoryResult.Failure -> saveError.value = result.error.toUserMessageRes()
+            }
+        }
+    }
+
+    fun setPolicyChecked(checked: Boolean) {
+        policy.update { it.copy(checked = checked, error = null) }
+    }
+
+    fun dismissPolicy() {
+        pendingPolicyMutationId = null
+        policy.value = PolicyAcceptanceUi()
+    }
+
+    fun acceptCurrentPolicy() {
+        val current = policy.value
+        if (!current.visible || !current.checked || current.accepting) return
+        viewModelScope.launch {
+            policy.update { it.copy(accepting = true, error = null) }
+            when (val result = repository.acceptPolicy(current.requiredVersion)) {
+                is RepositoryResult.Success -> {
+                    val mutationId = pendingPolicyMutationId
+                    dismissPolicy()
+                    mutationId?.let { recoveryCoordinator.retry(it) }
+                }
+                is RepositoryResult.Failure -> {
+                    val error = if (result.error is TravelError.Offline || result.error is TravelError.Timeout) {
+                        R.string.error_offline
+                    } else {
+                        result.error.toUserMessageRes()
+                    }
+                    policy.update { it.copy(accepting = false, error = error, checked = false) }
+                }
+            }
+        }
+    }
+
     fun editAndRetryFailedVisit(mutationId: String, placeId: String) {
         viewModelScope.launch { recoveryCoordinator.editAndRetry(mutationId, placeId) }
     }
@@ -133,7 +184,7 @@ class ProfileViewModel @Inject constructor(
         catalog.copy(pending = pending)
     }
 
-    val uiState = combine(catalogState, placesSegment, saveError, socialCounts) { catalog, segment, error, counts ->
+    val uiState = combine(catalogState, placesSegment, saveError, socialCounts, policy) { catalog, segment, error, counts, policyUi ->
         val byId = catalog.places.associateBy { it.id }
         val sortedVisits = VisitStateLogic.sortedNewestFirst(catalog.visits)
         val visitCounts = sortedVisits.groupingBy { it.placeId }.eachCount()
@@ -156,6 +207,7 @@ class ProfileViewModel @Inject constructor(
             collections = catalog.collections,
             placesSegment = segment,
             saveErrorMessage = error,
+            policy = policyUi,
         )
     }.stateIn(
         viewModelScope,

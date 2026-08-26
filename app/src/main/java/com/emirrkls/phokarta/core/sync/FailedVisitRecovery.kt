@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.core.sync
 
 import com.emirrkls.phokarta.core.database.dao.PendingVisitMutation
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
+import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.feature.rating.VisitDraft
@@ -27,15 +28,25 @@ data class PendingVisitActions(
     val showRetry: Boolean,
     val showEditAndRetry: Boolean,
     val showRemove: Boolean,
+    val showAcceptPolicy: Boolean = false,
 )
 
 object FailedVisitRecoveryPolicy {
     fun actionsFor(state: String, errorCategory: String?): PendingVisitActions = when (state) {
-        MutationStateValue.FAILED_RETRYABLE -> PendingVisitActions(
-            showRetry = true,
-            showEditAndRetry = false,
-            showRemove = false,
-        )
+        MutationStateValue.FAILED_RETRYABLE -> if (errorCategory == POLICY_ACCEPTANCE_REQUIRED_CODE) {
+            PendingVisitActions(
+                showRetry = false,
+                showEditAndRetry = false,
+                showRemove = false,
+                showAcceptPolicy = true,
+            )
+        } else {
+            PendingVisitActions(
+                showRetry = true,
+                showEditAndRetry = false,
+                showRemove = false,
+            )
+        }
         MutationStateValue.FAILED_PERMANENT -> {
             val reason = SyncFailureReason.fromCategory(errorCategory)
             when (reason) {

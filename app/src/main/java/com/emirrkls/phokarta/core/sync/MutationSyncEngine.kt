@@ -13,6 +13,7 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
+import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
 import com.emirrkls.phokarta.core.network.mapper.toDomain
 import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
@@ -64,8 +65,10 @@ class MutationSyncEngine @Inject constructor(
         mutations.recoverStaleSyncing(Long.MAX_VALUE, now)
         var retryable = false
         var processed = 0
+        var pauseVisitPublishes = false
         mutations.eligible(userId, batchSize).forEach { mutation ->
             if (session.currentUserId() != mutation.userId) return@forEach
+            if (pauseVisitPublishes && mutation.type == MutationTypeValue.PUBLISH_VISIT) return@forEach
             if (mutations.claim(mutation.mutationId, clock.nowMillis()) == 0) return@forEach
             val outcome = when (mutation.type) {
                 MutationTypeValue.PUBLISH_VISIT -> syncVisit(mutation)
@@ -74,12 +77,17 @@ class MutationSyncEngine @Inject constructor(
             }
             processed++
             if (outcome is Failure) {
-                retryable = retryable || outcome.retryable
+                retryable = retryable || outcome.workManagerRetry
                 mutations.markFailure(
                     mutation.mutationId, mutation.generation,
                     if (outcome.retryable) MutationStateValue.FAILED_RETRYABLE else MutationStateValue.FAILED_PERMANENT,
                     outcome.category, clock.nowMillis(),
                 )
+                if (outcome.category == POLICY_ACCEPTANCE_REQUIRED_CODE &&
+                    mutation.type == MutationTypeValue.PUBLISH_VISIT
+                ) {
+                    pauseVisitPublishes = true
+                }
             }
         }
         SyncRunResult(retryable, processed)
@@ -256,7 +264,11 @@ class MutationSyncEngine @Inject constructor(
 
     private sealed interface Outcome
     private data object Success : Outcome
-    private data class Failure(val retryable: Boolean, val category: String) : Outcome
+    private data class Failure(
+        val retryable: Boolean,
+        val category: String,
+        val workManagerRetry: Boolean = retryable,
+    ) : Outcome
     private sealed interface PhotoOutcome
     private data class PhotoPrepared(val mediaId: String) : PhotoOutcome
     private data class PhotoFailed(val failure: Failure) : PhotoOutcome
@@ -268,7 +280,15 @@ class MutationSyncEngine @Inject constructor(
         is NetworkError.Unknown -> Failure(status == 408 || status == 429, "HTTP_${status ?: "UNKNOWN"}")
         is NetworkError.Unauthorized -> Failure(false, "UNAUTHORIZED")
         is NetworkError.Validation -> Failure(false, "VALIDATION")
-        is NetworkError.Forbidden -> Failure(false, "FORBIDDEN")
+        is NetworkError.Forbidden -> if (apiError?.code == POLICY_ACCEPTANCE_REQUIRED_CODE) {
+            Failure(
+                retryable = true,
+                category = POLICY_ACCEPTANCE_REQUIRED_CODE,
+                workManagerRetry = false,
+            )
+        } else {
+            Failure(false, "FORBIDDEN")
+        }
         is NetworkError.NotFound -> Failure(false, "NOT_FOUND")
         is NetworkError.Conflict -> Failure(false, "CONFLICT")
     }

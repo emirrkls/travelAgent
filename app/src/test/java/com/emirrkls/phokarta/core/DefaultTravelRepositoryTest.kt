@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.data.DefaultTravelRepository
 import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.PlaceCacheDataSource
 import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
@@ -28,6 +29,8 @@ import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
+import com.emirrkls.phokarta.core.network.model.ApiErrorDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
@@ -373,6 +376,59 @@ class DefaultTravelRepositoryTest {
         assertEquals(0, repository.currentUser.countryCount)
         assertTrue(repository.currentUser.travelTaste.isEmpty())
     }
+
+    @Test
+    fun `policy status maps required version and acceptance`() = runBlocking {
+        val social = FakeSocial()
+        social.policyResult = RemoteResult.Success(
+            PolicyStatusDto("2026-08-beta", null, false),
+        )
+        val repository = repository(social = social)
+
+        val result = repository.policyStatus() as RepositoryResult.Success
+
+        assertEquals("2026-08-beta", result.value.requiredVersion)
+        assertNull(result.value.acceptedVersion)
+        assertEquals(false, result.value.accepted)
+    }
+
+    @Test
+    fun `accept policy posts the requested version`() = runBlocking {
+        val social = FakeSocial()
+        social.policyResult = RemoteResult.Success(
+            PolicyStatusDto("2026-08-beta", "2026-08-beta", true),
+        )
+        val repository = repository(social = social)
+
+        val result = repository.acceptPolicy("2026-08-beta") as RepositoryResult.Success
+
+        assertEquals(listOf("2026-08-beta"), social.acceptPolicyCalls)
+        assertTrue(result.value.accepted)
+        assertEquals("2026-08-beta", result.value.acceptedVersion)
+    }
+
+    @Test
+    fun `forbidden policy code maps to PolicyAcceptanceRequired`() = runBlocking {
+        val visits = FakeVisits(
+            createResult = RemoteResult.Failure(
+                NetworkError.Forbidden(
+                    ApiErrorDto(
+                        timestamp = "2026-08-22T10:00:00Z",
+                        status = 403,
+                        code = "POLICY_ACCEPTANCE_REQUIRED",
+                        message = "Accept the current User Policy",
+                        path = "/api/v1/visits",
+                        requiredVersion = "2026-08-beta",
+                    ),
+                ),
+            ),
+        )
+        val repository = repository(visits = visits)
+
+        val result = repository.publishVisit(visit()) as RepositoryResult.Failure
+        val error = result.error as TravelError.PolicyAcceptanceRequired
+        assertEquals("2026-08-beta", error.requiredVersion)
+    }
 }
 
 private fun repository(
@@ -589,6 +645,18 @@ private class FakeSocial(
         reason: ReportReasonDto,
         details: String?,
     ): RemoteResult<ReportResponseDto> = RemoteResult.Failure(NetworkError.Connection)
+
+    var policyResult: RemoteResult<PolicyStatusDto> = RemoteResult.Success(
+        PolicyStatusDto("2026-08-beta", "2026-08-beta", true),
+    )
+    var acceptPolicyResult: RemoteResult<PolicyStatusDto>? = null
+    val acceptPolicyCalls = mutableListOf<String>()
+
+    override suspend fun policyStatus() = policyResult
+    override suspend fun acceptPolicy(policyVersion: String): RemoteResult<PolicyStatusDto> {
+        acceptPolicyCalls += policyVersion
+        return acceptPolicyResult ?: policyResult
+    }
 }
 
 private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(

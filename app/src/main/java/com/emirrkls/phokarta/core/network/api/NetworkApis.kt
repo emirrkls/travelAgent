@@ -15,6 +15,8 @@ import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
+import com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
@@ -98,6 +100,12 @@ interface MeApi {
 
     @HTTP(method = "DELETE", path = "api/v1/me", hasBody = true)
     suspend fun deleteAccount(@Body request: DeleteAccountRequestDto): Response<Unit>
+
+    @GET("api/v1/me/policy-status")
+    suspend fun policyStatus(): Response<PolicyStatusDto>
+
+    @POST("api/v1/me/policy-acceptance")
+    suspend fun acceptPolicy(@Body request: PolicyAcceptanceRequestDto): Response<PolicyStatusDto>
 }
 
 interface UserApi {

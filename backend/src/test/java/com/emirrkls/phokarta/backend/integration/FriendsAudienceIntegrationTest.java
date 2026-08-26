@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.service.VisitService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,7 @@ class FriendsAudienceIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private VisitService visitService;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.emirrkls.phokarta.backend.service.UgcPolicyService ugcPolicy;
 
     @Test
     void visibilityMatrix_mutualViewerSeesPublicAndFriendsNotPrivate() throws Exception {
@@ -403,8 +405,10 @@ class FriendsAudienceIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode session = objectMapper.readTree(result.getResponse().getContentAsString());
+        UUID id = UUID.fromString(session.get("user").get("id").asText());
+        PolicyAcceptanceSupport.acceptCurrent(ugcPolicy, id);
         return new RegisteredUser(
-                UUID.fromString(session.get("user").get("id").asText()),
+                id,
                 session.get("accessToken").asText());
     }
 

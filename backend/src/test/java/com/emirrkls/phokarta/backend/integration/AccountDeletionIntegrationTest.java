@@ -13,6 +13,7 @@ import com.emirrkls.phokarta.backend.service.VisitService;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageException;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageService;
 import com.emirrkls.phokarta.backend.support.MutableClock;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -604,8 +605,10 @@ class AccountDeletionIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode session = objectMapper.readTree(result.getResponse().getContentAsString());
+        UUID id = UUID.fromString(session.get("user").get("id").asText());
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, id);
         return new Session(
-                UUID.fromString(session.get("user").get("id").asText()),
+                id,
                 email,
                 username,
                 session.get("accessToken").asText(),

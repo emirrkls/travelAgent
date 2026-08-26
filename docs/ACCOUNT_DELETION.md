@@ -151,4 +151,4 @@ Logs may include request id, `deletionId`, and phase/outcome. Do not log email, 
 
 ## Flyway
 
-Latest schema migration: **V11** (`user_blocks` and `reports`). V1–V10 are unchanged. Production applies schema locations only. Fresh V1–V11 and V10→V11 upgrades are both supported. Report rows survive account deletion via `ON DELETE SET NULL` on reporter/target/visit FKs; block rows cascade away.
+Latest schema migration: **V12** (`user_policy_acceptances`). V1–V11 are unchanged. Production applies schema locations only. Fresh V1–V12 and V11→V12 upgrades are both supported. Report rows survive account deletion via `ON DELETE SET NULL` on reporter/target/visit FKs; block rows and policy acceptances cascade away. Policy acceptance is not retained as report evidence.

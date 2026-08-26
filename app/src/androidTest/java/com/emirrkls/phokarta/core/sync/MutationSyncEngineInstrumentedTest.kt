@@ -112,6 +112,36 @@ class MutationSyncEngineInstrumentedTest {
         assertEquals(1, database.pendingMutationDao().eligible(USER, 20).size)
     }
 
+    @Test fun policyFailureMarksRetryableWithoutWorkManagerRetryAndPausesFurtherVisits() = runTest {
+        val first = queue.commitVisit(visit())
+        queue.commitVisit(visit().copy(id = "local-2"))
+        queue.toggleSaved(PLACE)
+        visits.result = RemoteResult.Failure(
+            NetworkError.Forbidden(
+                ApiErrorDto(
+                    timestamp = "2026-08-22T10:00:00Z",
+                    status = 403,
+                    code = "POLICY_ACCEPTANCE_REQUIRED",
+                    message = "Accept the current User Policy",
+                    path = "/api/v1/visits",
+                    requiredVersion = "2026-08-beta",
+                ),
+            ),
+        )
+        saved.result = RemoteResult.Success(SavedPlaceDto(summary(), "2026-08-24T10:00:00Z"))
+
+        val result = engine.drain()
+
+        assertFalse(result.retryableFailure)
+        assertEquals(2, result.processed)
+        assertEquals(1, visits.requests.size)
+        val failed = database.pendingMutationDao().get(first)!!
+        assertEquals("FAILED_RETRYABLE", failed.state)
+        assertEquals("POLICY_ACCEPTANCE_REQUIRED", failed.lastErrorCategory)
+        assertTrue(database.savedPlaceDao().getSavedPlace(USER, PLACE) != null)
+        assertEquals(2, database.pendingMutationDao().eligible(USER, 20).size)
+    }
+
     @Test fun legacyPhotoIsFailedPermanentlyWithoutCallingCreateVisit() = runTest {
         val mutationId = queue.commitVisit(
             visit().copy(photos = listOf("https://legacy.invalid/photo.jpg")),

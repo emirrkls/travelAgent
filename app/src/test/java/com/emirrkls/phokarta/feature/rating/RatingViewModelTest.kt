@@ -1,12 +1,14 @@
 package com.emirrkls.phokarta.feature.rating
 
 import androidx.lifecycle.SavedStateHandle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.FakeVisitDraftRepository
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.auth.testSessionManager
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
@@ -351,8 +353,99 @@ class RatingViewModelTest {
         assertTrue(repository.visits.value.isEmpty())
     }
 
+    @Test
+    fun publishWithoutAcceptanceShowsPolicySheetAndDoesNotPublish() = runTest(dispatcher) {
+        val repository = TestTravelRepository().apply {
+            policyStatus = PolicyStatus("2026-08-beta", null, false)
+        }
+        val viewModel = createViewModel(seedPlaceId(), repository)
+        advanceUntilIdle()
+
+        viewModel.publish()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.policy.visible)
+        assertFalse(viewModel.uiState.value.policy.checked)
+        assertFalse(viewModel.uiState.value.published)
+        assertTrue(repository.visits.value.isEmpty())
+        assertTrue(repository.acceptPolicyCalls.isEmpty())
+    }
+
+    @Test
+    fun acceptPolicyThenPublishSucceeds() = runTest(dispatcher) {
+        val repository = TestTravelRepository().apply {
+            policyStatus = PolicyStatus("2026-08-beta", null, false)
+        }
+        val viewModel = createViewModel(seedPlaceId(), repository)
+        advanceUntilIdle()
+
+        viewModel.publish()
+        advanceUntilIdle()
+        viewModel.setPolicyChecked(true)
+        viewModel.acceptPolicy()
+        advanceUntilIdle()
+
+        assertEquals(listOf("2026-08-beta"), repository.acceptPolicyCalls)
+        assertFalse(viewModel.uiState.value.policy.visible)
+        assertTrue(viewModel.uiState.value.published)
+        assertEquals(1, repository.visits.value.size)
+    }
+
+    @Test
+    fun staleServerRejectionOpensPolicySheetThenRetryPublishes() = runTest(dispatcher) {
+        val repository = StaleThenOkRepository()
+        val viewModel = createViewModel(seedPlaceId(), repository)
+        advanceUntilIdle()
+
+        viewModel.publish()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.policy.visible)
+        assertFalse(viewModel.uiState.value.published)
+        assertTrue(repository.visits.value.isEmpty())
+
+        viewModel.setPolicyChecked(true)
+        viewModel.acceptPolicy()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.published)
+        assertEquals(1, repository.visits.value.size)
+        assertEquals(1, repository.acceptPolicyCalls.size)
+    }
+
+    @Test
+    fun offlineWithoutConfirmedAcceptanceDoesNotPretendAccepted() = runTest(dispatcher) {
+        val repository = TestTravelRepository().apply {
+            policyStatusError = TravelError.Offline()
+        }
+        val viewModel = createViewModel(seedPlaceId(), repository)
+        advanceUntilIdle()
+
+        viewModel.publish()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.policy.visible)
+        assertFalse(viewModel.uiState.value.published)
+        assertEquals(R.string.error_offline, viewModel.uiState.value.publishError)
+        assertTrue(repository.visits.value.isEmpty())
+        assertTrue(repository.acceptPolicyCalls.isEmpty())
+    }
+
     private class FailingRepository : TestTravelRepository() {
         override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> =
             RepositoryResult.Failure(TravelError.Offline())
+    }
+
+    private class StaleThenOkRepository : TestTravelRepository() {
+        private var failOnce = true
+        override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> {
+            if (failOnce) {
+                failOnce = false
+                return RepositoryResult.Failure(
+                    TravelError.PolicyAcceptanceRequired("2026-08-beta"),
+                )
+            }
+            return super.publishVisit(visit)
+        }
     }
 }

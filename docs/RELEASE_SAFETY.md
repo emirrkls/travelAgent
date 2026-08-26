@@ -115,4 +115,4 @@ There is **no public or ordinary-user read API** for reports. Authorized operato
 - No “users who blocked you” list (intentional).
 - No offline block/report queue; safety boundaries exist only after the server commits.
 - Report details are not a full content snapshot.
-- Flyway **V11** adds `user_blocks` and `reports`. V1–V10 are unchanged.
+- Flyway **V12** adds `user_policy_acceptances`. V1–V11 are unchanged. Account deletion cascades those rows; they are not retained as report data.

@@ -14,6 +14,7 @@ import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
@@ -303,6 +304,23 @@ open class TestTravelRepository : TravelRepository {
 
     override suspend fun invalidateAfterBlock() {
         invalidateAfterBlockCount += 1
+    }
+
+    var policyStatus: PolicyStatus = PolicyStatus("2026-08-beta", "2026-08-beta", true)
+    var policyStatusError: TravelError? = null
+    var acceptPolicyError: TravelError? = null
+    val acceptPolicyCalls = mutableListOf<String>()
+
+    override suspend fun policyStatus(): RepositoryResult<PolicyStatus> {
+        policyStatusError?.let { return RepositoryResult.Failure(it) }
+        return RepositoryResult.Success(policyStatus)
+    }
+
+    override suspend fun acceptPolicy(policyVersion: String): RepositoryResult<PolicyStatus> {
+        acceptPolicyCalls += policyVersion
+        acceptPolicyError?.let { return RepositoryResult.Failure(it) }
+        policyStatus = PolicyStatus(policyVersion, policyVersion, true)
+        return RepositoryResult.Success(policyStatus)
     }
 
     private fun pageUsers(all: List<UserSummary>, page: Int, size: Int): RepositoryResult<UserPage> {

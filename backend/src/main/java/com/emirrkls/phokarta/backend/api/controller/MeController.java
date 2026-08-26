@@ -8,6 +8,8 @@ import com.emirrkls.phokarta.backend.api.dto.DeleteAccountRequest;
 import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsRequest;
 import com.emirrkls.phokarta.backend.api.dto.FriendPlaceMetricsResponse;
 import com.emirrkls.phokarta.backend.api.dto.PageResponse;
+import com.emirrkls.phokarta.backend.api.dto.PolicyAcceptanceRequest;
+import com.emirrkls.phokarta.backend.api.dto.PolicyStatusResponse;
 import com.emirrkls.phokarta.backend.api.dto.SavedPlaceResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserProfileResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserSummaryResponse;
@@ -21,6 +23,7 @@ import com.emirrkls.phokarta.backend.service.BlockService;
 import com.emirrkls.phokarta.backend.service.CollectionService;
 import com.emirrkls.phokarta.backend.service.SavedPlaceService;
 import com.emirrkls.phokarta.backend.service.SocialService;
+import com.emirrkls.phokarta.backend.service.UgcPolicyService;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -57,6 +60,7 @@ public class MeController {
     private final SocialService socialService;
     private final BlockService blockService;
     private final AccountDeletionService accountDeletionService;
+    private final UgcPolicyService ugcPolicyService;
     private final AuthRateLimiter rateLimiter;
     private final SafetyRateLimiter safetyRateLimiter;
 
@@ -64,6 +68,7 @@ public class MeController {
                         SavedPlaceService savedPlaceService, CollectionService collectionService,
                         SocialService socialService, BlockService blockService,
                         AccountDeletionService accountDeletionService,
+                        UgcPolicyService ugcPolicyService,
                         AuthRateLimiter rateLimiter, SafetyRateLimiter safetyRateLimiter) {
         this.authService = authService;
         this.visitService = visitService;
@@ -72,6 +77,7 @@ public class MeController {
         this.socialService = socialService;
         this.blockService = blockService;
         this.accountDeletionService = accountDeletionService;
+        this.ugcPolicyService = ugcPolicyService;
         this.rateLimiter = rateLimiter;
         this.safetyRateLimiter = safetyRateLimiter;
     }
@@ -79,6 +85,24 @@ public class MeController {
     @GetMapping
     public UserProfileResponse me() {
         return authService.me(SecurityUtils.requireCurrentUserId());
+    }
+
+    @Operation(summary = "Current User Policy acceptance status",
+            description = "Backend is authoritative. accepted is true only when the caller has "
+                    + "accepted the currently required technical policy version. An older "
+                    + "acceptance does not satisfy a newer required version.")
+    @GetMapping("/policy-status")
+    public PolicyStatusResponse policyStatus() {
+        return ugcPolicyService.status(SecurityUtils.requireCurrentUserId());
+    }
+
+    @Operation(summary = "Accept the current User Policy version",
+            description = "Only the currently required version is accepted. Duplicate posts of "
+                    + "that version are idempotent. Arbitrary or future versions are rejected. "
+                    + "This is a technical beta gate, not a claim that legal Terms are final.")
+    @PostMapping("/policy-acceptance")
+    public PolicyStatusResponse acceptPolicy(@Valid @RequestBody PolicyAcceptanceRequest request) {
+        return ugcPolicyService.accept(SecurityUtils.requireCurrentUserId(), request);
     }
 
     @Operation(summary = "Permanently delete the authenticated account",

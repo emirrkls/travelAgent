@@ -21,6 +21,8 @@ import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
@@ -243,6 +245,8 @@ interface SocialRemoteDataSource {
         reason: ReportReasonDto,
         details: String?,
     ): RemoteResult<ReportResponseDto>
+    suspend fun policyStatus(): RemoteResult<PolicyStatusDto>
+    suspend fun acceptPolicy(policyVersion: String): RemoteResult<PolicyStatusDto>
 }
 
 class RetrofitSocialRemoteDataSource @Inject constructor(
@@ -295,4 +299,10 @@ class RetrofitSocialRemoteDataSource @Inject constructor(
     ) = safeApiCall(json) {
         reportApi.submit(CreateReportDto(targetType, targetId, reason, details))
     }
+
+    override suspend fun policyStatus() =
+        safeApiCall(json) { meApi.policyStatus() }
+
+    override suspend fun acceptPolicy(policyVersion: String) =
+        safeApiCall(json) { meApi.acceptPolicy(PolicyAcceptanceRequestDto(policyVersion)) }
 }

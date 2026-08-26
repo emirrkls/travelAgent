@@ -35,17 +35,19 @@ public class CollectionService {
     private final UserRepository users;
     private final ViewerAccessPolicy access;
     private final PlaceMapper mapper;
+    private final UgcPolicyService ugcPolicy;
 
     public CollectionService(CollectionRepository collections,
                              CollectionPlaceRepository memberships, PlaceRepository places,
                              UserRepository users, ViewerAccessPolicy access,
-                             PlaceMapper mapper) {
+                             PlaceMapper mapper, UgcPolicyService ugcPolicy) {
         this.collections = collections;
         this.memberships = memberships;
         this.places = places;
         this.users = users;
         this.access = access;
         this.mapper = mapper;
+        this.ugcPolicy = ugcPolicy;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +67,7 @@ public class CollectionService {
 
     @Transactional
     public CollectionDetailResponse create(UUID userId, CreateCollectionRequest request) {
+        ugcPolicy.requireAccepted(userId);
         User user = users.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("User", userId));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -106,6 +109,7 @@ public class CollectionService {
 
     @Transactional
     public CollectionDetailResponse add(UUID collectionId, UUID userId, UUID placeId) {
+        ugcPolicy.requireAccepted(userId);
         Collection collection = requireOwnedForUpdate(collectionId, userId);
         CollectionPlaceId id = new CollectionPlaceId(collectionId, placeId);
         if (memberships.existsById(id)) {

@@ -11,6 +11,8 @@ import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
+import com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
@@ -165,6 +167,8 @@ private class DeleteMeApi(
     override suspend fun block(userId: String): Response<Unit> = error("unused")
     override suspend fun unblock(userId: String): Response<Unit> = error("unused")
     override suspend fun deleteAccount(request: DeleteAccountRequestDto): Response<Unit> = handler()
+    override suspend fun policyStatus(): Response<PolicyStatusDto> = error("unused")
+    override suspend fun acceptPolicy(request: PolicyAcceptanceRequestDto): Response<PolicyStatusDto> = error("unused")
 }
 
 private open class UnusedAuthApi : AuthApi {
@@ -184,4 +188,6 @@ private object UnusedMeApi : MeApi {
     override suspend fun block(userId: String): Response<Unit> = error("unused")
     override suspend fun unblock(userId: String): Response<Unit> = error("unused")
     override suspend fun deleteAccount(request: DeleteAccountRequestDto): Response<Unit> = error("unused")
+    override suspend fun policyStatus(): Response<PolicyStatusDto> = error("unused")
+    override suspend fun acceptPolicy(request: PolicyAcceptanceRequestDto): Response<PolicyStatusDto> = error("unused")
 }

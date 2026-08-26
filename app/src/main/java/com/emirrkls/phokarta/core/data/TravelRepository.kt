@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.NearbyPlace
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.ReportReason
@@ -104,4 +105,6 @@ interface TravelRepository {
         details: String?,
     ): RepositoryResult<SubmittedReport>
     suspend fun invalidateAfterBlock()
+    suspend fun policyStatus(): RepositoryResult<PolicyStatus>
+    suspend fun acceptPolicy(policyVersion: String): RepositoryResult<PolicyStatus>
 }

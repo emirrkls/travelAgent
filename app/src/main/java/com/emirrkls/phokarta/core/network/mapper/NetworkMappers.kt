@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.FriendPlaceUser
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
+import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewAuthor
 import com.emirrkls.phokarta.core.model.PublicReviewMedia
@@ -32,6 +33,7 @@ import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
@@ -287,6 +289,12 @@ fun ReportResponseDto.toDomain(): SubmittedReport = SubmittedReport(
     targetType = ReportTargetType.valueOf(targetType.name),
     reason = ReportReason.valueOf(reason.name),
     status = status,
+)
+
+fun PolicyStatusDto.toDomain(): PolicyStatus = PolicyStatus(
+    requiredVersion = requiredVersion,
+    acceptedVersion = acceptedVersion,
+    accepted = accepted,
 )
 
 fun ReportTargetType.toDto(): ReportTargetTypeDto = ReportTargetTypeDto.valueOf(name)

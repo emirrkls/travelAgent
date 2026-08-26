@@ -22,6 +22,34 @@ fun apiBaseUrl(defaultUrl: String): String =
         ?: providers.gradleProperty("PHOKARTA_API_BASE_URL").orNull?.trim()?.takeIf(String::isNotEmpty)
         ?: defaultUrl
 
+fun optionalPolicyUrl(name: String, requireHttps: Boolean): String {
+    val raw = System.getenv(name)?.trim()?.takeIf(String::isNotEmpty)
+        ?: providers.gradleProperty(name).orNull?.trim()?.takeIf(String::isNotEmpty)
+        ?: ""
+    if (raw.isEmpty()) return ""
+    if (requireHttps) {
+        val parsed = runCatching { URI(raw) }.getOrNull()
+        require(
+            parsed?.isAbsolute == true &&
+                parsed.scheme.equals("https", ignoreCase = true) &&
+                !parsed.host.isNullOrBlank(),
+        ) {
+            "$name must be an absolute https:// URL when set."
+        }
+    }
+    return raw.replace("\\", "\\\\").replace("\"", "\\\"")
+}
+
+fun com.android.build.api.dsl.ApplicationBuildType.addPolicyUrlFields(requireHttps: Boolean) {
+    listOf(
+        "PHOKARTA_TERMS_URL",
+        "PHOKARTA_COMMUNITY_GUIDELINES_URL",
+        "PHOKARTA_PRIVACY_URL",
+    ).forEach { name ->
+        buildConfigField("String", name, "\"${optionalPolicyUrl(name, requireHttps)}\"")
+    }
+}
+
 fun signingValue(name: String): String? =
     System.getenv(name)?.trim()?.takeIf(String::isNotEmpty)
         ?: (findProperty(name) as String?)?.trim()?.takeIf(String::isNotEmpty)
@@ -47,12 +75,12 @@ val hasUploadSigning = uploadStoreFile != null
 
 android {
     namespace = "com.emirrkls.phokarta"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.emirrkls.phokarta"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 6
         versionName = "0.6.0-beta.1"
 
@@ -75,6 +103,7 @@ android {
         debug {
             val baseUrl = apiBaseUrl("http://10.0.2.2:8080/").trimEnd('/') + "/"
             buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
+            addPolicyUrlFields(requireHttps = false)
         }
         release {
             isMinifyEnabled = false
@@ -92,6 +121,7 @@ android {
                 "Release PHOKARTA_API_BASE_URL must be an absolute https:// URL with a trailing slash."
             }
             buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
+            addPolicyUrlFields(requireHttps = true)
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (hasUploadSigning) {
                 signingConfigs.getByName("upload")

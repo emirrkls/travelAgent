@@ -126,6 +126,7 @@
     <string name="error_server">The service is temporarily unavailable. Please try again.</string>
     <string name="error_unknown">Something went wrong. Please try again.</string>
     <string name="error_generic">Something went wrong</string>
+    <string name="error_policy_acceptance_required">Accept the current User Policy before creating or uploading content.</string>
 
     <!-- Auth -->
     <string name="auth_sign_in">Sign in</string>
@@ -281,11 +282,13 @@
     <string name="sync_failure_not_found">This place is no longer available.</string>
     <string name="sync_failure_idempotency">This visit couldn\'t be synchronized safely.</string>
     <string name="sync_failure_generic">This visit couldn\'t be synced.</string>
+    <string name="sync_failure_policy_acceptance">Accept the current User Policy, then retry publishing.</string>
     <string name="a11y_edit_and_retry">Edit failed visit and retry publishing</string>
     <string name="a11y_remove_failed_visit">Remove failed visit from this device</string>
     <string name="a11y_confirm_remove_failed_visit">Confirm remove failed visit</string>
     <string name="a11y_replace_draft">Replace existing visit draft</string>
     <string name="a11y_retry_sync">Retry syncing visit</string>
+    <string name="a11y_accept_policy">Accept User Policy to continue publishing</string>
     <string name="a11y_pending_visit_detail">Open pending visit details</string>
     <string name="see_it_on_your_profile">See it on your profile</string>
     <string name="back_to_explore">Back to Explore</string>
@@ -352,6 +355,20 @@
     <string name="delete_account_failed">Account deletion failed. Try again.</string>
     <string name="delete_account_in_progress">Deleting account</string>
     <string name="settings_privacy">Privacy</string>
+    <string name="settings_legal">Policies</string>
+    <string name="policy_terms">Terms of Use / User Policy</string>
+    <string name="policy_guidelines">Community Guidelines</string>
+    <string name="policy_privacy">Privacy Policy</string>
+    <string name="policy_link_unpublished">Not published yet</string>
+    <string name="policy_accept_title">User Policy</string>
+    <string name="policy_accept_intro">Before you publish visits, reviews, or photos, accept the current User Policy and Community Guidelines. This is a beta technical gate. Final legal text still requires owner/legal review.</string>
+    <string name="policy_guidelines_draft_label">OWNER/LEGAL REVIEW REQUIRED — beta draft</string>
+    <string name="policy_guidelines_draft_body">Do not post harassment, hate or abuse, threats or violence, prohibited sexual or explicit content, impersonation, privacy violations, or spam. Report and block remain available even if you have not accepted this policy.</string>
+    <string name="policy_open_terms">Open Terms of Use</string>
+    <string name="policy_open_guidelines">Open Community Guidelines</string>
+    <string name="policy_urls_unpublished">Public Terms and Guidelines pages are not hosted yet. The in-app draft is not final legal text.</string>
+    <string name="policy_accept_checkbox">I accept the current User Policy and Community Guidelines</string>
+    <string name="policy_accept_action">Accept</string>
     <string name="blocked_users">Blocked users</string>
     <string name="blocked_users_empty">No blocked users</string>
     <string name="action_block_user">Block user</string>

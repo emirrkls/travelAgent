@@ -66,6 +66,10 @@ phokarta:
   safety:
     report-max-per-hour: ${PHOKARTA_REPORT_MAX_PER_HOUR:10}
     block-max-per-hour: ${PHOKARTA_BLOCK_MAX_PER_HOUR:60}
+  policy:
+    # Technical beta User Policy version. Not final legal Terms.
+    # Override with PHOKARTA_POLICY_REQUIRED_VERSION when Terms are reissued.
+    required-version: ${PHOKARTA_POLICY_REQUIRED_VERSION:2026-08-beta}
 
 springdoc:
   api-docs:

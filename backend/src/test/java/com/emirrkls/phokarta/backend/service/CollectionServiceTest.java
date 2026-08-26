@@ -33,6 +33,7 @@ class CollectionServiceTest {
     @Mock private UserRepository users;
     @Mock private ViewerAccessPolicy access;
     @Mock private PlaceMapper mapper;
+    @Mock private UgcPolicyService ugcPolicy;
     @Mock private Collection collection;
     @Mock private User owner;
 
@@ -47,7 +48,7 @@ class CollectionServiceTest {
         when(memberships.existsById(new CollectionPlaceId(collectionId, placeId))).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
 
         assertThatThrownBy(() -> service.add(collectionId, userId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -70,7 +71,7 @@ class CollectionServiceTest {
         when(owner.getId()).thenReturn(ownerId);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
 
         assertThatThrownBy(() -> service.add(collectionId, otherUserId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -92,7 +93,7 @@ class CollectionServiceTest {
         when(memberships.existsById(membershipId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
 
         service.remove(collectionId, userId, placeId);
 
@@ -111,7 +112,7 @@ class CollectionServiceTest {
         when(access.isBlockSeparated(viewerId, ownerId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
 
         assertThatThrownBy(() -> service.detail(collectionId, viewerId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {

@@ -52,6 +52,9 @@ import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
 import com.emirrkls.phokarta.core.network.model.MediaUploadIntentResponseDto
 import com.emirrkls.phokarta.core.network.model.MediaStateDto
 import com.emirrkls.phokarta.core.network.model.MediaAccessDto
+import com.emirrkls.phokarta.core.network.model.ApiErrorDto
+import com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto
+import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
@@ -71,6 +74,7 @@ private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val OTHER_PLACE_ID = "20000000-0000-0000-0000-000000000099"
 private const val FRIEND_ONLY_PLACE_ID = "20000000-0000-0000-0000-000000000088"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
+private const val POLICY_VERSION = "2026-08-beta"
 
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkModule::class])
@@ -85,19 +89,12 @@ object FakeNetworkModule {
     @Provides @Singleton fun visits(fake: FakeVisits): VisitRemoteDataSource = fake
     @Provides @Singleton fun saved(visits: VisitRemoteDataSource): SavedPlaceRemoteDataSource =
         FakeSaved(visits as FakeVisits)
-    @Provides @Singleton fun collections(): CollectionRemoteDataSource = FakeCollections()
+    @Provides @Singleton fun collections(social: FakeSocial): CollectionRemoteDataSource = FakeCollections(social)
     @Provides @Singleton fun social(fake: FakeSocial): SocialRemoteDataSource = fake
     @Provides @Singleton fun authApi(): AuthApi = FakeAuthApi()
     @Provides @Singleton fun meApi(fake: FakeSocial): MeApi = FakeMeApi(fake)
     @Provides @Singleton @UploadHttpClient fun uploadClient(): OkHttpClient = OkHttpClient()
-    @Provides @Singleton fun media(): MediaRemoteDataSource = object : MediaRemoteDataSource {
-        override suspend fun createIntent(request: MediaUploadIntentRequestDto) =
-            RemoteResult.Success(MediaUploadIntentResponseDto(request.clientMediaId, "READY"))
-        override suspend fun confirm(mediaId: String) =
-            RemoteResult.Success(MediaStateDto(mediaId, "READY"))
-        override suspend fun access(mediaId: String) =
-            RemoteResult.Success(MediaAccessDto("https://example.test/$mediaId", TIMESTAMP))
-    }
+    @Provides @Singleton fun media(social: FakeSocial): MediaRemoteDataSource = FakeMedia(social)
 }
 
 private val summary = PlaceSummaryDto(
@@ -300,6 +297,7 @@ class FakeVisits(
 
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         request.clientMutationId?.let { recordedClientMutationIds += it }
+        social.policyForbidden()?.let { return it }
         failCreatePermanent?.let { return RemoteResult.Failure(it) }
         if (failCreate) return RemoteResult.Failure(NetworkError.Server(500, null))
         val visitId = UUID.randomUUID().toString()
@@ -499,13 +497,16 @@ private class FakeSaved(
     }
 }
 
-private class FakeCollections : CollectionRemoteDataSource {
+private class FakeCollections(
+    private val social: FakeSocial,
+) : CollectionRemoteDataSource {
     private val collections = linkedMapOf<String, CollectionDetailDto>()
 
     override suspend fun list(page: Int, size: Int) =
         RemoteResult.Success(page(collections.values.map { it.toSummary() }))
 
     override suspend fun create(request: CreateCollectionDto): RemoteResult<CollectionDetailDto> {
+        social.policyForbidden()?.let { return it }
         val detail = CollectionDetailDto(
             id = UUID.randomUUID().toString(),
             userId = USER_ID,
@@ -526,6 +527,7 @@ private class FakeCollections : CollectionRemoteDataSource {
             ?: RemoteResult.Failure(NetworkError.NotFound(null))
 
     override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> {
+        social.policyForbidden()?.let { return it }
         val current = collections[collectionId]
             ?: return RemoteResult.Failure(NetworkError.NotFound(null))
         if (current.places.any { it.place.id == placeId }) {
@@ -628,6 +630,14 @@ private class FakeMeApi(
 
     override suspend fun deleteAccount(request: DeleteAccountRequestDto): Response<Unit> =
         Response.success(Unit)
+
+    override suspend fun policyStatus(): Response<PolicyStatusDto> =
+        Response.success(social.currentPolicyStatus())
+
+    override suspend fun acceptPolicy(request: PolicyAcceptanceRequestDto): Response<PolicyStatusDto> {
+        social.acceptPolicyVersion(request.policyVersion)
+        return Response.success(social.currentPolicyStatus())
+    }
 }
 
 class FakeSocial : SocialRemoteDataSource {
@@ -636,6 +646,7 @@ class FakeSocial : SocialRemoteDataSource {
     private val followsYou = setOf(OTHER_USER_ID)
     @Volatile var viewerUserId: String = USER_ID
     @Volatile var failFriendMetrics: Boolean = false
+    @Volatile var policyAccepted: Boolean = true
 
     private val users = listOf(
         summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz"),
@@ -673,6 +684,7 @@ class FakeSocial : SocialRemoteDataSource {
         blockedByViewer.clear()
         viewerUserId = USER_ID
         failFriendMetrics = false
+        policyAccepted = true
     }
 
     fun blockedDtos(): List<BlockedUserDto> = outboundBlocks().map { id ->
@@ -812,6 +824,31 @@ class FakeSocial : SocialRemoteDataSource {
         ),
     )
 
+    override suspend fun policyStatus(): RemoteResult<PolicyStatusDto> =
+        RemoteResult.Success(currentPolicyStatus())
+
+    override suspend fun acceptPolicy(policyVersion: String): RemoteResult<PolicyStatusDto> {
+        acceptPolicyVersion(policyVersion)
+        return RemoteResult.Success(currentPolicyStatus())
+    }
+
+    fun currentPolicyStatus(): PolicyStatusDto = PolicyStatusDto(
+        requiredVersion = POLICY_VERSION,
+        acceptedVersion = POLICY_VERSION.takeIf { policyAccepted },
+        accepted = policyAccepted,
+    )
+
+    fun acceptPolicyVersion(policyVersion: String) {
+        if (policyVersion == POLICY_VERSION) {
+            policyAccepted = true
+        }
+    }
+
+    fun policyForbidden(): RemoteResult.Failure? {
+        if (policyAccepted) return null
+        return RemoteResult.Failure(policyForbiddenError())
+    }
+
     private fun outboundBlocks(): MutableSet<String> =
         blockedByViewer.getOrPut(viewerUserId) { ConcurrentHashMap.newKeySet() }
 
@@ -824,6 +861,34 @@ class FakeSocial : SocialRemoteDataSource {
         return copy(relationship = RelationshipStateDto(isFollowing, inbound, isFollowing && inbound))
     }
 }
+
+private class FakeMedia(
+    private val social: FakeSocial,
+) : MediaRemoteDataSource {
+    override suspend fun createIntent(request: MediaUploadIntentRequestDto): RemoteResult<MediaUploadIntentResponseDto> {
+        social.policyForbidden()?.let { return it }
+        return RemoteResult.Success(MediaUploadIntentResponseDto(request.clientMediaId, "READY"))
+    }
+
+    override suspend fun confirm(mediaId: String): RemoteResult<MediaStateDto> {
+        social.policyForbidden()?.let { return it }
+        return RemoteResult.Success(MediaStateDto(mediaId, "READY"))
+    }
+
+    override suspend fun access(mediaId: String) =
+        RemoteResult.Success(MediaAccessDto("https://example.test/$mediaId", TIMESTAMP))
+}
+
+private fun policyForbiddenError() = NetworkError.Forbidden(
+    ApiErrorDto(
+        timestamp = TIMESTAMP,
+        status = 403,
+        code = "POLICY_ACCEPTANCE_REQUIRED",
+        message = "Accept the current User Policy before creating or uploading content.",
+        path = "/api/v1/visits",
+        requiredVersion = POLICY_VERSION,
+    ),
+)
 
 private fun demoSession(email: String, username: String, displayName: String) = AuthSessionDto(
     user = UserProfileDto(USER_ID, email, username, displayName, null, null, 0, 0, 0),

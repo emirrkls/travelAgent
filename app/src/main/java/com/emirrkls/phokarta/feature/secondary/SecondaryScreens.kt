@@ -63,6 +63,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.feature.activity.ActivityViewModel
 import com.emirrkls.phokarta.feature.activity.FriendsEmptyReason
 import com.emirrkls.phokarta.feature.collections.CreateCollectionSheet
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.ui.localization.labelRes
 import androidx.compose.ui.res.pluralStringResource
@@ -386,6 +387,12 @@ fun CollectionsScreen(
             }
         }
     }
+    PolicyAcceptanceSheet(
+        state = state.policy,
+        onCheckedChange = viewModel::setPolicyChecked,
+        onAccept = viewModel::acceptCurrentPolicy,
+        onDismiss = viewModel::dismissPolicy,
+    )
 }
 
 @Composable

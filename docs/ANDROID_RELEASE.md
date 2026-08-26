@@ -13,6 +13,14 @@ Current closed-beta version: `versionName` `0.6.0-beta.1`, `versionCode` `6`.
 - Do not encode dates in `versionName`.
 - Bump both values in `app/build.gradle.kts` `defaultConfig` before a new Play upload.
 
+## Target API
+
+`compileSdk` and `targetSdk` are **36**. `minSdk` remains **26**.
+
+Google Play requires **new** apps to target API 36 by **31 August 2026**. Do not treat a target-35 AAB as upload-ready after that date. Existing apps have a later target-API deadline; this repo is a new listing.
+
+Optional policy URLs (`PHOKARTA_TERMS_URL`, `PHOKARTA_COMMUNITY_GUIDELINES_URL`, `PHOKARTA_PRIVACY_URL`) may be empty. If a release value is set, it must be an absolute `https://` URL. Empty values show “not published yet” in Settings and do not open placeholder hosts.
+
 ## API base URL
 
 Release builds require an absolute `https://` URL with a trailing slash.

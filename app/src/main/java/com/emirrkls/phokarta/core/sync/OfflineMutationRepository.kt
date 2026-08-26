@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
+import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
 import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
@@ -43,10 +44,12 @@ data class PendingVisit(
         state == MutationStateValue.FAILED_RETRYABLE
 
     val failureReason: SyncFailureReason?
-        get() = if (state == MutationStateValue.FAILED_PERMANENT) {
-            SyncFailureReason.fromCategory(lastErrorCategory)
-        } else {
-            null
+        get() = when {
+            lastErrorCategory == POLICY_ACCEPTANCE_REQUIRED_CODE ->
+                SyncFailureReason.POLICY_ACCEPTANCE_REQUIRED
+            state == MutationStateValue.FAILED_PERMANENT ->
+                SyncFailureReason.fromCategory(lastErrorCategory)
+            else -> null
         }
 
     val actions: PendingVisitActions

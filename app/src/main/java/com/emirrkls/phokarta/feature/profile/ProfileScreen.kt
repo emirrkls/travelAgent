@@ -75,6 +75,7 @@ import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryEvent
 import com.emirrkls.phokarta.ui.components.PendingVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.RemoveFailedVisitDialog
 import com.emirrkls.phokarta.ui.components.ReplaceDraftDialog
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 
 @Composable
 fun ProfileScreen(
@@ -382,6 +383,10 @@ fun ProfileScreen(
             onRemove = {
                 removeTargetMutationId = pending.pending.mutationId
             },
+            onAcceptPolicy = {
+                viewModel.openPolicyForPendingVisit(pending.pending.mutationId)
+                selectedPending = null
+            },
         )
     }
     replaceDraftTarget?.let { (mutationId, placeId) ->
@@ -404,6 +409,12 @@ fun ProfileScreen(
             },
         )
     }
+    PolicyAcceptanceSheet(
+        state = state.policy,
+        onCheckedChange = viewModel::setPolicyChecked,
+        onAccept = viewModel::acceptCurrentPolicy,
+        onDismiss = viewModel::dismissPolicy,
+    )
 }
 
 @Composable

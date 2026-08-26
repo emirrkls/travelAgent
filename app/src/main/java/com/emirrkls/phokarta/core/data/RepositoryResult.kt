@@ -16,16 +16,31 @@ sealed interface TravelError {
     data class Forbidden(override val message: String? = null) : TravelError
     data class NotFound(override val message: String? = null) : TravelError
     data class Conflict(override val message: String? = null) : TravelError
+    data class PolicyAcceptanceRequired(
+        val requiredVersion: String,
+        override val message: String? = null,
+    ) : TravelError
     data class Server(val status: Int, override val message: String? = null) : TravelError
     data class Unknown(override val message: String? = null) : TravelError
 }
+
+internal const val POLICY_ACCEPTANCE_REQUIRED_CODE = "POLICY_ACCEPTANCE_REQUIRED"
 
 internal fun NetworkError.toTravelError(): TravelError = when (this) {
     NetworkError.Connection -> TravelError.Offline()
     NetworkError.Timeout -> TravelError.Timeout()
     is NetworkError.Validation -> TravelError.Validation(apiError?.message)
     is NetworkError.Unauthorized -> TravelError.Unknown(apiError?.message)
-    is NetworkError.Forbidden -> TravelError.Forbidden(apiError?.message)
+    is NetworkError.Forbidden -> {
+        if (apiError?.code == POLICY_ACCEPTANCE_REQUIRED_CODE) {
+            TravelError.PolicyAcceptanceRequired(
+                requiredVersion = apiError.requiredVersion.orEmpty(),
+                message = apiError.message,
+            )
+        } else {
+            TravelError.Forbidden(apiError?.message)
+        }
+    }
     is NetworkError.NotFound -> TravelError.NotFound(apiError?.message)
     is NetworkError.Conflict -> TravelError.Conflict(apiError?.message)
     is NetworkError.Server -> TravelError.Server(status, apiError?.message)

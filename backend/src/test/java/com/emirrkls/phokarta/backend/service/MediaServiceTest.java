@@ -59,7 +59,7 @@ class MediaServiceTest {
                 Duration.ofMinutes(10), Duration.ofHours(48), 100, Duration.ofHours(1),
                 Duration.ofMinutes(2));
         service = new MediaService(assets, visitMedia, users, follows, blocks, storage, properties,
-                new ApplicationMetrics(new SimpleMeterRegistry()), cleanupClaims);
+                new ApplicationMetrics(new SimpleMeterRegistry()), cleanupClaims, mock(UgcPolicyService.class));
         ownerId = UUID.randomUUID();
         owner = new User(ownerId, "owner@example.test", "owner", "Owner", null,
                 OffsetDateTime.now(ZoneOffset.UTC));

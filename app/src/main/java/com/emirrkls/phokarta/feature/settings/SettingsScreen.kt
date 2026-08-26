@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.BuildConfig
@@ -111,6 +112,15 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            Text(
+                stringResource(R.string.settings_legal),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+            PolicyLinkRow(stringResource(R.string.policy_terms), BuildConfig.PHOKARTA_TERMS_URL)
+            PolicyLinkRow(stringResource(R.string.policy_guidelines), BuildConfig.PHOKARTA_COMMUNITY_GUIDELINES_URL)
+            PolicyLinkRow(stringResource(R.string.policy_privacy), BuildConfig.PHOKARTA_PRIVACY_URL)
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(
                 stringResource(R.string.settings_account),
@@ -294,6 +304,37 @@ fun LanguageSettingsContent(modifier: Modifier = Modifier) {
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PolicyLinkRow(label: String, url: String) {
+    val uriHandler = LocalUriHandler.current
+    val unpublished = stringResource(R.string.policy_link_unpublished)
+    val enabled = url.isNotBlank()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(
+                if (enabled) {
+                    Modifier.clickable { uriHandler.openUri(url) }
+                } else {
+                    Modifier
+                },
+            )
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (!enabled) {
+                Text(
+                    unpublished,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

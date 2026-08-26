@@ -1,8 +1,10 @@
 package com.emirrkls.phokarta.backend.integration;
 
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -51,6 +53,11 @@ class AuthIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private JdbcTemplate jdbc;
+
+    @BeforeEach
+    void acceptDemoUserPolicy() {
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, DEMO_USER);
+    }
 
     @Test
     void registerLoginMeAndLogoutFlow() throws Exception {

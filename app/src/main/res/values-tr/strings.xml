@@ -115,6 +115,7 @@
     <string name="error_server">Hizmet geçici olarak kullanılamıyor. Lütfen tekrar dene.</string>
     <string name="error_unknown">Bir şeyler ters gitti. Lütfen tekrar dene.</string>
     <string name="error_generic">Bir şeyler ters gitti</string>
+    <string name="error_policy_acceptance_required">İçerik oluşturmadan veya yüklemeden önce güncel Kullanıcı Politikasını kabul et.</string>
 
     <string name="auth_sign_in">Giriş yap</string>
     <string name="auth_register">Hesap oluştur</string>
@@ -262,11 +263,13 @@
     <string name="sync_failure_not_found">Bu mekân artık kullanılamıyor.</string>
     <string name="sync_failure_idempotency">Bu ziyaret güvenli şekilde senkronize edilemedi.</string>
     <string name="sync_failure_generic">Bu ziyaret senkronize edilemedi.</string>
+    <string name="sync_failure_policy_acceptance">Güncel Kullanıcı Politikasını kabul et, sonra yayını tekrar dene.</string>
     <string name="a11y_edit_and_retry">Başarısız ziyareti düzenle ve tekrar yayınla</string>
     <string name="a11y_remove_failed_visit">Başarısız ziyareti bu cihazdan kaldır</string>
     <string name="a11y_confirm_remove_failed_visit">Başarısız ziyareti kaldırmayı onayla</string>
     <string name="a11y_replace_draft">Mevcut ziyaret taslağını değiştir</string>
     <string name="a11y_retry_sync">Ziyaret senkronizasyonunu tekrar dene</string>
+    <string name="a11y_accept_policy">Yayına devam etmek için Kullanıcı Politikasını kabul et</string>
     <string name="a11y_pending_visit_detail">Bekleyen ziyaret ayrıntılarını aç</string>
     <string name="see_it_on_your_profile">Profilinde gör</string>
     <string name="back_to_explore">Keşfet\'e dön</string>
@@ -328,6 +331,20 @@
     <string name="delete_account_failed">Hesap silinemedi. Tekrar dene.</string>
     <string name="delete_account_in_progress">Hesap siliniyor</string>
     <string name="settings_privacy">Gizlilik</string>
+    <string name="settings_legal">Politikalar</string>
+    <string name="policy_terms">Kullanım Koşulları / Kullanıcı Politikası</string>
+    <string name="policy_guidelines">Topluluk Kuralları</string>
+    <string name="policy_privacy">Gizlilik Politikası</string>
+    <string name="policy_link_unpublished">Henüz yayımlanmadı</string>
+    <string name="policy_accept_title">Kullanıcı Politikası</string>
+    <string name="policy_accept_intro">Ziyaret, değerlendirme veya fotoğraf yayımlamadan önce güncel Kullanıcı Politikasını ve Topluluk Kurallarını kabul et. Bu bir beta teknik kapıdır. Nihai hukuki metin hâlâ sahip/hukuk incelemesi gerektirir.</string>
+    <string name="policy_guidelines_draft_label">SAHİP/HUKUK İNCELEMESİ GEREKLİ — beta taslak</string>
+    <string name="policy_guidelines_draft_body">Taciz, nefret veya istismar, tehdit veya şiddet, yasaklı cinsel veya müstehcen içerik, kimliğe bürünme, gizlilik ihlalleri veya spam paylaşma. Bu politikayı kabul etmemiş olsan da şikayet ve engelleme kullanılabilir.</string>
+    <string name="policy_open_terms">Kullanım Koşullarını aç</string>
+    <string name="policy_open_guidelines">Topluluk Kurallarını aç</string>
+    <string name="policy_urls_unpublished">Kamuya açık Koşullar ve Kurallar sayfaları henüz barındırılmıyor. Uygulama içi taslak nihai hukuki metin değildir.</string>
+    <string name="policy_accept_checkbox">Güncel Kullanıcı Politikasını ve Topluluk Kurallarını kabul ediyorum</string>
+    <string name="policy_accept_action">Kabul et</string>
     <string name="blocked_users">Engellenen kullanıcılar</string>
     <string name="blocked_users_empty">Engellenen kullanıcı yok</string>
     <string name="action_block_user">Kullanıcıyı engelle</string>

@@ -49,12 +49,13 @@ public class MediaService {
     private final MediaProperties properties;
     private final ApplicationMetrics metrics;
     private final MediaCleanupClaims cleanupClaims;
+    private final UgcPolicyService ugcPolicy;
 
     public MediaService(MediaAssetRepository assets, VisitMediaRepository visitMedia,
                         UserRepository users, UserFollowRepository follows,
                         BlockService blocks, ObjectStorageService storage,
                         MediaProperties properties, ApplicationMetrics metrics,
-                        MediaCleanupClaims cleanupClaims) {
+                        MediaCleanupClaims cleanupClaims, UgcPolicyService ugcPolicy) {
         this.assets = assets;
         this.visitMedia = visitMedia;
         this.users = users;
@@ -64,12 +65,14 @@ public class MediaService {
         this.properties = properties;
         this.metrics = metrics;
         this.cleanupClaims = cleanupClaims;
+        this.ugcPolicy = ugcPolicy;
     }
 
     @Transactional
     public MediaUploadIntentResponse createUploadIntent(UUID ownerId, MediaUploadIntentRequest request) {
-        requireEnabled();
         users.lockAccount(ownerId);
+        ugcPolicy.requireAccepted(ownerId);
+        requireEnabled();
         validateMetadata(request);
         assets.lockClientMedia(ownerId, request.clientMediaId());
         MediaAsset asset = assets.findByOwnerIdAndClientMediaId(ownerId, request.clientMediaId())
@@ -111,8 +114,9 @@ public class MediaService {
 
     @Transactional
     public MediaStateResponse confirm(UUID ownerId, UUID mediaId) {
-        requireEnabled();
         users.lockAccount(ownerId);
+        ugcPolicy.requireAccepted(ownerId);
+        requireEnabled();
         MediaAsset asset = assets.findByIdForUpdate(mediaId)
                 .orElseThrow(() -> ApiException.notFound("Media", mediaId));
         if (!asset.getOwner().getId().equals(ownerId)) {

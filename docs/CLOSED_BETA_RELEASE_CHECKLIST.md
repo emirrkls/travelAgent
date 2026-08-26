@@ -18,10 +18,11 @@ Status language: `[x]` done in repo, `[ ]` still required. External items stay u
 - [x] Portrait-only `MainActivity`
 - [x] No ads, IAP, Crashlytics, Firebase Analytics, or ad SDK
 - [x] Demo catalog no longer overlays Profile identity (bio/avatar/taste)
+- [x] `compileSdk` / `targetSdk` **36** (`minSdk` 26 unchanged)
+- [x] Versioned server-authoritative User Policy gate before Visit create, media upload/confirm, and collection create/add
 - [ ] Live `PHOKARTA_API_BASE_URL` for the beta host
 - [ ] Restricted production/release Maps Android key
 - [ ] Adaptive launcher icon + Play 512×512 icon (current asset is a 48dp vector)
-- [ ] Confirm targetSdk **36** if uploading a **new** app to Play on/after **31 August 2026** (see policy notes). Today the repo targets API **35**, which is compliant for new apps **until** that date.
 
 ## Build
 
@@ -42,7 +43,7 @@ Status language: `[x]` done in repo, `[ ]` still required. External items stay u
 
 ## Backend
 
-- [x] Staging Compose / prod profile / Flyway V11 documented
+- [x] Staging Compose / prod profile / Flyway **V12** documented
 - [x] Swagger disabled outside `dev`
 - [x] Account deletion + durable media cleanup
 - [x] Block/report APIs
@@ -76,8 +77,9 @@ Preferred environment: **one** beta backend (`staging` / `beta`). Do not create 
 - [x] Technical Data Safety inventory
 - [x] App Content notes (ads/IAP/UGC/audience)
 - [x] UGC: in-app report + block present
+- [x] Technical User Policy acceptance gate (server-authoritative version `2026-08-beta`; in-app checkbox + Accept)
+- [ ] Public Terms of Use / Community Guidelines HTTPS pages (owner/counsel; URLs still empty)
 - [ ] Legal privacy policy (owner/counsel)
-- [ ] Terms of use / Community Guidelines published and accepted at UGC creation (Play UGC policy)
 - [ ] Data Safety form reconciled with current Play Console questionnaire
 - [ ] Content rating questionnaire completed in Console
 - [ ] Target audience declared in Console (not Kids)

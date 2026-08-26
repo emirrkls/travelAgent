@@ -26,6 +26,7 @@ fun TravelError.toUserMessageRes(): Int = when (this) {
     is TravelError.Timeout -> R.string.error_timeout
     is TravelError.Validation -> R.string.error_validation
     is TravelError.Forbidden -> R.string.error_forbidden
+    is TravelError.PolicyAcceptanceRequired -> R.string.error_policy_acceptance_required
     is TravelError.NotFound -> R.string.error_not_found
     is TravelError.Conflict -> R.string.error_conflict
     is TravelError.Server -> if (status == 429) R.string.report_rate_limited else R.string.error_server

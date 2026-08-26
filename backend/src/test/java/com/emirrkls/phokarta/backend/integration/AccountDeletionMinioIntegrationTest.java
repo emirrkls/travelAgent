@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.backend.integration;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.service.AccountDeletionMediaCleanupService;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
@@ -286,8 +287,10 @@ class AccountDeletionMinioIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode session = objectMapper.readTree(result.getResponse().getContentAsString());
+        UUID id = UUID.fromString(session.get("user").get("id").asText());
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, id);
         return new Session(
-                UUID.fromString(session.get("user").get("id").asText()),
+                id,
                 session.get("accessToken").asText(),
                 session.get("refreshToken").asText());
     }

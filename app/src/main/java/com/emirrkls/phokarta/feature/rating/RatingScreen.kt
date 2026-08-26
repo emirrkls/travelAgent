@@ -81,6 +81,7 @@ import com.emirrkls.phokarta.ui.components.RatingControl
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -174,6 +175,12 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             },
         )
     }
+    PolicyAcceptanceSheet(
+        state = state.policy,
+        onCheckedChange = viewModel::setPolicyChecked,
+        onAccept = viewModel::acceptPolicy,
+        onDismiss = viewModel::dismissPolicy,
+    )
     if (showDatePicker) {
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = state.visitedAt.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),

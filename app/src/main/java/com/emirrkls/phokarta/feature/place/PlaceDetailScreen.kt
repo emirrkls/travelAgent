@@ -75,6 +75,7 @@ import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.PendingVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.RemoveFailedVisitDialog
 import com.emirrkls.phokarta.ui.components.ReplaceDraftDialog
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryEvent
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
@@ -660,6 +661,10 @@ fun PlaceDetailScreen(
             onRemove = {
                 removeTargetMutationId = pending.mutationId
             },
+            onAcceptPolicy = {
+                viewModel.openPolicyForPendingVisit(pending.mutationId)
+                selectedPending = null
+            },
         )
     }
     replaceDraftTarget?.let { (mutationId, placeId) ->
@@ -672,6 +677,12 @@ fun PlaceDetailScreen(
             },
         )
     }
+    PolicyAcceptanceSheet(
+        state = state.policy,
+        onCheckedChange = viewModel::setPolicyChecked,
+        onAccept = viewModel::acceptCurrentPolicy,
+        onDismiss = viewModel::dismissPolicy,
+    )
     removeTargetMutationId?.let { mutationId ->
         RemoveFailedVisitDialog(
             onDismiss = { removeTargetMutationId = null },

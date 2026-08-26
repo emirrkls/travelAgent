@@ -12,7 +12,9 @@ import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import com.emirrkls.phokarta.backend.service.CollectionService;
 import com.emirrkls.phokarta.backend.service.PlaceService;
 import com.emirrkls.phokarta.backend.service.VisitService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +70,11 @@ class PostgisIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EntityManager entityManager;
     @Autowired private MockMvc mockMvc;
+
+    @BeforeEach
+    void acceptDemoUserPolicy() {
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, DEMO_USER);
+    }
 
     @Test
     void persistsLongitudeAndLatitudeInPostgisCoordinateOrder() {

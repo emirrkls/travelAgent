@@ -284,7 +284,8 @@ data class ApiErrorDto(
     val code: String,
     val message: String,
     val path: String,
-    val fieldErrors: Map<String, String>,
+    val fieldErrors: Map<String, String> = emptyMap(),
+    val requiredVersion: String? = null,
 )
 
 @Serializable
@@ -420,4 +421,16 @@ data class ReportResponseDto(
     val reason: ReportReasonDto,
     val status: String,
     val createdAt: String,
+)
+
+@Serializable
+data class PolicyStatusDto(
+    val requiredVersion: String,
+    val acceptedVersion: String? = null,
+    val accepted: Boolean,
+)
+
+@Serializable
+data class PolicyAcceptanceRequestDto(
+    val policyVersion: String,
 )

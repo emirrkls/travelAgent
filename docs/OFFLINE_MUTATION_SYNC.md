@@ -9,9 +9,13 @@ per user and Place.
 
 `PENDING` is claimable. A worker claims it as `SYNCING`; interrupted `SYNCING` rows are reset at
 the start of the next unique drain. Transport failures, 408, 429, 5xx, and an ultimately failed
-401 are `FAILED_RETRYABLE`. Validation, forbidden, not found, and conflict responses are
-`FAILED_PERMANENT`. Manual retry returns either failure state to `PENDING`. Successful rows and
-their cascade-owned typed payload are deleted after local reconciliation.
+401 are `FAILED_RETRYABLE` and ask WorkManager to retry. Validation, forbidden, not found, and
+conflict responses are `FAILED_PERMANENT`. `POLICY_ACCEPTANCE_REQUIRED` is `FAILED_RETRYABLE` so
+the Visit stays recoverable after the user accepts the current policy, but `workManagerRetry` is
+false so WorkManager does not hammer the same 403. The drain also pauses further `PUBLISH_VISIT`
+rows in that run; Saved Place mutations still process. Manual retry after acceptance returns the
+row to `PENDING`. Successful rows and their cascade-owned typed payload are deleted after local
+reconciliation.
 
 One unique WorkManager job named `phokarta_mutation_sync` drains batches with a connected-network
 constraint and exponential backoff. A fresh trigger uses `REPLACE`, so login or relaunch can

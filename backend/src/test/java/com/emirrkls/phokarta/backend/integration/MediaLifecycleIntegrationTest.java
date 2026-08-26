@@ -11,6 +11,7 @@ import com.emirrkls.phokarta.backend.service.MediaCleanupClaims;
 import com.emirrkls.phokarta.backend.service.MediaService;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageService;
+import com.emirrkls.phokarta.backend.support.PolicyAcceptanceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +84,9 @@ class MediaLifecycleIntegrationTest {
         ensureUser(OWNER, "media_owner");
         ensureUser(VIEWER, "media_viewer");
         ensureUser(OTHER, "media_other");
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, OWNER);
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, VIEWER);
+        PolicyAcceptanceSupport.acceptCurrent(jdbc, OTHER);
         storage.reset();
     }
 

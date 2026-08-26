@@ -90,6 +90,20 @@ class FailedVisitRecoveryMapperTest {
         )
         assertTrue(retryable.showRetry)
         assertFalse(retryable.showEditAndRetry)
+        assertFalse(retryable.showAcceptPolicy)
+
+        val policy = FailedVisitRecoveryPolicy.actionsFor(
+            MutationStateValue.FAILED_RETRYABLE,
+            "POLICY_ACCEPTANCE_REQUIRED",
+        )
+        assertFalse(policy.showRetry)
+        assertFalse(policy.showEditAndRetry)
+        assertFalse(policy.showRemove)
+        assertTrue(policy.showAcceptPolicy)
+        assertEquals(
+            R.string.sync_failure_policy_acceptance,
+            SyncFailureReason.POLICY_ACCEPTANCE_REQUIRED.labelRes(),
+        )
     }
 
     private fun pendingVisitMutation(

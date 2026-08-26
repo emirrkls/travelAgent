@@ -28,7 +28,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> api(ApiException ex, HttpServletRequest request) {
-        return response(ex.status(), ex.code(), ex.getMessage(), request, Map.of());
+        return response(ex.status(), ex.code(), ex.getMessage(), request, Map.of(),
+                ex.requiredVersion());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -85,8 +86,15 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ApiError> response(HttpStatus status, String code, String message,
                                                HttpServletRequest request,
                                                Map<String, String> fields) {
+        return response(status, code, message, request, fields, null);
+    }
+
+    private ResponseEntity<ApiError> response(HttpStatus status, String code, String message,
+                                               HttpServletRequest request,
+                                               Map<String, String> fields,
+                                               String requiredVersion) {
         return ResponseEntity.status(status).body(new ApiError(OffsetDateTime.now(ZoneOffset.UTC),
                 status.value(), code, message, request.getRequestURI(),
-                RequestIdFilter.from(request), fields));
+                RequestIdFilter.from(request), fields, requiredVersion));
     }
 }

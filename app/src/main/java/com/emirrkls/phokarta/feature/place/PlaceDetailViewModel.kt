@@ -20,6 +20,7 @@ import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryCoordinator
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceUi
 import com.emirrkls.phokarta.core.media.MediaAccessRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,6 +70,7 @@ data class PlaceDetailUiState(
     val friendReviews: CommunityReviewsUiState = CommunityReviewsUiState(),
     val friendSummary: FriendSummaryUiState = FriendSummaryUiState(),
     val hasUnfinishedDraft: Boolean = false,
+    val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
 ) {
     val activeReviews: CommunityReviewsUiState
         get() = if (activeReviewScope == ActivityScope.FRIENDS) friendReviews else communityReviews
@@ -140,6 +142,7 @@ class PlaceDetailViewModel @Inject constructor(
             friendReviews = friendReviewsState,
             friendSummary = friendSummaryState,
             hasUnfinishedDraft = hasDraft,
+            policy = detailStatus.policy,
         )
     }.stateIn(
         viewModelScope,
@@ -165,6 +168,71 @@ class PlaceDetailViewModel @Inject constructor(
 
     fun retryMutation(mutationId: String) {
         viewModelScope.launch { recoveryCoordinator.retry(mutationId) }
+    }
+
+    private var pendingPolicyMutationId: String? = null
+
+    fun openPolicyForPendingVisit(mutationId: String) {
+        pendingPolicyMutationId = mutationId
+        viewModelScope.launch { showPolicyFromStatus() }
+    }
+
+    fun setPolicyChecked(checked: Boolean) {
+        status.update { it.copy(policy = it.policy.copy(checked = checked, error = null)) }
+    }
+
+    fun dismissPolicy() {
+        pendingPolicyMutationId = null
+        status.update { it.copy(policy = PolicyAcceptanceUi()) }
+    }
+
+    fun acceptCurrentPolicy() {
+        val policy = status.value.policy
+        if (!policy.visible || !policy.checked || policy.accepting) return
+        viewModelScope.launch {
+            status.update { it.copy(policy = it.policy.copy(accepting = true, error = null)) }
+            when (val result = repository.acceptPolicy(policy.requiredVersion)) {
+                is RepositoryResult.Success -> {
+                    val mutationId = pendingPolicyMutationId
+                    dismissPolicy()
+                    mutationId?.let { recoveryCoordinator.retry(it) }
+                }
+                is RepositoryResult.Failure -> {
+                    val error = if (result.error is TravelError.Offline || result.error is TravelError.Timeout) {
+                        com.emirrkls.phokarta.R.string.error_offline
+                    } else {
+                        result.error.toUserMessageRes()
+                    }
+                    status.update {
+                        it.copy(policy = it.policy.copy(accepting = false, error = error, checked = false))
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun showPolicyFromStatus(requiredVersion: String? = null) {
+        val version = requiredVersion?.takeIf { it.isNotBlank() } ?: run {
+            when (val result = repository.policyStatus()) {
+                is RepositoryResult.Success -> result.value.requiredVersion
+                is RepositoryResult.Failure -> {
+                    status.update {
+                        it.copy(
+                            membershipErrorMessage = result.error.toUserMessageRes(),
+                            isCreatingCollection = false,
+                        )
+                    }
+                    return
+                }
+            }
+        }
+        status.update {
+            it.copy(
+                policy = PolicyAcceptanceUi(visible = true, requiredVersion = version),
+                isCreatingCollection = false,
+                createCollectionError = null,
+            )
+        }
     }
 
     fun editAndRetryFailedVisit(mutationId: String, placeId: String) {
@@ -254,6 +322,8 @@ class PlaceDetailViewModel @Inject constructor(
                 is RepositoryResult.Failure -> {
                     if (!removing && result.error is TravelError.Conflict) {
                         repository.refreshCollectionDetail(collectionId)
+                    } else if (!removing && result.error is TravelError.PolicyAcceptanceRequired) {
+                        showPolicyFromStatus(result.error.requiredVersion)
                     } else {
                         status.update {
                             it.copy(membershipErrorMessage = result.error.toUserMessageRes())
@@ -297,6 +367,9 @@ class PlaceDetailViewModel @Inject constructor(
                             is RepositoryResult.Failure -> {
                                 if (add.error is TravelError.Conflict) {
                                     repository.refreshCollectionDetail(result.value.id)
+                                } else if (add.error is TravelError.PolicyAcceptanceRequired) {
+                                    showPolicyFromStatus(add.error.requiredVersion)
+                                    return@launch
                                 } else {
                                     status.update {
                                         it.copy(
@@ -313,11 +386,15 @@ class PlaceDetailViewModel @Inject constructor(
                         it.copy(isCreatingCollection = false, createCollectionError = null)
                     }
                 }
-                is RepositoryResult.Failure -> status.update {
-                    it.copy(
-                        isCreatingCollection = false,
-                        createCollectionError = result.error.toUserMessageRes(),
-                    )
+                is RepositoryResult.Failure -> if (result.error is TravelError.PolicyAcceptanceRequired) {
+                    showPolicyFromStatus(result.error.requiredVersion)
+                } else {
+                    status.update {
+                        it.copy(
+                            isCreatingCollection = false,
+                            createCollectionError = result.error.toUserMessageRes(),
+                        )
+                    }
                 }
             }
         }
@@ -445,6 +522,7 @@ class PlaceDetailViewModel @Inject constructor(
         val isCreatingCollection: Boolean = false,
         val createCollectionError: Int? = null,
         val shareText: String? = null,
+        val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
     )
 
     companion object {

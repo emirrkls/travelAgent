@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
+import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +30,7 @@ data class SecondaryUiState(
     val createCollectionError: Int? = null,
     val createdCollectionId: String? = null,
     val membershipError: Int? = null,
+    val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
 )
 
 @HiltViewModel
@@ -119,11 +121,24 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                         createCollectionError = null,
                     )
                 }
-                is RepositoryResult.Failure -> _uiState.update {
-                    it.copy(
-                        isCreatingCollection = false,
-                        createCollectionError = result.error.toUserMessageRes(),
-                    )
+                is RepositoryResult.Failure -> if (result.error is TravelError.PolicyAcceptanceRequired) {
+                    _uiState.update {
+                        it.copy(
+                            isCreatingCollection = false,
+                            createCollectionError = null,
+                            policy = PolicyAcceptanceUi(
+                                visible = true,
+                                requiredVersion = result.error.requiredVersion,
+                            ),
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isCreatingCollection = false,
+                            createCollectionError = result.error.toUserMessageRes(),
+                        )
+                    }
                 }
             }
         }
@@ -135,6 +150,35 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
 
     fun clearCreatedCollectionId() {
         _uiState.update { it.copy(createdCollectionId = null) }
+    }
+
+    fun setPolicyChecked(checked: Boolean) {
+        _uiState.update { it.copy(policy = it.policy.copy(checked = checked, error = null)) }
+    }
+
+    fun dismissPolicy() {
+        _uiState.update { it.copy(policy = PolicyAcceptanceUi()) }
+    }
+
+    fun acceptCurrentPolicy() {
+        val policy = _uiState.value.policy
+        if (!policy.visible || !policy.checked || policy.accepting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(policy = it.policy.copy(accepting = true, error = null)) }
+            when (val result = repository.acceptPolicy(policy.requiredVersion)) {
+                is RepositoryResult.Success -> dismissPolicy()
+                is RepositoryResult.Failure -> {
+                    val error = if (result.error is TravelError.Offline || result.error is TravelError.Timeout) {
+                        com.emirrkls.phokarta.R.string.error_offline
+                    } else {
+                        result.error.toUserMessageRes()
+                    }
+                    _uiState.update {
+                        it.copy(policy = it.policy.copy(accepting = false, error = error, checked = false))
+                    }
+                }
+            }
+        }
     }
 
     fun removePlaceFromCollection(collectionId: String, placeId: String) {

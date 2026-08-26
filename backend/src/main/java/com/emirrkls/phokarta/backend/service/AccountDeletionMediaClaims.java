@@ -41,7 +41,16 @@ public class AccountDeletionMediaClaims {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markAwaitingFinal(UUID id, OffsetDateTime nextAttemptAt) {
+        jobs.findById(id).ifPresent(job -> job.markAwaitingFinal(nextAttemptAt));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailure(UUID id, String errorCategory) {
-        jobs.findById(id).ifPresent(job -> job.markError(errorCategory));
+        jobs.findById(id).ifPresent(job -> {
+            if (!job.isAwaitingFinal()) {
+                job.markError(errorCategory);
+            }
+        });
     }
 }

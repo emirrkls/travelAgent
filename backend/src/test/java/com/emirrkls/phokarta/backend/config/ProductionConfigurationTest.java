@@ -119,7 +119,8 @@ class ProductionConfigurationTest {
                 "phokarta.media.read-ttl=10m",
                 "phokarta.media.unattached-ttl=48h",
                 "phokarta.media.cleanup-batch-size=100",
-                "phokarta.media.cleanup-interval=1h"
+                "phokarta.media.cleanup-interval=1h",
+                "phokarta.media.deletion-verify-grace=2m"
         };
     }
 

@@ -11,6 +11,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "account_deletion_media_jobs")
 public class AccountDeletionMediaJob {
+    public static final String AWAITING_FINAL = "awaiting_final";
+    public static final String STORAGE_ERROR = "storage_error";
 
     @Id
     private UUID id;
@@ -30,6 +32,13 @@ public class AccountDeletionMediaJob {
     @Column(name = "next_attempt_at", nullable = false)
     private OffsetDateTime nextAttemptAt;
 
+    /**
+     * Retryable error ({@code storage_error}) or the phase sentinel
+     * {@link #AWAITING_FINAL} after a successful initial object delete.
+     * V10 has no dedicated phase column; {@code awaiting_final} is never used
+     * as an error category, so the encoding is unambiguous. Attempt count is
+     * only a lease/retry counter.
+     */
     @Column(name = "last_error_category", length = 40)
     private String lastErrorCategory;
 
@@ -61,5 +70,14 @@ public class AccountDeletionMediaJob {
 
     public void markError(String errorCategory) {
         this.lastErrorCategory = errorCategory;
+    }
+
+    public boolean isAwaitingFinal() {
+        return AWAITING_FINAL.equals(lastErrorCategory);
+    }
+
+    public void markAwaitingFinal(OffsetDateTime nextAttemptAt) {
+        this.lastErrorCategory = AWAITING_FINAL;
+        this.nextAttemptAt = nextAttemptAt;
     }
 }

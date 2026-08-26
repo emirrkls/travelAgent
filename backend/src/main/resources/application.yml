@@ -59,6 +59,10 @@ phokarta:
     unattached-ttl: ${PHOKARTA_MEDIA_UNATTACHED_TTL:48h}
     cleanup-batch-size: ${PHOKARTA_MEDIA_CLEANUP_BATCH_SIZE:100}
     cleanup-interval: ${PHOKARTA_MEDIA_CLEANUP_INTERVAL:1h}
+    # Extra wait after upload-ttl before the final object delete. Final job
+    # completion is created_at + upload-ttl + this grace, so a still-valid
+    # pre-deletion presigned PUT cannot recreate a permanent orphan.
+    deletion-verify-grace: ${PHOKARTA_MEDIA_DELETION_VERIFY_GRACE:2m}
 
 springdoc:
   api-docs:

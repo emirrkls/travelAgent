@@ -18,6 +18,7 @@ class ApplicationMetricsTest {
         metrics.authRateLimited("login");
         metrics.accountDeletion("success");
         metrics.accountMediaCleanup("deleted");
+        metrics.accountMediaCleanup("awaiting_final");
 
         assertThat(registry.get("phokarta.visit.create").tag("outcome", "success")
                 .counter().count()).isEqualTo(1);
@@ -30,6 +31,8 @@ class ApplicationMetricsTest {
         assertThat(registry.get("phokarta.account.deletion").tag("outcome", "success")
                 .counter().count()).isEqualTo(1);
         assertThat(registry.get("phokarta.account.media_cleanup").tag("outcome", "deleted")
+                .counter().count()).isEqualTo(1);
+        assertThat(registry.get("phokarta.account.media_cleanup").tag("outcome", "awaiting_final")
                 .counter().count()).isEqualTo(1);
     }
 }

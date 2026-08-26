@@ -40,8 +40,8 @@ Aggregates (community score/count, friend score, friends-who-visited, activity) 
 
 - Global Place rows.
 - Other users' accounts, Visits, Saved Places, and collections.
-- Durable `account_deletion_media_jobs` rows until object delete succeeds: `id`, `deletion_id` (random batch UUID), `storage_key`, timestamps, attempt count, optional error category. No email, username, review, or privateMemory.
-- Already issued object-storage signed GET URLs until their short TTL expires (bearer capability; default read TTL 10 minutes). New signed URLs are not issued after deletion.
+- Durable `account_deletion_media_jobs` rows until **final** object cleanup succeeds: `id`, `deletion_id` (random batch UUID), `storage_key`, timestamps, attempt count, and `last_error_category`. No email, username, review, or privateMemory.
+- Already issued object-storage signed **GET** URLs until their short TTL expires (bearer capability; default read TTL 10 minutes). New signed read URLs are not issued after deletion.
 - Application metrics with low-cardinality outcome tags only.
 
 Same email may register again. Registration creates a new user UUID. Old Visits, Saved, social graph, and media do not reattach.
@@ -75,11 +75,46 @@ Visit create, media upload intent, and media confirm take the same account lock,
 
 ## Media cleanup
 
-A scheduled worker (same interval as orphan media cleanup, default 1 hour) claims due jobs with `FOR UPDATE SKIP LOCKED`, deletes the object, and removes the job. S3 `DeleteObject` is idempotent: a missing object is success. Temporary storage failures keep the job and retry later. The account is never restored.
+A scheduled worker (same interval as orphan media cleanup, default 1 hour) claims due jobs with `FOR UPDATE SKIP LOCKED` and deletes the object. S3 `DeleteObject` is idempotent: a missing object is success. Temporary storage failures keep the job and retry later. The account is never restored.
 
-Jobs are part of PostgreSQL backup. A restart resumes pending deletes.
+Jobs are part of PostgreSQL backup. A process/repository restart resumes pending deletes from the job table; there is no in-memory-only cleanup state.
 
-A previously issued signed read URL may work until TTL expiry. Authorization endpoints stop issuing new URLs immediately because media metadata and the user are gone. The same bearer-capability caveat applies to a previously issued upload PUT URL: if the object is written before cleanup runs, the durable job still deletes that key. A PUT that arrives after the job has already completed can leave an untracked object until bucket lifecycle or operational remediation; upload TTLs are short.
+### Lifecycle
+
+1. Account deletion copies storage keys and commits. The user is already inaccessible. No S3 I/O runs inside that transaction.
+2. **Initial delete:** the worker deletes the object and retains the job. `last_error_category` is set to `awaiting_final` (V10 has no phase column; this sentinel is not an error category). `next_attempt_at` is set to the final-verify instant. `attempt_count` is only a lease/retry counter.
+3. **Capability wait:** the job is not due again until that instant.
+4. **Final delete:** the worker deletes the same key again (absent = success) and only then removes the job.
+
+Physical bytes are usually gone after the initial delete (typically immediately after commit via the after-commit trigger, otherwise on the next due cleanup pass). The job itself remains until the final pass so a late upload cannot become a permanent untracked object.
+
+### Timing
+
+Final cleanup is due at:
+
+`job.created_at + phokarta.media.upload-ttl + phokarta.media.deletion-verify-grace`
+
+- `created_at` is account-deletion time (job insert).
+- `upload-ttl` is the configured presigned **PUT** lifetime (default 15 minutes, `PHOKARTA_MEDIA_UPLOAD_TTL`). Do not hardcode a second unrelated 15-minute constant.
+- `deletion-verify-grace` is a small safety margin for clock skew (default 2 minutes, `PHOKARTA_MEDIA_DELETION_VERIFY_GRACE`).
+
+That window covers a PUT issued immediately before deletion. If the first successful delete already happens after this instant (cleanup delayed), the worker treats that delete as final and removes the job.
+
+### Signed GET vs signed PUT
+
+These are different capabilities:
+
+| Capability | After account deletion |
+|---|---|
+| New signed **GET** | Not issued. `/api/v1/media/{mediaId}/access` returns 404 (metadata is gone). |
+| Already issued signed **GET** | May remain valid until the short **read** TTL (default 10 minutes). Phokarta does not revoke outstanding read URLs. |
+| Already issued signed **PUT** | May remain usable until the **upload** TTL. Durable cleanup stays active beyond that window and deletes the same key again, so a late PUT cannot leave a permanent untracked object. |
+
+A late PUT can recreate persistent bytes; a late GET cannot. That is why PUT is closed with delayed final delete and GET is left to TTL expiry.
+
+### Bounded cleanup
+
+There is no permanent tombstone. After final delete the job row is removed. Retryable storage failures keep a single job per storage key until success. Backlog remaining for `upload-ttl + deletion-verify-grace` after a deletion is expected, not a stall.
 
 ## Android
 
@@ -102,13 +137,13 @@ If the client never sees `204` but the server committed, the next refresh or `/m
 ## Operational verification
 
 - `phokarta.account.deletion` outcome: `success`, `invalid_password`, `already_gone`, `failure`
-- `phokarta.account.media_cleanup` outcome: `deleted`, `failed`
-- `phokarta.account.media_cleanup.backlog` gauge: pending job count
+- `phokarta.account.media_cleanup` outcome: `deleted` (job removed after final verify), `awaiting_final` (initial object delete succeeded, job retained), `failed`
+- `phokarta.account.media_cleanup.backlog` gauge: pending job count (includes jobs waiting for the upload-capability window)
 
-Warn if backlog grows across several cleanup intervals. Do not fail readiness because a cleanup job is retrying.
+Warn if backlog grows across several cleanup intervals after the capability window. Do not fail readiness because a cleanup job is retrying.
 
-Logs may include request id and `deletionId`. Do not log email, password, JWT, storage keys, signed URLs, or review/privateMemory.
+Logs may include request id, `deletionId`, and phase/outcome. Do not log email, password, JWT, storage keys, signed URLs, or review/privateMemory.
 
 ## Flyway
 
-Latest schema migration: **V10** (`account_deletion_media_jobs`). V1–V9 are unchanged. Production applies schema locations only. Fresh V1–V10 and V9→V10 upgrades are both supported.
+Latest schema migration: **V10** (`account_deletion_media_jobs`). V1–V10 are unchanged. Delayed final cleanup reuses `next_attempt_at` and `last_error_category` (`awaiting_final` phase sentinel). No V11. Production applies schema locations only. Fresh V1–V10 and V9→V10 upgrades are both supported.

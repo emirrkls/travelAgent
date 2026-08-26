@@ -55,7 +55,8 @@ class MediaServiceTest {
         MediaProperties properties = new MediaProperties(true, "test", "us-east-1", null,
                 true, "test", "test", 15L * 1024 * 1024, 20,
                 Set.of("image/jpeg", "image/png", "image/webp"), Duration.ofMinutes(15),
-                Duration.ofMinutes(10), Duration.ofHours(48), 100, Duration.ofHours(1));
+                Duration.ofMinutes(10), Duration.ofHours(48), 100, Duration.ofHours(1),
+                Duration.ofMinutes(2));
         service = new MediaService(assets, visitMedia, users, follows, storage, properties,
                 new ApplicationMetrics(new SimpleMeterRegistry()), cleanupClaims);
         ownerId = UUID.randomUUID();

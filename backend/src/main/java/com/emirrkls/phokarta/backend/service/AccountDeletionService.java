@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
@@ -36,18 +36,21 @@ public class AccountDeletionService {
     private final PasswordEncoder passwordEncoder;
     private final AccountDeletionMediaCleanupService mediaCleanup;
     private final ApplicationMetrics metrics;
+    private final Clock clock;
 
     public AccountDeletionService(UserRepository users, VisitMediaRepository visitMedia,
                                   AccountDeletionMediaJobRepository mediaJobs,
                                   PasswordEncoder passwordEncoder,
                                   AccountDeletionMediaCleanupService mediaCleanup,
-                                  ApplicationMetrics metrics) {
+                                  ApplicationMetrics metrics,
+                                  Clock clock) {
         this.users = users;
         this.visitMedia = visitMedia;
         this.mediaJobs = mediaJobs;
         this.passwordEncoder = passwordEncoder;
         this.mediaCleanup = mediaCleanup;
         this.metrics = metrics;
+        this.clock = clock;
     }
 
     @Transactional
@@ -61,7 +64,7 @@ public class AccountDeletionService {
         verifyReauthentication(user, request);
 
         UUID deletionId = UUID.randomUUID();
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime now = OffsetDateTime.now(clock);
         mediaJobs.enqueueOwnedMedia(userId, deletionId, now);
         visitMedia.deleteForUser(userId);
         int deleted = users.deleteUserById(userId);

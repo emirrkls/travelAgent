@@ -2,13 +2,17 @@ package com.emirrkls.phokarta.backend.integration;
 
 import com.emirrkls.phokarta.backend.api.dto.CreateVisitRequest;
 import com.emirrkls.phokarta.backend.api.dto.MediaUploadIntentRequest;
+import com.emirrkls.phokarta.backend.config.MediaProperties;
+import com.emirrkls.phokarta.backend.domain.entity.AccountDeletionMediaJob;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.service.AccountDeletionMediaCleanupService;
 import com.emirrkls.phokarta.backend.service.MediaService;
+import com.emirrkls.phokarta.backend.service.SavedPlaceService;
 import com.emirrkls.phokarta.backend.service.VisitService;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageException;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageService;
+import com.emirrkls.phokarta.backend.support.MutableClock;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,10 +76,14 @@ class AccountDeletionIntegrationTest {
     @Autowired private MediaService media;
     @Autowired private AccountDeletionMediaCleanupService cleanup;
     @Autowired private TestObjectStorage storage;
+    @Autowired private MediaProperties mediaProperties;
+    @Autowired private MutableClock clock;
+    @Autowired private SavedPlaceService savedPlaces;
 
     @BeforeEach
     void resetStorage() {
         storage.reset();
+        clock.resetToNow();
     }
 
     @Test
@@ -153,6 +161,8 @@ class AccountDeletionIntegrationTest {
         assertThat(count("media_assets", "owner_user_id", a.id)).isZero();
         String mediaKey = storage.keyFor(intent.mediaId());
         assertThat(storage.objects.containsKey(mediaKey)).isFalse();
+        assertJobAwaitingFinal(mediaKey);
+        completeFinalCleanup();
         assertThat(jdbc.queryForObject(
                 "select count(*) from account_deletion_media_jobs where storage_key = ?",
                 Integer.class, mediaKey)).isZero();
@@ -329,10 +339,12 @@ class AccountDeletionIntegrationTest {
                 where storage_key = ?
                 """, key);
         cleanup.processDueJobs();
+        assertThat(storage.objects.containsKey(key)).isFalse();
+        assertJobAwaitingFinal(key);
+        completeFinalCleanup();
         assertThat(jdbc.queryForObject(
                 "select count(*) from account_deletion_media_jobs where storage_key = ?",
                 Integer.class, key)).isZero();
-        assertThat(storage.objects.containsKey(key)).isFalse();
     }
 
     @Test
@@ -346,10 +358,107 @@ class AccountDeletionIntegrationTest {
 
         deleteAccount(a);
         cleanup.processDueJobs();
+        assertJobAwaitingFinal(key);
+        completeFinalCleanup();
 
         assertThat(jdbc.queryForObject(
                 "select count(*) from account_deletion_media_jobs where storage_key = ?",
                 Integer.class, key)).isZero();
+    }
+
+    @Test
+    void latePresignedPutIsDeletedAfterUploadCapabilityExpires() throws Exception {
+        Session a = register("latePut");
+        UUID clientMedia = UUID.randomUUID();
+        var intent = media.createUploadIntent(a.id,
+                new MediaUploadIntentRequest(clientMedia, "image/jpeg", 64L, 4, 4));
+        storage.upload(intent.mediaId(), a.id, "image/jpeg", 64);
+        String key = storage.keyFor(intent.mediaId());
+
+        deleteAccount(a);
+
+        assertThat(count("users", "id", a.id)).isZero();
+        assertThat(count("media_assets", "owner_user_id", a.id)).isZero();
+        assertThat(storage.objects.containsKey(key)).isFalse();
+        assertJobAwaitingFinal(key);
+
+        storage.objects.put(key, new ObjectStorageService.StoredObject(64, "image/jpeg", "late"));
+        assertThat(storage.objects.containsKey(key)).isTrue();
+
+        cleanup.processDueJobs();
+        assertThat(storage.objects.containsKey(key)).isTrue();
+        assertJobAwaitingFinal(key);
+
+        completeFinalCleanup();
+
+        assertThat(storage.objects.containsKey(key)).isFalse();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from account_deletion_media_jobs where storage_key = ?",
+                Integer.class, key)).isZero();
+    }
+
+    @Test
+    void cleanupJobSurvivesRestartUntilFinalVerify() throws Exception {
+        Session a = register("restart");
+        UUID clientMedia = UUID.randomUUID();
+        var intent = media.createUploadIntent(a.id,
+                new MediaUploadIntentRequest(clientMedia, "image/jpeg", 40L, 4, 4));
+        storage.upload(intent.mediaId(), a.id, "image/jpeg", 40);
+        String key = storage.keyFor(intent.mediaId());
+
+        deleteAccount(a);
+        assertJobAwaitingFinal(key);
+        UUID deletionId = jdbc.queryForObject(
+                "select deletion_id from account_deletion_media_jobs where storage_key = ?",
+                UUID.class, key);
+
+        cleanup.processDueJobs();
+        assertThat(jdbc.queryForObject(
+                "select deletion_id from account_deletion_media_jobs where storage_key = ?",
+                UUID.class, key)).isEqualTo(deletionId);
+        assertJobAwaitingFinal(key);
+
+        completeFinalCleanup();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from account_deletion_media_jobs where storage_key = ?",
+                Integer.class, key)).isZero();
+        assertThat(storage.objects.containsKey(key)).isFalse();
+    }
+
+    @Test
+    void mediaAccessAfterDeletionDoesNotIssueSignedUrl() throws Exception {
+        Session a = register("accessA");
+        Session b = register("accessB");
+        UUID place = insertPlace("Access Place", PlaceCategory.RESTAURANT, 28.4, 38.4);
+        UUID clientMedia = UUID.randomUUID();
+        var intent = media.createUploadIntent(a.id,
+                new MediaUploadIntentRequest(clientMedia, "image/jpeg", 70L, 6, 6));
+        storage.upload(intent.mediaId(), a.id, "image/jpeg", 70);
+        media.confirm(a.id, intent.mediaId());
+        visits.create(a.id, visitWithMedia(place, LocalDate.of(2026, 7, 1), 8.0,
+                Visibility.PUBLIC, List.of(intent.mediaId())));
+
+        mockMvc.perform(get("/api/v1/media/{mediaId}/access", intent.mediaId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").isString());
+
+        deleteAccount(a);
+
+        mockMvc.perform(get("/api/v1/media/{mediaId}/access", intent.mediaId()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/media/{mediaId}/access", intent.mediaId())
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/media/{mediaId}/access", intent.mediaId())
+                        .header("Authorization", "Bearer " + b.access))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + a.refresh + "\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
     }
 
     @Test
@@ -383,6 +492,89 @@ class AccountDeletionIntegrationTest {
         assertThat(count("users", "id", a.id)).isZero();
         assertThat(count("visits", "user_id", a.id)).isZero();
         assertThat(visitOutcome.get()).isNotZero();
+    }
+
+    @Test
+    void concurrentSavedPlaceDoesNotSurviveDeletedUser() throws Exception {
+        Session a = register("savedRace");
+        UUID place = insertPlace("Saved Race Place", PlaceCategory.CAFE, 28.5, 38.5);
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        Future<?> deletion = executor.submit(() -> {
+            start.await();
+            deleteAccount(a);
+            return null;
+        });
+        AtomicInteger saveOutcome = new AtomicInteger();
+        Future<?> save = executor.submit(() -> {
+            start.await();
+            try {
+                savedPlaces.save(a.id, place);
+                saveOutcome.set(1);
+            } catch (RuntimeException ex) {
+                saveOutcome.set(-1);
+            }
+            return null;
+        });
+        start.countDown();
+        deletion.get(20, TimeUnit.SECONDS);
+        save.get(20, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        assertThat(count("users", "id", a.id)).isZero();
+        assertThat(count("saved_places", "user_id", a.id)).isZero();
+        assertThat(saveOutcome.get()).isNotZero();
+    }
+
+    @Test
+    void concurrentMediaConfirmDoesNotSurviveDeletedUser() throws Exception {
+        Session a = register("confirmRace");
+        UUID clientMedia = UUID.randomUUID();
+        var intent = media.createUploadIntent(a.id,
+                new MediaUploadIntentRequest(clientMedia, "image/jpeg", 55L, 5, 5));
+        storage.upload(intent.mediaId(), a.id, "image/jpeg", 55);
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        Future<?> deletion = executor.submit(() -> {
+            start.await();
+            deleteAccount(a);
+            return null;
+        });
+        AtomicInteger confirmOutcome = new AtomicInteger();
+        Future<?> confirmation = executor.submit(() -> {
+            start.await();
+            try {
+                media.confirm(a.id, intent.mediaId());
+                confirmOutcome.set(1);
+            } catch (RuntimeException ex) {
+                confirmOutcome.set(-1);
+            }
+            return null;
+        });
+        start.countDown();
+        deletion.get(20, TimeUnit.SECONDS);
+        confirmation.get(20, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        assertThat(count("users", "id", a.id)).isZero();
+        assertThat(count("media_assets", "owner_user_id", a.id)).isZero();
+        assertThat(confirmOutcome.get()).isNotZero();
+    }
+
+    private void completeFinalCleanup() {
+        clock.advance(mediaProperties.uploadTtl()
+                .plus(mediaProperties.deletionVerifyGrace())
+                .plusSeconds(1));
+        cleanup.processDueJobs();
+    }
+
+    private void assertJobAwaitingFinal(String key) {
+        assertThat(jdbc.queryForObject(
+                "select last_error_category from account_deletion_media_jobs where storage_key = ?",
+                String.class, key)).isEqualTo(AccountDeletionMediaJob.AWAITING_FINAL);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from account_deletion_media_jobs where storage_key = ?",
+                Integer.class, key)).isEqualTo(1);
     }
 
     private void deleteAccount(Session session) throws Exception {
@@ -477,6 +669,12 @@ class AccountDeletionIntegrationTest {
         @Primary
         TestObjectStorage testObjectStorage() {
             return new TestObjectStorage();
+        }
+
+        @Bean
+        @Primary
+        MutableClock testClock() {
+            return new MutableClock();
         }
     }
 

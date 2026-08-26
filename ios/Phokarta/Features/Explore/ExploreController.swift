@@ -169,17 +169,19 @@ final class ExploreController {
 
     private func enrich(items: [ExplorePlaceItem], requestID: UInt64) async {
         let ids = items.map(\.id)
+        let cachedSavedIDs = savedIDs
+        let cachedVisits = Array(visitsByPlace.values)
         async let metricsResult: [FriendPlaceMetrics] = {
             do { return try await placesService.friendMetrics(placeIds: ids) }
             catch { return [] }
         }()
         async let savedResult: Set<UUID> = {
             do { return try await placesService.savedPlaceIDs() }
-            catch { return savedIDs }
+            catch { return cachedSavedIDs }
         }()
         async let visitsResult: [OwnerVisitSummary] = {
             do { return try await placesService.ownerVisits() }
-            catch { return Array(visitsByPlace.values) }
+            catch { return cachedVisits }
         }()
 
         let metrics = await metricsResult

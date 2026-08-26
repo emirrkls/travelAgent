@@ -1,6 +1,6 @@
 #!/bin/sh
-# Xcode Cloud post-clone hook (ios/ci_scripts/ci_post_clone.sh).
-# Working directory when Cloud runs this file is ci_scripts/.
+# Xcode Cloud post-clone hook. The committed project is intentionally used
+# directly; project.yml remains authoritative for regeneration on a Mac.
 set -e
 
 ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)}"
@@ -14,30 +14,10 @@ if [ ! -f "$IOS/project.yml" ]; then
   exit 1
 fi
 
-cd "$IOS"
-
-generate() {
-  xcodegen generate --spec "$IOS/project.yml"
-}
-
-if command -v xcodegen >/dev/null 2>&1; then
-  echo "Regenerating Phokarta.xcodeproj with xcodegen"
-  generate
-  exit 0
+if [ ! -f "$IOS/Phokarta.xcodeproj/project.pbxproj" ]; then
+  echo "error: committed ios/Phokarta.xcodeproj is missing"
+  echo "Regenerate it from ios/project.yml on a Mac and commit the result."
+  exit 1
 fi
 
-if [ -d "$IOS/Phokarta.xcodeproj" ]; then
-  echo "xcodegen not installed; using committed Phokarta.xcodeproj"
-  exit 0
-fi
-
-if command -v brew >/dev/null 2>&1; then
-  echo "xcodegen missing and no committed project; trying Homebrew (not guaranteed)"
-  brew install xcodegen
-  generate
-  exit 0
-fi
-
-echo "error: no Phokarta.xcodeproj and xcodegen is unavailable."
-echo "Generate and commit the Xcode project from a Mac first. See docs/XCODE_CLOUD.md"
-exit 1
+echo "Using committed ios/Phokarta.xcodeproj (XcodeGen is not required in CI)"

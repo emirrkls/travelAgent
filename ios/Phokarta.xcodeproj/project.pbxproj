@@ -1,0 +1,815 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00301CD6EE1125FADF391AFB /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */; };
+		00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */; };
+		013BFA3653087876597AC8BB /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96E3E19DDC86EC178608DC1 /* AppError.swift */; };
+		019D94815ED6BB5241A57C7D /* PlaceDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA19CBE534A9DECC9CFEB1C /* PlaceDetailComponents.swift */; };
+		0544D606158D7A0BD4536FCE /* AuthState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0349CA9D5CF622B7E5E93F46 /* AuthState.swift */; };
+		09B41BE415161CE00AE99252 /* PlaceServiceAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6819C035B7EA6A2556DAB2 /* PlaceServiceAuthTests.swift */; };
+		1C6D0F8DAB5F2AD5CEB5D886 /* PlaceDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2793E8608341072430FB5A /* PlaceDetailScreen.swift */; };
+		1F347286A131EA805E3DB70D /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A005F9E03D57867A1A1EF368 /* AppLog.swift */; };
+		206D5CD842B5F29371C8EF18 /* PlaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE1ACEC8C2DE22A7967CF10 /* PlaceModels.swift */; };
+		2338E52D323AE91DAEA797CB /* ExploreState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209E1D2787955E8808F7B00A /* ExploreState.swift */; };
+		29E5DEA3ADF03D391F730BA6 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */; };
+		2F2A72BC8FF186E55C5AEDCD /* ConcurrentRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DEDE4CB575378EDB7C36AD /* ConcurrentRefreshTests.swift */; };
+		34215BEAC51D24E816173346 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0600377D52460F51182B7EB0 /* Assets.xcassets */; };
+		37E633F2727FCA649633C0F0 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4949C5EC6020864D819CEB37 /* SessionStore.swift */; };
+		3B2249D5433AA5E0FAC2CB41 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E318FEE1813E01ACE394B75B /* Tokens.swift */; };
+		3BA4A661EEAACAE9D5CEC426 /* PlaceDetailState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CC6CAFECFE0FEB94E68730B /* PlaceDetailState.swift */; };
+		3CD27B344A64473E88427663 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFF753A7F7FC083F300361E /* AuthRepository.swift */; };
+		4A6C138339A77D3BFC27356C /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B535D30DF977344C97C124F /* AppConfigTests.swift */; };
+		4BACF213DE8F37066E0656EF /* PlaceDetailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51477A6F6A9615EB27D1D486 /* PlaceDetailController.swift */; };
+		55F9772590C8666AE8B1C0F3 /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D6B570E17E2E98F4550F23 /* RegisterView.swift */; };
+		63C9B3F8828FEEFAB3CE65F1 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A068EF54D3A98FE136E34C /* AppEnvironment.swift */; };
+		68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */; };
+		6A955CC3FC974D0F2E9F2594 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82133562FCBEDA645BD22488 /* MainTabView.swift */; };
+		7089AA61B1F3306A7CCF2FEC /* AuthRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E16C76D106DD3F6A01489C4 /* AuthRepositoryTests.swift */; };
+		75EB440336EE8C1A50DECEEE /* HTTPTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDAE5112C3E695DABFE08F0 /* HTTPTransport.swift */; };
+		7602DDA5809E12520362E149 /* PlaceDetailControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F109542498B23D98C6C8C553 /* PlaceDetailControllerTests.swift */; };
+		78ACF7FB85EB1FCE25C3FC81 /* AuthSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B817C81F1183F8A55CB664D7 /* AuthSessionController.swift */; };
+		78D2014A47F5F897DC6CE4E9 /* ExploreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5042EA96F32CA627EC026422 /* ExploreModels.swift */; };
+		7F7D9858813AB766E6EB0258 /* AuthFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */; };
+		85A43F2F0F04CFD13B7E000F /* APIJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B24BDF52A7B78F03E51AD9 /* APIJSON.swift */; };
+		9066BF7A489777D3D6015EEF /* ExploreController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACEFFDAB7117F182D5A2CB8 /* ExploreController.swift */; };
+		9291B534D99F415520EF64AD /* ExploreControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D25380FDA2E20CA62B05AC2 /* ExploreControllerTests.swift */; };
+		9623A3B4790BF3906CCC9235 /* PlaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2849E407E6AB100EA63A388 /* PlaceService.swift */; };
+		97AA0E9AC1106B47F27977BB /* AuthFieldValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E1159FC11AC63141A2CB4A /* AuthFieldValidatorTests.swift */; };
+		9995D7F4C4738EADF7E22D3A /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A01BAD262C783640707BF90 /* Components.swift */; };
+		9A0D1FC8CD5DC8F08B471877 /* PlaceAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91ED509C36BC12C433706944 /* PlaceAPI.swift */; };
+		A5AF7E9453055BE9739E8BA8 /* PlaceDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8345FD28C77C2D520241E6 /* PlaceDetailModels.swift */; };
+		A6888BA4208BD390CFAA9F41 /* TokenRefreshCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA516F89A1D9511EB5FE68C7 /* TokenRefreshCoordinatorTests.swift */; };
+		ACC4A3225E528D8679FE8462 /* AuthFieldValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82CB9ACB3D2CD0F112C0531 /* AuthFieldValidator.swift */; };
+		AF6BD00F8528695628A1866E /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2105D228595321D97BC308E1 /* APIEndpoint.swift */; };
+		B0296755617A8E713E6CF79E /* PhokartaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9940056A4C39D4D369706FCF /* PhokartaApp.swift */; };
+		B1F6DA17F95C31EF9927DF62 /* ExploreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF0C18E5500BD2DB1DFA9C48 /* ExploreScreen.swift */; };
+		B31D3CCC2F15AB2CF8DD431C /* SessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB6FFA063BBC956CA272B36 /* SessionModels.swift */; };
+		B4EC5C6E700E6F43253AF592 /* RegisterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27E10FC2C1BA9AE99AE949F /* RegisterController.swift */; };
+		B56646F501D063E14C49C457 /* KeychainSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6FB31579270DAFD236AF3CA /* KeychainSessionStore.swift */; };
+		BC451F0E8796F4F8820F2F52 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D22DA486714C40DB176C7DA /* TestSupport.swift */; };
+		C91D6EF1E0B2B987AFAF62A3 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5D86E9ABC477EA75F439CF /* LoginView.swift */; };
+		C968CF9CE7AEB62F38242A67 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF97E55C25633D437F65D31 /* AppRoute.swift */; };
+		CBA5088510DC7AEE47248755 /* PlaceDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432E6086E5D4AAD87D2F7572 /* PlaceDecodingTests.swift */; };
+		CCDA69373BC20061D612AAAE /* InMemorySessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CF1B8E6C08D3E7949A9CE5 /* InMemorySessionStoreTests.swift */; };
+		D1C3AE050977B3137466B334 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0451A6C2D000C97E23171D82 /* RootView.swift */; };
+		D2C4ABF69224795B9A2440BE /* TokenRefreshCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED3F932A72FF29D0C15C260 /* TokenRefreshCoordinator.swift */; };
+		D8C720AF865C8053E82FDD4B /* AuthAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DA54DB7BF4634AE726303A9 /* AuthAPI.swift */; };
+		F95B977EFA2CE4EBBF6873D3 /* ExplorePlaceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900A94064F8AB4743EF02901 /* ExplorePlaceCard.swift */; };
+		FC2D8855803E6CBF3F814E4E /* LoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F187CC8AB06432CC70FD31 /* LoginController.swift */; };
+		FD1A5FA4C2790685CB08777D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEC6B56AF1CBE9BC8EEED9B6 /* APIClient.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CB2CE6A0EE082B28D673263F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 892A6226683C7C11511A9379 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1B9F4DD90439D6DE9B3E217C;
+			remoteInfo = Phokarta;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
+		0349CA9D5CF622B7E5E93F46 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
+		0451A6C2D000C97E23171D82 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		0600377D52460F51182B7EB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		07CBDD2D44800FEF9886C7DB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		09A068EF54D3A98FE136E34C /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		0C9E8DB2BEC242406C126C71 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		0DA19CBE534A9DECC9CFEB1C /* PlaceDetailComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailComponents.swift; sourceTree = "<group>"; };
+		1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		1E5D86E9ABC477EA75F439CF /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		1FF97E55C25633D437F65D31 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
+		209E1D2787955E8808F7B00A /* ExploreState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreState.swift; sourceTree = "<group>"; };
+		2105D228595321D97BC308E1 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
+		2ACEFFDAB7117F182D5A2CB8 /* ExploreController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreController.swift; sourceTree = "<group>"; };
+		2D25380FDA2E20CA62B05AC2 /* ExploreControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreControllerTests.swift; sourceTree = "<group>"; };
+		3BDAE5112C3E695DABFE08F0 /* HTTPTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPTransport.swift; sourceTree = "<group>"; };
+		3CC6CAFECFE0FEB94E68730B /* PlaceDetailState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailState.swift; sourceTree = "<group>"; };
+		432E6086E5D4AAD87D2F7572 /* PlaceDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDecodingTests.swift; sourceTree = "<group>"; };
+		43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		4949C5EC6020864D819CEB37 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		4A8345FD28C77C2D520241E6 /* PlaceDetailModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailModels.swift; sourceTree = "<group>"; };
+		4DA54DB7BF4634AE726303A9 /* AuthAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthAPI.swift; sourceTree = "<group>"; };
+		4ED3F932A72FF29D0C15C260 /* TokenRefreshCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshCoordinator.swift; sourceTree = "<group>"; };
+		5042EA96F32CA627EC026422 /* ExploreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreModels.swift; sourceTree = "<group>"; };
+		51477A6F6A9615EB27D1D486 /* PlaceDetailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailController.swift; sourceTree = "<group>"; };
+		5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIErrorDecodingTests.swift; sourceTree = "<group>"; };
+		6A01BAD262C783640707BF90 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		6BB6FFA063BBC956CA272B36 /* SessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModels.swift; sourceTree = "<group>"; };
+		6E16C76D106DD3F6A01489C4 /* AuthRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepositoryTests.swift; sourceTree = "<group>"; };
+		821026828B566C355EFAF995 /* PhokartaTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PhokartaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		82133562FCBEDA645BD22488 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		8B535D30DF977344C97C124F /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
+		8D22DA486714C40DB176C7DA /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
+		900A94064F8AB4743EF02901 /* ExplorePlaceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExplorePlaceCard.swift; sourceTree = "<group>"; };
+		91ED509C36BC12C433706944 /* PlaceAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAPI.swift; sourceTree = "<group>"; };
+		9940056A4C39D4D369706FCF /* PhokartaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhokartaApp.swift; sourceTree = "<group>"; };
+		A005F9E03D57867A1A1EF368 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
+		A6FB31579270DAFD236AF3CA /* KeychainSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSessionStore.swift; sourceTree = "<group>"; };
+		AEC6B56AF1CBE9BC8EEED9B6 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		AEFF753A7F7FC083F300361E /* AuthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepository.swift; sourceTree = "<group>"; };
+		B0D6B570E17E2E98F4550F23 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
+		B817C81F1183F8A55CB664D7 /* AuthSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionController.swift; sourceTree = "<group>"; };
+		BA2793E8608341072430FB5A /* PlaceDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailScreen.swift; sourceTree = "<group>"; };
+		BA516F89A1D9511EB5FE68C7 /* TokenRefreshCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshCoordinatorTests.swift; sourceTree = "<group>"; };
+		C5E1159FC11AC63141A2CB4A /* AuthFieldValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFieldValidatorTests.swift; sourceTree = "<group>"; };
+		C96E3E19DDC86EC178608DC1 /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
+		D2849E407E6AB100EA63A388 /* PlaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceService.swift; sourceTree = "<group>"; };
+		D3F187CC8AB06432CC70FD31 /* LoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginController.swift; sourceTree = "<group>"; };
+		D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIRequestEncodingTests.swift; sourceTree = "<group>"; };
+		D7CF1B8E6C08D3E7949A9CE5 /* InMemorySessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InMemorySessionStoreTests.swift; sourceTree = "<group>"; };
+		D82CB9ACB3D2CD0F112C0531 /* AuthFieldValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFieldValidator.swift; sourceTree = "<group>"; };
+		DF0C18E5500BD2DB1DFA9C48 /* ExploreScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreScreen.swift; sourceTree = "<group>"; };
+		E318FEE1813E01ACE394B75B /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		ECE1ACEC8C2DE22A7967CF10 /* PlaceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceModels.swift; sourceTree = "<group>"; };
+		ED6819C035B7EA6A2556DAB2 /* PlaceServiceAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceServiceAuthTests.swift; sourceTree = "<group>"; };
+		EDB7E037B653330EAA659E06 /* Phokarta.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Phokarta.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F109542498B23D98C6C8C553 /* PlaceDetailControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceDetailControllerTests.swift; sourceTree = "<group>"; };
+		F1DEDE4CB575378EDB7C36AD /* ConcurrentRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrentRefreshTests.swift; sourceTree = "<group>"; };
+		F27E10FC2C1BA9AE99AE949F /* RegisterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterController.swift; sourceTree = "<group>"; };
+		F7B24BDF52A7B78F03E51AD9 /* APIJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIJSON.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		07F4EEADD711E6B223956E97 /* Explore */ = {
+			isa = PBXGroup;
+			children = (
+				FD8543B9B65E36C4D8E27447 /* Components */,
+				2ACEFFDAB7117F182D5A2CB8 /* ExploreController.swift */,
+				5042EA96F32CA627EC026422 /* ExploreModels.swift */,
+				DF0C18E5500BD2DB1DFA9C48 /* ExploreScreen.swift */,
+				209E1D2787955E8808F7B00A /* ExploreState.swift */,
+			);
+			path = Explore;
+			sourceTree = "<group>";
+		};
+		121F16E032B0396980C6861B /* Phokarta */ = {
+			isa = PBXGroup;
+			children = (
+				F64362E0296F28E38C868349 /* App */,
+				3733E7FD69CABE971A2E1910 /* Core */,
+				36BCB926FAF7A714271E5228 /* Features */,
+				4DD35AC454085DA51CAE303C /* Resources */,
+			);
+			path = Phokarta;
+			sourceTree = "<group>";
+		};
+		1DED548B9C8B2706A0180305 = {
+			isa = PBXGroup;
+			children = (
+				A02F3B208C391DB2BAE6A934 /* Config */,
+				121F16E032B0396980C6861B /* Phokarta */,
+				97D9E3BED038DC84A3D43FE5 /* PhokartaTests */,
+				C7A4FB664CAE49161AFABF0F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1E4671D740F3A859E40A964F /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				AEC6B56AF1CBE9BC8EEED9B6 /* APIClient.swift */,
+				2105D228595321D97BC308E1 /* APIEndpoint.swift */,
+				F7B24BDF52A7B78F03E51AD9 /* APIJSON.swift */,
+				3BDAE5112C3E695DABFE08F0 /* HTTPTransport.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		1FB6F6E46C7E99AA4A81BD8C /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				0DA19CBE534A9DECC9CFEB1C /* PlaceDetailComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		2CDD0F6C502E126124253C4A /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		36BCB926FAF7A714271E5228 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				F107B6704DFD1AF8D3F959AF /* Auth */,
+				07F4EEADD711E6B223956E97 /* Explore */,
+				E80FC5B719825C4EE03E0A94 /* PlaceDetail */,
+				5E99B1F9C4226732A7EB80D5 /* Shell */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		36EB32C64820063D7551E4C3 /* Errors */ = {
+			isa = PBXGroup;
+			children = (
+				C96E3E19DDC86EC178608DC1 /* AppError.swift */,
+			);
+			path = Errors;
+			sourceTree = "<group>";
+		};
+		3733E7FD69CABE971A2E1910 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				72E0A15CAFA99B156C5909DC /* Auth */,
+				2CDD0F6C502E126124253C4A /* Config */,
+				CD9030B40D4DF172E8B1C487 /* DesignSystem */,
+				36EB32C64820063D7551E4C3 /* Errors */,
+				45427A9C42DEC5887A5048F1 /* Logging */,
+				D93DC218C59F742FD683D0AF /* Models */,
+				1E4671D740F3A859E40A964F /* Networking */,
+				C932839BA1CA00DFFF89047C /* Places */,
+				CF6B21DC10E6F11675F90BF3 /* Storage */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		45427A9C42DEC5887A5048F1 /* Logging */ = {
+			isa = PBXGroup;
+			children = (
+				A005F9E03D57867A1A1EF368 /* AppLog.swift */,
+			);
+			path = Logging;
+			sourceTree = "<group>";
+		};
+		4DD35AC454085DA51CAE303C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0600377D52460F51182B7EB0 /* Assets.xcassets */,
+				43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		5E99B1F9C4226732A7EB80D5 /* Shell */ = {
+			isa = PBXGroup;
+			children = (
+				82133562FCBEDA645BD22488 /* MainTabView.swift */,
+			);
+			path = Shell;
+			sourceTree = "<group>";
+		};
+		72E0A15CAFA99B156C5909DC /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				4DA54DB7BF4634AE726303A9 /* AuthAPI.swift */,
+				AEFF753A7F7FC083F300361E /* AuthRepository.swift */,
+				B817C81F1183F8A55CB664D7 /* AuthSessionController.swift */,
+				0349CA9D5CF622B7E5E93F46 /* AuthState.swift */,
+				4ED3F932A72FF29D0C15C260 /* TokenRefreshCoordinator.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
+			isa = PBXGroup;
+			children = (
+				5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */,
+				D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */,
+				8B535D30DF977344C97C124F /* AppConfigTests.swift */,
+				C5E1159FC11AC63141A2CB4A /* AuthFieldValidatorTests.swift */,
+				6E16C76D106DD3F6A01489C4 /* AuthRepositoryTests.swift */,
+				F1DEDE4CB575378EDB7C36AD /* ConcurrentRefreshTests.swift */,
+				2D25380FDA2E20CA62B05AC2 /* ExploreControllerTests.swift */,
+				D7CF1B8E6C08D3E7949A9CE5 /* InMemorySessionStoreTests.swift */,
+				432E6086E5D4AAD87D2F7572 /* PlaceDecodingTests.swift */,
+				F109542498B23D98C6C8C553 /* PlaceDetailControllerTests.swift */,
+				ED6819C035B7EA6A2556DAB2 /* PlaceServiceAuthTests.swift */,
+				8D22DA486714C40DB176C7DA /* TestSupport.swift */,
+				BA516F89A1D9511EB5FE68C7 /* TokenRefreshCoordinatorTests.swift */,
+			);
+			path = PhokartaTests;
+			sourceTree = "<group>";
+		};
+		A02F3B208C391DB2BAE6A934 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				0C9E8DB2BEC242406C126C71 /* Debug.xcconfig */,
+				07CBDD2D44800FEF9886C7DB /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		C7A4FB664CAE49161AFABF0F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EDB7E037B653330EAA659E06 /* Phokarta.app */,
+				821026828B566C355EFAF995 /* PhokartaTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C932839BA1CA00DFFF89047C /* Places */ = {
+			isa = PBXGroup;
+			children = (
+				91ED509C36BC12C433706944 /* PlaceAPI.swift */,
+				D2849E407E6AB100EA63A388 /* PlaceService.swift */,
+			);
+			path = Places;
+			sourceTree = "<group>";
+		};
+		CD9030B40D4DF172E8B1C487 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				6A01BAD262C783640707BF90 /* Components.swift */,
+				E318FEE1813E01ACE394B75B /* Tokens.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		CF6B21DC10E6F11675F90BF3 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				A6FB31579270DAFD236AF3CA /* KeychainSessionStore.swift */,
+				4949C5EC6020864D819CEB37 /* SessionStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		D93DC218C59F742FD683D0AF /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				ECE1ACEC8C2DE22A7967CF10 /* PlaceModels.swift */,
+				6BB6FFA063BBC956CA272B36 /* SessionModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E80FC5B719825C4EE03E0A94 /* PlaceDetail */ = {
+			isa = PBXGroup;
+			children = (
+				1FB6F6E46C7E99AA4A81BD8C /* Components */,
+				51477A6F6A9615EB27D1D486 /* PlaceDetailController.swift */,
+				4A8345FD28C77C2D520241E6 /* PlaceDetailModels.swift */,
+				BA2793E8608341072430FB5A /* PlaceDetailScreen.swift */,
+				3CC6CAFECFE0FEB94E68730B /* PlaceDetailState.swift */,
+			);
+			path = PlaceDetail;
+			sourceTree = "<group>";
+		};
+		F107B6704DFD1AF8D3F959AF /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				D82CB9ACB3D2CD0F112C0531 /* AuthFieldValidator.swift */,
+				02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */,
+				D3F187CC8AB06432CC70FD31 /* LoginController.swift */,
+				1E5D86E9ABC477EA75F439CF /* LoginView.swift */,
+				F27E10FC2C1BA9AE99AE949F /* RegisterController.swift */,
+				B0D6B570E17E2E98F4550F23 /* RegisterView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		F64362E0296F28E38C868349 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				09A068EF54D3A98FE136E34C /* AppEnvironment.swift */,
+				1FF97E55C25633D437F65D31 /* AppRoute.swift */,
+				9940056A4C39D4D369706FCF /* PhokartaApp.swift */,
+				0451A6C2D000C97E23171D82 /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		FD8543B9B65E36C4D8E27447 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				900A94064F8AB4743EF02901 /* ExplorePlaceCard.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1B9F4DD90439D6DE9B3E217C /* Phokarta */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 319C212AD9D269A3565CBC63 /* Build configuration list for PBXNativeTarget "Phokarta" */;
+			buildPhases = (
+				F627AA44AD9BDC12723DFD70 /* Sources */,
+				F56D3260D0FC3317D4779C38 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Phokarta;
+			packageProductDependencies = (
+			);
+			productName = Phokarta;
+			productReference = EDB7E037B653330EAA659E06 /* Phokarta.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DA1B57746D646ABDA9F745BB /* PhokartaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 736055CED90DD4AE4D6C0183 /* Build configuration list for PBXNativeTarget "PhokartaTests" */;
+			buildPhases = (
+				55E208E4E6CD0ABCF426B39E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				95264E208FD605D7438087A7 /* PBXTargetDependency */,
+			);
+			name = PhokartaTests;
+			packageProductDependencies = (
+			);
+			productName = PhokartaTests;
+			productReference = 821026828B566C355EFAF995 /* PhokartaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		892A6226683C7C11511A9379 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					1B9F4DD90439D6DE9B3E217C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 687F0992CB5084C0716E9F46 /* Build configuration list for PBXProject "Phokarta" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				tr,
+			);
+			mainGroup = 1DED548B9C8B2706A0180305;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C7A4FB664CAE49161AFABF0F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1B9F4DD90439D6DE9B3E217C /* Phokarta */,
+				DA1B57746D646ABDA9F745BB /* PhokartaTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F56D3260D0FC3317D4779C38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34215BEAC51D24E816173346 /* Assets.xcassets in Resources */,
+				29E5DEA3ADF03D391F730BA6 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		55E208E4E6CD0ABCF426B39E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */,
+				00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */,
+				4A6C138339A77D3BFC27356C /* AppConfigTests.swift in Sources */,
+				97AA0E9AC1106B47F27977BB /* AuthFieldValidatorTests.swift in Sources */,
+				7089AA61B1F3306A7CCF2FEC /* AuthRepositoryTests.swift in Sources */,
+				2F2A72BC8FF186E55C5AEDCD /* ConcurrentRefreshTests.swift in Sources */,
+				9291B534D99F415520EF64AD /* ExploreControllerTests.swift in Sources */,
+				CCDA69373BC20061D612AAAE /* InMemorySessionStoreTests.swift in Sources */,
+				CBA5088510DC7AEE47248755 /* PlaceDecodingTests.swift in Sources */,
+				7602DDA5809E12520362E149 /* PlaceDetailControllerTests.swift in Sources */,
+				09B41BE415161CE00AE99252 /* PlaceServiceAuthTests.swift in Sources */,
+				BC451F0E8796F4F8820F2F52 /* TestSupport.swift in Sources */,
+				A6888BA4208BD390CFAA9F41 /* TokenRefreshCoordinatorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F627AA44AD9BDC12723DFD70 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD1A5FA4C2790685CB08777D /* APIClient.swift in Sources */,
+				AF6BD00F8528695628A1866E /* APIEndpoint.swift in Sources */,
+				85A43F2F0F04CFD13B7E000F /* APIJSON.swift in Sources */,
+				00301CD6EE1125FADF391AFB /* AppConfig.swift in Sources */,
+				63C9B3F8828FEEFAB3CE65F1 /* AppEnvironment.swift in Sources */,
+				013BFA3653087876597AC8BB /* AppError.swift in Sources */,
+				1F347286A131EA805E3DB70D /* AppLog.swift in Sources */,
+				C968CF9CE7AEB62F38242A67 /* AppRoute.swift in Sources */,
+				D8C720AF865C8053E82FDD4B /* AuthAPI.swift in Sources */,
+				ACC4A3225E528D8679FE8462 /* AuthFieldValidator.swift in Sources */,
+				7F7D9858813AB766E6EB0258 /* AuthFlowView.swift in Sources */,
+				3CD27B344A64473E88427663 /* AuthRepository.swift in Sources */,
+				78ACF7FB85EB1FCE25C3FC81 /* AuthSessionController.swift in Sources */,
+				0544D606158D7A0BD4536FCE /* AuthState.swift in Sources */,
+				9995D7F4C4738EADF7E22D3A /* Components.swift in Sources */,
+				9066BF7A489777D3D6015EEF /* ExploreController.swift in Sources */,
+				78D2014A47F5F897DC6CE4E9 /* ExploreModels.swift in Sources */,
+				F95B977EFA2CE4EBBF6873D3 /* ExplorePlaceCard.swift in Sources */,
+				B1F6DA17F95C31EF9927DF62 /* ExploreScreen.swift in Sources */,
+				2338E52D323AE91DAEA797CB /* ExploreState.swift in Sources */,
+				75EB440336EE8C1A50DECEEE /* HTTPTransport.swift in Sources */,
+				B56646F501D063E14C49C457 /* KeychainSessionStore.swift in Sources */,
+				FC2D8855803E6CBF3F814E4E /* LoginController.swift in Sources */,
+				C91D6EF1E0B2B987AFAF62A3 /* LoginView.swift in Sources */,
+				6A955CC3FC974D0F2E9F2594 /* MainTabView.swift in Sources */,
+				B0296755617A8E713E6CF79E /* PhokartaApp.swift in Sources */,
+				9A0D1FC8CD5DC8F08B471877 /* PlaceAPI.swift in Sources */,
+				019D94815ED6BB5241A57C7D /* PlaceDetailComponents.swift in Sources */,
+				4BACF213DE8F37066E0656EF /* PlaceDetailController.swift in Sources */,
+				A5AF7E9453055BE9739E8BA8 /* PlaceDetailModels.swift in Sources */,
+				1C6D0F8DAB5F2AD5CEB5D886 /* PlaceDetailScreen.swift in Sources */,
+				3BA4A661EEAACAE9D5CEC426 /* PlaceDetailState.swift in Sources */,
+				206D5CD842B5F29371C8EF18 /* PlaceModels.swift in Sources */,
+				9623A3B4790BF3906CCC9235 /* PlaceService.swift in Sources */,
+				B4EC5C6E700E6F43253AF592 /* RegisterController.swift in Sources */,
+				55F9772590C8666AE8B1C0F3 /* RegisterView.swift in Sources */,
+				D1C3AE050977B3137466B334 /* RootView.swift in Sources */,
+				B31D3CCC2F15AB2CF8DD431C /* SessionModels.swift in Sources */,
+				37E633F2727FCA649633C0F0 /* SessionStore.swift in Sources */,
+				D2C4ABF69224795B9A2440BE /* TokenRefreshCoordinator.swift in Sources */,
+				3B2249D5433AA5E0FAC2CB41 /* Tokens.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		95264E208FD605D7438087A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1B9F4DD90439D6DE9B3E217C /* Phokarta */;
+			targetProxy = CB2CE6A0EE082B28D673263F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4616674A094F178D0E615B27 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER).tests";
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Phokarta.app/Phokarta";
+			};
+			name = Release;
+		};
+		4BD87D1DC9475DBCF2FCFC58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 07CBDD2D44800FEF9886C7DB /* Release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Phokarta/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Phokarta;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
+				PRODUCT_NAME = Phokarta;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		948AC358D4332DF35248D3A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER).tests";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Phokarta.app/Phokarta";
+			};
+			name = Debug;
+		};
+		C71496AD6B3307AA2B5A422F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DC802E703094DA5DB491AE94 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C9E8DB2BEC242406C126C71 /* Debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Phokarta/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Phokarta;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
+				PRODUCT_NAME = Phokarta;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F03E0E39A2DDE62DD8592593 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		319C212AD9D269A3565CBC63 /* Build configuration list for PBXNativeTarget "Phokarta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC802E703094DA5DB491AE94 /* Debug */,
+				4BD87D1DC9475DBCF2FCFC58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		687F0992CB5084C0716E9F46 /* Build configuration list for PBXProject "Phokarta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C71496AD6B3307AA2B5A422F /* Debug */,
+				F03E0E39A2DDE62DD8592593 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		736055CED90DD4AE4D6C0183 /* Build configuration list for PBXNativeTarget "PhokartaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				948AC358D4332DF35248D3A9 /* Debug */,
+				4616674A094F178D0E615B27 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 892A6226683C7C11511A9379 /* Project object */;
+}

@@ -13,8 +13,9 @@ final class AuthRepositoryTests: XCTestCase {
         let auth = TestConfig.repository(store: store, transport: transport, config: config)
         let user = try await auth.login(identifier: "demo@phokarta.local", password: "DemoPass123!")
         XCTAssertEqual(user.email, "demo@phokarta.local")
-        XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-aaaaaaaa")
-        XCTAssertEqual(await store.load()?.tokens.accessToken, "access-1")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-aaaaaaaa")
+        XCTAssertEqual(persistedSession?.tokens.accessToken, "access-1")
     }
 
     func testRegisterSignsInImmediatelyFromReturnedTokens() async throws {
@@ -32,7 +33,8 @@ final class AuthRepositoryTests: XCTestCase {
             password: "SecurePass1"
         )
         XCTAssertEqual(user.email, "new@example.com")
-        XCTAssertNotNil(await store.load())
+        let persistedSession = await store.load()
+        XCTAssertNotNil(persistedSession)
     }
 
     func testLoginInvalidCredentials() async throws {
@@ -50,7 +52,8 @@ final class AuthRepositoryTests: XCTestCase {
             _ = try await auth.login(identifier: "demo@phokarta.local", password: "wrong-password")
             XCTFail("expected error")
         } catch AppError.invalidCredentials {
-            XCTAssertNil(await store.load())
+            let persistedSession = await store.load()
+            XCTAssertNil(persistedSession)
         }
     }
 
@@ -63,7 +66,8 @@ final class AuthRepositoryTests: XCTestCase {
         }
         let auth = TestConfig.repository(store: store, transport: transport, config: config)
         await auth.logout()
-        XCTAssertNil(await store.load())
+        let persistedSession = await store.load()
+        XCTAssertNil(persistedSession)
     }
 
     func testLogoutSucceedsWhenRemoteRevokes() async throws {
@@ -74,7 +78,8 @@ final class AuthRepositoryTests: XCTestCase {
         }
         let auth = TestConfig.repository(store: store, transport: transport, config: config)
         await auth.logout()
-        XCTAssertNil(await store.load())
+        let persistedSession = await store.load()
+        XCTAssertNil(persistedSession)
     }
 
     func testRestoreSessionRefreshesThenLoadsProfile() async throws {
@@ -98,8 +103,9 @@ final class AuthRepositoryTests: XCTestCase {
             return XCTFail("expected signed in")
         }
         XCTAssertEqual(user.displayName, "Restored")
-        XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-bbbbbbbb")
-        XCTAssertEqual(await store.load()?.tokens.accessToken, "access-2")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-bbbbbbbb")
+        XCTAssertEqual(persistedSession?.tokens.accessToken, "access-2")
     }
 
     func testRestorePreservesSessionOnTransientNetworkFailure() async throws {
@@ -114,7 +120,8 @@ final class AuthRepositoryTests: XCTestCase {
             return XCTFail("expected preserved session")
         }
         XCTAssertEqual(user.id, TestJSON.userID)
-        XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-aaaaaaaa")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-aaaaaaaa")
     }
 
     func testRestoreClearsSessionOnTerminalRefreshFailure() async throws {
@@ -130,7 +137,8 @@ final class AuthRepositoryTests: XCTestCase {
         let auth = TestConfig.repository(store: store, transport: transport, config: config)
         let state = try await auth.restoreSession()
         XCTAssertEqual(state, .signedOut)
-        XCTAssertNil(await store.load())
+        let persistedSession = await store.load()
+        XCTAssertNil(persistedSession)
     }
 
     func testPlaceholderHostRefusesAuthNetwork() async throws {
@@ -148,7 +156,8 @@ final class AuthRepositoryTests: XCTestCase {
             _ = try await auth.login(identifier: "demo@phokarta.local", password: "DemoPass123!")
             XCTFail("expected placeholder error")
         } catch AppError.placeholderAPI {
-            XCTAssertNil(await store.load())
+            let persistedSession = await store.load()
+            XCTAssertNil(persistedSession)
         }
     }
 }

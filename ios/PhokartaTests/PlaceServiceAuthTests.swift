@@ -63,7 +63,8 @@ final class PlaceServiceAuthTests: XCTestCase {
         XCTAssertEqual(detail.communityScore, 8.7)
         let refreshCount = await probe.refreshCount
         XCTAssertEqual(refreshCount, 1)
-        XCTAssertEqual(await store.load()?.tokens.accessToken, "access-2")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.accessToken, "access-2")
     }
 
     func testFriendMetricsRequestBodyUsesPlaceIds() throws {

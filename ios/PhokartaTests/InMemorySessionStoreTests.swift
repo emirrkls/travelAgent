@@ -4,11 +4,13 @@ import XCTest
 final class InMemorySessionStoreTests: XCTestCase {
     func testSaveLoadUpdateAndClear() async throws {
         let store = InMemorySessionStore()
-        XCTAssertNil(await store.load())
+        let emptySession = await store.load()
+        XCTAssertNil(emptySession)
 
         let original = testSession()
         try await store.save(original)
-        XCTAssertEqual(await store.load(), original)
+        let savedSession = await store.load()
+        XCTAssertEqual(savedSession, original)
 
         let rotated = TokenPair(
             accessToken: "access-2",
@@ -18,19 +20,22 @@ final class InMemorySessionStoreTests: XCTestCase {
             accessTokenExpiresAt: "2026-08-26T16:39:00Z"
         )
         try await store.updateTokens(rotated)
-        let loaded = try XCTUnwrap(await store.load())
+        let updatedSession = await store.load()
+        let loaded = try XCTUnwrap(updatedSession)
         XCTAssertEqual(loaded.tokens.accessToken, "access-2")
         XCTAssertEqual(loaded.tokens.refreshToken, "refresh-token-bbbbbbbb")
         XCTAssertEqual(loaded.user.id, original.user.id)
 
         try await store.clear()
-        XCTAssertNil(await store.load())
+        let clearedSession = await store.load()
+        XCTAssertNil(clearedSession)
     }
 
     func testDoesNotPersistPasswordMaterial() async throws {
         let store = InMemorySessionStore()
         try await store.save(testSession())
-        let encoded = try APIJSON.encoder.encode(try XCTUnwrap(await store.load()))
+        let persistedSession = await store.load()
+        let encoded = try APIJSON.encoder.encode(try XCTUnwrap(persistedSession))
         let json = String(decoding: encoded, as: UTF8.self)
         XCTAssertFalse(json.contains("password"))
         XCTAssertTrue(json.contains("accessToken"))

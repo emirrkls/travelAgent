@@ -1,57 +1,88 @@
 # iOS Mac bootstrap
 
-The iOS tree was authored on Windows. **Xcode was not run.** Do not treat source inspection as a compile.
+The Windows-authored iOS tree received its first Apple-tooling bootstrap on
+2026-08-26.
+
+## Verified toolchain and result
+
+- macOS 26.2 (25C56)
+- Xcode 26.4.1 (17E202)
+- Apple Swift 6.3.1 compiler; project language mode Swift 5.10
+- iOS/iOS Simulator SDK 26.4
+- iPhone 17 Pro, iOS 26.4 Simulator
+- Debug simulator build: PASS
+- XCTest: 68 discovered, 68 executed, 68 passed, 0 failed, 0 skipped
 
 ## Prerequisites
 
-- macOS with Xcode and the iOS 17+ SDK
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen` is typical on a Mac)
-- This git repository
-- Optional: Phokarta backend running on the same Mac if you want Simulator login
+- macOS with Xcode and an iOS 17+ SDK/runtime
+- XcodeGen
+- This repository
+- Optional local Phokarta backend for runtime auth testing
 
-## Flow
+XcodeGen 2.46.0 was built from the official upstream source in a temporary
+directory for the initial bootstrap because this shared Mac had neither
+XcodeGen nor Homebrew. Nothing was installed system-wide or vendored into the
+repository.
 
-1. Clone the repository.
-2. Install Xcode and the iOS SDK. Open Xcode once to accept licenses.
-3. Install XcodeGen.
-4. `cd ios`
-5. `cp Config/Local.xcconfig.example Config/Local.xcconfig`
-6. Set `PHOKARTA_API_BASE_URL` in `Local.xcconfig`:
-   - Simulator + backend on this Mac: `http:/$()/127.0.0.1:8080/`
-   - Physical device: the Mac/LAN IP, still using the `http:/$()` xcconfig slash trick
-   - Windows `localhost` / Android `10.0.2.2` will not work here
-7. `xcodegen generate`
-8. `open Phokarta.xcodeproj`
-9. Select a development team on the Phokarta target (Signing & Capabilities).
-10. Change the bundle identifier only if Apple requires a distinct iOS App ID. Default is `com.emirrkls.phokarta` via `PHOKARTA_BUNDLE_IDENTIFIER`.
-11. Product → Test (scheme `Phokarta`) to run `PhokartaTests`.
-12. Product → Run on an iOS 17+ Simulator.
-
-## First Xcode Cloud onboarding
-
-Xcode Cloud needs an Xcode project/workspace to attach a workflow. After the first successful `xcodegen generate` on a Mac, **commit `Phokarta.xcodeproj`** (shared scheme included, no `xcuserdata`):
+## Generate the project
 
 ```sh
 cd ios
 xcodegen generate
-git add -f Phokarta.xcodeproj
-# verify no certificates, profiles, or xcuserdata
-git commit -m "chore: add generated ios xcodeproj for cloud onboarding"
+open Phokarta.xcodeproj
 ```
 
-See [XCODE_CLOUD.md](XCODE_CLOUD.md) for the tradeoff.
+`project.yml` is authoritative. For structural configuration changes, edit
+`project.yml`, regenerate on a Mac, review the diff, and commit both the
+definition and `Phokarta.xcodeproj`. Do not hand-edit generated configuration
+that can be expressed in XcodeGen.
 
-## Keychain accessibility
+The generated project contains the `Phokarta` app, `PhokartaTests`, the shared
+`Phokarta` scheme, Debug/Release xcconfig linkage, Info.plist, the String
+Catalog, asset resources, and the app-to-test target dependency.
 
-Production store uses `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` and `kSecAttrSynchronizable=false`. Tokens are not written to iCloud Keychain. Validate process-restart restore on a real device/simulator.
+## Reproduce the verified build and tests
 
-## Accessibility QA (cannot be done from Windows)
+```sh
+cd ios
+xcodebuild -project Phokarta.xcodeproj -scheme Phokarta \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build
+xcodebuild test -project Phokarta.xcodeproj -scheme Phokarta \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO
+```
 
-- VoiceOver labels on email/password/submit
-- Dynamic Type: no clipped auth text
-- Keyboard: email, password content types, submit actions
-- Light and dark appearance using the Phokarta sand/coral/ink palette
+The first compiler pass found one `@MainActor` isolation error in Explore
+enrichment fallbacks. The fix snapshots fallback state before starting the
+`async let` operations. The test target also required awaited store reads to be
+evaluated before XCTest assertion autoclosures. No assertion was weakened.
 
-## ATS
+## Simulator smoke scope
 
-Info.plist enables `NSAllowsLocalNetworking` only (not `NSAllowsArbitraryLoads`). Release still requires HTTPS in `AppConfig`. Internet HTTP is not allowed by this exception.
+Verified: launch, Login, Register, Login/Register navigation, English and
+Turkish resources, light appearance, dark appearance, and no immediate crash.
+
+Not run: real backend auth, Keychain persistence across relaunch, Explore
+runtime, Place Detail runtime, and physical-device QA.
+
+## Optional local backend
+
+Copy `Config/Local.xcconfig.example` to ignored `Config/Local.xcconfig` only
+when an override is needed. Simulator and a backend on this Mac may use
+`http:/$()/127.0.0.1:8080/`. Do not use Android's `10.0.2.2`, and never put
+credentials in xcconfig.
+
+## Signing and security
+
+Automatic signing is enabled for `com.emirrkls.phokarta`. Simulator builds do
+not need a team; device and Xcode Cloud work require selection of an authorized
+team. Do not commit certificates, profiles, Apple credentials, `Local.xcconfig`,
+`xcuserdata`, DerivedData, archives, or result bundles.
+
+The production Keychain store uses
+`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` with synchronization
+disabled. Runtime persistence remains to be tested with a real auth flow.

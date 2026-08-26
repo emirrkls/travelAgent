@@ -35,9 +35,12 @@ backend/boot-*.log
 # iOS (XcodeGen source is tracked; the Xcode project is generated on a Mac)
 ios/Config/Local.xcconfig
 ios/DerivedData/
+ios/build/
 **/xcuserdata/
 *.xcuserstate
 *.xcscmblueprint
+*.xcarchive
+*.xcresult
 *.mobileprovision
 *.provisionprofile
 *.p12
@@ -46,7 +49,7 @@ ios/DerivedData/
 *.dSYM
 *.dSYM.zip
 *.ipa
+*.developerprofile
 .swiftpm/
 ios/.swiftpm/
 .DS_Store
-

@@ -28,8 +28,9 @@ final class ConcurrentRefreshTests: XCTestCase {
 
         let refreshCount = await probe.refreshCount
         XCTAssertEqual(refreshCount, 1)
-        XCTAssertEqual(await store.load()?.tokens.accessToken, "access-2")
-        XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-bbbbbbbb")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.accessToken, "access-2")
+        XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-bbbbbbbb")
     }
 }
 

@@ -1,50 +1,54 @@
 # Xcode Cloud bootstrap
 
-Xcode Cloud cannot be created from Windows. This file is the intended Mac-side plan. It is not a live workflow.
+The repository-side Cloud bootstrap uses the committed generated project. This
+keeps Apple compilation available to Windows development without making every
+cloud build install XcodeGen or Homebrew.
 
-## Why `project.yml` is not enough to click “Enable Xcode Cloud”
+## Project strategy
 
-Apple attaches Cloud workflows to an Xcode project or workspace. A repo that only contains `ios/project.yml` has nothing for Xcode’s Cloud UI to select until a Mac generates `Phokarta.xcodeproj`.
+- `ios/project.yml` is the authoritative structural definition.
+- `ios/Phokarta.xcodeproj` and its shared `Phokarta` scheme are committed.
+- When structure changes: edit `project.yml`, run `xcodegen generate` on a Mac,
+  and commit both diffs.
+- Do not commit `xcuserdata`, local xcconfig, certificates, provisioning
+  profiles, DerivedData, archives, or result bundles.
 
-## Chosen strategy (least fragile)
+## Post-clone behavior
 
-**A. Generate and commit the Xcode project once from a Mac, then keep it.**
+Apple finds `ios/ci_scripts/ci_post_clone.sh` next to the project. The hook
+uses `CI_PRIMARY_REPOSITORY_PATH`, verifies that `project.yml` and the committed
+project exist, and exits without installing or running XcodeGen.
 
-1. On a Mac: `cd ios && xcodegen generate`
-2. Commit `ios/Phokarta.xcodeproj` **without** `xcuserdata`, certificates, or profiles.
-3. In Xcode: Product → Xcode Cloud → Create Workflow, pointed at this repository.
-4. Create the App Store Connect app record when you are ready (not done in v0.1).
-5. Workflow should run unit tests and an app build on relevant branch pushes (`master` / later release branches).
+Cloud requires XcodeGen: **NO**.
 
-After that, `project.yml` remains the source of truth for structural edits. When `project.yml` changes, regenerate on a Mac and commit the project diff.
+## Intended workflow
 
-**B. Regenerate in CI (optional later).**
+- Name: `iOS CI - Master`
+- Repository: `emirrkls/travelAgent`
+- Trigger: push to `master`
+- Actions: app Build and `PhokartaTests` Test
+- Environment: modern Xcode/iOS Simulator supporting iOS 17+
+- Distribution: none
+- TestFlight/App Store deployment: disabled
 
-`ios/ci_scripts/ci_post_clone.sh` will:
+## Apple-side status
 
-- regenerate if `xcodegen` is already on the runner
-- otherwise keep a committed `.xcodeproj`
-- only attempt `brew install xcodegen` if there is no project and Homebrew exists
+Automatic signing is configured for `com.emirrkls.phokarta`, but no development
+team is selected. Workflow creation, any required App Store Connect app record,
+and the first cloud run remain pending until the repository owner's authorized
+Apple team is confirmed. Do not invent an SKU, legal entity, app ownership, or
+distribution setting.
 
-Homebrew is commonly present on Xcode Cloud Macs but **not an Apple guarantee**. Do not vendor an XcodeGen binary. Do not fail a Cloud build that already has a committed project just because brew/xcodegen is missing.
+When a workflow is created, record its actual Xcode version, simulator/runtime,
+commit SHA, build result, test result, and exact test count here. A pending run
+must remain documented as pending; only a completed successful run is green.
 
-## Script location
+## Windows continuation
 
-Apple looks for `ci_scripts/ci_post_clone.sh` next to the Xcode project/workspace. That is `ios/ci_scripts/ci_post_clone.sh` for `ios/Phokarta.xcodeproj`.
+After the first green cloud run, normal development is:
 
-Xcode Cloud runs the script with `ci_scripts` as the working directory. The script uses `CI_PRIMARY_REPOSITORY_PATH` when set.
+Windows/Cursor → edit Swift → commit → push `master` → Xcode Cloud build/test
+feedback.
 
-## Workflow sketch (created later from Xcode)
-
-- Start condition: push to `master` (and later release tags/branches)
-- Actions: Test (PhokartaTests) + Archive/Build
-- Environment: latest stable Xcode that supports iOS 17
-- Pre-build: the post-clone script above
-- Do not upload to App Store until a later release milestone
-
-## Still required on a Mac (not done)
-
-- App Store Connect app record
-- Enable Xcode Cloud from Xcode
-- Signing / bundle ID confirmation
-- First green Cloud build
+The Mac is then needed only for XcodeGen project regeneration, simulator/device
+QA, signing, and later distribution work—not ordinary Swift source edits.

@@ -23,8 +23,9 @@ final class TokenRefreshCoordinatorTests: XCTestCase {
         let pair = try await coordinator.refreshSession()
         XCTAssertEqual(pair.accessToken, "access-2")
         XCTAssertEqual(pair.refreshToken, "refresh-token-bbbbbbbb")
-        XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-bbbbbbbb")
-        XCTAssertNotEqual(await store.load()?.tokens.refreshToken, "refresh-token-aaaaaaaa")
+        let persistedSession = await store.load()
+        XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-bbbbbbbb")
+        XCTAssertNotEqual(persistedSession?.tokens.refreshToken, "refresh-token-aaaaaaaa")
     }
 
     func testTransientRefreshFailureKeepsStoredSession() async throws {
@@ -38,7 +39,8 @@ final class TokenRefreshCoordinatorTests: XCTestCase {
             _ = try await coordinator.refreshSession()
             XCTFail("expected transient failure")
         } catch AppError.networkUnavailable {
-            XCTAssertEqual(await store.load()?.tokens.refreshToken, "refresh-token-aaaaaaaa")
+            let persistedSession = await store.load()
+            XCTAssertEqual(persistedSession?.tokens.refreshToken, "refresh-token-aaaaaaaa")
         }
     }
 
@@ -57,7 +59,8 @@ final class TokenRefreshCoordinatorTests: XCTestCase {
             _ = try await coordinator.refreshSession()
             XCTFail("expected terminal failure")
         } catch AppError.unauthorized {
-            XCTAssertNil(await store.load())
+            let persistedSession = await store.load()
+            XCTAssertNil(persistedSession)
         }
     }
 

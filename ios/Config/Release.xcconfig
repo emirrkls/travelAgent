@@ -1,0 +1,8 @@
+// Release placeholder only. Not a live domain. Runtime refuses auth against .invalid.
+// xcconfig treats // as a comment, so URLs must use https:/$()/host form.
+
+PHOKARTA_BUNDLE_IDENTIFIER = com.emirrkls.phokarta
+PHOKARTA_API_BASE_URL = https:/$()/api.phokarta.invalid/
+PHOKARTA_ALLOWS_INSECURE_HTTP = NO
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.10

@@ -1,0 +1,77 @@
+name: Phokarta
+options:
+  bundleIdPrefix: com.emirrkls
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+  developmentLanguage: en
+  defaultKnownRegions:
+    - en
+    - tr
+    - Base
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    STRING_CATALOG_GENERATE_SYMBOLS: YES
+targets:
+  Phokarta:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    sources:
+      - path: Phokarta
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(PHOKARTA_BUNDLE_IDENTIFIER)
+        PRODUCT_NAME: Phokarta
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Phokarta/Resources/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Phokarta
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          SWIFT_COMPILATION_MODE: wholemodule
+    scheme:
+      testTargets:
+        - PhokartaTests
+      gatherCoverageData: false
+  PhokartaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PhokartaTests
+    dependencies:
+      - target: Phokarta
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(PHOKARTA_BUNDLE_IDENTIFIER).tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_STRICT_CONCURRENCY: complete
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG

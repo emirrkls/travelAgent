@@ -1,0 +1,14 @@
+// Copy this file to Local.xcconfig (gitignored) on the Mac that runs Simulator/Xcode.
+// Do not commit Local.xcconfig. Do not put secrets here.
+//
+// Simulator on the SAME Mac as the backend:
+// PHOKARTA_API_BASE_URL = http:/$()/127.0.0.1:8080/
+//
+// Physical device on the local network (backend LAN IP):
+// PHOKARTA_API_BASE_URL = http:/$()/192.168.1.10:8080/
+//
+// Windows-hosted localhost is NOT reachable from a remote Mac simulator.
+// Android emulator 10.0.2.2 is also NOT valid for iOS Simulator.
+
+PHOKARTA_API_BASE_URL = http:/$()/127.0.0.1:8080/
+PHOKARTA_BUNDLE_IDENTIFIER = com.emirrkls.phokarta

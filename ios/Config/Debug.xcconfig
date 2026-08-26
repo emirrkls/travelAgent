@@ -1,0 +1,10 @@
+// Debug defaults. Copy Local.xcconfig.example → Local.xcconfig to override.
+// xcconfig treats // as a comment, so URLs must use http:/$()/host form.
+
+PHOKARTA_BUNDLE_IDENTIFIER = com.emirrkls.phokarta
+PHOKARTA_API_BASE_URL = http:/$()/127.0.0.1:8080/
+PHOKARTA_ALLOWS_INSECURE_HTTP = YES
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.10
+
+#include? "Local.xcconfig"

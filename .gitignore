@@ -31,3 +31,22 @@ backups/
 *.dump.partial
 *.dump.managed-by-phokarta-backup
 backend/boot-*.log
+
+# iOS (XcodeGen source is tracked; the Xcode project is generated on a Mac)
+ios/Config/Local.xcconfig
+ios/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+*.certSigningRequest
+*.dSYM
+*.dSYM.zip
+*.ipa
+.swiftpm/
+ios/.swiftpm/
+.DS_Store
+

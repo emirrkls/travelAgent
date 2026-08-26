@@ -17,6 +17,7 @@ struct AppEnvironment {
     let config: AppConfig
     let auth: AuthRepository
     let session: AuthSessionController
+    let places: any PlaceServing
 
     @MainActor
     static func live() throws -> AppEnvironment {
@@ -34,7 +35,12 @@ struct AppEnvironment {
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
         let session = AuthSessionController(auth: auth)
         relay.controller = session
-        return AppEnvironment(config: config, auth: auth, session: session)
+        return AppEnvironment(
+            config: config,
+            auth: auth,
+            session: session,
+            places: PlaceService(client: client)
+        )
     }
 
     @MainActor
@@ -42,7 +48,8 @@ struct AppEnvironment {
         config: AppConfig,
         store: any SessionStore,
         transport: any HTTPTransport,
-        initialState: AuthState = .restoring
+        initialState: AuthState = .restoring,
+        places: (any PlaceServing)? = nil
     ) -> AppEnvironment {
         let relay = TerminalAuthRelay()
         let refresh = TokenRefreshCoordinator(
@@ -55,6 +62,11 @@ struct AppEnvironment {
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
         let session = AuthSessionController(auth: auth, initialState: initialState)
         relay.controller = session
-        return AppEnvironment(config: config, auth: auth, session: session)
+        return AppEnvironment(
+            config: config,
+            auth: auth,
+            session: session,
+            places: places ?? PlaceService(client: client)
+        )
     }
 }

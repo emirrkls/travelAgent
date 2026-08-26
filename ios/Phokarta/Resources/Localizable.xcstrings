@@ -1,216 +1,1718 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "app.name" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Phokarta" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Phokarta" } }
+  "sourceLanguage": "en",
+  "strings": {
+    "a11y.community_not_rated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Community not rated"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topluluk puanı yok"
+          }
+        }
       }
     },
-    "auth.already_have_account" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Already have an account? Sign in" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zaten hesabın var mı? Giriş yap" } }
+    "a11y.community_score %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Community score %@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topluluk puanı %@ / 10"
+          }
+        }
       }
     },
-    "auth.create_account" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create an account" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hesap oluştur" } }
+    "a11y.friend_visited %@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ visited, score %2$@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ziyaret etti, puan %2$@ / 10"
+          }
+        }
       }
     },
-    "auth.display_name" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Display name" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görünen ad" } }
+    "a11y.friends_score %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends score %@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaş puanı %@ / 10"
+          }
+        }
       }
     },
-    "auth.display_name.required" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Display name is required." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görünen ad gerekli." } }
+    "a11y.personal_not_rated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have not rated this place"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yeri puanlamadın"
+          }
+        }
       }
     },
-    "auth.email" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Email" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "E-posta" } }
+    "a11y.personal_score %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your score %@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puanın %@ / 10"
+          }
+        }
       }
     },
-    "auth.email.invalid" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter a valid email." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Geçerli bir e-posta gir." } }
+    "a11y.review_score %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating %@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puan %@ / 10"
+          }
+        }
       }
     },
-    "auth.identifier" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Email or username" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "E-posta veya kullanıcı adı" } }
+    "a11y.saved.readonly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved. Saving is not available yet."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedildi. Kaydetme henüz yok."
+          }
+        }
       }
     },
-    "auth.login" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Giriş yap" } }
+    "a11y.visited.readonly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visited"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gittim"
+          }
+        }
       }
     },
-    "auth.login.subtitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in to continue" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Devam etmek için giriş yap" } }
+    "app.name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phokarta"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phokarta"
+          }
+        }
       }
     },
-    "auth.login.validation" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter your email/username and password (min 8)." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "E-posta/kullanıcı adı ve parolanı gir (en az 8 karakter)." } }
+    "auth.already_have_account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already have an account? Sign in"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaten hesabın var mı? Giriş yap"
+          }
+        }
       }
     },
-    "auth.logout" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log out" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Çıkış yap" } }
+    "auth.create_account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create an account"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hesap oluştur"
+          }
+        }
       }
     },
-    "auth.password" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Parola" } }
+    "auth.display_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display name"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görünen ad"
+          }
+        }
       }
     },
-    "auth.password.min" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password must be between 8 and 72 characters." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Parola 8 ile 72 karakter arasında olmalı." } }
+    "auth.display_name.required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display name is required."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görünen ad gerekli."
+          }
+        }
       }
     },
-    "auth.register" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create account" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hesap oluştur" } }
+    "auth.email": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-posta"
+          }
+        }
       }
     },
-    "auth.register.subtitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Join Phokarta" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Phokarta’ya katıl" } }
+    "auth.email.invalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a valid email."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geçerli bir e-posta gir."
+          }
+        }
       }
     },
-    "auth.restoring" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restoring session…" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Oturum geri yükleniyor…" } }
+    "auth.identifier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email or username"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-posta veya kullanıcı adı"
+          }
+        }
       }
     },
-    "auth.signed_in_as %@" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Signed in as %@" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ olarak giriş yaptın" } }
+    "auth.login": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giriş yap"
+          }
+        }
       }
     },
-    "auth.username" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Username" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kullanıcı adı" } }
+    "auth.login.subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to continue"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devam etmek için giriş yap"
+          }
+        }
       }
     },
-    "auth.username.invalid" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Username must be 3–32 characters: letters, digits, and underscores." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kullanıcı adı 3–32 karakter olmalı: harf, rakam ve alt çizgi." } }
+    "auth.login.validation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your email/username and password (min 8)."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-posta/kullanıcı adı ve parolanı gir (en az 8 karakter)."
+          }
+        }
       }
     },
-    "error.conflict" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This changed elsewhere. Refresh and try again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu başka yerde değişti. Yenile ve tekrar dene." } }
+    "auth.logout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log out"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çıkış yap"
+          }
+        }
       }
     },
-    "error.duplicate_email" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "An account with this email already exists." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu e-posta ile bir hesap zaten var." } }
+    "auth.password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parola"
+          }
+        }
       }
     },
-    "error.duplicate_username" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This username is already taken." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu kullanıcı adı alınmış." } }
+    "auth.password.min": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password must be between 8 and 72 characters."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parola 8 ile 72 karakter arasında olmalı."
+          }
+        }
       }
     },
-    "error.forbidden" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This content isn’t available." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu içerik kullanılamıyor." } }
+    "auth.register": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create account"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hesap oluştur"
+          }
+        }
       }
     },
-    "error.invalid_configuration" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This build is missing a valid API configuration." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu yapılandırmada geçerli bir API ayarı yok." } }
+    "auth.register.subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join Phokarta"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phokarta’ya katıl"
+          }
+        }
       }
     },
-    "error.invalid_credentials" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid email/username or password." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "E-posta/kullanıcı adı veya parola hatalı." } }
+    "auth.restoring": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring session…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturum geri yükleniyor…"
+          }
+        }
       }
     },
-    "error.not_found" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "We couldn’t find what you were looking for." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aradığını bulamadık." } }
+    "auth.signed_in_as %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in as %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ olarak giriş yaptın"
+          }
+        }
       }
     },
-    "error.offline" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "You appear to be offline. Check your connection and try again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Çevrimdışı görünüyorsun. Bağlantını kontrol edip tekrar dene." } }
+    "auth.username": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcı adı"
+          }
+        }
       }
     },
-    "error.placeholder_api" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This release still uses a placeholder API URL and cannot sign in." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu sürüm hâlâ yer tutucu bir API adresi kullanıyor ve giriş yapılamaz." } }
+    "auth.username.invalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username must be 3–32 characters: letters, digits, and underscores."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanıcı adı 3–32 karakter olmalı: harf, rakam ve alt çizgi."
+          }
+        }
       }
     },
-    "error.rate_limited" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Too many attempts. Try again shortly." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Çok fazla deneme. Kısa süre sonra tekrar dene." } }
+    "category.activity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activity"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktivite"
+          }
+        }
       }
     },
-    "error.server" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The service is temporarily unavailable. Please try again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Servis geçici olarak kullanılamıyor. Lütfen tekrar dene." } }
+    "category.attraction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Culture"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kültür"
+          }
+        }
       }
     },
-    "error.session_expired" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your session expired. Please sign in again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Oturumun sona erdi. Lütfen tekrar giriş yap." } }
+    "category.bar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar"
+          }
+        }
       }
     },
-    "error.timeout" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The request took too long. Please try again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "İstek çok uzun sürdü. Lütfen tekrar dene." } }
+    "category.beach": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beach"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plaj"
+          }
+        }
       }
     },
-    "error.unknown" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Something went wrong. Please try again." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bir şeyler ters gitti. Lütfen tekrar dene." } }
+    "category.cafe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cafe"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kafe"
+          }
+        }
       }
     },
-    "error.validation" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "That request could not be completed." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu istek tamamlanamadı." } }
+    "category.hotel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otel"
+          }
+        }
+      }
+    },
+    "category.nature": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nature"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doğa"
+          }
+        }
+      }
+    },
+    "category.nightlife": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nightlife"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gece hayatı"
+          }
+        }
+      }
+    },
+    "category.restaurant": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Food"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yemek"
+          }
+        }
+      }
+    },
+    "category.unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yer"
+          }
+        }
+      }
+    },
+    "dimension.access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erişim"
+          }
+        }
+      }
+    },
+    "dimension.atmosphere": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atmosphere"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atmosfer"
+          }
+        }
+      }
+    },
+    "dimension.breakfast": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Breakfast"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kahvaltı"
+          }
+        }
+      }
+    },
+    "dimension.cleanliness": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleanliness"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temizlik"
+          }
+        }
+      }
+    },
+    "dimension.crowd": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crowd"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalabalık"
+          }
+        }
+      }
+    },
+    "dimension.drinks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drinks"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İçecek"
+          }
+        }
+      }
+    },
+    "dimension.experience": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experience"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deneyim"
+          }
+        }
+      }
+    },
+    "dimension.food": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Food"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yemek"
+          }
+        }
+      }
+    },
+    "dimension.guide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rehber"
+          }
+        }
+      }
+    },
+    "dimension.location": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum"
+          }
+        }
+      }
+    },
+    "dimension.music": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Müzik"
+          }
+        }
+      }
+    },
+    "dimension.presentation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentation"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunum"
+          }
+        }
+      }
+    },
+    "dimension.room": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oda"
+          }
+        }
+      }
+    },
+    "dimension.safety": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safety"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenlik"
+          }
+        }
+      }
+    },
+    "dimension.scenery": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scenery"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manzara"
+          }
+        }
+      }
+    },
+    "dimension.sea": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sea"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deniz"
+          }
+        }
+      }
+    },
+    "dimension.service": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servis"
+          }
+        }
+      }
+    },
+    "dimension.tranquility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tranquility"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Huzur"
+          }
+        }
+      }
+    },
+    "dimension.value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Value"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fiyat/performans"
+          }
+        }
+      }
+    },
+    "error.conflict": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This changed elsewhere. Refresh and try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu başka yerde değişti. Yenile ve tekrar dene."
+          }
+        }
+      }
+    },
+    "error.duplicate_email": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An account with this email already exists."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu e-posta ile bir hesap zaten var."
+          }
+        }
+      }
+    },
+    "error.duplicate_username": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This username is already taken."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kullanıcı adı alınmış."
+          }
+        }
+      }
+    },
+    "error.forbidden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This content isn’t available."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu içerik kullanılamıyor."
+          }
+        }
+      }
+    },
+    "error.invalid_configuration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build is missing a valid API configuration."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yapılandırmada geçerli bir API ayarı yok."
+          }
+        }
+      }
+    },
+    "error.invalid_credentials": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid email/username or password."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-posta/kullanıcı adı veya parola hatalı."
+          }
+        }
+      }
+    },
+    "error.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We couldn’t find what you were looking for."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aradığını bulamadık."
+          }
+        }
+      }
+    },
+    "error.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You appear to be offline. Check your connection and try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çevrimdışı görünüyorsun. Bağlantını kontrol edip tekrar dene."
+          }
+        }
+      }
+    },
+    "error.placeholder_api": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This release still uses a placeholder API URL and cannot sign in."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu sürüm hâlâ yer tutucu bir API adresi kullanıyor ve giriş yapılamaz."
+          }
+        }
+      }
+    },
+    "error.rate_limited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many attempts. Try again shortly."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çok fazla deneme. Kısa süre sonra tekrar dene."
+          }
+        }
+      }
+    },
+    "error.server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service is temporarily unavailable. Please try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servis geçici olarak kullanılamıyor. Lütfen tekrar dene."
+          }
+        }
+      }
+    },
+    "error.session_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your session expired. Please sign in again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturumun sona erdi. Lütfen tekrar giriş yap."
+          }
+        }
+      }
+    },
+    "error.timeout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request took too long. Please try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstek çok uzun sürdü. Lütfen tekrar dene."
+          }
+        }
+      }
+    },
+    "error.unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong. Please try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir şeyler ters gitti. Lütfen tekrar dene."
+          }
+        }
+      }
+    },
+    "error.validation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That request could not be completed."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu istek tamamlanamadı."
+          }
+        }
+      }
+    },
+    "explore.empty.catalog": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No places here yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz yer yok"
+          }
+        }
+      }
+    },
+    "explore.empty.category": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No places in this category"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu kategoride yer yok"
+          }
+        }
+      }
+    },
+    "explore.empty.search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No places found"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yer bulunamadı"
+          }
+        }
+      }
+    },
+    "explore.empty.search.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try another place, city or category."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir yer, şehir veya kategori dene."
+          }
+        }
+      }
+    },
+    "explore.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading places"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yerler yükleniyor"
+          }
+        }
+      }
+    },
+    "explore.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar dene"
+          }
+        }
+      }
+    },
+    "explore.search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search places, cities or categories"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yer, şehir veya kategori ara"
+          }
+        }
+      }
+    },
+    "explore.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explore"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keşfet"
+          }
+        }
+      }
+    },
+    "filter.all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tümü"
+          }
+        }
+      }
+    },
+    "place.friends.visited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends who visited"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret eden arkadaşlar"
+          }
+        }
+      }
+    },
+    "place.friends.visited_count %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ friends visited"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ arkadaş ziyaret etti"
+          }
+        }
+      }
+    },
+    "place.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading place"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yer yükleniyor"
+          }
+        }
+      }
+    },
+    "place.photos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraflar"
+          }
+        }
+      }
+    },
+    "place.rating_count %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ community ratings"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ topluluk puanı"
+          }
+        }
+      }
+    },
+    "place.reviews": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reviews"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yorumlar"
+          }
+        }
+      }
+    },
+    "place.reviews.community": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Community"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topluluk"
+          }
+        }
+      }
+    },
+    "place.reviews.empty.community": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No community reviews yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz topluluk yorumu yok"
+          }
+        }
+      }
+    },
+    "place.reviews.empty.friends": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No friend reviews yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz arkadaş yorumu yok"
+          }
+        }
+      }
+    },
+    "place.reviews.friends": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
+      }
+    },
+    "place.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedildi"
+          }
+        }
+      }
+    },
+    "place.scores": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The scores"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puanlar"
+          }
+        }
+      }
+    },
+    "place.unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This place isn’t available."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yer kullanılamıyor."
+          }
+        }
+      }
+    },
+    "place.visited": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visited"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gittim"
+          }
+        }
+      }
+    },
+    "place.why": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why people love it"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnsanlar neden seviyor"
+          }
+        }
+      }
+    },
+    "place.your_visits %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ visits"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ziyaret"
+          }
+        }
+      }
+    },
+    "profile.placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile comes in a later milestone. You can log out here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil sonraki kilometre taşında gelecek. Buradan çıkış yapabilirsin."
+          }
+        }
+      }
+    },
+    "profile.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
+          }
+        }
+      }
+    },
+    "score.community": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Community"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topluluk"
+          }
+        }
+      }
+    },
+    "score.friends": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
+      }
+    },
+    "score.friends.none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No friend visits yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz arkadaş ziyareti yok"
+          }
+        }
+      }
+    },
+    "score.not_rated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not rated"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puanlanmamış"
+          }
+        }
+      }
+    },
+    "score.you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen"
+          }
+        }
+      }
+    },
+    "tab.explore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explore"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keşfet"
+          }
+        }
+      }
+    },
+    "tab.profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
+          }
+        }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

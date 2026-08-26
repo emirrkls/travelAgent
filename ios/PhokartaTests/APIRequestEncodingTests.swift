@@ -58,6 +58,25 @@ final class APIRequestEncodingTests: XCTestCase {
         XCTAssertNil(request.httpBody)
     }
 
+    func testPlaceListQueryUsesBackendParameterNames() throws {
+        let config = try TestConfig.debugHTTP()
+        let client = APIClient(config: config, transport: URLSessionTransport.default)
+        let request = try client.makeRequest(
+            PlaceListEndpoint(category: .cafe, search: "bodrum", page: 1, size: 20)
+        )
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/places")
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let byName = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        XCTAssertEqual(byName["category"], "CAFE")
+        XCTAssertEqual(byName["search"], "bodrum")
+        XCTAssertEqual(byName["sort"], "averageScore,desc")
+        XCTAssertEqual(byName["page"], "1")
+        XCTAssertEqual(byName["size"], "20")
+    }
+
     func testSecretDTOsDoNotPrintPasswordOrTokens() {
         let login = LoginRequestDTO(identifier: "a", password: "super-secret")
         XCTAssertFalse(String(describing: login).contains("super-secret"))

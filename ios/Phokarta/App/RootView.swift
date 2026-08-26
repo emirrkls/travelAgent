@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct RootView: View {
-    var session: AuthSessionController
+    var environment: AppEnvironment
+
+    private var session: AuthSessionController { environment.session }
 
     var body: some View {
         Group {
@@ -11,9 +13,7 @@ struct RootView: View {
             case .signedOut:
                 AuthFlowView(session: session)
             case .signedIn(let user):
-                SignedInShellView(user: user) {
-                    Task { await session.logout() }
-                }
+                MainTabView(environment: environment, user: user)
             }
         }
         .task {

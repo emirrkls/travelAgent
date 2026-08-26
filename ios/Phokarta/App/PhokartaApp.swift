@@ -18,7 +18,7 @@ struct BootView: View {
             if let configError {
                 ConfigurationErrorView(message: configError)
             } else if let environment {
-                RootView(session: environment.session)
+                RootView(environment: environment)
             } else {
                 LaunchView()
             }

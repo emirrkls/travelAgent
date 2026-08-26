@@ -3,6 +3,15 @@
 .kotlin/
 /local.properties
 /secrets.properties
+/keystore.properties
+*.jks
+*.keystore
+*.aab
+*.apks
+*.apk
+!gradle/wrapper/gradle-wrapper.jar
+play-service-account*.json
+*-play-publisher*.json
 /.idea/
 /build/
 /captures/

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Encrypted session prefs are Keystore-bound; restoring them without the key is unsafe. -->
+    <exclude domain="sharedpref" path="phokarta_secure_session.xml" />
+</full-backup-content>

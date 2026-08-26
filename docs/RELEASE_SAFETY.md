@@ -100,7 +100,7 @@ Deliberate safety exception to product deletion:
 - Reporter-entered details may remain after the reporter deletes their account.
 - No automated expiration. Retention until a human removes or moderates the row is an operational/legal decision still open.
 
-There is **no public or ordinary-user read API** for reports. Authorized operators inspect OPEN reports through private database access until an admin UI exists.
+There is **no public or ordinary-user read API** for reports. Authorized operators inspect OPEN reports through private database access until an admin UI exists. Closed-beta operator steps: [MODERATION_OPERATIONS.md](MODERATION_OPERATIONS.md).
 
 ## Moderation operational gap
 

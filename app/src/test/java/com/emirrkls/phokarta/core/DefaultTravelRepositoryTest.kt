@@ -4,7 +4,6 @@ import com.emirrkls.phokarta.core.auth.testSessionManager
 import com.emirrkls.phokarta.core.data.ActivityFeedInvalidator
 import com.emirrkls.phokarta.core.data.DefaultTravelRepository
 import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
-import com.emirrkls.phokarta.core.data.MockPlaceCatalogDataSource
 import com.emirrkls.phokarta.core.data.PlaceCacheDataSource
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.model.Collection
@@ -361,6 +360,19 @@ class DefaultTravelRepositoryTest {
         assertTrue(repository.refreshCatalog() is RepositoryResult.Failure)
         assertEquals(listOf(PLACE_ID), repository.observePlaces().first().map { it.id })
     }
+
+    @Test
+    fun `currentUser uses authenticated profile without demo catalog fallback`() {
+        val repository = repository()
+        assertEquals(USER_ID, repository.currentUser.id)
+        assertEquals("demo", repository.currentUser.username)
+        assertEquals("Demo User", repository.currentUser.displayName)
+        assertEquals("", repository.currentUser.bio)
+        assertEquals("", repository.currentUser.avatarUrl)
+        assertEquals(0, repository.currentUser.cityCount)
+        assertEquals(0, repository.currentUser.countryCount)
+        assertTrue(repository.currentUser.travelTaste.isEmpty())
+    }
 }
 
 private fun repository(
@@ -372,7 +384,6 @@ private fun repository(
     social: FakeSocial = FakeSocial(),
     placeCache: PlaceCacheDataSource = FakePlaceCache(),
 ) = DefaultTravelRepository(
-    MockPlaceCatalogDataSource(),
     local,
     places,
     visits,

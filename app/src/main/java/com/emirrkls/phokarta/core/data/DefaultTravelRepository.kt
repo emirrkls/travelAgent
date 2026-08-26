@@ -51,7 +51,6 @@ private const val MAX_PAGINATION_PAGES = 1_000
 
 @Singleton
 class DefaultTravelRepository @Inject constructor(
-    private val activityDemo: MockPlaceCatalogDataSource,
     private val localUserState: LocalUserStateDataSource,
     private val placesRemote: PlaceRemoteDataSource,
     private val visitsRemote: VisitRemoteDataSource,
@@ -71,15 +70,31 @@ class DefaultTravelRepository @Inject constructor(
         get() {
             val auth = sessionManager.state.value as? AuthState.Authenticated
             return if (auth != null) {
-                activityDemo.currentUser.copy(
+                User(
                     id = auth.user.id,
                     username = auth.user.username,
                     displayName = auth.user.displayName,
-                    avatarUrl = auth.user.avatarUrl.ifBlank { activityDemo.currentUser.avatarUrl },
-                    bio = auth.user.bio.ifBlank { activityDemo.currentUser.bio },
+                    avatarUrl = auth.user.avatarUrl,
+                    bio = auth.user.bio,
+                    cityCount = 0,
+                    countryCount = 0,
+                    followersCount = 0,
+                    followingCount = 0,
+                    travelTaste = emptyList(),
                 )
             } else {
-                activityDemo.currentUser
+                User(
+                    id = "",
+                    username = "",
+                    displayName = "",
+                    avatarUrl = "",
+                    bio = "",
+                    cityCount = 0,
+                    countryCount = 0,
+                    followersCount = 0,
+                    followingCount = 0,
+                    travelTaste = emptyList(),
+                )
             }
         }
 

@@ -109,7 +109,7 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                 description = description.trim(),
                 placeIds = emptyList(),
                 visibility = visibility,
-                coverImage = coverImage.ifBlank { DEFAULT_COLLECTION_COVER },
+                coverImage = coverImage,
             )
             when (val result = repository.saveCollection(draft)) {
                 is RepositoryResult.Success -> _uiState.update {
@@ -152,7 +152,6 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
     }
 
     companion object {
-        const val DEFAULT_COLLECTION_COVER =
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200"
+        const val DEFAULT_COLLECTION_COVER = ""
     }
 }

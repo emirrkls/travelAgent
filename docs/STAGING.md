@@ -4,6 +4,12 @@ Closed-beta staging reuses the production Compose stack, Caddyfile, `prod` Sprin
 
 **Current status: repository ready; live staging is not provisioned.**
 
+Closed beta should use **one** backend environment (`staging` / `beta`). Do not provision a separate production stack until a public launch. Later production is the same Compose artifacts with new DNS, secrets, and bucket, and `APP_ENVIRONMENT=production`.
+
+Tell testers that beta data **may be reset** before public launch. Do not silently wipe after testers are invited.
+
+Seed places (`scripts/staging-seed-places.sql` and dev-only Flyway) include Unsplash remote images and synthetic reviews. Do not present those as real users. Confirm image rights before any public-looking catalog; placeholders are a **beta content** risk.
+
 This milestone does not create a VPS, domain, DNS record, TLS certificate, or S3-compatible bucket. Localhost MinIO and a local `mvn` process are not live staging.
 
 Production procedures remain in [Production deployment](PRODUCTION_DEPLOYMENT.md), [Operations runbook](OPERATIONS_RUNBOOK.md), and [Media storage](MEDIA_STORAGE.md).

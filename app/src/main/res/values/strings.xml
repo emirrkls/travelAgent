@@ -340,6 +340,8 @@
     <string name="language_english" translatable="false">English</string>
     <string name="language_turkish" translatable="false">Türkçe</string>
     <string name="settings_account">Account</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
     <string name="delete_account">Delete account</string>
     <string name="delete_account_confirm_title">Permanently delete your account?</string>
     <string name="delete_account_confirm_body">Your profile, visits, saved places, collections, social connections, and uploaded photos will be permanently deleted. Your account will become inaccessible immediately. Stored media may take a short time to be physically removed. This cannot be undone.</string>

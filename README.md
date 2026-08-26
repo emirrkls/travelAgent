@@ -1,4 +1,6 @@
-# Phokarta v0.6
+# Phokarta v0.6.0-beta.1
+
+Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure email/password authentication, personal travel memory, category-aware ratings, saved places, and collections. Android application ID: `com.emirrkls.phokarta`. Closed-beta store preparation: [checklist](docs/CLOSED_BETA_RELEASE_CHECKLIST.md) and [Android release](docs/ANDROID_RELEASE.md).
 
 Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure email/password authentication, personal travel memory, category-aware ratings, saved places, and collections. Android application ID: `com.emirrkls.phokarta`.
 
@@ -24,6 +26,11 @@ Data flows through one boundary:
 - [Media storage](docs/MEDIA_STORAGE.md)
 - [Account deletion](docs/ACCOUNT_DELETION.md)
 - [Staging readiness](docs/STAGING.md)
+- [Closed-beta checklist](docs/CLOSED_BETA_RELEASE_CHECKLIST.md)
+- [Android release build](docs/ANDROID_RELEASE.md)
+- [Play Data Safety inventory](docs/PLAY_DATA_SAFETY.md)
+- [Play App Content notes](docs/PLAY_APP_CONTENT.md)
+- [Play Store assets](docs/PLAY_STORE_ASSETS.md)
 
 Use the provider-neutral Docker Compose reference in `backend/compose.production.yml` with a private managed PostgreSQL/PostGIS service or the optional self-hosted PostGIS profile. Start from `.env.production.example` or `.env.staging.example`; never commit the resulting env files.
 

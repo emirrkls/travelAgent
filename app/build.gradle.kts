@@ -1,4 +1,5 @@
 import java.net.URI
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -11,6 +12,39 @@ plugins {
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.isFile) file.inputStream().use(::load)
+}
+
+fun apiBaseUrl(defaultUrl: String): String =
+    System.getenv("PHOKARTA_API_BASE_URL")?.trim()?.takeIf(String::isNotEmpty)
+        ?: providers.gradleProperty("PHOKARTA_API_BASE_URL").orNull?.trim()?.takeIf(String::isNotEmpty)
+        ?: defaultUrl
+
+fun signingValue(name: String): String? =
+    System.getenv(name)?.trim()?.takeIf(String::isNotEmpty)
+        ?: (findProperty(name) as String?)?.trim()?.takeIf(String::isNotEmpty)
+        ?: keystoreProperties.getProperty(name)?.trim()?.takeIf(String::isNotEmpty)
+
+val uploadStorePath = signingValue("PHOKARTA_UPLOAD_STORE_FILE")
+val uploadStorePassword = signingValue("PHOKARTA_UPLOAD_STORE_PASSWORD")
+val uploadKeyAlias = signingValue("PHOKARTA_UPLOAD_KEY_ALIAS")
+val uploadKeyPassword = signingValue("PHOKARTA_UPLOAD_KEY_PASSWORD")
+val uploadSigningValues = listOf(uploadStorePath, uploadStorePassword, uploadKeyAlias, uploadKeyPassword)
+val uploadSigningProvidedCount = uploadSigningValues.count { it != null }
+require(uploadSigningProvidedCount == 0 || uploadSigningProvidedCount == 4) {
+    "Release signing is incomplete. Set all of PHOKARTA_UPLOAD_STORE_FILE, " +
+        "PHOKARTA_UPLOAD_STORE_PASSWORD, PHOKARTA_UPLOAD_KEY_ALIAS, and " +
+        "PHOKARTA_UPLOAD_KEY_PASSWORD (env, Gradle -P, or ignored keystore.properties), or set none of them."
+}
+val uploadStoreFile = uploadStorePath?.let { path ->
+    val resolved = rootProject.file(path).takeIf { it.isFile } ?: file(path)
+    require(resolved.isFile) { "PHOKARTA_UPLOAD_STORE_FILE does not exist: $path" }
+    resolved
+}
+val hasUploadSigning = uploadStoreFile != null
+
 android {
     namespace = "com.emirrkls.phokarta"
     compileSdk = 35
@@ -20,28 +54,34 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 6
-        versionName = "0.6.0"
+        versionName = "0.6.0-beta.1"
 
         testInstrumentationRunner = "com.emirrkls.phokarta.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        if (hasUploadSigning) {
+            create("upload") {
+                storeFile = uploadStoreFile
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
-            val baseUrl = providers.gradleProperty("PHOKARTA_API_BASE_URL")
-                .orNull
-                ?.trim()
-                ?.takeIf(String::isNotEmpty)
-                ?: "http://10.0.2.2:8080/"
-            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"${baseUrl.trimEnd('/')}/\"")
+            val baseUrl = apiBaseUrl("http://10.0.2.2:8080/").trimEnd('/') + "/"
+            buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
         }
         release {
             isMinifyEnabled = false
-            val baseUrl = providers.gradleProperty("PHOKARTA_API_BASE_URL")
-                .orNull
-                ?.trim()
-                ?.takeIf(String::isNotEmpty)
-                ?: "https://api.phokarta.invalid/"
+            isDebuggable = false
+            val baseUrl = apiBaseUrl("https://api.phokarta.invalid/").let { url ->
+                if (url.endsWith("/")) url else "${url.trimEnd('/')}/"
+            }
             val parsedBaseUrl = runCatching { URI(baseUrl) }.getOrNull()
             require(
                 parsedBaseUrl?.isAbsolute == true &&
@@ -53,6 +93,15 @@ android {
             }
             buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (hasUploadSigning) {
+                signingConfigs.getByName("upload")
+            } else {
+                logger.warn(
+                    "PHOKARTA_UPLOAD_* is not set. Release artifacts are signed with the local debug " +
+                        "keystore for structural verification only and are NOT Play-upload-ready.",
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

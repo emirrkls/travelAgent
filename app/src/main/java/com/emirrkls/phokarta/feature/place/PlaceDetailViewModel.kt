@@ -279,8 +279,7 @@ class PlaceDetailViewModel @Inject constructor(
             it.copy(isCreatingCollection = true, createCollectionError = null)
         }
         viewModelScope.launch {
-            val cover = place.value?.coverImage?.takeIf { it.isNotBlank() }
-                ?: DEFAULT_COLLECTION_COVER
+            val cover = place.value?.coverImage.orEmpty()
             val draft = Collection(
                 id = UUID.randomUUID().toString(),
                 userId = repository.currentUser.id,
@@ -449,8 +448,6 @@ class PlaceDetailViewModel @Inject constructor(
     )
 
     companion object {
-        private const val DEFAULT_COLLECTION_COVER =
-            "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200"
         const val PREVIEW_PAGE_SIZE = 3
     }
 }

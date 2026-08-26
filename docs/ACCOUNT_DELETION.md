@@ -137,6 +137,8 @@ Language preference is kept. Other users' Room rows are scoped by `userId`/`owne
 
 If the client never sees `204` but the server committed, the next refresh or `/me` call fails. Refresh `401`/`403` and restore-session terminal auth failure purge that user's local data so lost-ack recovery does not leave drafts.
 
+Play also requires a **public web** deletion request path for apps that create accounts. That URL is not hosted yet. Template: [ACCOUNT_DELETION_WEB.md](ACCOUNT_DELETION_WEB.md).
+
 ## Operational verification
 
 - `phokarta.account.deletion` outcome: `success`, `invalid_password`, `already_gone`, `failure`

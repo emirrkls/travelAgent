@@ -62,7 +62,7 @@ class ProfileViewModelTest {
             followingCount = 3,
             friendCount = 2,
         )
-        // Demo overlay still has unrelated mock counts on User.
+        // Owner social counts come from the live API, not leftover User mock fields.
         assertTrue(repository.currentUser.followersCount != 7)
 
         val viewModel = ProfileViewModel(repository, authRepository)

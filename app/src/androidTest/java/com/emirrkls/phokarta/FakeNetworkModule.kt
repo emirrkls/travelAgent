@@ -632,8 +632,9 @@ private class FakeMeApi(
 
 class FakeSocial : SocialRemoteDataSource {
     private val following = ConcurrentHashMap.newKeySet<String>()
-    private val blocked = ConcurrentHashMap.newKeySet<String>()
+    private val blockedByViewer = ConcurrentHashMap<String, MutableSet<String>>()
     private val followsYou = setOf(OTHER_USER_ID)
+    @Volatile var viewerUserId: String = USER_ID
     @Volatile var failFriendMetrics: Boolean = false
 
     private val users = listOf(
@@ -652,19 +653,29 @@ class FakeSocial : SocialRemoteDataSource {
     fun mutualFriendIds(): Set<String> =
         following.filter { it in followsYou && isVisibleToViewer(it) }.toSet()
 
-    fun isVisibleToViewer(userId: String): Boolean = userId !in blocked
+    fun isVisibleToViewer(userId: String): Boolean {
+        if (userId == viewerUserId) return true
+        val blockedThem = blockedByViewer[viewerUserId]?.contains(userId) == true
+        val theyBlockedUs = blockedByViewer[userId]?.contains(viewerUserId) == true
+        return !blockedThem && !theyBlockedUs
+    }
 
     fun seedMutualFriend(userId: String = OTHER_USER_ID) {
         following += userId
     }
 
+    fun switchViewer(userId: String) {
+        viewerUserId = userId
+    }
+
     fun reset() {
         following.clear()
-        blocked.clear()
+        blockedByViewer.clear()
+        viewerUserId = USER_ID
         failFriendMetrics = false
     }
 
-    fun blockedDtos(): List<BlockedUserDto> = blocked.map { id ->
+    fun blockedDtos(): List<BlockedUserDto> = outboundBlocks().map { id ->
         val user = users.firstOrNull { it.id == id }
         BlockedUserDto(
             userId = id,
@@ -773,13 +784,13 @@ class FakeSocial : SocialRemoteDataSource {
     }
 
     override suspend fun block(userId: String): RemoteResult<Unit> {
-        blocked += userId
+        outboundBlocks() += userId
         following -= userId
         return RemoteResult.Success(Unit)
     }
 
     override suspend fun unblock(userId: String): RemoteResult<Unit> {
-        blocked -= userId
+        outboundBlocks() -= userId
         return RemoteResult.Success(Unit)
     }
 
@@ -800,6 +811,9 @@ class FakeSocial : SocialRemoteDataSource {
             createdAt = TIMESTAMP,
         ),
     )
+
+    private fun outboundBlocks(): MutableSet<String> =
+        blockedByViewer.getOrPut(viewerUserId) { ConcurrentHashMap.newKeySet() }
 
     private fun summary(id: String, username: String, displayName: String) =
         UserSummaryDto(id, username, displayName, null, null)

@@ -17,6 +17,9 @@ public class ApplicationMetrics {
     private final Map<String, Counter> mediaCleanupCounters = new ConcurrentHashMap<>();
     private final Map<String, Counter> accountDeletionCounters = new ConcurrentHashMap<>();
     private final Map<String, Counter> accountMediaCleanupCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> reportCreatedCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> blockOperationCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> safetyRateLimitCounters = new ConcurrentHashMap<>();
 
     public ApplicationMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -65,6 +68,34 @@ public class ApplicationMetrics {
     public void accountMediaCleanup(String outcome) {
         mediaCounter(accountMediaCleanupCounters, "phokarta.account.media_cleanup",
                 "Account-deletion object cleanup outcomes", outcome).increment();
+    }
+
+    public void reportCreated(String targetType, String reason) {
+        reportCreatedCounters.computeIfAbsent(targetType + ":" + reason, ignored ->
+                        Counter.builder("phokarta.report.created")
+                                .description("Abuse reports created")
+                                .tag("target_type", targetType)
+                                .tag("reason", reason)
+                                .register(registry))
+                .increment();
+    }
+
+    public void blockOperation(String action, String outcome) {
+        blockOperationCounters.computeIfAbsent(action + ":" + outcome, ignored ->
+                        Counter.builder("phokarta.block.operation")
+                                .description("Block and unblock outcomes")
+                                .tag("action", action)
+                                .tag("outcome", outcome)
+                                .register(registry))
+                .increment();
+    }
+
+    public void safetyRateLimited(String action) {
+        safetyRateLimitCounters.computeIfAbsent(action, value -> Counter.builder("phokarta.safety.rate_limited")
+                        .description("Rejected block or report requests")
+                        .tag("action", value)
+                        .register(registry))
+                .increment();
     }
 
     private Counter visit(String outcome) {

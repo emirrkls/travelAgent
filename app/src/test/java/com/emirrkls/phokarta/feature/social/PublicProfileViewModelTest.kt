@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.feature.social
 
 import androidx.lifecycle.SavedStateHandle
+import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.TestTravelRepository
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.model.PublicUserProfile
@@ -118,6 +119,23 @@ class PublicProfileViewModelTest {
         // Public profile still mutates its own loaded counters, not owner /me overlay.
         assertEquals(11L, viewModel.uiState.value.profile!!.followerCount)
         assertEquals(2L, viewModel.uiState.value.profile!!.followingCount)
+    }
+
+    @Test
+    fun followBlockedRelationshipShowsGenericUnavailable() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        repository.publicProfiles[userId] = profile(
+            RelationshipState(isFollowing = false, followsYou = false, isFriend = false),
+        )
+        repository.followError = TravelError.Conflict()
+        val viewModel = PublicProfileViewModel(SavedStateHandle(mapOf("userId" to userId)), repository)
+        advanceUntilIdle()
+
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+
+        assertEquals(R.string.relationship_unavailable, viewModel.uiState.value.actionErrorMessage)
+        assertFalse(viewModel.uiState.value.profile!!.relationship!!.isFollowing)
     }
 
     private fun profile(relationship: RelationshipState) = PublicUserProfile(

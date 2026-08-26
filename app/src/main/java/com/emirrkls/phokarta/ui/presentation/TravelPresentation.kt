@@ -28,6 +28,25 @@ fun TravelError.toUserMessageRes(): Int = when (this) {
     is TravelError.Forbidden -> R.string.error_forbidden
     is TravelError.NotFound -> R.string.error_not_found
     is TravelError.Conflict -> R.string.error_conflict
-    is TravelError.Server -> R.string.error_server
+    is TravelError.Server -> if (status == 429) R.string.report_rate_limited else R.string.error_server
     is TravelError.Unknown -> R.string.error_unknown
+}
+
+@StringRes
+fun TravelError.toFollowMessageRes(): Int = when (this) {
+    is TravelError.Conflict, is TravelError.Forbidden -> R.string.relationship_unavailable
+    else -> toUserMessageRes()
+}
+
+@StringRes
+fun TravelError.toBlockMessageRes(): Int = when (this) {
+    is TravelError.Offline -> R.string.block_offline
+    else -> R.string.block_failed
+}
+
+@StringRes
+fun TravelError.toReportMessageRes(): Int = when (this) {
+    is TravelError.Offline -> R.string.report_offline
+    is TravelError.Server -> if (status == 429) R.string.report_rate_limited else R.string.report_failed
+    else -> R.string.report_failed
 }

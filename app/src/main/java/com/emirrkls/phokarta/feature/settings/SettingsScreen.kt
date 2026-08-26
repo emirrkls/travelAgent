@@ -58,6 +58,7 @@ import com.emirrkls.phokarta.ui.localization.AppLanguageController
 fun SettingsScreen(
     onBack: () -> Unit,
     onSignOut: () -> Unit,
+    onBlockedUsers: () -> Unit = {},
     viewModel: AccountDeletionViewModel = hiltViewModel(),
 ) {
     val deletion by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,6 +87,29 @@ fun SettingsScreen(
                 modifier = Modifier.padding(vertical = 12.dp),
             )
             LanguageSettingsContent()
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            Text(
+                stringResource(R.string.settings_privacy),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+            val blockedUsersLabel = stringResource(R.string.blocked_users)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = blockedUsersLabel
+                        role = Role.Button
+                    }
+                    .clickable(onClick = onBlockedUsers)
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    blockedUsersLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(
                 stringResource(R.string.settings_account),

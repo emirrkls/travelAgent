@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.backend.api.dto.PlaceDetailResponse;
 import com.emirrkls.phokarta.backend.api.dto.PlaceSummaryResponse;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.service.PlaceService;
+import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -88,6 +89,6 @@ public class PlaceController {
                     + "from PUBLIC Visits only.")
     @GetMapping("/{id}")
     public PlaceDetailResponse detail(@PathVariable UUID id) {
-        return service.detail(id);
+        return service.detail(id, SecurityUtils.currentUserId().orElse(null));
     }
 }

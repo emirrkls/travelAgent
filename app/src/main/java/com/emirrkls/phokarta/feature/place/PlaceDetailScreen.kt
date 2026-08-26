@@ -47,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,7 +99,10 @@ import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.theme.Coral
 import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.feature.social.SafetyActionHost
+import com.emirrkls.phokarta.feature.social.SafetyActionViewModel
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlaceDetailScreen(
@@ -109,12 +113,21 @@ fun PlaceDetailScreen(
     visitPublished: Boolean = false,
     onVisitPublishedConsumed: () -> Unit = {},
     viewModel: PlaceDetailViewModel = hiltViewModel(),
+    safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val place = state.place
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val reportThanks = stringResource(R.string.report_thanks)
+    SafetyActionHost(
+        viewModel = safetyViewModel,
+        onReportSubmitted = {
+            snackbarScope.launch { snackbarHostState.showSnackbar(reportThanks) }
+        },
+    )
     var showPicker by remember { mutableStateOf(false) }
     var showCreate by remember { mutableStateOf(false) }
     var awaitingCreateSuccess by remember { mutableStateOf(false) }
@@ -533,6 +546,9 @@ fun PlaceDetailScreen(
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
                                 onOpenAuthor = onAuthor,
                                 onRefreshMedia = viewModel::refreshActiveReviews,
+                                onReport = { visitId, authorId ->
+                                    safetyViewModel.openReportVisit(visitId, authorId)
+                                },
                             )
                             Spacer(Modifier.height(10.dp))
                         }

@@ -21,6 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +41,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.ui.components.CommunityReviewCard
+import com.emirrkls.phokarta.feature.social.SafetyActionHost
+import com.emirrkls.phokarta.feature.social.SafetyActionViewModel
+import com.emirrkls.phokarta.R
+import kotlinx.coroutines.launch
 import com.emirrkls.phokarta.ui.components.CommunityReviewsEmptyState
 import com.emirrkls.phokarta.ui.components.CommunityReviewsErrorState
 import com.emirrkls.phokarta.ui.components.CommunityReviewsLoadingIndicator
@@ -46,7 +53,6 @@ import com.emirrkls.phokarta.ui.components.FriendReviewsEmptyState
 import com.emirrkls.phokarta.core.model.ActivityScope
 import com.emirrkls.phokarta.feature.secondary.ActivityScopeSelector
 import kotlinx.coroutines.flow.distinctUntilChanged
-import com.emirrkls.phokarta.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,9 +60,19 @@ fun PlaceReviewsScreen(
     onBack: () -> Unit,
     onAuthor: (String) -> Unit = {},
     viewModel: PlaceReviewsViewModel = hiltViewModel(),
+    safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val reportThanks = stringResource(R.string.report_thanks)
+    SafetyActionHost(
+        viewModel = safetyViewModel,
+        onReportSubmitted = {
+            snackbarScope.launch { snackbarHostState.showSnackbar(reportThanks) }
+        },
+    )
     val shouldLoadMore by remember {
         derivedStateOf {
             val layoutInfo = listState.layoutInfo
@@ -76,6 +92,7 @@ fun PlaceReviewsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -165,6 +182,9 @@ fun PlaceReviewsScreen(
                                 onToggleExpand = { viewModel.toggleReviewExpanded(review.id) },
                                 onOpenAuthor = onAuthor,
                                 onRefreshMedia = viewModel::retry,
+                                onReport = { visitId, authorId ->
+                                    safetyViewModel.openReportVisit(visitId, authorId)
+                                },
                                 previewMaxLines = Int.MAX_VALUE,
                             )
                         }

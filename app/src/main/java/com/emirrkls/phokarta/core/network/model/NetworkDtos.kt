@@ -378,3 +378,46 @@ data class UserSummaryDto(
     val avatarUrl: String? = null,
     val relationship: RelationshipStateDto? = null,
 )
+
+@Serializable
+enum class ReportTargetTypeDto {
+    USER, VISIT,
+}
+
+@Serializable
+enum class ReportReasonDto {
+    SPAM,
+    HARASSMENT,
+    HATE_OR_ABUSE,
+    SEXUAL_CONTENT,
+    VIOLENCE_OR_THREAT,
+    IMPERSONATION,
+    PRIVACY,
+    OTHER,
+}
+
+@Serializable
+data class BlockedUserDto(
+    val userId: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val blockedAt: String,
+)
+
+@Serializable
+data class CreateReportDto(
+    val targetType: ReportTargetTypeDto,
+    val targetId: String,
+    val reason: ReportReasonDto,
+    val details: String? = null,
+)
+
+@Serializable
+data class ReportResponseDto(
+    val id: String,
+    val targetType: ReportTargetTypeDto,
+    val reason: ReportReasonDto,
+    val status: String,
+    val createdAt: String,
+)

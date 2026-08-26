@@ -18,6 +18,8 @@ Suggested starting alerts, to tune from measured baselines:
 - media upload-intent/confirm storage errors above baseline, orphan cleanup failures, or provider availability alarm: page
 - `phokarta.account.media_cleanup.backlog` growing across several cleanup intervals, or `phokarta.account.media_cleanup` `failed` outcomes above baseline: warn (do not fail readiness)
 - unexpected provider object-count or bucket-byte growth: warn and investigate orphan cleanup/abuse
+- growing count of `reports` with `status = OPEN` without corresponding human review: warn (operational backlog; no public admin API)
+- object backup/replication failure or object recovery point outside the approved RPO: page
 - object backup/replication failure or object recovery point outside the approved RPO: page
 - TLS certificate expiry below 21 days: warn; below 7 days: page
 
@@ -185,6 +187,30 @@ Never reuse secrets across environments. Audit access. Managed DB connections mu
 - Verify UTC/NTP after host changes.
 - For self-hosted PostgreSQL, plan vacuum/analyze, WAL growth, major-version upgrade, and volume recovery; Compose restart is not high availability.
 - For self-hosted object storage, back up data off-host and test recovery; a Docker named volume is not high availability or a backup.
+
+## Abuse reports (no public admin API)
+
+Reports are stored for future moderation. Ordinary users cannot list or read reports. There is no admin HTTP endpoint in this milestone.
+
+Authorized operators may inspect OPEN reports through private database access (SSH tunnel or equivalent), not through a public API:
+
+```sql
+select id, target_type, reason, status, created_at
+from reports
+where status = 'OPEN'
+order by created_at desc
+limit 100;
+```
+
+Do not select `details` into tickets, chat, or shared logs. Details are reporter-entered safety text.
+
+Low-cardinality metrics:
+
+- `phokarta.report.created` tags: `target_type`, `reason`
+- `phokarta.block.operation` tags: `action`, `outcome`
+- `phokarta.safety.rate_limited` tag: `action`
+
+A large OPEN backlog is an operational concern, not a readiness failure. See `docs/RELEASE_SAFETY.md`.
 
 ## Incident checklist
 

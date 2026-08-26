@@ -29,6 +29,8 @@ A second delete with the old access token returns `401` because the user row no 
 | `saved_places` owned by the user | MUST DELETE | Hard-deleted; Places remain |
 | Collections owned by the user and `collection_places` | MUST DELETE | Hard-deleted; not collaborative |
 | `user_follows` in both directions | MUST DELETE | Mutual friends disappear |
+| `user_blocks` involving the user (either direction) | MUST DELETE | Cascade from `users`; no leftover block graph |
+| `reports.reporter_user_id` / `reports.target_user_id` / `reports.target_visit_id` | SAFETY RETAIN | Report **row remains**. FKs are `ON DELETE SET NULL`. Reason, details, timestamps, `target_type`, and status are kept as abuse/safety records. Direct reporter/target identity is removed. This is a deliberate exception: not all user-entered text is deleted. |
 | `media_assets` metadata and `visit_media` | MUST DELETE | Rows removed in the same transaction after keys are copied |
 | Places, community catalog, other users' rows | SHARED / OTHER-USER-OWNED | Retained |
 | Android drafts, pending mutations, local photos, session, WorkManager | MUST DELETE | Purged after server success or terminal auth loss |
@@ -41,6 +43,7 @@ Aggregates (community score/count, friend score, friends-who-visited, activity) 
 - Global Place rows.
 - Other users' accounts, Visits, Saved Places, and collections.
 - Durable `account_deletion_media_jobs` rows until **final** object cleanup succeeds: `id`, `deletion_id` (random batch UUID), `storage_key`, timestamps, attempt count, and `last_error_category`. No email, username, review, or privateMemory.
+- Abuse/safety `reports` rows: after the user is deleted, reporter and target FKs are null. `reason`, optional `details`, `target_type`, `status`, and timestamps remain. Details are not copied into logs. There is no automated expiration yet.
 - Already issued object-storage signed **GET** URLs until their short TTL expires (bearer capability; default read TTL 10 minutes). New signed read URLs are not issued after deletion.
 - Application metrics with low-cardinality outcome tags only.
 
@@ -56,7 +59,7 @@ One database transaction, with no object-storage network I/O inside it:
 2. Load the user; verify current password when a password hash exists.
 3. Copy owned `media_assets.storage_key` values into `account_deletion_media_jobs`.
 4. Delete `visit_media` for the user's visits/media (required because `visit_media.media_id` is `ON DELETE RESTRICT`).
-5. `DELETE FROM users` — PostgreSQL cascades visits, scores, saved places, collections, follows, auth identities, refresh sessions, and media metadata.
+5. `DELETE FROM users` — PostgreSQL cascades visits, scores, saved places, collections, follows, blocks, auth identities, refresh sessions, and media metadata. Report FKs that pointed at the user or their visits become NULL; the report rows remain.
 6. Commit.
 7. After commit, trigger a cleanup pass. Failures stay on the job table for retry.
 
@@ -146,4 +149,4 @@ Logs may include request id, `deletionId`, and phase/outcome. Do not log email, 
 
 ## Flyway
 
-Latest schema migration: **V10** (`account_deletion_media_jobs`). V1–V10 are unchanged. Delayed final cleanup reuses `next_attempt_at` and `last_error_category` (`awaiting_final` phase sentinel). No V11. Production applies schema locations only. Fresh V1–V10 and V9→V10 upgrades are both supported.
+Latest schema migration: **V11** (`user_blocks` and `reports`). V1–V10 are unchanged. Production applies schema locations only. Fresh V1–V11 and V10→V11 upgrades are both supported. Report rows survive account deletion via `ON DELETE SET NULL` on reporter/target/visit FKs; block rows cascade away.

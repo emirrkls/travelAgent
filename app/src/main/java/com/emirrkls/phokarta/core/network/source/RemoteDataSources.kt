@@ -4,12 +4,15 @@ import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.CollectionApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
+import com.emirrkls.phokarta.core.network.api.ReportApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
 import com.emirrkls.phokarta.core.network.api.UserApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
+import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
@@ -22,6 +25,9 @@ import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
+import com.emirrkls.phokarta.core.network.model.ReportReasonDto
+import com.emirrkls.phokarta.core.network.model.ReportResponseDto
+import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
@@ -228,11 +234,21 @@ interface SocialRemoteDataSource {
     suspend fun friends(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<UserSummaryDto>>
     suspend fun meProfile(): RemoteResult<UserProfileDto>
     suspend fun friendMetrics(placeIds: List<String>): RemoteResult<List<FriendMetricsDto>>
+    suspend fun block(userId: String): RemoteResult<Unit>
+    suspend fun unblock(userId: String): RemoteResult<Unit>
+    suspend fun blockedUsers(page: Int = 0, size: Int = 20): RemoteResult<PageResponseDto<BlockedUserDto>>
+    suspend fun submitReport(
+        targetType: ReportTargetTypeDto,
+        targetId: String,
+        reason: ReportReasonDto,
+        details: String?,
+    ): RemoteResult<ReportResponseDto>
 }
 
 class RetrofitSocialRemoteDataSource @Inject constructor(
     private val userApi: UserApi,
     private val meApi: MeApi,
+    private val reportApi: ReportApi,
     private val json: Json,
 ) : SocialRemoteDataSource {
     override suspend fun search(query: String, page: Int, size: Int) =
@@ -261,4 +277,22 @@ class RetrofitSocialRemoteDataSource @Inject constructor(
 
     override suspend fun friendMetrics(placeIds: List<String>) =
         safeApiCall(json) { meApi.friendMetrics(FriendMetricsRequestDto(placeIds)) }
+
+    override suspend fun block(userId: String) =
+        safeUnitApiCall(json) { meApi.block(userId) }
+
+    override suspend fun unblock(userId: String) =
+        safeUnitApiCall(json) { meApi.unblock(userId) }
+
+    override suspend fun blockedUsers(page: Int, size: Int) =
+        safeApiCall(json) { meApi.blockedUsers(page, size) }
+
+    override suspend fun submitReport(
+        targetType: ReportTargetTypeDto,
+        targetId: String,
+        reason: ReportReasonDto,
+        details: String?,
+    ) = safeApiCall(json) {
+        reportApi.submit(CreateReportDto(targetType, targetId, reason, details))
+    }
 }

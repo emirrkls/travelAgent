@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.core.data
 
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.core.model.BlockedUserPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
@@ -10,7 +11,10 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.ReportReason
+import com.emirrkls.phokarta.core.model.ReportTargetType
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
+import com.emirrkls.phokarta.core.model.SubmittedReport
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
@@ -90,4 +94,14 @@ interface TravelRepository {
     suspend fun loadFollowing(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
     suspend fun loadFriends(page: Int = 0, size: Int = 20): RepositoryResult<UserPage>
     suspend fun loadOwnerSocialCounts(): RepositoryResult<OwnerSocialCounts>
+    suspend fun blockUser(userId: String): RepositoryResult<Unit>
+    suspend fun unblockUser(userId: String): RepositoryResult<Unit>
+    suspend fun loadBlockedUsers(page: Int = 0, size: Int = 20): RepositoryResult<BlockedUserPage>
+    suspend fun submitReport(
+        targetType: ReportTargetType,
+        targetId: String,
+        reason: ReportReason,
+        details: String?,
+    ): RepositoryResult<SubmittedReport>
+    suspend fun invalidateAfterBlock()
 }

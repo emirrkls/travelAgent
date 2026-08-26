@@ -31,7 +31,7 @@ class CollectionServiceTest {
     @Mock private CollectionPlaceRepository memberships;
     @Mock private PlaceRepository places;
     @Mock private UserRepository users;
-    @Mock private SocialService socialService;
+    @Mock private ViewerAccessPolicy access;
     @Mock private PlaceMapper mapper;
     @Mock private Collection collection;
     @Mock private User owner;
@@ -47,7 +47,7 @@ class CollectionServiceTest {
         when(memberships.existsById(new CollectionPlaceId(collectionId, placeId))).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, socialService, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper);
 
         assertThatThrownBy(() -> service.add(collectionId, userId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -70,7 +70,7 @@ class CollectionServiceTest {
         when(owner.getId()).thenReturn(ownerId);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, socialService, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper);
 
         assertThatThrownBy(() -> service.add(collectionId, otherUserId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -92,11 +92,31 @@ class CollectionServiceTest {
         when(memberships.existsById(membershipId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, socialService, mapper);
+                new CollectionService(collections, memberships, places, users, access, mapper);
 
         service.remove(collectionId, userId, placeId);
 
         verify(memberships).deleteById(membershipId);
         verify(collection).touch(org.mockito.ArgumentMatchers.any(OffsetDateTime.class));
+    }
+
+    @Test
+    void blockedViewerCannotReadCollection() {
+        UUID collectionId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID viewerId = UUID.randomUUID();
+        when(collections.findDetailedById(collectionId)).thenReturn(Optional.of(collection));
+        when(collection.getUser()).thenReturn(owner);
+        when(owner.getId()).thenReturn(ownerId);
+        when(access.isBlockSeparated(viewerId, ownerId)).thenReturn(true);
+
+        CollectionService service =
+                new CollectionService(collections, memberships, places, users, access, mapper);
+
+        assertThatThrownBy(() -> service.detail(collectionId, viewerId))
+                .isInstanceOfSatisfying(ApiException.class, exception -> {
+                    assertThat(exception.status().value()).isEqualTo(404);
+                    assertThat(exception.code()).isEqualTo("NOT_FOUND");
+                });
     }
 }

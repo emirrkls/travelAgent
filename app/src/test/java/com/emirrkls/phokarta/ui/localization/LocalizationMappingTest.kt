@@ -21,6 +21,12 @@ class LocalizationMappingTest {
     }
 
     @Test
+    fun reportReasonLabelRes_mapsEachValue() {
+        assertEquals(R.string.report_reason_spam, com.emirrkls.phokarta.core.model.ReportReason.SPAM.labelRes())
+        assertEquals(R.string.report_reason_other, com.emirrkls.phokarta.core.model.ReportReason.OTHER.labelRes())
+    }
+
+    @Test
     fun visibilityLabelRes_mapsEachValue() {
         assertEquals(R.string.visibility_public, Visibility.PUBLIC.labelRes())
         assertEquals(R.string.visibility_friends, Visibility.FRIENDS.labelRes())

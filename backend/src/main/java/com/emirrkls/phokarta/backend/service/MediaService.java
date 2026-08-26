@@ -44,6 +44,7 @@ public class MediaService {
     private final VisitMediaRepository visitMedia;
     private final UserRepository users;
     private final UserFollowRepository follows;
+    private final BlockService blocks;
     private final ObjectStorageService storage;
     private final MediaProperties properties;
     private final ApplicationMetrics metrics;
@@ -51,12 +52,14 @@ public class MediaService {
 
     public MediaService(MediaAssetRepository assets, VisitMediaRepository visitMedia,
                         UserRepository users, UserFollowRepository follows,
-                        ObjectStorageService storage, MediaProperties properties,
-                        ApplicationMetrics metrics, MediaCleanupClaims cleanupClaims) {
+                        BlockService blocks, ObjectStorageService storage,
+                        MediaProperties properties, ApplicationMetrics metrics,
+                        MediaCleanupClaims cleanupClaims) {
         this.assets = assets;
         this.visitMedia = visitMedia;
         this.users = users;
         this.follows = follows;
+        this.blocks = blocks;
         this.storage = storage;
         this.properties = properties;
         this.metrics = metrics;
@@ -238,7 +241,11 @@ public class MediaService {
     private void authorizeAttached(VisitMedia relation, UUID viewerId) {
         UUID ownerId = relation.getMedia().getOwner().getId();
         Visibility visibility = relation.getVisit().getVisibility();
-        if (ownerId.equals(viewerId) || visibility == Visibility.PUBLIC) return;
+        if (ownerId.equals(viewerId)) return;
+        if (viewerId != null && blocks.isBlockedEitherDirection(viewerId, ownerId)) {
+            throw ApiException.notFound("Media", relation.getMedia().getId());
+        }
+        if (visibility == Visibility.PUBLIC) return;
         if (visibility == Visibility.FRIENDS && viewerId != null
                 && follows.areFriends(viewerId, ownerId)) return;
         throw ApiException.forbidden("Media is not accessible");

@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.backend.api.controller;
 
+import com.emirrkls.phokarta.backend.api.dto.BlockedUserResponse;
 import com.emirrkls.phokarta.backend.api.dto.CollectionDetailResponse;
 import com.emirrkls.phokarta.backend.api.dto.CollectionSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.CreateCollectionRequest;
@@ -12,9 +13,11 @@ import com.emirrkls.phokarta.backend.api.dto.UserProfileResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserSummaryResponse;
 import com.emirrkls.phokarta.backend.api.dto.VisitOwnerResponse;
 import com.emirrkls.phokarta.backend.security.AuthRateLimiter;
+import com.emirrkls.phokarta.backend.security.SafetyRateLimiter;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.AccountDeletionService;
 import com.emirrkls.phokarta.backend.service.AuthService;
+import com.emirrkls.phokarta.backend.service.BlockService;
 import com.emirrkls.phokarta.backend.service.CollectionService;
 import com.emirrkls.phokarta.backend.service.SavedPlaceService;
 import com.emirrkls.phokarta.backend.service.SocialService;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,20 +55,25 @@ public class MeController {
     private final SavedPlaceService savedPlaceService;
     private final CollectionService collectionService;
     private final SocialService socialService;
+    private final BlockService blockService;
     private final AccountDeletionService accountDeletionService;
     private final AuthRateLimiter rateLimiter;
+    private final SafetyRateLimiter safetyRateLimiter;
 
     public MeController(AuthService authService, VisitService visitService,
                         SavedPlaceService savedPlaceService, CollectionService collectionService,
-                        SocialService socialService, AccountDeletionService accountDeletionService,
-                        AuthRateLimiter rateLimiter) {
+                        SocialService socialService, BlockService blockService,
+                        AccountDeletionService accountDeletionService,
+                        AuthRateLimiter rateLimiter, SafetyRateLimiter safetyRateLimiter) {
         this.authService = authService;
         this.visitService = visitService;
         this.savedPlaceService = savedPlaceService;
         this.collectionService = collectionService;
         this.socialService = socialService;
+        this.blockService = blockService;
         this.accountDeletionService = accountDeletionService;
         this.rateLimiter = rateLimiter;
+        this.safetyRateLimiter = safetyRateLimiter;
     }
 
     @GetMapping
@@ -170,5 +179,35 @@ public class MeController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return socialService.friends(SecurityUtils.requireCurrentUserId(), page, size);
+    }
+
+    @Operation(summary = "Accounts the current user has blocked",
+            description = "Does not include users who blocked the caller. Pageable.")
+    @GetMapping("/blocks")
+    public PageResponse<BlockedUserResponse> blockedUsers(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return blockService.listBlocked(SecurityUtils.requireCurrentUserId(), page, size);
+    }
+
+    @Operation(summary = "Block a user",
+            description = "Idempotent. Removes follow edges in both directions in the same "
+                    + "transaction. Does not notify the target.")
+    @PutMapping("/blocks/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void block(@PathVariable UUID userId) {
+        var blockerId = SecurityUtils.requireCurrentUserId();
+        safetyRateLimiter.checkBlock(blockerId);
+        blockService.block(blockerId, userId);
+    }
+
+    @Operation(summary = "Unblock a user",
+            description = "Idempotent. Does not restore previous follow edges.")
+    @DeleteMapping("/blocks/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unblock(@PathVariable UUID userId) {
+        var blockerId = SecurityUtils.requireCurrentUserId();
+        safetyRateLimiter.checkBlock(blockerId);
+        blockService.unblock(blockerId, userId);
     }
 }

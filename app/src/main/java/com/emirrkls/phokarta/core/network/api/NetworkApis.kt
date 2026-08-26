@@ -1,9 +1,11 @@
 package com.emirrkls.phokarta.core.network.api
 
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
+import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
@@ -21,6 +23,7 @@ import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
+import com.emirrkls.phokarta.core.network.model.ReportResponseDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
@@ -36,6 +39,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -79,6 +83,18 @@ interface MeApi {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): Response<PageResponseDto<UserSummaryDto>>
+
+    @GET("api/v1/me/blocks")
+    suspend fun blockedUsers(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<BlockedUserDto>>
+
+    @PUT("api/v1/me/blocks/{userId}")
+    suspend fun block(@Path("userId") userId: String): Response<Unit>
+
+    @DELETE("api/v1/me/blocks/{userId}")
+    suspend fun unblock(@Path("userId") userId: String): Response<Unit>
 
     @HTTP(method = "DELETE", path = "api/v1/me", hasBody = true)
     suspend fun deleteAccount(@Body request: DeleteAccountRequestDto): Response<Unit>
@@ -229,4 +245,9 @@ interface CollectionApi {
         @Path("collectionId") collectionId: String,
         @Path("placeId") placeId: String,
     ): Response<Unit>
+}
+
+interface ReportApi {
+    @POST("api/v1/reports")
+    suspend fun submit(@Body request: CreateReportDto): Response<ReportResponseDto>
 }

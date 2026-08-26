@@ -15,6 +15,7 @@ import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.mapper.toDomain
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
@@ -31,6 +32,9 @@ import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
+import com.emirrkls.phokarta.core.network.model.ReportReasonDto
+import com.emirrkls.phokarta.core.network.model.ReportResponseDto
+import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
@@ -565,6 +569,15 @@ private class FakeSocial(
     override suspend fun meProfile() = meProfile
     override suspend fun friendMetrics(placeIds: List<String>) =
         RemoteResult.Success(emptyList<FriendMetricsDto>())
+    override suspend fun block(userId: String) = RemoteResult.Success(Unit)
+    override suspend fun unblock(userId: String) = RemoteResult.Success(Unit)
+    override suspend fun blockedUsers(page: Int, size: Int) = page<BlockedUserDto>()
+    override suspend fun submitReport(
+        targetType: ReportTargetTypeDto,
+        targetId: String,
+        reason: ReportReasonDto,
+        details: String?,
+    ): RemoteResult<ReportResponseDto> = RemoteResult.Failure(NetworkError.Connection)
 }
 
 private fun collectionDetail(placeIds: List<String> = emptyList()) = CollectionDetailDto(

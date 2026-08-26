@@ -41,6 +41,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,7 +91,9 @@ import com.emirrkls.phokarta.feature.splash.AppStartViewModel
 import com.emirrkls.phokarta.ui.theme.Coral
 import androidx.compose.ui.res.stringResource
 import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.feature.settings.BlockedUsersScreen
 import com.emirrkls.phokarta.feature.settings.SettingsScreen
+import kotlinx.coroutines.launch
 
 private object Route {
     const val Splash = "splash"
@@ -111,6 +116,7 @@ private object Route {
     const val Collection = "collection/{collectionId}"
     const val Success = "success/{placeName}"
     const val Settings = "settings"
+    const val BlockedUsers = "settings/blocked-users"
 }
 
 private data class BottomDestination(val route: String, val labelRes: Int, val selected: ImageVector, val unselected: ImageVector)
@@ -131,6 +137,10 @@ fun PhokartaApp() {
     val showBottomBar = currentRoute in bottomDestinations.map { it.route }
     var showAddSheet by remember { mutableStateOf(false) }
     var splashFinished by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val userBlockedMessage = stringResource(R.string.user_blocked)
+    val reportThanksMessage = stringResource(R.string.report_thanks)
 
     LaunchedEffect(authState, splashFinished) {
         if (!splashFinished) return@LaunchedEffect
@@ -159,6 +169,7 @@ fun PhokartaApp() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = { if (showBottomBar) TravelBottomBar(currentRoute, navController) { showAddSheet = true } },
     ) { scaffoldPadding ->
         Box(Modifier.fillMaxSize().padding(scaffoldPadding)) {
@@ -243,7 +254,11 @@ fun PhokartaApp() {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onSignOut = startViewModel::logout,
+                        onBlockedUsers = { navController.navigate(Route.BlockedUsers) },
                     )
+                }
+                composable(Route.BlockedUsers) {
+                    BlockedUsersScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Route.UserSearch) {
                     UserSearchScreen(
@@ -258,6 +273,10 @@ fun PhokartaApp() {
                     PublicProfileScreen(
                         onBack = { navController.popBackStack() },
                         onSocialList = { kind -> navController.navigate("social/${kind.routeValue}") },
+                        onUserBlocked = {
+                            navController.popBackStack()
+                            snackbarScope.launch { snackbarHostState.showSnackbar(userBlockedMessage) }
+                        },
                     )
                 }
                 composable(

@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.network.UploadHttpClient
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
@@ -31,6 +32,9 @@ import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
+import com.emirrkls.phokarta.core.network.model.ReportReasonDto
+import com.emirrkls.phokarta.core.network.model.ReportResponseDto
+import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
@@ -355,7 +359,9 @@ class FakeVisits(
         size: Int,
     ): RemoteResult<PageResponseDto<PublicVisitDto>> {
         val source = if (scope?.lowercase() == "friends") friendReadableReviews else communityReviews
-        val matching = source.filter { it.placeId == placeId }.filterByScope(scope) { it.userId }
+        val matching = source.filter { it.placeId == placeId }
+            .filterByScope(scope) { it.userId }
+            .filter { social.isVisibleToViewer(it.userId) }
         return RemoteResult.Success(paginate(matching, page, size))
     }
 
@@ -366,6 +372,7 @@ class FakeVisits(
     ): RemoteResult<PageResponseDto<PublicActivityDto>> {
         val source = if (scope?.lowercase() == "friends") friendReadableActivity else communityActivity
         val matching = source.filterByScope(scope) { it.author.id }
+            .filter { social.isVisibleToViewer(it.author.id) }
         return RemoteResult.Success(paginate(matching, page, size))
     }
 
@@ -375,7 +382,7 @@ class FakeVisits(
         }
         val friends = social.mutualFriendIds()
         val friendVisits = friendReadableReviews
-            .filter { it.placeId == placeId && it.userId in friends }
+            .filter { it.placeId == placeId && it.userId in friends && social.isVisibleToViewer(it.userId) }
             .groupBy { it.userId }
         if (friendVisits.isEmpty()) {
             return RemoteResult.Success(FriendPlaceSummaryDto(null, 0, emptyList()))
@@ -599,6 +606,22 @@ private class FakeMeApi(
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> =
         Response.success(page(emptyList()))
 
+    override suspend fun blockedUsers(
+        page: Int,
+        size: Int,
+    ): Response<PageResponseDto<BlockedUserDto>> =
+        Response.success(page(social.blockedDtos()))
+
+    override suspend fun block(userId: String): Response<Unit> {
+        social.block(userId)
+        return Response.success(Unit)
+    }
+
+    override suspend fun unblock(userId: String): Response<Unit> {
+        social.unblock(userId)
+        return Response.success(Unit)
+    }
+
     override suspend fun friendMetrics(
         request: FriendMetricsRequestDto,
     ): Response<List<FriendMetricsDto>> = Response.success(emptyList())
@@ -609,6 +632,7 @@ private class FakeMeApi(
 
 class FakeSocial : SocialRemoteDataSource {
     private val following = ConcurrentHashMap.newKeySet<String>()
+    private val blocked = ConcurrentHashMap.newKeySet<String>()
     private val followsYou = setOf(OTHER_USER_ID)
     @Volatile var failFriendMetrics: Boolean = false
 
@@ -618,13 +642,17 @@ class FakeSocial : SocialRemoteDataSource {
         summary(FOURTH_USER_ID, "denizmaps", "Deniz Community"),
     )
 
-    fun ownerFollowerCount(): Long = followsYou.size.toLong()
-    fun ownerFollowingCount(): Long = following.size.toLong()
-    fun ownerFriendCount(): Long = following.count { it in followsYou }.toLong()
+    fun ownerFollowerCount(): Long = followsYou.count { isVisibleToViewer(it) }.toLong()
+    fun ownerFollowingCount(): Long = following.count { isVisibleToViewer(it) }.toLong()
+    fun ownerFriendCount(): Long = following.count { it in followsYou && isVisibleToViewer(it) }.toLong()
 
-    fun isMutualFriend(userId: String): Boolean = userId in following && userId in followsYou
+    fun isMutualFriend(userId: String): Boolean =
+        userId in following && userId in followsYou && isVisibleToViewer(userId)
 
-    fun mutualFriendIds(): Set<String> = following.filter { it in followsYou }.toSet()
+    fun mutualFriendIds(): Set<String> =
+        following.filter { it in followsYou && isVisibleToViewer(it) }.toSet()
+
+    fun isVisibleToViewer(userId: String): Boolean = userId !in blocked
 
     fun seedMutualFriend(userId: String = OTHER_USER_ID) {
         following += userId
@@ -632,17 +660,30 @@ class FakeSocial : SocialRemoteDataSource {
 
     fun reset() {
         following.clear()
+        blocked.clear()
         failFriendMetrics = false
     }
 
+    fun blockedDtos(): List<BlockedUserDto> = blocked.map { id ->
+        val user = users.firstOrNull { it.id == id }
+        BlockedUserDto(
+            userId = id,
+            username = user?.username ?: "user",
+            displayName = user?.displayName ?: "User",
+            avatarUrl = null,
+            blockedAt = TIMESTAMP,
+        )
+    }
+
     override suspend fun search(query: String, page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> {
-        val matched = users.filter {
+        val matched = users.filter { isVisibleToViewer(it.id) }.filter {
             it.username.contains(query, true) || it.displayName.contains(query, true)
         }.map { it.withRelationship() }
         return RemoteResult.Success(page(matched))
     }
 
     override suspend fun profile(userId: String): RemoteResult<PublicUserProfileDto> {
+        if (!isVisibleToViewer(userId)) return RemoteResult.Failure(NetworkError.NotFound(null))
         val user = users.firstOrNull { it.id == userId }
             ?: return RemoteResult.Failure(NetworkError.NotFound(null))
         val isFollowing = userId in following
@@ -665,6 +706,9 @@ class FakeSocial : SocialRemoteDataSource {
     }
 
     override suspend fun follow(userId: String): RemoteResult<Unit> {
+        if (!isVisibleToViewer(userId)) {
+            return RemoteResult.Failure(NetworkError.Conflict(null))
+        }
         following += userId
         return RemoteResult.Success(Unit)
     }
@@ -675,19 +719,25 @@ class FakeSocial : SocialRemoteDataSource {
     }
 
     override suspend fun followers(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
-        RemoteResult.Success(page(listOf(summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz").withRelationship())))
+        RemoteResult.Success(
+            page(
+                listOf(summary(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz").withRelationship())
+                    .filter { isVisibleToViewer(it.id) },
+            ),
+        )
 
     override suspend fun following(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
         RemoteResult.Success(
             page(
-                following.mapNotNull { id -> users.firstOrNull { it.id == id }?.withRelationship() },
+                following.filter { isVisibleToViewer(it) }
+                    .mapNotNull { id -> users.firstOrNull { it.id == id }?.withRelationship() },
             ),
         )
 
     override suspend fun friends(page: Int, size: Int): RemoteResult<PageResponseDto<UserSummaryDto>> =
         RemoteResult.Success(
             page(
-                following.filter { it in followsYou }
+                following.filter { it in followsYou && isVisibleToViewer(it) }
                     .mapNotNull { id -> users.firstOrNull { it.id == id }?.withRelationship() },
             ),
         )
@@ -721,6 +771,35 @@ class FakeSocial : SocialRemoteDataSource {
             },
         )
     }
+
+    override suspend fun block(userId: String): RemoteResult<Unit> {
+        blocked += userId
+        following -= userId
+        return RemoteResult.Success(Unit)
+    }
+
+    override suspend fun unblock(userId: String): RemoteResult<Unit> {
+        blocked -= userId
+        return RemoteResult.Success(Unit)
+    }
+
+    override suspend fun blockedUsers(page: Int, size: Int): RemoteResult<PageResponseDto<BlockedUserDto>> =
+        RemoteResult.Success(page(blockedDtos()))
+
+    override suspend fun submitReport(
+        targetType: ReportTargetTypeDto,
+        targetId: String,
+        reason: ReportReasonDto,
+        details: String?,
+    ): RemoteResult<ReportResponseDto> = RemoteResult.Success(
+        ReportResponseDto(
+            id = UUID.randomUUID().toString(),
+            targetType = targetType,
+            reason = reason,
+            status = "OPEN",
+            createdAt = TIMESTAMP,
+        ),
+    )
 
     private fun summary(id: String, username: String, displayName: String) =
         UserSummaryDto(id, username, displayName, null, null)

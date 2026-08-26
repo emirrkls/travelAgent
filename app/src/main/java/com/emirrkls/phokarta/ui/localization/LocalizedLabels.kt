@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.ReportReason
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.feature.search.SearchSort
 import java.text.NumberFormat
@@ -88,6 +89,18 @@ fun Visibility.labelRes(): Int = when (this) {
     Visibility.PUBLIC -> R.string.visibility_public
     Visibility.FRIENDS -> R.string.visibility_friends
     Visibility.PRIVATE -> R.string.visibility_private
+}
+
+@StringRes
+fun ReportReason.labelRes(): Int = when (this) {
+    ReportReason.SPAM -> R.string.report_reason_spam
+    ReportReason.HARASSMENT -> R.string.report_reason_harassment
+    ReportReason.HATE_OR_ABUSE -> R.string.report_reason_hate
+    ReportReason.SEXUAL_CONTENT -> R.string.report_reason_sexual
+    ReportReason.VIOLENCE_OR_THREAT -> R.string.report_reason_violence
+    ReportReason.IMPERSONATION -> R.string.report_reason_impersonation
+    ReportReason.PRIVACY -> R.string.report_reason_privacy
+    ReportReason.OTHER -> R.string.report_reason_other
 }
 
 @StringRes

@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.model.AuthSessionDto
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
@@ -143,5 +144,8 @@ private object UnusedMeApi : MeApi {
     override suspend fun followers(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun following(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
     override suspend fun friends(page: Int, size: Int): Response<PageResponseDto<UserSummaryDto>> = error("unused")
+    override suspend fun blockedUsers(page: Int, size: Int): Response<PageResponseDto<BlockedUserDto>> = error("unused")
+    override suspend fun block(userId: String): Response<Unit> = error("unused")
+    override suspend fun unblock(userId: String): Response<Unit> = error("unused")
     override suspend fun deleteAccount(request: com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto): Response<Unit> = error("unused")
 }

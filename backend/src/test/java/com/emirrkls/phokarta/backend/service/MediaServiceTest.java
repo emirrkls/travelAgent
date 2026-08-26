@@ -44,6 +44,7 @@ class MediaServiceTest {
     private final VisitMediaRepository visitMedia = mock(VisitMediaRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final UserFollowRepository follows = mock(UserFollowRepository.class);
+    private final BlockService blocks = mock(BlockService.class);
     private final FakeStorage storage = new FakeStorage();
     private final MediaCleanupClaims cleanupClaims = mock(MediaCleanupClaims.class);
     private MediaService service;
@@ -57,7 +58,7 @@ class MediaServiceTest {
                 Set.of("image/jpeg", "image/png", "image/webp"), Duration.ofMinutes(15),
                 Duration.ofMinutes(10), Duration.ofHours(48), 100, Duration.ofHours(1),
                 Duration.ofMinutes(2));
-        service = new MediaService(assets, visitMedia, users, follows, storage, properties,
+        service = new MediaService(assets, visitMedia, users, follows, blocks, storage, properties,
                 new ApplicationMetrics(new SimpleMeterRegistry()), cleanupClaims);
         ownerId = UUID.randomUUID();
         owner = new User(ownerId, "owner@example.test", "owner", "Owner", null,
@@ -162,6 +163,11 @@ class MediaServiceTest {
 
         when(visit.getVisibility()).thenReturn(Visibility.PUBLIC);
         assertThat(service.access(mediaId, null).url()).isNotNull();
+        UUID blockedViewer = UUID.randomUUID();
+        when(blocks.isBlockedEitherDirection(blockedViewer, ownerId)).thenReturn(true);
+        assertThatThrownBy(() -> service.access(mediaId, blockedViewer))
+                .isInstanceOf(ApiException.class)
+                .extracting("status.value").isEqualTo(404);
         when(visit.getVisibility()).thenReturn(Visibility.PRIVATE);
         assertThat(service.access(mediaId, ownerId).url()).isNotNull();
         assertThatThrownBy(() -> service.access(mediaId, null))

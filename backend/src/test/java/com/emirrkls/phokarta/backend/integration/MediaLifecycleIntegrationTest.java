@@ -76,6 +76,8 @@ class MediaLifecycleIntegrationTest {
     void setUp() {
         jdbc.update("delete from user_follows where follower_user_id in (?, ?, ?) or followed_user_id in (?, ?, ?)",
                 OWNER, VIEWER, OTHER, OWNER, VIEWER, OTHER);
+        jdbc.update("delete from user_blocks where blocker_user_id in (?, ?, ?) or blocked_user_id in (?, ?, ?)",
+                OWNER, VIEWER, OTHER, OWNER, VIEWER, OTHER);
         jdbc.update("delete from visits where user_id in (?, ?, ?)", OWNER, VIEWER, OTHER);
         jdbc.update("delete from media_assets where owner_user_id in (?, ?, ?)", OWNER, VIEWER, OTHER);
         ensureUser(OWNER, "media_owner");
@@ -151,6 +153,19 @@ class MediaLifecycleIntegrationTest {
         assertThat(media.access(privateMedia, OWNER).url()).isNotNull();
         assertStatus(403, () -> media.access(privateMedia, VIEWER));
         assertStatus(403, () -> media.access(privateMedia, null));
+    }
+
+    @Test
+    void authenticatedBlockedViewerDoesNotReceivePublicMediaUrl() {
+        UUID publicMedia = attach(OWNER, Visibility.PUBLIC);
+        assertThat(media.access(publicMedia, VIEWER).url()).isNotNull();
+        jdbc.update("""
+                insert into user_blocks (blocker_user_id, blocked_user_id, created_at)
+                values (?, ?, now())
+                """, VIEWER, OWNER);
+        assertStatus(404, () -> media.access(publicMedia, VIEWER));
+        assertThat(media.access(publicMedia, null).url()).isNotNull();
+        assertThat(media.access(publicMedia, OWNER).url()).isNotNull();
     }
 
     @Test

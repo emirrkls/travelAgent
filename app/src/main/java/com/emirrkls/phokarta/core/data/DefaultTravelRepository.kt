@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.core.auth.AuthState
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.core.model.BlockedUserPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
@@ -12,7 +13,10 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
+import com.emirrkls.phokarta.core.model.ReportReason
+import com.emirrkls.phokarta.core.model.ReportTargetType
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
+import com.emirrkls.phokarta.core.model.SubmittedReport
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.Visit
@@ -22,6 +26,7 @@ import com.emirrkls.phokarta.core.network.mapper.toActivityEvent
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.core.network.mapper.toCanonicalUuid
 import com.emirrkls.phokarta.core.network.mapper.toDomain
+import com.emirrkls.phokarta.core.network.mapper.toDto
 import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
 import com.emirrkls.phokarta.core.network.mapper.toFriendMetrics
 import com.emirrkls.phokarta.core.network.mapper.toPublicReview
@@ -585,6 +590,66 @@ class DefaultTravelRepository @Inject constructor(
                 ),
             )
         }
+
+    override suspend fun blockUser(userId: String): RepositoryResult<Unit> = mapOrValidation {
+        val id = userId.toCanonicalUuid()
+        when (val result = socialRemote.block(id)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> {
+                invalidateAfterBlock()
+                RepositoryResult.Success(Unit)
+            }
+        }
+    }
+
+    override suspend fun unblockUser(userId: String): RepositoryResult<Unit> = mapOrValidation {
+        val id = userId.toCanonicalUuid()
+        when (val result = socialRemote.unblock(id)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> {
+                invalidateAfterBlock()
+                RepositoryResult.Success(Unit)
+            }
+        }
+    }
+
+    override suspend fun loadBlockedUsers(page: Int, size: Int): RepositoryResult<BlockedUserPage> =
+        when (val result = socialRemote.blockedUsers(page, size)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> mapOrValidation {
+                RepositoryResult.Success(
+                    BlockedUserPage(
+                        items = result.value.content.map { it.toDomain() },
+                        page = result.value.page,
+                        totalPages = result.value.totalPages,
+                        totalElements = result.value.totalElements,
+                        hasNext = result.value.hasNext,
+                    ),
+                )
+            }
+        }
+
+    override suspend fun submitReport(
+        targetType: ReportTargetType,
+        targetId: String,
+        reason: ReportReason,
+        details: String?,
+    ): RepositoryResult<SubmittedReport> = mapOrValidation {
+        val id = targetId.toCanonicalUuid()
+        when (val result = socialRemote.submitReport(targetType.toDto(), id, reason.toDto(), details)) {
+            is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
+            is RemoteResult.Success -> RepositoryResult.Success(result.value.toDomain())
+        }
+    }
+
+    override suspend fun invalidateAfterBlock() {
+        activityFeedInvalidator.markDirty()
+        refreshSaved()
+        loadOwnerSocialCounts()
+        loadFriends()
+        loadFollowers()
+        loadFollowing()
+    }
 
     private suspend fun loadSocialPage(
         page: Int,

@@ -42,6 +42,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             select u from User u
             where (:excludeId is null or u.id <> :excludeId)
               and (
+                  :excludeId is null or not exists (
+                      select 1 from UserBlock block
+                      where (block.id.blockerUserId = :excludeId and block.id.blockedUserId = u.id)
+                         or (block.id.blockerUserId = u.id and block.id.blockedUserId = :excludeId)
+                  )
+              )
+              and (
                   lower(u.username) like lower(concat('%', :query, '%'))
                   or lower(u.displayName) like lower(concat('%', :query, '%'))
               )

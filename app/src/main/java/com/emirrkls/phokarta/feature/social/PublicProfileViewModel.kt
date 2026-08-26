@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.ui.presentation.toFollowMessageRes
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -95,7 +96,7 @@ class PublicProfileViewModel @Inject constructor(
                 is RepositoryResult.Failure -> _uiState.update {
                     it.copy(
                         isMutating = false,
-                        actionErrorMessage = result.error.toUserMessageRes(),
+                        actionErrorMessage = result.error.toFollowMessageRes(),
                         profile = profile,
                     )
                 }

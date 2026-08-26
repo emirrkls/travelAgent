@@ -29,5 +29,9 @@ internal fun NetworkError.toTravelError(): TravelError = when (this) {
     is NetworkError.NotFound -> TravelError.NotFound(apiError?.message)
     is NetworkError.Conflict -> TravelError.Conflict(apiError?.message)
     is NetworkError.Server -> TravelError.Server(status, apiError?.message)
-    is NetworkError.Unknown -> TravelError.Unknown(apiError?.message ?: cause?.message)
+    is NetworkError.Unknown -> if (status == 429) {
+        TravelError.Server(429, apiError?.message)
+    } else {
+        TravelError.Unknown(apiError?.message ?: cause?.message)
+    }
 }

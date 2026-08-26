@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.network.api.AuthApi
 import com.emirrkls.phokarta.core.network.api.CollectionApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
+import com.emirrkls.phokarta.core.network.api.ReportApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
 import com.emirrkls.phokarta.core.network.api.UserApi
 import com.emirrkls.phokarta.core.network.api.VisitApi
@@ -127,6 +128,11 @@ object NetworkModule {
     @Singleton
     fun provideUserApi(retrofit: Retrofit): UserApi =
         retrofit.create(UserApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReportApi(retrofit: Retrofit): ReportApi =
+        retrofit.create(ReportApi::class.java)
 
     @Provides
     @Singleton

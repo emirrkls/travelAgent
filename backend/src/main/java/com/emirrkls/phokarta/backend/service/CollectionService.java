@@ -33,18 +33,18 @@ public class CollectionService {
     private final CollectionPlaceRepository memberships;
     private final PlaceRepository places;
     private final UserRepository users;
-    private final SocialService socialService;
+    private final ViewerAccessPolicy access;
     private final PlaceMapper mapper;
 
     public CollectionService(CollectionRepository collections,
                              CollectionPlaceRepository memberships, PlaceRepository places,
-                             UserRepository users, SocialService socialService,
+                             UserRepository users, ViewerAccessPolicy access,
                              PlaceMapper mapper) {
         this.collections = collections;
         this.memberships = memberships;
         this.places = places;
         this.users = users;
-        this.socialService = socialService;
+        this.access = access;
         this.mapper = mapper;
     }
 
@@ -143,27 +143,18 @@ public class CollectionService {
     }
 
     /**
-     * Visibility: PUBLIC — anyone; PRIVATE — owner only;
-     * FRIENDS — owner or mutual-follow friend of owner.
+     * Visibility: PUBLIC — anyone except a block-separated authenticated viewer;
+     * PRIVATE — owner only; FRIENDS — owner or mutual-follow friend of owner.
+     * Blocked authenticated viewers receive 404 so the collection is not confirmed.
      */
     private void assertReadable(Collection collection, UUID viewerUserId, UUID collectionId) {
         UUID ownerId = collection.getUser().getId();
         boolean isOwner = viewerUserId != null && ownerId.equals(viewerUserId);
-        switch (collection.getVisibility()) {
-            case PUBLIC -> {
-                // readable by anyone
-            }
-            case PRIVATE -> {
-                if (!isOwner) {
-                    throw ApiException.forbidden("Collection is not visible");
-                }
-            }
-            case FRIENDS -> {
-                if (!isOwner && (viewerUserId == null
-                        || !socialService.areFriends(viewerUserId, ownerId))) {
-                    throw ApiException.forbidden("Collection is not visible");
-                }
-            }
+        if (!isOwner && viewerUserId != null && access.isBlockSeparated(viewerUserId, ownerId)) {
+            throw ApiException.notFound("Collection", collectionId);
+        }
+        if (!access.canViewCollection(collection, viewerUserId)) {
+            throw ApiException.forbidden("Collection is not visible");
         }
     }
 

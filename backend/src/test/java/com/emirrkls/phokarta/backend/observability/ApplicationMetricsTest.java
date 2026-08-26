@@ -19,6 +19,9 @@ class ApplicationMetricsTest {
         metrics.accountDeletion("success");
         metrics.accountMediaCleanup("deleted");
         metrics.accountMediaCleanup("awaiting_final");
+        metrics.reportCreated("USER", "SPAM");
+        metrics.blockOperation("block", "created");
+        metrics.safetyRateLimited("report");
 
         assertThat(registry.get("phokarta.visit.create").tag("outcome", "success")
                 .counter().count()).isEqualTo(1);
@@ -33,6 +36,14 @@ class ApplicationMetricsTest {
         assertThat(registry.get("phokarta.account.media_cleanup").tag("outcome", "deleted")
                 .counter().count()).isEqualTo(1);
         assertThat(registry.get("phokarta.account.media_cleanup").tag("outcome", "awaiting_final")
+                .counter().count()).isEqualTo(1);
+        assertThat(registry.get("phokarta.report.created")
+                .tag("target_type", "USER").tag("reason", "SPAM")
+                .counter().count()).isEqualTo(1);
+        assertThat(registry.get("phokarta.block.operation")
+                .tag("action", "block").tag("outcome", "created")
+                .counter().count()).isEqualTo(1);
+        assertThat(registry.get("phokarta.safety.rate_limited").tag("action", "report")
                 .counter().count()).isEqualTo(1);
     }
 }

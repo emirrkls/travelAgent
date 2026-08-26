@@ -58,12 +58,14 @@ public class VisitService {
     private final VisitMapper mapper;
     private final ApplicationMetrics metrics;
     private final MediaService media;
+    private final ViewerAccessPolicy access;
 
     @Autowired
     public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
-                        ApplicationMetrics metrics, MediaService media) {
+                        ApplicationMetrics metrics, MediaService media,
+                        ViewerAccessPolicy access) {
         this.visits = visits;
         this.scores = scores;
         this.users = users;
@@ -72,6 +74,7 @@ public class VisitService {
         this.mapper = mapper;
         this.metrics = metrics;
         this.media = media;
+        this.access = access;
     }
 
     /** Source-compatible constructor for focused unit tests predating managed media. */
@@ -79,7 +82,14 @@ public class VisitService {
                         UserRepository users, PlaceRepository places,
                         RatingDimensionRegistry registry, VisitMapper mapper,
                         ApplicationMetrics metrics) {
-        this(visits, scores, users, places, registry, mapper, metrics, null);
+        this(visits, scores, users, places, registry, mapper, metrics, null, null);
+    }
+
+    public VisitService(VisitRepository visits, VisitDimensionScoreRepository scores,
+                        UserRepository users, PlaceRepository places,
+                        RatingDimensionRegistry registry, VisitMapper mapper,
+                        ApplicationMetrics metrics, MediaService media) {
+        this(visits, scores, users, places, registry, mapper, metrics, media, null);
     }
 
     @Transactional
@@ -213,8 +223,14 @@ public class VisitService {
         FeedScope resolved = scope == null ? FeedScope.COMMUNITY : scope;
         Page<Visit> result;
         if (resolved == FeedScope.COMMUNITY) {
-            result = visits.findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
-                    placeId, Visibility.PUBLIC, PageRequest.of(page, size));
+            UUID viewerId = SecurityUtils.currentUserId().orElse(null);
+            if (viewerId == null) {
+                result = visits.findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                        placeId, Visibility.PUBLIC, PageRequest.of(page, size));
+            } else {
+                result = visits.findPublicReviewsVisibleTo(
+                        placeId, viewerId, PageRequest.of(page, size));
+            }
         } else {
             UUID viewerId = SecurityUtils.requireCurrentUserId();
             result = visits.findFriendsReviews(placeId, viewerId, PageRequest.of(page, size));
@@ -234,10 +250,12 @@ public class VisitService {
     public PageResponse<PublicActivityResponse> publicActivity(FeedScope scope, int page, int size) {
         FeedScope resolved = scope == null ? FeedScope.COMMUNITY : scope;
         if (resolved == FeedScope.COMMUNITY) {
-            return PageResponse.from(
-                    visits.findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
-                            Visibility.PUBLIC, PageRequest.of(page, size)),
-                    mapper::toActivity);
+            UUID viewerId = SecurityUtils.currentUserId().orElse(null);
+            Page<Visit> result = viewerId == null
+                    ? visits.findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
+                            Visibility.PUBLIC, PageRequest.of(page, size))
+                    : visits.findPublicActivityVisibleTo(viewerId, PageRequest.of(page, size));
+            return PageResponse.from(result, mapper::toActivity);
         }
         UUID viewerId = SecurityUtils.requireCurrentUserId();
         return PageResponse.from(
@@ -298,6 +316,23 @@ public class VisitService {
             Double average = count == 0 ? null : row.getAverageScore();
             return new FriendPlaceMetricsResponse(placeId, average, count);
         }).toList();
+    }
+
+    /**
+     * Direct Visit fetch. Blocked authenticated viewers receive 404 even for PUBLIC.
+     * Anonymous PUBLIC remains visible. PRIVATE is owner-only.
+     */
+    @Transactional(readOnly = true)
+    public PublicVisitResponse getVisible(UUID visitId, UUID viewerId) {
+        Visit visit = visits.findDetailedById(visitId)
+                .orElseThrow(() -> ApiException.notFound("Visit", visitId));
+        if (access == null || !access.canViewVisit(visit, viewerId)) {
+            if (access == null) {
+                throw new IllegalStateException("ViewerAccessPolicy is required for Visit fetch");
+            }
+            throw ApiException.notFound("Visit", visitId);
+        }
+        return mapper.toPublic(visit, mediaByVisit(List.of(visitId)).getOrDefault(visitId, List.of()));
     }
 
     private List<UUID> uniquePlaceIds(List<UUID> placeIds) {

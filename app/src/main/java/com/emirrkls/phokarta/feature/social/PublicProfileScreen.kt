@@ -16,8 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,9 +30,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,9 +52,16 @@ import com.emirrkls.phokarta.ui.components.TravelImage
 fun PublicProfileScreen(
     onBack: () -> Unit,
     onSocialList: (SocialListKind) -> Unit,
+    onUserBlocked: () -> Unit = onBack,
     viewModel: PublicProfileViewModel = hiltViewModel(),
+    safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var menuExpanded by remember { mutableStateOf(false) }
+    SafetyActionHost(
+        viewModel = safetyViewModel,
+        onUserBlocked = onUserBlocked,
+    )
     Scaffold(
         topBar = {
             TopAppBar(
@@ -61,6 +75,32 @@ fun PublicProfileScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+                actions = {
+                    if (!state.isOwnProfile && state.profile != null) {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.testTag("profile_more"),
+                        ) {
+                            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.a11y_profile_more))
+                        }
+                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_report_user)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    safetyViewModel.openReportUser(state.profile!!.id)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_block_user)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    safetyViewModel.openBlock(state.profile!!.id)
+                                },
+                            )
+                        }
                     }
                 },
             )

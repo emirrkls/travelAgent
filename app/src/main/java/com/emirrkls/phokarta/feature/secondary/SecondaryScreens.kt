@@ -27,6 +27,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -66,11 +69,14 @@ import androidx.compose.ui.res.pluralStringResource
 import com.emirrkls.phokarta.ui.components.ActivityEmptyState
 import com.emirrkls.phokarta.ui.components.ActivityErrorState
 import com.emirrkls.phokarta.ui.components.ActivityEventCard
+import com.emirrkls.phokarta.feature.social.SafetyActionHost
+import com.emirrkls.phokarta.feature.social.SafetyActionViewModel
 import com.emirrkls.phokarta.ui.components.ActivityLoadingIndicator
 import com.emirrkls.phokarta.ui.components.CollectionListCard
 import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.theme.Coral
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +84,19 @@ fun ActivityScreen(
     onPlace: (String) -> Unit,
     onAuthor: (String) -> Unit = {},
     viewModel: ActivityViewModel = hiltViewModel(),
+    safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val reportThanks = stringResource(R.string.report_thanks)
+    SafetyActionHost(
+        viewModel = safetyViewModel,
+        onReportSubmitted = {
+            snackbarScope.launch { snackbarHostState.showSnackbar(reportThanks) }
+        },
+    )
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.onScreenResumed()
@@ -106,6 +122,7 @@ fun ActivityScreen(
         onRefresh = viewModel::refresh,
         modifier = Modifier.fillMaxSize(),
     ) {
+        Box(Modifier.fillMaxSize()) {
         when {
             state.isLoadingInitial && state.items.isEmpty() -> {
                 Column(Modifier.fillMaxSize()) {
@@ -154,6 +171,9 @@ fun ActivityScreen(
                                 onToggleExpand = { viewModel.toggleReviewExpanded(event.visitId) },
                                 onOpenPlace = { onPlace(event.place.id) },
                                 onOpenAuthor = onAuthor,
+                                onReport = { visitId, authorId ->
+                                    safetyViewModel.openReportVisit(visitId, authorId)
+                                },
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
                             )
                         }
@@ -174,6 +194,11 @@ fun ActivityScreen(
                     }
                 }
             }
+        }
+        SnackbarHost(
+            snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
         }
     }
 }

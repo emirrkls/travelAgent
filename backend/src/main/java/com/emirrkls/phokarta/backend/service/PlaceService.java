@@ -55,6 +55,10 @@ public class PlaceService {
     }
 
     public PlaceDetailResponse detail(UUID id) {
+        return detail(id, null);
+    }
+
+    public PlaceDetailResponse detail(UUID id, UUID viewerId) {
         Place place = require(id);
         VisitRepository.ScoreAggregate aggregate = visits.aggregate(id);
         long ratingCount = aggregate == null ? 0 : aggregate.getCount();
@@ -63,7 +67,10 @@ public class PlaceService {
                 .map(row -> new PlaceDetailResponse.DimensionAggregateResponse(
                         row.getDimensionKey(), row.getAverage()))
                 .toList();
-        var recent = visits.findRecent(id, Visibility.PUBLIC, PageRequest.of(0, 5)).stream()
+        var recent = (viewerId == null
+                ? visits.findRecent(id, Visibility.PUBLIC, PageRequest.of(0, 5))
+                : visits.findPublicReviewsVisibleTo(id, viewerId, PageRequest.of(0, 5)).getContent())
+                .stream()
                 .map(visitMapper::toPublic).toList();
         var point = place.getLocation();
         return new PlaceDetailResponse(place.getId(), place.getName(), place.getDescription(),

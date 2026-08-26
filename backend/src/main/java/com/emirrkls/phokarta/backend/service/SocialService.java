@@ -27,10 +27,13 @@ import java.util.UUID;
 public class SocialService {
     private final UserRepository users;
     private final UserFollowRepository follows;
+    private final ViewerAccessPolicy access;
 
-    public SocialService(UserRepository users, UserFollowRepository follows) {
+    public SocialService(UserRepository users, UserFollowRepository follows,
+                         ViewerAccessPolicy access) {
         this.users = users;
         this.follows = follows;
+        this.access = access;
     }
 
     @Transactional
@@ -39,6 +42,9 @@ public class SocialService {
             throw ApiException.validation("Cannot follow yourself");
         }
         requireUser(targetId);
+        if (!access.canFollow(followerId, targetId)) {
+            throw ApiException.conflict("BLOCKED_RELATIONSHIP", "This action isn't available.");
+        }
         follows.insertIfAbsent(followerId, targetId, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
@@ -53,6 +59,9 @@ public class SocialService {
 
     @Transactional(readOnly = true)
     public PublicUserProfileResponse publicProfile(UUID targetId, UUID viewerId) {
+        if (!access.canViewProfile(targetId, viewerId)) {
+            throw ApiException.notFound("User", targetId);
+        }
         User user = users.findById(targetId)
                 .orElseThrow(() -> ApiException.notFound("User", targetId));
         RelationshipStateResponse relationship = null;

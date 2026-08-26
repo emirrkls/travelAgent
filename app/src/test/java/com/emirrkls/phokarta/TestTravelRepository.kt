@@ -7,6 +7,8 @@ import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityFeedPage
 import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.core.model.BlockedUser
+import com.emirrkls.phokarta.core.model.BlockedUserPage
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.NearbyPlace
@@ -17,7 +19,10 @@ import com.emirrkls.phokarta.core.model.PublicReviewPage
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.core.model.ReportReason
+import com.emirrkls.phokarta.core.model.ReportTargetType
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
+import com.emirrkls.phokarta.core.model.SubmittedReport
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.UserPage
 import com.emirrkls.phokarta.core.model.UserSummary
@@ -237,6 +242,67 @@ open class TestTravelRepository : TravelRepository {
     override suspend fun loadOwnerSocialCounts(): RepositoryResult<OwnerSocialCounts> {
         ownerSocialCountsError?.let { return RepositoryResult.Failure(it) }
         return RepositoryResult.Success(ownerSocialCounts)
+    }
+
+    val blockedUsers = mutableListOf<BlockedUser>()
+    var blockError: TravelError? = null
+    var reportError: TravelError? = null
+    val blockCalls = mutableListOf<String>()
+    val unblockCalls = mutableListOf<String>()
+    val reportCalls = mutableListOf<Triple<ReportTargetType, String, ReportReason>>()
+    var invalidateAfterBlockCount = 0
+
+    override suspend fun blockUser(userId: String): RepositoryResult<Unit> {
+        blockError?.let { return RepositoryResult.Failure(it) }
+        blockCalls += userId
+        publicProfiles.remove(userId)
+        searchableUsers.removeAll { it.id == userId }
+        friends.removeAll { it.id == userId }
+        following.removeAll { it.id == userId }
+        followers.removeAll { it.id == userId }
+        invalidateAfterBlock()
+        return RepositoryResult.Success(Unit)
+    }
+
+    override suspend fun unblockUser(userId: String): RepositoryResult<Unit> {
+        blockError?.let { return RepositoryResult.Failure(it) }
+        unblockCalls += userId
+        blockedUsers.removeAll { it.userId == userId }
+        invalidateAfterBlock()
+        return RepositoryResult.Success(Unit)
+    }
+
+    override suspend fun loadBlockedUsers(page: Int, size: Int): RepositoryResult<BlockedUserPage> {
+        blockError?.let { return RepositoryResult.Failure(it) }
+        val from = (page * size).coerceAtMost(blockedUsers.size)
+        val to = (from + size).coerceAtMost(blockedUsers.size)
+        val totalPages = if (blockedUsers.isEmpty()) 0 else ((blockedUsers.size + size - 1) / size)
+        return RepositoryResult.Success(
+            BlockedUserPage(
+                items = blockedUsers.subList(from, to).toList(),
+                page = page,
+                totalPages = totalPages,
+                totalElements = blockedUsers.size.toLong(),
+                hasNext = to < blockedUsers.size,
+            ),
+        )
+    }
+
+    override suspend fun submitReport(
+        targetType: ReportTargetType,
+        targetId: String,
+        reason: ReportReason,
+        details: String?,
+    ): RepositoryResult<SubmittedReport> {
+        reportError?.let { return RepositoryResult.Failure(it) }
+        reportCalls += Triple(targetType, targetId, reason)
+        return RepositoryResult.Success(
+            SubmittedReport("report-1", targetType, reason, "OPEN"),
+        )
+    }
+
+    override suspend fun invalidateAfterBlock() {
+        invalidateAfterBlockCount += 1
     }
 
     private fun pageUsers(all: List<UserSummary>, page: Int, size: Int): RepositoryResult<UserPage> {

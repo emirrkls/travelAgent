@@ -91,6 +91,11 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, UserFoll
     @Query("""
             select f.follower from UserFollow f
             where f.id.followedUserId = :userId
+              and not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :userId and block.id.blockedUserId = f.follower.id)
+                     or (block.id.blockerUserId = f.follower.id and block.id.blockedUserId = :userId)
+              )
             order by f.createdAt desc, f.follower.id asc
             """)
     Page<User> findFollowers(@Param("userId") UUID userId, Pageable pageable);
@@ -98,6 +103,11 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, UserFoll
     @Query("""
             select f.followed from UserFollow f
             where f.id.followerUserId = :userId
+              and not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :userId and block.id.blockedUserId = f.followed.id)
+                     or (block.id.blockerUserId = f.followed.id and block.id.blockedUserId = :userId)
+              )
             order by f.createdAt desc, f.followed.id asc
             """)
     Page<User> findFollowing(@Param("userId") UUID userId, Pageable pageable);
@@ -114,7 +124,20 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, UserFoll
                 where inbound.id.followerUserId = u.id
                   and inbound.id.followedUserId = :userId
             )
+            and not exists (
+                select 1 from UserBlock block
+                where (block.id.blockerUserId = :userId and block.id.blockedUserId = u.id)
+                   or (block.id.blockerUserId = u.id and block.id.blockedUserId = :userId)
+            )
             order by lower(u.displayName) asc, lower(u.username) asc, u.id asc
             """)
     Page<User> findFriends(@Param("userId") UUID userId, Pageable pageable);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            delete from UserFollow f
+            where (f.id.followerUserId = :a and f.id.followedUserId = :b)
+               or (f.id.followerUserId = :b and f.id.followedUserId = :a)
+            """)
+    int deleteEdgesBetween(@Param("a") UUID a, @Param("b") UUID b);
 }

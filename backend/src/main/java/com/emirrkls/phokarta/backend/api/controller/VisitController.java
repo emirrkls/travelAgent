@@ -88,4 +88,14 @@ public class VisitController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return service.publicActivity(FeedScope.fromParam(scope), page, size);
     }
+
+    @Operation(summary = "Get a Visit",
+            description = "Anonymous viewers receive PUBLIC Visits only. Authenticated viewers "
+                    + "who are block-separated from the author receive 404 even if PUBLIC. "
+                    + "FRIENDS requires a mutual follow. PRIVATE is owner-only. "
+                    + "privateMemory is never included.")
+    @GetMapping("/visits/{visitId}")
+    public PublicVisitResponse getVisit(@PathVariable UUID visitId) {
+        return service.getVisible(visitId, SecurityUtils.currentUserId().orElse(null));
+    }
 }

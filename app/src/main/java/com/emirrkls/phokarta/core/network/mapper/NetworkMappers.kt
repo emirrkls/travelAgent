@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.core.network.mapper
 import com.emirrkls.phokarta.core.model.ActivityAuthor
 import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityPlaceSummary
+import com.emirrkls.phokarta.core.model.BlockedUser
 import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.FriendPlaceUser
@@ -14,13 +15,17 @@ import com.emirrkls.phokarta.core.model.PublicReviewMedia
 import com.emirrkls.phokarta.core.model.PublicUserProfile
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.RelationshipState
+import com.emirrkls.phokarta.core.model.ReportReason
+import com.emirrkls.phokarta.core.model.ReportTargetType
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
+import com.emirrkls.phokarta.core.model.SubmittedReport
 import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitMedia
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
+import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
@@ -33,6 +38,9 @@ import com.emirrkls.phokarta.core.network.model.PublicUserProfileDto
 import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
+import com.emirrkls.phokarta.core.network.model.ReportReasonDto
+import com.emirrkls.phokarta.core.network.model.ReportResponseDto
+import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
@@ -265,3 +273,22 @@ fun PublicUserProfileDto.toDomain(): PublicUserProfile = PublicUserProfile(
     friendCount = friendCount,
     relationship = relationship?.toDomain(),
 )
+
+fun BlockedUserDto.toDomain(): BlockedUser = BlockedUser(
+    userId = userId.toCanonicalUuid(),
+    username = username,
+    displayName = displayName.ifBlank { username },
+    avatarUrl = avatarUrl,
+    blockedAt = blockedAt,
+)
+
+fun ReportResponseDto.toDomain(): SubmittedReport = SubmittedReport(
+    id = id.toCanonicalUuid(),
+    targetType = ReportTargetType.valueOf(targetType.name),
+    reason = ReportReason.valueOf(reason.name),
+    status = status,
+)
+
+fun ReportTargetType.toDto(): ReportTargetTypeDto = ReportTargetTypeDto.valueOf(name)
+
+fun ReportReason.toDto(): ReportReasonDto = ReportReasonDto.valueOf(name)

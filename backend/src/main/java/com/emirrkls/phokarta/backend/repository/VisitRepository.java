@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
+    @EntityGraph(attributePaths = {"user", "place"})
+    @Query("select v from Visit v where v.id = :id")
+    java.util.Optional<Visit> findDetailedById(@Param("id") UUID id);
+
     @EntityGraph(attributePaths = {"place", "user"})
     java.util.Optional<Visit> findByUserIdAndClientMutationId(UUID userId, UUID clientMutationId);
 
@@ -32,6 +36,45 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     @EntityGraph(attributePaths = {"user", "place"})
     Page<Visit> findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
             Visibility visibility, Pageable pageable);
+
+    /**
+     * Authenticated Community reviews: PUBLIC Visits excluding block-separated authors.
+     * The viewer's own PUBLIC Visits remain visible. Filter is in-query so pagination is dense.
+     */
+    @EntityGraph(attributePaths = {"user", "place"})
+    @Query("""
+            select v from Visit v
+            where v.place.id = :placeId
+              and v.visibility = com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC
+              and (v.user.id = :viewerId or not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
+                     or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
+              ))
+            order by v.visitedAt desc, v.createdAt desc, v.id desc
+            """)
+    Page<Visit> findPublicReviewsVisibleTo(
+            @Param("placeId") UUID placeId,
+            @Param("viewerId") UUID viewerId,
+            Pageable pageable);
+
+    /**
+     * Authenticated Community Activity: PUBLIC Visits excluding block-separated authors.
+     */
+    @EntityGraph(attributePaths = {"user", "place"})
+    @Query("""
+            select v from Visit v
+            where v.visibility = com.emirrkls.phokarta.backend.domain.model.Visibility.PUBLIC
+              and (v.user.id = :viewerId or not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
+                     or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
+              ))
+            order by v.visitedAt desc, v.createdAt desc, v.id desc
+            """)
+    Page<Visit> findPublicActivityVisibleTo(
+            @Param("viewerId") UUID viewerId,
+            Pageable pageable);
 
     /**
      * Friends Activity: friend-readable visits (PUBLIC or FRIENDS) by mutual friends,
@@ -53,6 +96,11 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                   select 1 from UserFollow inbound
                   where inbound.id.followerUserId = v.user.id
                     and inbound.id.followedUserId = :viewerId
+              )
+              and not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
+                     or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
               )
             order by v.visitedAt desc, v.createdAt desc, v.id desc
             """)
@@ -80,6 +128,11 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                   select 1 from UserFollow inbound
                   where inbound.id.followerUserId = v.user.id
                     and inbound.id.followedUserId = :viewerId
+              )
+              and not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
+                     or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
               )
             order by v.visitedAt desc, v.createdAt desc, v.id desc
             """)
@@ -143,6 +196,11 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                       where inbound.follower_user_id = v.user_id
                         and inbound.followed_user_id = :viewerId
                   )
+                  and not exists (
+                      select 1 from user_blocks ub
+                      where (ub.blocker_user_id = :viewerId and ub.blocked_user_id = v.user_id)
+                         or (ub.blocker_user_id = v.user_id and ub.blocked_user_id = :viewerId)
+                  )
                 group by v.user_id
             ) per_friend
             """, nativeQuery = true)
@@ -181,6 +239,11 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                       select 1 from user_follows inbound
                       where inbound.follower_user_id = v.user_id
                         and inbound.followed_user_id = :viewerId
+                  )
+                  and not exists (
+                      select 1 from user_blocks ub
+                      where (ub.blocker_user_id = :viewerId and ub.blocked_user_id = v.user_id)
+                         or (ub.blocker_user_id = v.user_id and ub.blocked_user_id = :viewerId)
                   )
                 group by v.place_id, v.user_id
             ) per_friend
@@ -225,6 +288,11 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                       select 1 from user_follows inbound
                       where inbound.follower_user_id = v.user_id
                         and inbound.followed_user_id = :viewerId
+                  )
+                  and not exists (
+                      select 1 from user_blocks ub
+                      where (ub.blocker_user_id = :viewerId and ub.blocked_user_id = v.user_id)
+                         or (ub.blocker_user_id = v.user_id and ub.blocked_user_id = :viewerId)
                   )
                 group by v.user_id
             ) friends

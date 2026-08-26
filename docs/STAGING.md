@@ -129,7 +129,7 @@ Omit `--profile self-hosted-db` when using managed PostgreSQL.
 
 Helper: `scripts/deploy-staging.sh /opt/phokarta/staging/.env.staging`. The script validates required names, refuses `latest`, waits for readiness, and curls live/ready/places. Pass `--backup` only when PostgreSQL client tools can reach the staging database. It does not prune volumes or restore dumps.
 
-Expected first boot: Flyway schema `V1`, `V3`, `V5`, `V6`, `V8`, `V9`, `V10` (dev seeds `V2`/`V4`/`V7` are not on the prod classpath), Hibernate `validate`, media config, no demo user `demo@phokarta.local`. After an empty schema is healthy, take a baseline backup, then insert synthetic places with `scripts/staging-seed-places.sql` over an SSH tunnel or the private `db` network. Do not enable the `dev` profile to load demo seed. There is no public Place-create API and no public staging-reset endpoint.
+Expected first boot: Flyway schema `V1`, `V3`, `V5`, `V6`, `V8`, `V9`, `V10`, `V11` (dev seeds `V2`/`V4`/`V7` are not on the prod classpath), Hibernate `validate`, media config, no demo user `demo@phokarta.local`. After an empty schema is healthy, take a baseline backup, then insert synthetic places with `scripts/staging-seed-places.sql` over an SSH tunnel or the private `db` network. Do not enable the `dev` profile to load demo seed. There is no public Place-create API and no public staging-reset endpoint.
 
 ## Android
 
@@ -145,7 +145,7 @@ Use synthetic staging accounts and a harmless tiny JPEG. Do not upload personal 
 
 ## Schema compatibility / rollback
 
-Current staging schema target is Flyway **V10** (`account_deletion_media_jobs` plus V9 media tables).
+Current staging schema target is Flyway **V11** (`user_blocks` and `reports` plus prior media/deletion tables).
 
 `ff83b29` (`feat: harden backend for production operations`) does not map media entities. Extra V9 tables would likely pass Hibernate `validate`, but media APIs, Android direct upload, and Visit `mediaIds` would not work. Do **not** roll staging back to `ff83b29`. The media commit is the minimum compatible deployment baseline.
 

@@ -198,7 +198,6 @@ final class ExploreControllerTests: XCTestCase {
         service.metricsHandler = { ids in
             ids.map { FriendPlaceMetrics(placeId: $0, friendAverageScore: 7.5, friendsVisitedCount: 3) }
         }
-        service.savedIDs = [TestPlaces.placeID]
         service.visits = [
             OwnerVisitSummary(id: UUID(), placeId: TestPlaces.placeID, visitedAt: "2026-08-21", overallRating: 9.0),
         ]
@@ -206,14 +205,14 @@ final class ExploreControllerTests: XCTestCase {
         controller.startIfNeeded()
         await settle()
         var item = controller.places.first
-        for _ in 0..<40 where item?.isSaved != true {
+        for _ in 0..<40 where item?.isVisited != true {
             await Task.yield()
             item = controller.places.first
         }
         let loaded = try XCTUnwrap(item)
         XCTAssertEqual(loaded.summary.communityScore, 8.7)
         XCTAssertEqual(loaded.friendAverageScore, 7.5)
-        XCTAssertTrue(loaded.isSaved)
+        XCTAssertFalse(loaded.isSaved)
         XCTAssertTrue(loaded.isVisited)
         XCTAssertEqual(loaded.personalScore, 9.0)
     }

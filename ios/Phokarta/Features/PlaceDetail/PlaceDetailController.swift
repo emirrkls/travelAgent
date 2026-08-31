@@ -67,7 +67,6 @@ final class PlaceDetailController {
                 friends: nil,
                 communityReviews: detail.recentPublicReviews,
                 friendReviews: [],
-                isSaved: false,
                 personal: nil
             )
             content = next
@@ -83,9 +82,6 @@ final class PlaceDetailController {
             async let friendReviews: ReviewPage? = {
                 try? await placesService.reviews(placeId: placeId, scope: .friends, page: 0, size: 20)
             }()
-            async let saved: Set<UUID> = {
-                (try? await placesService.savedPlaceIDs()) ?? []
-            }()
             async let visits: [OwnerVisitSummary] = {
                 (try? await placesService.ownerVisits()) ?? []
             }()
@@ -93,7 +89,6 @@ final class PlaceDetailController {
             let friendSummary = await friends
             let communityPage = await community
             let friendPage = await friendReviews
-            let savedIDs = await saved
             let ownerVisits = await visits
             guard id == requestID, !Task.isCancelled else { return }
 
@@ -104,7 +99,6 @@ final class PlaceDetailController {
                 next.friendReviews = friendPage.reviews
             }
             next.friends = friendSummary
-            next.isSaved = savedIDs.contains(placeId)
             let mine = ownerVisits.filter { $0.placeId == placeId }
                 .sorted { $0.visitedAt > $1.visitedAt }
             if let latest = mine.first {

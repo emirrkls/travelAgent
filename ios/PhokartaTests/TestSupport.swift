@@ -418,6 +418,260 @@ actor GatedPlaceService: PlaceServing {
     func ownerVisits() async throws -> [OwnerVisitSummary] { [] }
 }
 
+actor SavedServiceProbe: SavedPlaceServing {
+    private var currentRows: [SavedPlaceDTO]
+    private var mutationError: AppError?
+    private(set) var mutations: [Bool] = []
+
+    init(rows: [SavedPlaceDTO] = [], mutationError: AppError? = nil) {
+        currentRows = rows
+        self.mutationError = mutationError
+    }
+
+    func savedPlaces() async throws -> [SavedPlaceDTO] { currentRows }
+
+    func setSaved(placeId: UUID, desired: Bool) async throws -> SavedPlaceDTO? {
+        mutations.append(desired)
+        if let mutationError { throw mutationError }
+        if desired {
+            let row = SavedPlaceDTO(place: TestPlaces.summary(id: placeId), savedAt: "2026-08-31T10:00:00Z")
+            currentRows.removeAll { $0.place.id == placeId }
+            currentRows.append(row)
+            return row
+        }
+        currentRows.removeAll { $0.place.id == placeId }
+        return nil
+    }
+}
+
+actor GatedSavedService: SavedPlaceServing {
+    private var fetch: CheckedContinuation<[SavedPlaceDTO], Error>?
+    private var fetchStarted = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func savedPlaces() async throws -> [SavedPlaceDTO] {
+        fetchStarted = true
+        startWaiters.forEach { $0.resume() }
+        startWaiters.removeAll()
+        return try await withCheckedThrowingContinuation { fetch = $0 }
+    }
+
+    func waitForFetch() async {
+        guard !fetchStarted else { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func completeFetch(_ rows: [SavedPlaceDTO]) {
+        fetch?.resume(returning: rows)
+        fetch = nil
+    }
+
+    func setSaved(placeId: UUID, desired: Bool) async throws -> SavedPlaceDTO? {
+        desired ? SavedPlaceDTO(place: TestPlaces.summary(id: placeId), savedAt: "2026-08-31T10:00:00Z") : nil
+    }
+}
+
+actor CollectionServiceProbe: CollectionServing {
+    private var listRows: [CollectionSummary]
+    private var detailRows: [UUID: CollectionDetail]
+    private var createError: AppError?
+    private(set) var addCalls = 0
+    private(set) var removeCalls = 0
+
+    init(
+        summaries: [CollectionSummary] = [],
+        details: [UUID: CollectionDetail] = [:],
+        createError: AppError? = nil
+    ) {
+        listRows = summaries
+        detailRows = details
+        self.createError = createError
+    }
+
+    func collections() async throws -> [CollectionSummary] { listRows }
+
+    func create(_ request: CreateCollectionRequestDTO) async throws -> CollectionDetail {
+        if let createError { throw createError }
+        let detail = TestCollections.detail(title: request.title, visibility: request.visibility)
+        detailRows[detail.id] = detail
+        listRows.insert(TestCollections.summary(from: detail), at: 0)
+        return detail
+    }
+
+    func detail(id: UUID) async throws -> CollectionDetail {
+        guard let value = detailRows[id] else { throw AppError.notFound }
+        return value
+    }
+
+    func add(placeId: UUID, to collectionId: UUID) async throws -> CollectionDetail {
+        addCalls += 1
+        guard let old = detailRows[collectionId] else { throw AppError.notFound }
+        if old.places.contains(where: { $0.place.id == placeId }) { throw AppError.conflict(code: "CONFLICT") }
+        let row = CollectionPlace(
+            place: TestPlaces.summary(id: placeId),
+            displayOrder: old.places.count,
+            addedAt: "2026-08-31T10:00:00Z"
+        )
+        let next = TestCollections.copy(old, places: old.places + [row])
+        detailRows[collectionId] = next
+        return next
+    }
+
+    func remove(placeId: UUID, from collectionId: UUID) async throws {
+        removeCalls += 1
+        guard let old = detailRows[collectionId] else { throw AppError.notFound }
+        detailRows[collectionId] = TestCollections.copy(
+            old,
+            places: old.places.filter { $0.place.id != placeId }
+        )
+    }
+}
+
+actor GatedCollectionService: CollectionServing {
+    private var canonical: CollectionDetail
+    private var listGate: CheckedContinuation<[CollectionSummary], Error>?
+    private var detailGate: CheckedContinuation<CollectionDetail, Error>?
+    private var listStarted = false
+    private var detailStarted = false
+    private var listWaiters: [CheckedContinuation<Void, Never>] = []
+    private var detailWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(detail: CollectionDetail = TestCollections.detail()) { canonical = detail }
+
+    func collections() async throws -> [CollectionSummary] {
+        listStarted = true
+        listWaiters.forEach { $0.resume() }
+        listWaiters.removeAll()
+        return try await withCheckedThrowingContinuation { listGate = $0 }
+    }
+
+    func waitForList() async {
+        guard !listStarted else { return }
+        await withCheckedContinuation { listWaiters.append($0) }
+    }
+
+    func completeList(_ rows: [CollectionSummary]) {
+        listGate?.resume(returning: rows)
+        listGate = nil
+    }
+
+    func create(_ request: CreateCollectionRequestDTO) async throws -> CollectionDetail {
+        canonical = TestCollections.detail(title: request.title, visibility: request.visibility)
+        return canonical
+    }
+
+    func detail(id: UUID) async throws -> CollectionDetail {
+        detailStarted = true
+        detailWaiters.forEach { $0.resume() }
+        detailWaiters.removeAll()
+        return try await withCheckedThrowingContinuation { detailGate = $0 }
+    }
+
+    func waitForDetail() async {
+        guard !detailStarted else { return }
+        await withCheckedContinuation { detailWaiters.append($0) }
+    }
+
+    func completeDetail(_ value: CollectionDetail) {
+        detailGate?.resume(returning: value)
+        detailGate = nil
+    }
+
+    func add(placeId: UUID, to collectionId: UUID) async throws -> CollectionDetail {
+        let row = CollectionPlace(
+            place: TestPlaces.summary(id: placeId),
+            displayOrder: canonical.places.count,
+            addedAt: "2026-08-31T10:00:00Z"
+        )
+        canonical = TestCollections.copy(canonical, places: canonical.places + [row])
+        return canonical
+    }
+
+    func remove(placeId: UUID, from collectionId: UUID) async throws {
+        canonical = TestCollections.copy(canonical, places: canonical.places.filter { $0.place.id != placeId })
+    }
+}
+
+enum TestCollections {
+    static let id = UUID(uuidString: "40000000-0000-0000-0000-000000000001")!
+
+    static func detail(
+        id: UUID = TestCollections.id,
+        userID: UUID = TestJSON.userID,
+        title: String = "Summer",
+        visibility: CollectionVisibility = .privateAccess,
+        places: [CollectionPlace] = []
+    ) -> CollectionDetail {
+        CollectionDetail(
+            id: id,
+            userId: userID,
+            title: title,
+            description: "",
+            visibility: visibility,
+            coverImage: "https://example.test/cover.jpg",
+            createdAt: "2026-08-31T09:00:00Z",
+            updatedAt: "2026-08-31T10:00:00Z",
+            places: places
+        )
+    }
+
+    static func summary(from detail: CollectionDetail) -> CollectionSummary {
+        CollectionSummary(
+            id: detail.id,
+            userId: detail.userId,
+            title: detail.title,
+            description: detail.description,
+            visibility: detail.visibility,
+            coverImage: detail.coverImage,
+            placeCount: Int64(detail.places.count),
+            updatedAt: detail.updatedAt
+        )
+    }
+
+    static func copy(_ detail: CollectionDetail, places: [CollectionPlace]) -> CollectionDetail {
+        CollectionDetail(
+            id: detail.id,
+            userId: detail.userId,
+            title: detail.title,
+            description: detail.description,
+            visibility: detail.visibility,
+            coverImage: detail.coverImage,
+            createdAt: detail.createdAt,
+            updatedAt: "2026-08-31T11:00:00Z",
+            places: places
+        )
+    }
+
+    static func detailJSON() -> String {
+        """
+        {
+          "id":"\(id.uuidString.lowercased())",
+          "userId":"\(TestJSON.userID.uuidString.lowercased())",
+          "title":"Summer",
+          "description":"Sea",
+          "visibility":"PRIVATE",
+          "coverImage":"https://example.test/cover.jpg",
+          "createdAt":"2026-08-31T09:00:00Z",
+          "updatedAt":"2026-08-31T10:00:00Z",
+          "places":[{
+            "place":\(TestPlaces.summaryPageJSON.extractSummaryForFixture()),
+            "displayOrder":0,
+            "addedAt":"2026-08-31T10:00:00Z"
+          }]
+        }
+        """
+    }
+}
+
+private extension String {
+    func extractSummaryForFixture() -> String {
+        let prefix = "\"content\": [{"
+        guard let start = range(of: prefix)?.upperBound,
+              let end = range(of: "}],", range: start..<endIndex)?.lowerBound else { return "{}" }
+        return "{" + String(self[start..<end]) + "}"
+    }
+}
+
 actor TestValue<Value: Sendable> {
     private var value: Value
 

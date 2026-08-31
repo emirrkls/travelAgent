@@ -6,10 +6,16 @@ import Observation
 final class AuthSessionController {
     private(set) var state: AuthState = .restoring
     private let auth: AuthRepository
+    private let sessionReset: @MainActor @Sendable () -> Void
 
-    init(auth: AuthRepository, initialState: AuthState = .restoring) {
+    init(
+        auth: AuthRepository,
+        initialState: AuthState = .restoring,
+        sessionReset: @escaping @MainActor @Sendable () -> Void = {}
+    ) {
         self.auth = auth
         self.state = initialState
+        self.sessionReset = sessionReset
     }
 
     func restore() async {
@@ -25,6 +31,7 @@ final class AuthSessionController {
 
     func login(identifier: String, password: String) async throws {
         let user = try await auth.login(identifier: identifier, password: password)
+        sessionReset()
         state = .signedIn(user)
     }
 
@@ -40,15 +47,18 @@ final class AuthSessionController {
             displayName: displayName,
             password: password
         )
+        sessionReset()
         state = .signedIn(user)
     }
 
     func logout() async {
         await auth.logout()
+        sessionReset()
         state = .signedOut
     }
 
     func handleTerminalAuthLoss() {
+        sessionReset()
         state = .signedOut
     }
 }

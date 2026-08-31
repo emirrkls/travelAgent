@@ -19,7 +19,6 @@ final class ExploreController {
     private var loadTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private var didStart = false
-    private var savedIDs: Set<UUID> = []
     private var visitsByPlace: [UUID: OwnerVisitSummary] = [:]
 
     init(places: any PlaceServing, debounceNanoseconds: UInt64 = 300_000_000) {
@@ -169,15 +168,10 @@ final class ExploreController {
 
     private func enrich(items: [ExplorePlaceItem], requestID: UInt64) async {
         let ids = items.map(\.id)
-        let cachedSavedIDs = savedIDs
         let cachedVisits = Array(visitsByPlace.values)
         async let metricsResult: [FriendPlaceMetrics] = {
             do { return try await placesService.friendMetrics(placeIds: ids) }
             catch { return [] }
-        }()
-        async let savedResult: Set<UUID> = {
-            do { return try await placesService.savedPlaceIDs() }
-            catch { return cachedSavedIDs }
         }()
         async let visitsResult: [OwnerVisitSummary] = {
             do { return try await placesService.ownerVisits() }
@@ -185,11 +179,9 @@ final class ExploreController {
         }()
 
         let metrics = await metricsResult
-        let saved = await savedResult
         let visits = await visitsResult
         guard requestID == self.requestID, !Task.isCancelled else { return }
 
-        savedIDs = saved
         visitsByPlace = Dictionary(visits.map { ($0.placeId, $0) }, uniquingKeysWith: { first, second in
             first.visitedAt >= second.visitedAt ? first : second
         })
@@ -201,7 +193,6 @@ final class ExploreController {
                 next.friendAverageScore = metric.friendsVisitedCount > 0 ? metric.friendAverageScore : nil
                 next.friendsVisitedCount = metric.friendsVisitedCount
             }
-            next.isSaved = savedIDs.contains(item.id)
             if let visit = visitsByPlace[item.id] {
                 next.isVisited = true
                 next.personalScore = visit.overallRating

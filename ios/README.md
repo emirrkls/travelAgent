@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.2 — Explore +
-Place Detail**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.3 — Saved +
+Collections**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -19,6 +19,11 @@ Bootstrapped on 2026-08-26 with macOS 26.2, Xcode 26.4.1, Apple Swift
 - Simulator smoke: Login/Register navigation, EN/TR, light/dark, no immediate crash
 - Real backend auth, Keychain relaunch, Explore runtime, Place Detail runtime: **NOT RUN**
 
+The Apple/Xcode Cloud bootstrap is complete. The shared `Phokarta` scheme uses
+the committed project directly. The last pre-v0.3 run on `master` passed build
+and all 68 XCTest tests with zero warnings and failures. The v0.3 result is
+updated after its required cloud run.
+
 ## Included scope
 
 v0.1 provides URLSession networking, Keychain session storage, auth flows,
@@ -26,9 +31,14 @@ single-flight token refresh, EN/TR auth UI, and XCTest coverage. v0.2 adds the
 authenticated shell, Explore/search/category/pagination, Place Detail, scores,
 review aggregates, friends previews, and read-only saved/visited state.
 
-Saved/Collections mutation, Visit publishing, ratings, media, maps, offline
-persistence, live infrastructure, and store submission are outside this
-milestone.
+v0.3 adds online-first Save/Unsave, a live Saved tab, Collections list/create/
+detail, Place Detail collection picker with create-and-add, canonical add,
+targeted-reload remove, revision-safe refresh reconciliation, and account-scoped
+in-memory state. It reuses the existing API client and single-flight refresh.
+
+Visit publishing, ratings, media, maps/location, durable offline persistence,
+full policy acceptance UI, live infrastructure changes, and store submission
+remain outside this milestone.
 
 ## Generate, build, and test
 
@@ -73,7 +83,8 @@ The committed shared `Phokarta` scheme builds the app and runs
 See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [Xcode Cloud](../docs/XCODE_CLOUD.md),
 [auth contract](docs/AUTH_CONTRACT.md), and
-[Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md).
+[Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md), and
+[Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md).
 
 ## Remaining Mac/Apple QA
 

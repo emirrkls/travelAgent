@@ -1681,6 +1681,210 @@
         }
       }
     },
+    "action.cancel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Vazgeç" } }
+      }
+    },
+    "action.done": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Done" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bitti" } }
+      }
+    },
+    "action.try_again": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Try again" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Tekrar dene" } }
+      }
+    },
+    "collection.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Empty collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon boş" } }
+      }
+    },
+    "collection.unavailable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This collection is unavailable." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bu koleksiyona erişilemiyor." } }
+      }
+    },
+    "collection.visibility.friends": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Friends" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Arkadaşlar" } }
+      }
+    },
+    "collection.visibility.private": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel" } }
+      }
+    },
+    "collection.visibility.public": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık" } }
+      }
+    },
+    "collections.add": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add to collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyona ekle" } }
+      }
+    },
+    "collections.added": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Added" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Eklendi" } }
+      }
+    },
+    "collections.cover_url": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cover image URL" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kapak görseli URL’si" } }
+      }
+    },
+    "collections.create": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Create" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Oluştur" } }
+      }
+    },
+    "collections.description_optional": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Description (optional)" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Açıklama (isteğe bağlı)" } }
+      }
+    },
+    "collections.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No collections" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon yok" } }
+      }
+    },
+    "collections.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading collections" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyonlar yükleniyor" } }
+      }
+    },
+    "collections.name": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Collection name" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon adı" } }
+      }
+    },
+    "collections.new": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yeni koleksiyon" } }
+      }
+    },
+    "collections.not_added": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Not added" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Eklenmedi" } }
+      }
+    },
+    "collections.place_count %@": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ places" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "%@ yer" } }
+      }
+    },
+    "collections.remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaldır" } }
+      }
+    },
+    "collections.remove_place %@": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove %@ from collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "%@ adlı yeri koleksiyondan kaldır" } }
+      }
+    },
+    "collections.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Collections" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyonlar" } }
+      }
+    },
+    "collections.visibility": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Visibility" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Görünürlük" } }
+      }
+    },
+    "collections.unable_add": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to add to collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyona eklenemedi" } }
+      }
+    },
+    "collections.unable_create": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to create collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon oluşturulamadı" } }
+      }
+    },
+    "collections.unable_remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to remove from collection" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyondan kaldırılamadı" } }
+      }
+    },
+    "error.policy_acceptance_required": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Accept the current user policy before creating or adding to a collection. Policy acceptance is not yet available on iOS." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon oluşturmadan veya koleksiyona eklemeden önce güncel kullanıcı politikasını kabul et. Politika kabulü henüz iOS’ta kullanılamıyor." } }
+      }
+    },
+    "saved.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No saved places" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilmiş yer yok" } }
+      }
+    },
+    "saved.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading saved places" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilen yerler yükleniyor" } }
+      }
+    },
+    "saved.remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove from saved" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenlerden kaldır" } }
+      }
+    },
+    "saved.save": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save place" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yeri kaydet" } }
+      }
+    },
+    "saved.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saved" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenler" } }
+      }
+    },
+    "saved.unable_remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to remove from saved" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenlerden kaldırılamadı" } }
+      }
+    },
+    "saved.unable_save": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to save place" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yer kaydedilemedi" } }
+      }
+    },
     "tab.explore": {
       "localizations": {
         "en": {

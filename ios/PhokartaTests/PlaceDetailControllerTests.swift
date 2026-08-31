@@ -18,7 +18,6 @@ final class PlaceDetailControllerTests: XCTestCase {
         service.friendsHandler = { _ in
             FriendPlaceSummary(averageScore: 7.2, friendsVisitedCount: 2, friends: [])
         }
-        service.savedIDs = [TestPlaces.placeID]
         service.visits = [
             OwnerVisitSummary(id: UUID(), placeId: TestPlaces.placeID, visitedAt: "2026-08-21", overallRating: 9.4),
         ]
@@ -34,7 +33,6 @@ final class PlaceDetailControllerTests: XCTestCase {
         XCTAssertNotEqual(content.communityScore, (1.0 + 2.0) / 2.0)
         XCTAssertEqual(content.friends?.averageScore, 7.2)
         XCTAssertEqual(content.personal?.latestScore, 9.4)
-        XCTAssertTrue(content.isSaved)
         XCTAssertEqual(content.communityReviews.count, 2)
     }
 
@@ -50,7 +48,6 @@ final class PlaceDetailControllerTests: XCTestCase {
                 TestPlaces.review(id: UUID(), rating: 2.0),
             ],
             friendReviews: [],
-            isSaved: false,
             personal: nil
         )
         XCTAssertEqual(content.communityScore, 8.7)

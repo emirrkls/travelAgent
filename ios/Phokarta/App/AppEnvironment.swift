@@ -18,6 +18,8 @@ struct AppEnvironment {
     let auth: AuthRepository
     let session: AuthSessionController
     let places: any PlaceServing
+    let saved: SavedPlaceStore
+    let collections: CollectionStore
 
     @MainActor
     static func live() throws -> AppEnvironment {
@@ -33,13 +35,20 @@ struct AppEnvironment {
         )
         let client = APIClient(config: config, transport: transport, authRetry: refresh)
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
-        let session = AuthSessionController(auth: auth)
+        let saved = SavedPlaceStore(service: SavedPlaceService(client: client))
+        let collections = CollectionStore(service: CollectionService(client: client))
+        let session = AuthSessionController(auth: auth) {
+            saved.clear()
+            collections.clear()
+        }
         relay.controller = session
         return AppEnvironment(
             config: config,
             auth: auth,
             session: session,
-            places: PlaceService(client: client)
+            places: PlaceService(client: client),
+            saved: saved,
+            collections: collections
         )
     }
 
@@ -60,13 +69,20 @@ struct AppEnvironment {
         )
         let client = APIClient(config: config, transport: transport, authRetry: refresh)
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
-        let session = AuthSessionController(auth: auth, initialState: initialState)
+        let saved = SavedPlaceStore(service: SavedPlaceService(client: client))
+        let collections = CollectionStore(service: CollectionService(client: client))
+        let session = AuthSessionController(auth: auth, initialState: initialState) {
+            saved.clear()
+            collections.clear()
+        }
         relay.controller = session
         return AppEnvironment(
             config: config,
             auth: auth,
             session: session,
-            places: places ?? PlaceService(client: client)
+            places: places ?? PlaceService(client: client),
+            saved: saved,
+            collections: collections
         )
     }
 }

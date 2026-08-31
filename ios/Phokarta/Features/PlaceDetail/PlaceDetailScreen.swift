@@ -2,9 +2,19 @@ import SwiftUI
 
 struct PlaceDetailScreen: View {
     @State private var controller: PlaceDetailController
+    @State private var showingCollections = false
     @Environment(\.colorScheme) private var colorScheme
+    private let saved: SavedPlaceStore
+    private let collections: CollectionStore
 
-    init(placeId: UUID, places: any PlaceServing) {
+    init(
+        placeId: UUID,
+        places: any PlaceServing,
+        saved: SavedPlaceStore,
+        collections: CollectionStore
+    ) {
+        self.saved = saved
+        self.collections = collections
         _controller = State(initialValue: PlaceDetailController(placeId: placeId, places: places))
     }
 
@@ -40,6 +50,11 @@ struct PlaceDetailScreen: View {
         }
         .onDisappear {
             controller.cancel()
+        }
+        .sheet(isPresented: $showingCollections) {
+            if let place = controller.content?.place {
+                CollectionPickerSheet(store: collections, place: place)
+            }
         }
     }
 
@@ -81,6 +96,15 @@ struct PlaceDetailScreen: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     statusChips(content)
+                    if let error = saved.error(for: content.place.id) {
+                        Text(error.localizedMutationMessage(
+                            fallbackKey: saved.isSaved(content.place.id)
+                                ? "saved.unable_remove" : "saved.unable_save"
+                        ))
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 if let refreshError = controller.refreshError {
@@ -131,14 +155,39 @@ struct PlaceDetailScreen: View {
 
     private func statusChips(_ content: PlaceDetailContent) -> some View {
         HStack(spacing: PhokartaSpacing.sm) {
-            if content.isSaved {
-                Text("place.saved")
+            Button {
+                saved.toggle(content.place.id)
+            } label: {
+                HStack(spacing: 6) {
+                    if saved.isBusy(content.place.id) {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: saved.isSaved(content.place.id) ? "bookmark.fill" : "bookmark")
+                    }
+                    Text(String(localized: String.LocalizationValue(
+                        saved.isSaved(content.place.id) ? "saved.remove" : "saved.save"
+                    )))
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(PhokartaColor.mist, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: String.LocalizationValue(
+                saved.isSaved(content.place.id) ? "saved.remove" : "saved.save"
+            )))
+
+            Button { showingCollections = true } label: {
+                Label("collections.add", systemImage: "square.stack.badge.plus")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(PhokartaColor.mist, in: Capsule())
-                    .accessibilityLabel(String(localized: "a11y.saved.readonly"))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "collections.add"))
+
             if content.personal != nil {
                 Text("place.visited")
                     .font(.caption.weight(.semibold))
@@ -263,6 +312,118 @@ struct PlaceDetailScreen: View {
                     }
                 }
             }
+        }
+    }
+}
+
+struct CollectionPickerSheet: View {
+    let store: CollectionStore
+    let place: PlaceDetail
+    @Environment(\.dismiss) private var dismiss
+    @State private var error: AppError?
+    @State private var showingCreate = false
+    @State private var isCreating = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if store.summaries.isEmpty {
+                    FeatureEmptyState(title: String(localized: "collections.empty"))
+                } else {
+                    ForEach(store.summaries) { collection in
+                        let added = store.contains(placeID: place.id, in: collection.id)
+                        let busy = store.isBusy(placeID: place.id, collectionID: collection.id)
+                        Button {
+                            guard !busy else { return }
+                            Task { await toggle(collectionID: collection.id, removing: added) }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(collection.title)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text(String(localized: String.LocalizationValue(collection.visibility.localizationKey)))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if busy {
+                                    ProgressView()
+                                } else if added {
+                                    Label("collections.added", systemImage: "checkmark")
+                                        .labelStyle(.iconOnly)
+                                }
+                            }
+                        }
+                        .disabled(busy)
+                        .accessibilityLabel("\(collection.title), \(String(localized: String.LocalizationValue(added ? "collections.added" : "collections.not_added")))")
+                    }
+                }
+                if let error {
+                    Text(error.localizedMutationMessage(fallbackKey: "collections.unable_add"))
+                        .foregroundStyle(.red)
+                }
+            }
+            .navigationTitle(String(localized: "collections.add"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("action.done") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingCreate = true } label: {
+                        Label("collections.new", systemImage: "plus")
+                    }
+                }
+            }
+            .task {
+                do {
+                    try await store.refreshList()
+                    for collection in store.summaries where store.details[collection.id] == nil {
+                        try? await store.refreshDetail(id: collection.id)
+                    }
+                }
+                catch let value as AppError { error = value }
+                catch is CancellationError { return }
+                catch { error = .server }
+            }
+            .sheet(isPresented: $showingCreate) {
+                CreateCollectionSheet(isSubmitting: isCreating, error: error, coverImage: place.coverImage) { request in
+                    await createAndAdd(request)
+                }
+            }
+        }
+    }
+
+    private func toggle(collectionID: UUID, removing: Bool) async {
+        error = nil
+        do {
+            if removing {
+                try await store.remove(placeID: place.id, from: collectionID)
+            } else {
+                try await store.add(placeID: place.id, to: collectionID)
+            }
+        } catch let value as AppError {
+            error = value
+        } catch is CancellationError {
+            return
+        } catch {
+            error = .server
+        }
+    }
+
+    private func createAndAdd(_ request: CreateCollectionRequestDTO) async {
+        guard !isCreating else { return }
+        isCreating = true
+        error = nil
+        defer { isCreating = false }
+        do {
+            let created = try await store.create(request)
+            try await store.add(placeID: place.id, to: created.id)
+            showingCreate = false
+        } catch let value as AppError {
+            error = value
+        } catch is CancellationError {
+            return
+        } catch {
+            error = .server
         }
     }
 }

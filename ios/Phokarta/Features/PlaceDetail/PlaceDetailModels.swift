@@ -11,7 +11,6 @@ struct PlaceDetailContent: Equatable, Sendable {
     var friends: FriendPlaceSummary?
     var communityReviews: [ReviewSummary]
     var friendReviews: [ReviewSummary]
-    var isSaved: Bool
     var personal: PersonalVisitSummary?
 
     /// Backend Community aggregate. Never derived from `communityReviews`.

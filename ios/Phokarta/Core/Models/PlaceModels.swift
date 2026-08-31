@@ -383,11 +383,25 @@ struct FriendMetricsRequestDTO: Encodable, Sendable {
     let placeIds: [UUID]
 }
 
-struct SavedPlaceDTO: Decodable, Sendable {
+struct SavedPlaceDTO: Decodable, Equatable, Sendable, Identifiable {
     let place: PlaceSummary
     let savedAt: String
     let friendAverageScore: Double?
     let friendsVisitedCount: Int64
+
+    var id: UUID { place.id }
+
+    init(
+        place: PlaceSummary,
+        savedAt: String,
+        friendAverageScore: Double? = nil,
+        friendsVisitedCount: Int64 = 0
+    ) {
+        self.place = place
+        self.savedAt = savedAt
+        self.friendAverageScore = friendAverageScore
+        self.friendsVisitedCount = friendsVisitedCount
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -400,6 +414,58 @@ struct SavedPlaceDTO: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case place, savedAt, friendAverageScore, friendsVisitedCount
     }
+}
+
+enum CollectionVisibility: String, Codable, CaseIterable, Equatable, Sendable {
+    case privateAccess = "PRIVATE"
+    case friends = "FRIENDS"
+    case publicAccess = "PUBLIC"
+
+    var localizationKey: String {
+        switch self {
+        case .privateAccess: "collection.visibility.private"
+        case .friends: "collection.visibility.friends"
+        case .publicAccess: "collection.visibility.public"
+        }
+    }
+}
+
+struct CollectionSummary: Decodable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let userId: UUID
+    let title: String
+    let description: String
+    let visibility: CollectionVisibility
+    let coverImage: String
+    let placeCount: Int64
+    let updatedAt: String
+}
+
+struct CollectionPlace: Decodable, Equatable, Sendable, Identifiable {
+    let place: PlaceSummary
+    let displayOrder: Int
+    let addedAt: String
+
+    var id: UUID { place.id }
+}
+
+struct CollectionDetail: Decodable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let userId: UUID
+    let title: String
+    let description: String
+    let visibility: CollectionVisibility
+    let coverImage: String
+    let createdAt: String
+    let updatedAt: String
+    let places: [CollectionPlace]
+}
+
+struct CreateCollectionRequestDTO: Encodable, Equatable, Sendable {
+    let title: String
+    let description: String
+    let visibility: CollectionVisibility
+    let coverImage: String
 }
 
 /// Owner visit used only for current-user visited/personal score.

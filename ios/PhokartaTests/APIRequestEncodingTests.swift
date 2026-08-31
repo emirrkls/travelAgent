@@ -91,6 +91,54 @@ final class APIRequestEncodingTests: XCTestCase {
         XCTAssertFalse(String(describing: tokens).contains("access-secret"))
         XCTAssertFalse(String(describing: tokens).contains("refresh-secret"))
     }
+
+    func testSavedDesiredStateEndpointsMatchBackendContract() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let fetch = try client.makeRequest(SavedPlacesEndpoint(page: 2, size: 100))
+        XCTAssertEqual(fetch.httpMethod, "GET")
+        XCTAssertEqual(fetch.url?.path, "/api/v1/me/saved-places")
+        XCTAssertEqual(URLComponents(url: fetch.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "page" })?.value, "2")
+        let save = try client.makeRequest(SavePlaceEndpoint(placeId: TestPlaces.placeID))
+        XCTAssertEqual(save.httpMethod, "POST")
+        XCTAssertNil(save.httpBody)
+        let remove = try client.makeRequest(UnsavePlaceEndpoint(placeId: TestPlaces.placeID))
+        XCTAssertEqual(remove.httpMethod, "DELETE")
+        XCTAssertEqual(save.url?.path, remove.url?.path)
+    }
+
+    func testCreateCollectionBodyUsesOnlyExactBackendFields() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let endpoint = CreateCollectionEndpoint(body: CreateCollectionRequestDTO(
+            title: "Summer",
+            description: "Sea",
+            visibility: .friends,
+            coverImage: "https://example.test/cover.jpg"
+        ))
+        let request = try client.makeRequest(endpoint)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/me/collections")
+        let json = try XCTUnwrap(request.httpBody).asJSONObject()
+        XCTAssertEqual(json["title"] as? String, "Summer")
+        XCTAssertEqual(json["description"] as? String, "Sea")
+        XCTAssertEqual(json["visibility"] as? String, "FRIENDS")
+        XCTAssertEqual(json["coverImage"] as? String, "https://example.test/cover.jpg")
+        XCTAssertEqual(json.count, 4)
+    }
+
+    func testCollectionListDetailAddAndRemovePaths() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let collectionID = TestCollections.id
+        let list = try client.makeRequest(CollectionsEndpoint(page: 0, size: 100))
+        XCTAssertEqual(list.url?.path, "/api/v1/me/collections")
+        let detail = try client.makeRequest(CollectionDetailEndpoint(collectionId: collectionID))
+        XCTAssertEqual(detail.httpMethod, "GET")
+        XCTAssertEqual(detail.url?.path, "/api/v1/collections/\(collectionID.uuidString.lowercased())")
+        let add = try client.makeRequest(AddCollectionPlaceEndpoint(collectionId: collectionID, placeId: TestPlaces.placeID))
+        let remove = try client.makeRequest(RemoveCollectionPlaceEndpoint(collectionId: collectionID, placeId: TestPlaces.placeID))
+        XCTAssertEqual(add.httpMethod, "POST")
+        XCTAssertEqual(remove.httpMethod, "DELETE")
+        XCTAssertEqual(add.url?.path, remove.url?.path)
+    }
 }
 
 private extension Data {

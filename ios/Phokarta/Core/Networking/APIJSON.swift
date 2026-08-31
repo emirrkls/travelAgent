@@ -78,6 +78,9 @@ enum APIErrorMapper {
                 return .unauthorized
             }
         case 403:
+            if code == "POLICY_ACCEPTANCE_REQUIRED" {
+                return .policyAcceptanceRequired(requiredVersion: dto?.requiredVersion)
+            }
             return .forbidden
         case 404:
             return .notFound

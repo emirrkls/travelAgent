@@ -58,6 +58,19 @@ final class APIErrorDecodingTests: XCTestCase {
         XCTAssertFalse(AppError.networkUnavailable.isTerminalAuth)
     }
 
+    func testPolicyRequiredIsNotMappedToAuthFailure() {
+        let value = APIErrorDTO(
+            status: 403,
+            code: "POLICY_ACCEPTANCE_REQUIRED",
+            message: "accept policy",
+            requiredVersion: "2026-08-01"
+        )
+        let error = APIErrorMapper.map(status: 403, dto: value)
+        XCTAssertEqual(error, .policyAcceptanceRequired(requiredVersion: "2026-08-01"))
+        XCTAssertFalse(error.isTerminalAuth)
+        XCTAssertFalse(error.isTransient)
+    }
+
     private func dto(code: String, status: Int) -> APIErrorDTO {
         APIErrorDTO(status: status, code: code, message: "error")
     }

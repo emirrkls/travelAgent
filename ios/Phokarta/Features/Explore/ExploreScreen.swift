@@ -5,9 +5,13 @@ struct ExploreScreen: View {
     @State private var path: [AppRoute] = []
     @Environment(\.colorScheme) private var colorScheme
     private let places: any PlaceServing
+    private let saved: SavedPlaceStore
+    private let collections: CollectionStore
 
-    init(places: any PlaceServing) {
+    init(places: any PlaceServing, saved: SavedPlaceStore, collections: CollectionStore) {
         self.places = places
+        self.saved = saved
+        self.collections = collections
         _controller = State(initialValue: ExploreController(places: places))
     }
 
@@ -44,7 +48,7 @@ struct ExploreScreen: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .placeDetail(let id):
-                    PlaceDetailScreen(placeId: id, places: places)
+                    PlaceDetailScreen(placeId: id, places: places, saved: saved, collections: collections)
                 }
             }
         }
@@ -100,7 +104,7 @@ struct ExploreScreen: View {
                 Button {
                     path.append(.placeDetail(item.id))
                 } label: {
-                    ExplorePlaceCard(item: item)
+                    ExplorePlaceCard(item: liveItem(item))
                 }
                 .buttonStyle(.plain)
                 .listRowBackground(PhokartaColor.surface(for: colorScheme))
@@ -121,6 +125,12 @@ struct ExploreScreen: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    private func liveItem(_ item: ExplorePlaceItem) -> ExplorePlaceItem {
+        var value = item
+        value.isSaved = saved.isSaved(item.id)
+        return value
     }
 
     private var loadingView: some View {

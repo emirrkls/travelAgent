@@ -11,6 +11,7 @@ enum AppError: Error, Equatable, Sendable {
     case rateLimited
     case unauthorized
     case forbidden
+    case policyAcceptanceRequired(requiredVersion: String?)
     case notFound
     case conflict(code: String)
     case server
@@ -67,6 +68,8 @@ extension AppError: LocalizedError {
             String(localized: "error.session_expired")
         case .forbidden:
             String(localized: "error.forbidden")
+        case .policyAcceptanceRequired:
+            String(localized: "error.policy_acceptance_required")
         case .notFound:
             String(localized: "error.not_found")
         case .conflict:
@@ -81,6 +84,15 @@ extension AppError: LocalizedError {
             String(localized: "error.unknown")
         case .unknown:
             String(localized: "error.unknown")
+        }
+    }
+
+    func localizedMutationMessage(fallbackKey: String) -> String {
+        switch self {
+        case .server, .decoding, .unknown:
+            String(localized: String.LocalizationValue(fallbackKey))
+        default:
+            localizedMessage
         }
     }
 }

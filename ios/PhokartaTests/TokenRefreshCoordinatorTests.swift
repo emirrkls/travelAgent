@@ -65,11 +65,11 @@ final class TokenRefreshCoordinatorTests: XCTestCase {
     }
 
     func testRetryOnceDoesNotRefreshLogin() async throws {
-        var loginCalls = 0
+        let loginCalls = TestCounter()
         let store = InMemorySessionStore()
         let config = try TestConfig.httpsTest()
         let transport = FakeHTTPTransport { request in
-            loginCalls += 1
+            await loginCalls.increment()
             return TestJSON.http(
                 request.url!,
                 status: 401,
@@ -83,7 +83,8 @@ final class TokenRefreshCoordinatorTests: XCTestCase {
             _ = try await auth.login(identifier: "x", password: "DemoPass123!")
             XCTFail("expected invalid credentials")
         } catch AppError.invalidCredentials {
-            XCTAssertEqual(loginCalls, 1)
+            let callCount = await loginCalls.read()
+            XCTAssertEqual(callCount, 1)
         }
     }
 }

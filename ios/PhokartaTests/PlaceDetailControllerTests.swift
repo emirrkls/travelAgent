@@ -97,12 +97,12 @@ final class PlaceDetailControllerTests: XCTestCase {
 
     func testRefreshReloadsDetail() async {
         let service = FakePlaceService()
-        var score = 8.0
-        service.detailHandler = { _ in TestPlaces.detail(communityScore: score) }
+        let score = TestValue(8.0)
+        service.detailHandler = { _ in TestPlaces.detail(communityScore: await score.read()) }
         let controller = PlaceDetailController(placeId: TestPlaces.placeID, places: service)
         controller.startIfNeeded()
         await settleDetail()
-        score = 9.1
+        await score.set(9.1)
         await controller.refresh()
         XCTAssertEqual(controller.content?.communityScore, 9.1)
         XCTAssertEqual(controller.phase, .content)
@@ -110,16 +110,17 @@ final class PlaceDetailControllerTests: XCTestCase {
 
     func testStartIfNeededDoesNotDoubleLoad() async {
         let service = FakePlaceService()
-        var loads = 0
+        let loads = TestCounter()
         service.detailHandler = { _ in
-            loads += 1
+            await loads.increment()
             return TestPlaces.detail()
         }
         let controller = PlaceDetailController(placeId: TestPlaces.placeID, places: service)
         controller.startIfNeeded()
         controller.startIfNeeded()
         await settleDetail()
-        XCTAssertEqual(loads, 1)
+        let loadCount = await loads.read()
+        XCTAssertEqual(loadCount, 1)
     }
 }
 

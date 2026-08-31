@@ -417,3 +417,31 @@ actor GatedPlaceService: PlaceServing {
     func savedPlaceIDs() async throws -> Set<UUID> { [] }
     func ownerVisits() async throws -> [OwnerVisitSummary] { [] }
 }
+
+actor TestValue<Value: Sendable> {
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func read() -> Value {
+        value
+    }
+
+    func set(_ value: Value) {
+        self.value = value
+    }
+}
+
+actor TestCounter {
+    private var count = 0
+
+    func increment() {
+        count += 1
+    }
+
+    func read() -> Int {
+        count
+    }
+}

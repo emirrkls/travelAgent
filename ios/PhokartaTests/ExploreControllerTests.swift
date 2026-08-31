@@ -46,16 +46,16 @@ final class ExploreControllerTests: XCTestCase {
 
     func testErrorAndRetry() async {
         let service = FakePlaceService()
-        var shouldFail = true
+        let shouldFail = TestValue(true)
         service.listHandler = { _, _, _, _ in
-            if shouldFail { throw AppError.networkUnavailable }
+            if await shouldFail.read() { throw AppError.networkUnavailable }
             return TestPlaces.page(places: [TestPlaces.summary()])
         }
         let controller = ExploreController(places: service, debounceNanoseconds: 0)
         controller.startIfNeeded()
         await settle()
         XCTAssertEqual(controller.phase, .error(.network))
-        shouldFail = false
+        await shouldFail.set(false)
         controller.retry()
         await settle()
         XCTAssertEqual(controller.phase, .content)

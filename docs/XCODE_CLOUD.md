@@ -45,9 +45,10 @@ Emircan Keleş team on 2026-08-31:
   Recommended iPhones, and the latest iOS runtime from the selected Xcode.
 - There are no TestFlight deployments or other post-actions.
 
-The first cloud run is triggered by the next `master` push containing the
-signing/source-of-truth update. Record its exact commit, result, and test count
-from App Store Connect; a queued or running build is not green.
+A real push-triggered run completed successfully for commit `82bc7a7` using
+Xcode 26.6 (17F113) on macOS Tahoe 26.6.2. Both Build - iOS and Test - iOS
+succeeded, with 68 of 68 tests passed. Later pushes to `master` use the same
+required build-and-test gate.
 
 ## Windows continuation
 

@@ -49,6 +49,7 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: DDV3HCZRP6
       configs:
         Debug:
           ENABLE_TESTABILITY: YES

@@ -7,7 +7,7 @@ Place Detail**.
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
 - Project definition: XcodeGen `project.yml`
 - Generated project: committed `Phokarta.xcodeproj` for Xcode Cloud
-- Signing: automatic; development team not yet selected
+- Signing: automatic; authorized development team configured
 
 ## Apple tooling status
 
@@ -77,7 +77,6 @@ See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 
 ## Remaining Mac/Apple QA
 
-- Authorized development-team selection and Xcode Cloud onboarding
 - Real backend auth and Keychain persistence across relaunch
 - Explore and Place Detail runtime with a real backend
 - Physical-device, Dynamic Type, VoiceOver, and remote-image QA

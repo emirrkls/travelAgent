@@ -438,6 +438,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					1B9F4DD90439D6DE9B3E217C = {
+						DevelopmentTeam = DDV3HCZRP6;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -582,6 +583,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DDV3HCZRP6;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Phokarta/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Phokarta;
@@ -698,6 +700,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DDV3HCZRP6;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Phokarta/Resources/Info.plist;

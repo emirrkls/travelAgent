@@ -78,10 +78,11 @@ credentials in xcconfig.
 
 ## Signing and security
 
-Automatic signing is enabled for `com.emirrkls.phokarta`. Simulator builds do
-not need a team; device and Xcode Cloud work require selection of an authorized
-team. Do not commit certificates, profiles, Apple credentials, `Local.xcconfig`,
-`xcuserdata`, DerivedData, archives, or result bundles.
+Automatic signing is enabled for `com.emirrkls.phokarta` with the repository
+owner's authorized Emircan Keleş development team. The explicit App ID and
+App Store Connect record exist, and Xcode Cloud is connected to the repository.
+No certificate, profile, Apple credential, `Local.xcconfig`, `xcuserdata`,
+DerivedData, archive, or result bundle belongs in Git.
 
 The production Keychain store uses
 `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` with synchronization

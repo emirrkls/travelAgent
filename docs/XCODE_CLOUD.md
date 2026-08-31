@@ -33,15 +33,21 @@ Cloud requires XcodeGen: **NO**.
 
 ## Apple-side status
 
-Automatic signing is configured for `com.emirrkls.phokarta`, but no development
-team is selected. Workflow creation, any required App Store Connect app record,
-and the first cloud run remain pending until the repository owner's authorized
-Apple team is confirmed. Do not invent an SKU, legal entity, app ownership, or
-distribution setting.
+Apple-side onboarding was completed with the repository owner's authorized
+Emircan Keleş team on 2026-08-31:
 
-When a workflow is created, record its actual Xcode version, simulator/runtime,
-commit SHA, build result, test result, and exact test count here. A pending run
-must remain documented as pending; only a completed successful run is green.
+- Automatic signing is configured for `com.emirrkls.phokarta`.
+- The explicit App ID and App Store Connect record named `Phokarta` exist.
+- The GitHub Xcode Cloud app is scoped to include `emirrkls/travelAgent`.
+- Workflow `iOS CI - Master` is active with push-to-`master` and manual-start
+  conditions, Build (iOS), and required Test (iOS) actions.
+- The workflow uses Latest Release (currently Xcode 26.6 / macOS 26.6.2),
+  Recommended iPhones, and the latest iOS runtime from the selected Xcode.
+- There are no TestFlight deployments or other post-actions.
+
+The first cloud run is triggered by the next `master` push containing the
+signing/source-of-truth update. Record its exact commit, result, and test count
+from App Store Connect; a queued or running build is not green.
 
 ## Windows continuation
 

@@ -382,7 +382,7 @@ struct CollectionPickerSheet: View {
                 }
                 catch let value as AppError { error = value }
                 catch is CancellationError { return }
-                catch { error = .server }
+                catch { self.error = .server }
             }
             .sheet(isPresented: $showingCreate) {
                 CreateCollectionSheet(isSubmitting: isCreating, error: error, coverImage: place.coverImage) { request in
@@ -405,7 +405,7 @@ struct CollectionPickerSheet: View {
         } catch is CancellationError {
             return
         } catch {
-            error = .server
+            self.error = .server
         }
     }
 
@@ -423,7 +423,7 @@ struct CollectionPickerSheet: View {
         } catch is CancellationError {
             return
         } catch {
-            error = .server
+            self.error = .server
         }
     }
 }

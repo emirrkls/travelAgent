@@ -2,7 +2,12 @@
 
 Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure email/password authentication, personal travel memory, category-aware ratings, saved places, and collections. Android application ID: `com.emirrkls.phokarta`. Closed-beta store preparation: [checklist](docs/CLOSED_BETA_RELEASE_CHECKLIST.md) and [Android release](docs/ANDROID_RELEASE.md).
 
-A native iOS client (Swift / SwiftUI) lives under [`ios/`](ios/README.md). iOS v0.2 adds Explore + Place Detail on top of the v0.1 auth foundation and has not been compiled with Xcode yet. Mac setup: [iOS bootstrap](docs/IOS_BOOTSTRAP.md), [Xcode Cloud](docs/XCODE_CLOUD.md).
+A native iOS client (Swift / SwiftUI) lives under [`ios/`](ios/README.md). iOS
+v0.4 adds Visit publishing, category ratings, owner-only memories, canonical
+visit history, and live personal/visited state on top of the authenticated
+Explore and Collections foundation. Xcode Cloud build 12 passed Build and all
+111 XCTest tests with zero reported warnings. Mac setup: [iOS
+bootstrap](docs/IOS_BOOTSTRAP.md), [Xcode Cloud](docs/XCODE_CLOUD.md).
 
 Phokarta is a native Kotlin/Jetpack Compose travel discovery app with secure email/password authentication, personal travel memory, category-aware ratings, saved places, and collections. Android application ID: `com.emirrkls.phokarta`.
 

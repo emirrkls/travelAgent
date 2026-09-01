@@ -20,9 +20,9 @@ Bootstrapped on 2026-08-26 with macOS 26.2, Xcode 26.4.1, Apple Swift
 - Real backend auth, Keychain relaunch, Explore runtime, Place Detail runtime: **NOT RUN**
 
 The Apple/Xcode Cloud bootstrap is complete. The shared `Phokarta` scheme uses
-the committed project directly. The last pre-v0.3 run on `master` passed build
-and all 68 XCTest tests with zero warnings and failures. The v0.3 result is
-updated after its required cloud run.
+the committed project directly. Xcode Cloud build 8 for v0.3 (`829d310`) passed
+Build - iOS and Test - iOS on Xcode 26.6 (17F113): 88/88 XCTest tests passed,
+with 0 failures, 0 skipped, and 0 warnings shown.
 
 ## Included scope
 

@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		200000000000000000000001 /* DimensionRatingRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* DimensionRatingRow.swift */; };
+		200000000000000000000002 /* OverallRatingControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* OverallRatingControl.swift */; };
+		200000000000000000000003 /* PrivateMemoryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* PrivateMemoryEditor.swift */; };
+		200000000000000000000004 /* ReviewEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* ReviewEditor.swift */; };
+		200000000000000000000005 /* VisibilityPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* VisibilityPicker.swift */; };
+		200000000000000000000006 /* VisitComposerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* VisitComposerController.swift */; };
+		200000000000000000000007 /* VisitComposerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* VisitComposerScreen.swift */; };
+		200000000000000000000008 /* VisitComposerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* VisitComposerState.swift */; };
+		200000000000000000000009 /* VisitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000009 /* VisitModels.swift */; };
+		20000000000000000000000A /* VisitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* VisitService.swift */; };
+		20000000000000000000000B /* VisitValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* VisitValidation.swift */; };
+		20000000000000000000000C /* VisitFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* VisitFeatureTests.swift */; };
 		00301CD6EE1125FADF391AFB /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */; };
 		00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */; };
 		013BFA3653087876597AC8BB /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96E3E19DDC86EC178608DC1 /* AppError.swift */; };
@@ -76,6 +88,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		100000000000000000000001 /* DimensionRatingRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DimensionRatingRow.swift; sourceTree = "<group>"; };
+		100000000000000000000002 /* OverallRatingControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverallRatingControl.swift; sourceTree = "<group>"; };
+		100000000000000000000003 /* PrivateMemoryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateMemoryEditor.swift; sourceTree = "<group>"; };
+		100000000000000000000004 /* ReviewEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewEditor.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* VisibilityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisibilityPicker.swift; sourceTree = "<group>"; };
+		100000000000000000000006 /* VisitComposerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitComposerController.swift; sourceTree = "<group>"; };
+		100000000000000000000007 /* VisitComposerScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitComposerScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000008 /* VisitComposerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitComposerState.swift; sourceTree = "<group>"; };
+		100000000000000000000009 /* VisitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitModels.swift; sourceTree = "<group>"; };
+		10000000000000000000000A /* VisitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitService.swift; sourceTree = "<group>"; };
+		10000000000000000000000B /* VisitValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitValidation.swift; sourceTree = "<group>"; };
+		10000000000000000000000C /* VisitFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitFeatureTests.swift; sourceTree = "<group>"; };
 		02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
 		0349CA9D5CF622B7E5E93F46 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		0451A6C2D000C97E23171D82 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -206,6 +230,7 @@
 				07F4EEADD711E6B223956E97 /* Explore */,
 				E80FC5B719825C4EE03E0A94 /* PlaceDetail */,
 				5E99B1F9C4226732A7EB80D5 /* Shell */,
+				300000000000000000000002 /* Visit */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -274,6 +299,7 @@
 		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
 			isa = PBXGroup;
 			children = (
+				10000000000000000000000C /* VisitFeatureTests.swift */,
 				5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */,
 				D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */,
 				8B535D30DF977344C97C124F /* AppConfigTests.swift */,
@@ -389,6 +415,32 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		300000000000000000000001 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000001 /* DimensionRatingRow.swift */,
+				100000000000000000000002 /* OverallRatingControl.swift */,
+				100000000000000000000003 /* PrivateMemoryEditor.swift */,
+				100000000000000000000004 /* ReviewEditor.swift */,
+				100000000000000000000005 /* VisibilityPicker.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		300000000000000000000002 /* Visit */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000001 /* Components */,
+				100000000000000000000006 /* VisitComposerController.swift */,
+				100000000000000000000007 /* VisitComposerScreen.swift */,
+				100000000000000000000008 /* VisitComposerState.swift */,
+				100000000000000000000009 /* VisitModels.swift */,
+				10000000000000000000000A /* VisitService.swift */,
+				10000000000000000000000B /* VisitValidation.swift */,
+			);
+			path = Visit;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -481,6 +533,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				20000000000000000000000C /* VisitFeatureTests.swift in Sources */,
 				68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */,
 				00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */,
 				4A6C138339A77D3BFC27356C /* AppConfigTests.swift in Sources */,
@@ -501,6 +554,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000001 /* DimensionRatingRow.swift in Sources */,
+				200000000000000000000002 /* OverallRatingControl.swift in Sources */,
+				200000000000000000000003 /* PrivateMemoryEditor.swift in Sources */,
+				200000000000000000000004 /* ReviewEditor.swift in Sources */,
+				200000000000000000000005 /* VisibilityPicker.swift in Sources */,
+				200000000000000000000006 /* VisitComposerController.swift in Sources */,
+				200000000000000000000007 /* VisitComposerScreen.swift in Sources */,
+				200000000000000000000008 /* VisitComposerState.swift in Sources */,
+				200000000000000000000009 /* VisitModels.swift in Sources */,
+				20000000000000000000000A /* VisitService.swift in Sources */,
+				20000000000000000000000B /* VisitValidation.swift in Sources */,
 				FD1A5FA4C2790685CB08777D /* APIClient.swift in Sources */,
 				AF6BD00F8528695628A1866E /* APIEndpoint.swift in Sources */,
 				85A43F2F0F04CFD13B7E000F /* APIJSON.swift in Sources */,
@@ -595,7 +659,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -713,7 +777,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

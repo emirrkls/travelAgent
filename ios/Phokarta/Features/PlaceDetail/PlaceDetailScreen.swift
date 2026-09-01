@@ -3,18 +3,22 @@ import SwiftUI
 struct PlaceDetailScreen: View {
     @State private var controller: PlaceDetailController
     @State private var showingCollections = false
+    @State private var showingVisitComposer = false
     @Environment(\.colorScheme) private var colorScheme
     private let saved: SavedPlaceStore
     private let collections: CollectionStore
+    private let visits: VisitStore
 
     init(
         placeId: UUID,
         places: any PlaceServing,
         saved: SavedPlaceStore,
-        collections: CollectionStore
+        collections: CollectionStore,
+        visits: VisitStore
     ) {
         self.saved = saved
         self.collections = collections
+        self.visits = visits
         _controller = State(initialValue: PlaceDetailController(placeId: placeId, places: places))
     }
 
@@ -54,6 +58,13 @@ struct PlaceDetailScreen: View {
         .sheet(isPresented: $showingCollections) {
             if let place = controller.content?.place {
                 CollectionPickerSheet(store: collections, place: place)
+            }
+        }
+        .sheet(isPresented: $showingVisitComposer) {
+            if let place = controller.content?.place {
+                VisitComposerScreen(place: place, store: visits) { _ in
+                    controller.retry()
+                }
             }
         }
     }
@@ -136,6 +147,7 @@ struct PlaceDetailScreen: View {
                 }
 
                 reviews(content)
+                ownerVisits(content.place.id)
                 photos(content.place)
             }
             .padding(PhokartaSpacing.md)
@@ -188,7 +200,17 @@ struct PlaceDetailScreen: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "collections.add"))
 
-            if content.personal != nil {
+            Button { showingVisitComposer = true } label: {
+                Label("visit.record", systemImage: "plus.circle")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(PhokartaColor.mist, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "visit.record"))
+
+            if visits.latest(for: content.place.id) != nil || content.personal != nil {
                 Text("place.visited")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
@@ -200,6 +222,10 @@ struct PlaceDetailScreen: View {
     }
 
     private func scores(_ content: PlaceDetailContent) -> some View {
+        let ownerRows = visits.visits(for: content.place.id)
+        let personal = ownerRows.first.map {
+            PersonalVisitSummary(visitCount: ownerRows.count, latestScore: $0.overallRating, latestVisitedAt: $0.visitedAt)
+        } ?? content.personal
         let friendsScore = content.friends?.averageScore
         let friendsCount = content.friends?.friendsVisitedCount ?? 0
         let friendsCaption: String? = friendsCount == 0
@@ -239,9 +265,9 @@ struct PlaceDetailScreen: View {
                 )
                 ScoreSummaryCard(
                     title: String(localized: "score.you"),
-                    score: content.personal?.latestScore,
-                    caption: content.personal.map { String(localized: "place.your_visits \(String($0.visitCount))") },
-                    accessibilityText: personalA11y(content.personal)
+                    score: personal?.latestScore,
+                    caption: personal.map { String(localized: "place.your_visits \(String($0.visitCount))") },
+                    accessibilityText: personalA11y(personal)
                 )
             }
         }
@@ -294,6 +320,43 @@ struct PlaceDetailScreen: View {
             } else {
                 ForEach(rows) { review in
                     ReviewRowView(review: review)
+                }
+            }
+        }
+    }
+
+    private func ownerVisits(_ placeID: UUID) -> some View {
+        let rows = visits.visits(for: placeID)
+        return Group {
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
+                    FeatureSectionHeader(title: String(localized: "visit.your_visits"))
+                    ForEach(rows) { visit in
+                        VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
+                            HStack {
+                                Text(ScoreFormatting.display(visit.overallRating)).font(.title3.bold())
+                                Text(PlaceDateFormatting.mediumDate(from: visit.visitedAt)).foregroundStyle(.secondary)
+                                Spacer()
+                                Text(String(localized: String.LocalizationValue(visit.visibility.localizationKey)))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            if !visit.publicReview.isEmpty {
+                                Text(visit.publicReview).fixedSize(horizontal: false, vertical: true)
+                            }
+                            if !visit.privateMemory.isEmpty {
+                                Label {
+                                    Text(visit.privateMemory).fixedSize(horizontal: false, vertical: true)
+                                } icon: {
+                                    Image(systemName: "lock.fill")
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("\(String(localized: "visit.memory.only_you")): \(visit.privateMemory)")
+                            }
+                        }
+                        .padding(PhokartaSpacing.md)
+                        .background(PhokartaColor.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.md))
+                    }
                 }
             }
         }

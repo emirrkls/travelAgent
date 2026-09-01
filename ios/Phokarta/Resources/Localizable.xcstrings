@@ -1901,6 +1901,222 @@
         }
       }
     },
+    "visit.record": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Record a visit" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyareti kaydet" } }
+      }
+    },
+    "visit.overall": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Overall" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Genel" } }
+      }
+    },
+    "visit.date": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Visit date" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret tarihi" } }
+      }
+    },
+    "visit.dimensions": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rate the details" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ayrıntıları puanla" } }
+      }
+    },
+    "visit.dimensions.help": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Optional. Add only the details you want to rate." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "İsteğe bağlı. Yalnızca puanlamak istediğin ayrıntıları ekle." } }
+      }
+    },
+    "visit.review": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public review" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum" } }
+      }
+    },
+    "visit.review.a11y": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public review input" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum alanı" } }
+      }
+    },
+    "visit.memory": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private memory · Only you" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı · Yalnızca sen" } }
+      }
+    },
+    "visit.memory.help": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only you can see this memory." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bu anıyı yalnızca sen görebilirsin." } }
+      }
+    },
+    "visit.memory.a11y": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private memory input, only you" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı alanı, yalnızca sen" } }
+      }
+    },
+    "visit.memory.only_you": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private memory, only you" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı, yalnızca sen" } }
+      }
+    },
+    "visit.visibility": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Visibility" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Görünürlük" } }
+      }
+    },
+    "visit.visibility.public": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık" } }
+      }
+    },
+    "visit.visibility.friends": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Friends" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Arkadaşlar" } }
+      }
+    },
+    "visit.visibility.private": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel" } }
+      }
+    },
+    "visit.visibility.public.help": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your review can appear in Community and to friends." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yorumun Topluluk'ta ve arkadaşlarına görünebilir." } }
+      }
+    },
+    "visit.visibility.friends.help": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only mutual friends can see your review." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yorumunu yalnızca karşılıklı arkadaşların görebilir." } }
+      }
+    },
+    "visit.visibility.private.help": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only you can see this visit." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bu ziyareti yalnızca sen görebilirsin." } }
+      }
+    },
+    "visit.publish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publish" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yayınla" } }
+      }
+    },
+    "visit.publishing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publishing visit" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret yayınlanıyor" } }
+      }
+    },
+    "visit.your_visits": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your visits" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaretlerin" } }
+      }
+    },
+    "visit.dimension.add": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add score" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Puan ekle" } }
+      }
+    },
+    "visit.dimension.add_named %@": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add a score for %@" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "%@ için puan ekle" } }
+      }
+    },
+    "visit.dimension.remove %@": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove %@ score" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "%@ puanını kaldır" } }
+      }
+    },
+    "visit.score_out_of_ten %@": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ out of 10" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "10 üzerinden %@" } }
+      }
+    },
+    "visit.discard.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Discard visit draft?" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret taslağı silinsin mi?" } }
+      }
+    },
+    "visit.discard.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your unsent rating, review, and private memory will be lost." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Gönderilmemiş puanın, yorumun ve özel anın kaybolacak." } }
+      }
+    },
+    "visit.discard": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Discard" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Sil" } }
+      }
+    },
+    "visit.error.overall": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose an overall score from 0 to 10." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "0 ile 10 arasında bir genel puan seç." } }
+      }
+    },
+    "visit.error.future_date": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Visit date cannot be in the future." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret tarihi gelecekte olamaz." } }
+      }
+    },
+    "visit.error.review_limit": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public review must be 4,000 characters or fewer." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum en fazla 4.000 karakter olabilir." } }
+      }
+    },
+    "visit.error.memory_limit": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Private memory must be 4,000 characters or fewer." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı en fazla 4.000 karakter olabilir." } }
+      }
+    },
+    "visit.error.dimension": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "One or more detail scores are invalid for this place." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bir veya daha fazla ayrıntı puanı bu yer için geçersiz." } }
+      }
+    },
+    "visit.error.changed_payload": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This retry no longer matches the original visit. Edit the draft and publish as a new attempt." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Bu yeniden deneme ilk ziyaretle artık eşleşmiyor. Taslağı düzenleyip yeni bir deneme olarak yayınla." } }
+      }
+    },
+    "visit.error.publish": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to publish the visit. Your draft is still here." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret yayınlanamadı. Taslağın korunuyor." } }
+      }
+    },
+    "visit.error.policy": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Accepting the current User Policy is required before publishing. Your draft is preserved." } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yayınlamadan önce güncel Kullanıcı Politikası'nı kabul etmen gerekiyor. Taslağın korunuyor." } }
+      }
+    },
     "tab.profile": {
       "localizations": {
         "en": {

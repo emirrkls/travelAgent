@@ -11,7 +11,8 @@ struct MainTabView: View {
             ExploreScreen(
                 places: environment.places,
                 saved: environment.saved,
-                collections: environment.collections
+                collections: environment.collections,
+                visits: environment.visits
             )
                 .tabItem {
                     Label {
@@ -24,7 +25,8 @@ struct MainTabView: View {
             SavedScreen(
                 store: environment.saved,
                 places: environment.places,
-                collections: environment.collections
+                collections: environment.collections,
+                visits: environment.visits
             )
             .tabItem {
                 Label("saved.title", systemImage: "bookmark")
@@ -33,7 +35,8 @@ struct MainTabView: View {
             CollectionsScreen(
                 store: environment.collections,
                 saved: environment.saved,
-                places: environment.places
+                places: environment.places,
+                visits: environment.visits
             )
             .tabItem {
                 Label("collections.title", systemImage: "square.stack")
@@ -54,8 +57,10 @@ struct MainTabView: View {
         .task(id: user.id) {
             environment.saved.activate(accountID: user.id)
             environment.collections.activate(accountID: user.id)
+            environment.visits.activate(accountID: user.id)
             try? await environment.saved.refresh()
             try? await environment.collections.refreshList()
+            try? await environment.visits.refresh()
         }
     }
 }
@@ -101,12 +106,14 @@ struct SavedScreen: View {
     let store: SavedPlaceStore
     let places: any PlaceServing
     let collections: CollectionStore
+    let visits: VisitStore
     @Environment(\.colorScheme) private var colorScheme
 
-    init(store: SavedPlaceStore, places: any PlaceServing, collections: CollectionStore) {
+    init(store: SavedPlaceStore, places: any PlaceServing, collections: CollectionStore, visits: VisitStore) {
         self.store = store
         self.places = places
         self.collections = collections
+        self.visits = visits
         _controller = State(initialValue: SavedController(store: store))
     }
 
@@ -149,7 +156,7 @@ struct SavedScreen: View {
             .refreshable { await controller.load() }
             .navigationDestination(for: AppRoute.self) { route in
                 if case .placeDetail(let id) = route {
-                    PlaceDetailScreen(placeId: id, places: places, saved: store, collections: collections)
+                    PlaceDetailScreen(placeId: id, places: places, saved: store, collections: collections, visits: visits)
                 }
             }
         }
@@ -219,12 +226,14 @@ struct CollectionsScreen: View {
     let store: CollectionStore
     let saved: SavedPlaceStore
     let places: any PlaceServing
+    let visits: VisitStore
     @Environment(\.colorScheme) private var colorScheme
 
-    init(store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing) {
+    init(store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing, visits: VisitStore) {
         self.store = store
         self.saved = saved
         self.places = places
+        self.visits = visits
         _controller = State(initialValue: CollectionsController(store: store))
     }
 
@@ -280,7 +289,8 @@ struct CollectionsScreen: View {
                     collectionID: id,
                     store: store,
                     saved: saved,
-                    places: places
+                    places: places,
+                    visits: visits
                 )
             }
         }
@@ -355,11 +365,13 @@ struct CollectionDetailScreen: View {
     let store: CollectionStore
     let saved: SavedPlaceStore
     let places: any PlaceServing
+    let visits: VisitStore
 
-    init(collectionID: UUID, store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing) {
+    init(collectionID: UUID, store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing, visits: VisitStore) {
         self.store = store
         self.saved = saved
         self.places = places
+        self.visits = visits
         _controller = State(initialValue: CollectionDetailController(collectionID: collectionID, store: store))
     }
 
@@ -396,7 +408,8 @@ struct CollectionDetailScreen: View {
                                             placeId: row.place.id,
                                             places: places,
                                             saved: saved,
-                                            collections: store
+                                            collections: store,
+                                            visits: visits
                                         )
                                     } label: {
                                         CollectionPlaceRow(place: row.place)

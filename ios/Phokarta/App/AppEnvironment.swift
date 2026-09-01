@@ -20,6 +20,7 @@ struct AppEnvironment {
     let places: any PlaceServing
     let saved: SavedPlaceStore
     let collections: CollectionStore
+    let visits: VisitStore
 
     @MainActor
     static func live() throws -> AppEnvironment {
@@ -37,9 +38,11 @@ struct AppEnvironment {
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
         let saved = SavedPlaceStore(service: SavedPlaceService(client: client))
         let collections = CollectionStore(service: CollectionService(client: client))
+        let visits = VisitStore(service: VisitService(client: client))
         let session = AuthSessionController(auth: auth) {
             saved.clear()
             collections.clear()
+            visits.clear()
         }
         relay.controller = session
         return AppEnvironment(
@@ -48,7 +51,8 @@ struct AppEnvironment {
             session: session,
             places: PlaceService(client: client),
             saved: saved,
-            collections: collections
+            collections: collections,
+            visits: visits
         )
     }
 
@@ -71,9 +75,11 @@ struct AppEnvironment {
         let auth = AuthRepository(client: client, store: store, refresh: refresh, config: config)
         let saved = SavedPlaceStore(service: SavedPlaceService(client: client))
         let collections = CollectionStore(service: CollectionService(client: client))
+        let visits = VisitStore(service: VisitService(client: client))
         let session = AuthSessionController(auth: auth, initialState: initialState) {
             saved.clear()
             collections.clear()
+            visits.clear()
         }
         relay.controller = session
         return AppEnvironment(
@@ -82,7 +88,8 @@ struct AppEnvironment {
             session: session,
             places: places ?? PlaceService(client: client),
             saved: saved,
-            collections: collections
+            collections: collections,
+            visits: visits
         )
     }
 }

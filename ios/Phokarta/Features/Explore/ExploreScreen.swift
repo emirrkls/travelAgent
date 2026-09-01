@@ -7,11 +7,13 @@ struct ExploreScreen: View {
     private let places: any PlaceServing
     private let saved: SavedPlaceStore
     private let collections: CollectionStore
+    private let visits: VisitStore
 
-    init(places: any PlaceServing, saved: SavedPlaceStore, collections: CollectionStore) {
+    init(places: any PlaceServing, saved: SavedPlaceStore, collections: CollectionStore, visits: VisitStore) {
         self.places = places
         self.saved = saved
         self.collections = collections
+        self.visits = visits
         _controller = State(initialValue: ExploreController(places: places))
     }
 
@@ -48,7 +50,7 @@ struct ExploreScreen: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .placeDetail(let id):
-                    PlaceDetailScreen(placeId: id, places: places, saved: saved, collections: collections)
+                    PlaceDetailScreen(placeId: id, places: places, saved: saved, collections: collections, visits: visits)
                 }
             }
         }
@@ -130,6 +132,10 @@ struct ExploreScreen: View {
     private func liveItem(_ item: ExplorePlaceItem) -> ExplorePlaceItem {
         var value = item
         value.isSaved = saved.isSaved(item.id)
+        if let visit = visits.latest(for: item.id) {
+            value.isVisited = true
+            value.personalScore = visit.overallRating
+        }
         return value
     }
 

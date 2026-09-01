@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.3 — Saved +
-Collections**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.4 — Visit
+Publish + Ratings**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -36,9 +36,14 @@ detail, Place Detail collection picker with create-and-add, canonical add,
 targeted-reload remove, revision-safe refresh reconciliation, and account-scoped
 in-memory state. It reuses the existing API client and single-flight refresh.
 
-Visit publishing, ratings, media, maps/location, durable offline persistence,
-full policy acceptance UI, live infrastructure changes, and store submission
-remain outside this milestone.
+v0.4 adds online-first Visit authoring from Place Detail: overall and optional
+category dimensions, public review, owner-only private memory, visit date,
+visibility, idempotent publish/replay, canonical owner history, live visited and
+latest personal-score state, account isolation, EN/TR copy, and XCTest coverage.
+
+Visit media, maps/location, durable draft/offline persistence, a durable
+mutation queue, full policy acceptance UI, live infrastructure changes, and
+store submission remain outside this milestone.
 
 ## Generate, build, and test
 
@@ -84,7 +89,8 @@ See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [Xcode Cloud](../docs/XCODE_CLOUD.md),
 [auth contract](docs/AUTH_CONTRACT.md), and
 [Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md), and
-[Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md).
+[Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md), and
+[Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md).
 
 ## Remaining Mac/Apple QA
 

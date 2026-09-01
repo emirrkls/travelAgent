@@ -25,7 +25,7 @@ struct VisitComposerScreen: View {
                 }
 
                 Section("visit.overall") {
-                    OverallRatingControl(value: controller.state.overallScore, onChange: controller.setOverall)
+                    OverallRatingControl(value: controller.state.overallScore) { controller.setOverall($0) }
                 }
 
                 let keys = VisitDimensionCatalog.keys(for: controller.state.category)
@@ -48,7 +48,7 @@ struct VisitComposerScreen: View {
                 }
 
                 Section {
-                    ReviewEditor(text: controller.state.publicReview, onChange: controller.setReview)
+                    ReviewEditor(text: controller.state.publicReview) { controller.setReview($0) }
                 } header: {
                     Text("visit.review")
                 } footer: {
@@ -56,7 +56,7 @@ struct VisitComposerScreen: View {
                 }
 
                 Section {
-                    PrivateMemoryEditor(text: controller.state.privateMemory, onChange: controller.setPrivateMemory)
+                    PrivateMemoryEditor(text: controller.state.privateMemory) { controller.setPrivateMemory($0) }
                 } header: {
                     Text("visit.memory")
                 } footer: {
@@ -64,7 +64,7 @@ struct VisitComposerScreen: View {
                 }
 
                 Section("visit.visibility") {
-                    VisibilityPicker(selection: controller.state.visibility, onChange: controller.setVisibility)
+                    VisibilityPicker(selection: controller.state.visibility) { controller.setVisibility($0) }
                 }
 
                 if let message = publishMessage {

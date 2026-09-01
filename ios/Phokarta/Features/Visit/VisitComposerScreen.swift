@@ -18,7 +18,7 @@ struct VisitComposerScreen: View {
                     Text(controller.state.placeName).font(.headline)
                     DatePicker(
                         "visit.date",
-                        selection: Binding(get: { controller.state.visitedAt }, set: controller.setDate),
+                        selection: Binding(get: { controller.state.visitedAt }, set: { controller.setDate($0) }),
                         in: ...Date(),
                         displayedComponents: .date
                     )

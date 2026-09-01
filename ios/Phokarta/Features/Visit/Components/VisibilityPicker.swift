@@ -2,7 +2,7 @@ import SwiftUI
 
 struct VisibilityPicker: View {
     let selection: VisitVisibility
-    let onChange: (VisitVisibility) -> Void
+    let onChange: @MainActor @Sendable (VisitVisibility) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {

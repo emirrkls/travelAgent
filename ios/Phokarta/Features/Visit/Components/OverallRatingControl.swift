@@ -2,7 +2,7 @@ import SwiftUI
 
 struct OverallRatingControl: View {
     let value: Double
-    let onChange: (Double) -> Void
+    let onChange: @MainActor @Sendable (Double) -> Void
 
     var body: some View {
         VStack(spacing: PhokartaSpacing.sm) {

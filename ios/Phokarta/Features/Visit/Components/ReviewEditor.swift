@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ReviewEditor: View {
     let text: String
-    let onChange: (String) -> Void
+    let onChange: @MainActor @Sendable (String) -> Void
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {

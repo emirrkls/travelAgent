@@ -3,9 +3,9 @@ import SwiftUI
 struct DimensionRatingRow: View {
     let key: String
     let value: Double?
-    let onEnable: () -> Void
-    let onChange: (Double) -> Void
-    let onRemove: () -> Void
+    let onEnable: @MainActor @Sendable () -> Void
+    let onChange: @MainActor @Sendable (Double) -> Void
+    let onRemove: @MainActor @Sendable () -> Void
 
     var body: some View {
         if let value {

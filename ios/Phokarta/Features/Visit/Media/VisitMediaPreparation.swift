@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -18,6 +19,9 @@ import UniformTypeIdentifiers
 /// entirely, then writes the image with cleaned properties via `CGImageDestination`.
 /// Orientation is preserved through `kCGImagePropertyOrientation`.
 enum VisitMediaPreparation {
+
+    private static let jpegType = UTType.jpeg.identifier as CFString
+    private static let pngType = UTType.png.identifier as CFString
 
     /// Result of preparing a single image for upload.
     struct PreparedMedia: Sendable {
@@ -55,10 +59,10 @@ enum VisitMediaPreparation {
         switch sourceType {
         case .heic, .heif, .jpeg, .unknown:
             // HEIC/HEIF → JPEG conversion; JPEG → re-save with stripped GPS; unknown → attempt JPEG
-            targetType = kUTTypeJPEG
+            targetType = jpegType
             targetMIME = "image/jpeg"
         case .png:
-            targetType = kUTTypePNG
+            targetType = pngType
             targetMIME = "image/png"
         case .webp:
             // WebP: pass through without re-encoding (no GPS metadata concern)
@@ -111,7 +115,8 @@ enum VisitMediaPreparation {
         }
 
         // Write to temporary file
-        let tempURL = tempFileURL(itemID: itemID, ext: targetType == kUTTypeJPEG ? "jpg" : "png")
+        let isJPEG = (targetType == jpegType)
+        let tempURL = tempFileURL(itemID: itemID, ext: isJPEG ? "jpg" : "png")
         guard let destination = CGImageDestinationCreateWithURL(
             tempURL as CFURL, targetType, 1, nil
         ) else {
@@ -120,7 +125,7 @@ enum VisitMediaPreparation {
 
         // Set destination properties
         var destProperties = cleanedProperties
-        if targetType == kUTTypeJPEG {
+        if isJPEG {
             destProperties[kCGImageDestinationLossyCompressionQuality as CFString] = 0.85 as CFNumber
         }
 
@@ -133,7 +138,7 @@ enum VisitMediaPreparation {
 
         // Validate size
         let attributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path)
-        let fileSize = (attributes?[.size] as? Int64) ?? 0
+        let fileSize: Int64 = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         guard fileSize > 0, fileSize <= MediaContract.maxBytes else {
             try? FileManager.default.removeItem(at: tempURL)
             throw PrepareError.tooLarge
@@ -268,7 +273,7 @@ enum VisitMediaPreparation {
             throw PrepareError.thumbnailFailed
         }
         let mutableData = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(mutableData, kUTTypeJPEG, 1, nil) else {
+        guard let dest = CGImageDestinationCreateWithData(mutableData, jpegType, 1, nil) else {
             throw PrepareError.thumbnailFailed
         }
         let thumbProperties: [CFString: Any] = [

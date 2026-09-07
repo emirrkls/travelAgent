@@ -28,6 +28,19 @@
 		200000000000000000000013 /* VisitMediaThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* VisitMediaThumbnail.swift */; };
 		200000000000000000000014 /* VisitMediaStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* VisitMediaStrip.swift */; };
 		200000000000000000000015 /* VisitMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* VisitMediaTests.swift */; };
+		200000000000000000000016 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* NetworkMonitor.swift */; };
+		200000000000000000000017 /* PersistentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* PersistentModels.swift */; };
+		200000000000000000000018 /* PersistentDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000018 /* PersistentDatabase.swift */; };
+		200000000000000000000019 /* VisitDraftRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000019 /* VisitDraftRepository.swift */; };
+		20000000000000000000001A /* OfflineMutationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001A /* OfflineMutationRepository.swift */; };
+		20000000000000000000001B /* LocalAccountPurger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001B /* LocalAccountPurger.swift */; };
+		20000000000000000000001C /* MutationSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001C /* MutationSyncEngine.swift */; };
+		20000000000000000000001D /* PendingVisitDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001D /* PendingVisitDetailSheet.swift */; };
+		20000000000000000000001E /* MediaFileMutationLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001E /* MediaFileMutationLock.swift */; };
+		20000000000000000000001F /* DurableMediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001F /* DurableMediaStore.swift */; };
+		200000000000000000000020 /* MediaFileReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* MediaFileReconciler.swift */; };
+		200000000000000000000021 /* DurablePersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* DurablePersistenceTests.swift */; };
+		200000000000000000000022 /* OfflineMutationSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* OfflineMutationSyncTests.swift */; };
 		00301CD6EE1125FADF391AFB /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */; };
 		00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */; };
 		013BFA3653087876597AC8BB /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96E3E19DDC86EC178608DC1 /* AppError.swift */; };
@@ -118,6 +131,19 @@
 		100000000000000000000013 /* VisitMediaThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaThumbnail.swift; sourceTree = "<group>"; };
 		100000000000000000000014 /* VisitMediaStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaStrip.swift; sourceTree = "<group>"; };
 		100000000000000000000015 /* VisitMediaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaTests.swift; sourceTree = "<group>"; };
+		100000000000000000000016 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		100000000000000000000017 /* PersistentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentModels.swift; sourceTree = "<group>"; };
+		100000000000000000000018 /* PersistentDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentDatabase.swift; sourceTree = "<group>"; };
+		100000000000000000000019 /* VisitDraftRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitDraftRepository.swift; sourceTree = "<group>"; };
+		10000000000000000000001A /* OfflineMutationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMutationRepository.swift; sourceTree = "<group>"; };
+		10000000000000000000001B /* LocalAccountPurger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAccountPurger.swift; sourceTree = "<group>"; };
+		10000000000000000000001C /* MutationSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutationSyncEngine.swift; sourceTree = "<group>"; };
+		10000000000000000000001D /* PendingVisitDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingVisitDetailSheet.swift; sourceTree = "<group>"; };
+		10000000000000000000001E /* MediaFileMutationLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaFileMutationLock.swift; sourceTree = "<group>"; };
+		10000000000000000000001F /* DurableMediaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurableMediaStore.swift; sourceTree = "<group>"; };
+		100000000000000000000020 /* MediaFileReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaFileReconciler.swift; sourceTree = "<group>"; };
+		100000000000000000000021 /* DurablePersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurablePersistenceTests.swift; sourceTree = "<group>"; };
+		100000000000000000000022 /* OfflineMutationSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMutationSyncTests.swift; sourceTree = "<group>"; };
 		02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
 		0349CA9D5CF622B7E5E93F46 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		0451A6C2D000C97E23171D82 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -217,6 +243,7 @@
 		1E4671D740F3A859E40A964F /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000016 /* NetworkMonitor.swift */,
 				AEC6B56AF1CBE9BC8EEED9B6 /* APIClient.swift */,
 				2105D228595321D97BC308E1 /* APIEndpoint.swift */,
 				F7B24BDF52A7B78F03E51AD9 /* APIJSON.swift */,
@@ -228,6 +255,7 @@
 		1FB6F6E46C7E99AA4A81BD8C /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				10000000000000000000001D /* PendingVisitDetailSheet.swift */,
 				0DA19CBE534A9DECC9CFEB1C /* PlaceDetailComponents.swift */,
 			);
 			path = Components;
@@ -264,6 +292,7 @@
 		3733E7FD69CABE971A2E1910 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				300000000000000000000006 /* Sync */,
 				72E0A15CAFA99B156C5909DC /* Auth */,
 				2CDD0F6C502E126124253C4A /* Config */,
 				CD9030B40D4DF172E8B1C487 /* DesignSystem */,
@@ -317,6 +346,8 @@
 		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000021 /* DurablePersistenceTests.swift */,
+				100000000000000000000022 /* OfflineMutationSyncTests.swift */,
 				10000000000000000000000C /* VisitFeatureTests.swift */,
 				100000000000000000000015 /* VisitMediaTests.swift */,
 				5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */,
@@ -375,6 +406,7 @@
 		CF6B21DC10E6F11675F90BF3 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				300000000000000000000005 /* Persistence */,
 				A6FB31579270DAFD236AF3CA /* KeychainSessionStore.swift */,
 				4949C5EC6020864D819CEB37 /* SessionStore.swift */,
 			);
@@ -459,6 +491,9 @@
 		300000000000000000000004 /* Media */ = {
 			isa = PBXGroup;
 			children = (
+				10000000000000000000001F /* DurableMediaStore.swift */,
+				10000000000000000000001E /* MediaFileMutationLock.swift */,
+				100000000000000000000020 /* MediaFileReconciler.swift */,
 				300000000000000000000003 /* Components */,
 				10000000000000000000000E /* VisitMediaItem.swift */,
 				10000000000000000000000D /* VisitMediaModels.swift */,
@@ -467,6 +502,26 @@
 				100000000000000000000011 /* VisitMediaUploadCoordinator.swift */,
 			);
 			path = Media;
+			sourceTree = "<group>";
+		};
+		300000000000000000000005 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000001B /* LocalAccountPurger.swift */,
+				10000000000000000000001A /* OfflineMutationRepository.swift */,
+				100000000000000000000018 /* PersistentDatabase.swift */,
+				100000000000000000000017 /* PersistentModels.swift */,
+				100000000000000000000019 /* VisitDraftRepository.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		300000000000000000000006 /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000001C /* MutationSyncEngine.swift */,
+			);
+			path = Sync;
 			sourceTree = "<group>";
 		};
 		300000000000000000000002 /* Visit */ = {
@@ -576,6 +631,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000021 /* DurablePersistenceTests.swift in Sources */,
+				200000000000000000000022 /* OfflineMutationSyncTests.swift in Sources */,
 				20000000000000000000000C /* VisitFeatureTests.swift in Sources */,
 				200000000000000000000015 /* VisitMediaTests.swift in Sources */,
 				68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */,
@@ -598,6 +655,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				20000000000000000000001F /* DurableMediaStore.swift in Sources */,
+				20000000000000000000001B /* LocalAccountPurger.swift in Sources */,
+				20000000000000000000001E /* MediaFileMutationLock.swift in Sources */,
+				200000000000000000000020 /* MediaFileReconciler.swift in Sources */,
+				20000000000000000000001C /* MutationSyncEngine.swift in Sources */,
+				200000000000000000000016 /* NetworkMonitor.swift in Sources */,
+				20000000000000000000001A /* OfflineMutationRepository.swift in Sources */,
+				20000000000000000000001D /* PendingVisitDetailSheet.swift in Sources */,
+				200000000000000000000018 /* PersistentDatabase.swift in Sources */,
+				200000000000000000000017 /* PersistentModels.swift in Sources */,
+				200000000000000000000019 /* VisitDraftRepository.swift in Sources */,
 				200000000000000000000001 /* DimensionRatingRow.swift in Sources */,
 				200000000000000000000002 /* OverallRatingControl.swift in Sources */,
 				200000000000000000000003 /* PrivateMemoryEditor.swift in Sources */,
@@ -711,7 +779,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -829,7 +897,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

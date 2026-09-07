@@ -6,8 +6,25 @@ struct VisitComposerScreen: View {
     @State private var showDiscardConfirmation = false
     let onPublished: (OwnerVisit) -> Void
 
-    init(place: PlaceDetail, store: VisitStore, onPublished: @escaping (OwnerVisit) -> Void) {
-        _controller = State(initialValue: VisitComposerController(place: place, store: store))
+    init(
+        place: PlaceDetail,
+        store: VisitStore,
+        mediaService: (any VisitMediaServing)? = nil,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil,
+        onPublished: @escaping (OwnerVisit) -> Void
+    ) {
+        _controller = State(initialValue: VisitComposerController(
+            place: place,
+            store: store,
+            mediaService: mediaService,
+            draftRepository: draftRepository,
+            mutationRepository: mutationRepository,
+            mediaStore: mediaStore,
+            syncEngine: syncEngine
+        ))
         self.onPublished = onPublished
     }
 
@@ -91,8 +108,11 @@ struct VisitComposerScreen: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         Task {
-                            if let visit = await controller.publish() {
-                                onPublished(visit)
+                            let visit = await controller.publish()
+                            if controller.state.publishState == .success {
+                                if let visit {
+                                    onPublished(visit)
+                                }
                                 dismiss()
                             }
                         }

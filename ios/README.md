@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.5 — Media
-Upload**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.6 — Durable
+Drafts + Offline Mutation Queue**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -48,9 +48,16 @@ upload intent and presigned S3 PUT with authorization header isolation, upload
 confirmation, ordered canonical media attachment to Visit publish, lost-ACK retry,
 composer media strip and thumbnail UI, account isolation, and XCTest coverage.
 
-Maps/location, durable draft/offline persistence, a durable mutation queue,
-full policy acceptance UI, live infrastructure changes, and store submission
-remain outside this milestone.
+v0.6 adds durable drafts and offline mutation queue: SQLite3 persistence with
+WAL mode and foreign keys, 30-day draft expiry, debounced autosave, app-owned
+durable media storage in Application Support with backup exclusion and atomic writes,
+offline mutation queue with CAS claims and generation tracking, single-flight drain,
+interrupted SYNCING recovery, confirmed media reuse (READY_REMOTE), media order preservation,
+failed visit recovery for editing (M1 -> draft -> M2), transient retry with identical M1,
+orphan media reconciliation with grace period, and comprehensive deterministic concurrency tests.
+
+Maps/location, full policy acceptance modal UI, social/friends screens, live infrastructure changes,
+and store submission remain outside this milestone.
 
 ## Generate, build, and test
 
@@ -97,8 +104,9 @@ See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [auth contract](docs/AUTH_CONTRACT.md),
 [Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md),
 [Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md),
-[Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md), and
-[Media Upload parity](docs/MEDIA_UPLOAD_PARITY.md).
+[Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md),
+[Media Upload parity](docs/MEDIA_UPLOAD_PARITY.md), and
+[Durable Drafts + Offline Queue parity](docs/DURABLE_DRAFTS_OFFLINE_QUEUE_PARITY.md).
 
 ## Remaining Mac/Apple QA
 

@@ -97,6 +97,11 @@ final class VisitStore {
         return canonical
     }
 
+    func reconcileCanonicalVisit(_ canonical: OwnerVisit) {
+        visits.removeAll { $0.id == canonical.id }
+        visits.insert(canonical, at: 0)
+    }
+
     func visits(for placeID: UUID) -> [OwnerVisit] {
         visits.filter { $0.place.id == placeID }
     }

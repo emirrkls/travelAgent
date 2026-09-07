@@ -2222,6 +2222,310 @@
           }
         }
       }
+    },
+    "policy.accept_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept Policy"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koşulları Kabul Et"
+          }
+        }
+      }
+    },
+    "sync.action.edit_and_retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit and Retry"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Düzenle ve Yeniden Dene"
+          }
+        }
+      }
+    },
+    "sync.action.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaldır"
+          }
+        }
+      }
+    },
+    "sync.action.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden Dene"
+          }
+        }
+      }
+    },
+    "sync.failure.forbidden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You do not have permission to publish this visit."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu ziyareti yayınlama izniniz yok."
+          }
+        }
+      }
+    },
+    "sync.failure.generic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An error occurred while syncing. Tap Retry to try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronizasyon sırasında bir hata oluştu. Tekrar denemek için Yeniden Dene'ye dokunun."
+          }
+        }
+      }
+    },
+    "sync.failure.idempotency": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync error. Please try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronizasyon hatası. Lütfen tekrar deneyin."
+          }
+        }
+      }
+    },
+    "sync.failure.legacy_media_reselect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media was selected before durable storage was enabled. Please edit the visit to reselect photos."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medya dayanıklı depolama etkinleştirilmeden önce seçilmişti. Fotoğrafları yeniden seçmek için ziyareti düzenleyin."
+          }
+        }
+      }
+    },
+    "sync.failure.not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The place was not found."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mekan bulunamadı."
+          }
+        }
+      }
+    },
+    "sync.failure.policy_acceptance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Policy acceptance required before uploading media."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf yüklemek için kullanım koşullarını kabul etmeniz gerekiyor."
+          }
+        }
+      }
+    },
+    "sync.failure.validation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The visit data is invalid. Please edit and try again."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret bilgileri geçersiz. Lütfen düzenleyip tekrar deneyin."
+          }
+        }
+      }
+    },
+    "sync.remove_confirm_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will permanently delete this pending visit and its local media."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu bekleyen ziyaret ve yerel medya dosyaları kalıcı olarak silinecek."
+          }
+        }
+      }
+    },
+    "sync.remove_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Failed Visit?"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başarısız Ziyaret Kaldırılsın mı?"
+          }
+        }
+      }
+    },
+    "sync.replace_draft_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace Draft"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taslağı Değiştir"
+          }
+        }
+      }
+    },
+    "sync.replace_draft_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have an unsaved draft for this place. Restoring this failed visit will overwrite your current draft."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu mekan için kaydedilmemiş bir taslağınız var. Bu başarısız ziyareti geri yüklemek mevcut taslağınızın üzerine yazacaktır."
+          }
+        }
+      }
+    },
+    "sync.replace_draft_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace Current Draft?"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mevcut Taslak Değiştirilsin mi?"
+          }
+        }
+      }
+    },
+    "sync.status.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync Failed"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronizasyon Başarısız"
+          }
+        }
+      }
+    },
+    "sync.status.pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Syncing..."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senkronize ediliyor..."
+          }
+        }
+      }
+    },
+    "visit.pending_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending Visit"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bekleyen Ziyaret"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

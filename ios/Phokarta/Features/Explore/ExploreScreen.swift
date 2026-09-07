@@ -8,12 +8,29 @@ struct ExploreScreen: View {
     private let saved: SavedPlaceStore
     private let collections: CollectionStore
     private let visits: VisitStore
+    private let draftRepository: (any VisitDraftRepository)?
+    private let mutationRepository: (any OfflineMutationRepository)?
+    private let mediaStore: (any DurableMediaStoring)?
+    private let syncEngine: MutationSyncEngine?
 
-    init(places: any PlaceServing, saved: SavedPlaceStore, collections: CollectionStore, visits: VisitStore) {
+    init(
+        places: any PlaceServing,
+        saved: SavedPlaceStore,
+        collections: CollectionStore,
+        visits: VisitStore,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil
+    ) {
         self.places = places
         self.saved = saved
         self.collections = collections
         self.visits = visits
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         _controller = State(initialValue: ExploreController(places: places))
     }
 
@@ -50,7 +67,17 @@ struct ExploreScreen: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .placeDetail(let id):
-                    PlaceDetailScreen(placeId: id, places: places, saved: saved, collections: collections, visits: visits)
+                    PlaceDetailScreen(
+                        placeId: id,
+                        places: places,
+                        saved: saved,
+                        collections: collections,
+                        visits: visits,
+                        draftRepository: draftRepository,
+                        mutationRepository: mutationRepository,
+                        mediaStore: mediaStore,
+                        syncEngine: syncEngine
+                    )
                 }
             }
         }

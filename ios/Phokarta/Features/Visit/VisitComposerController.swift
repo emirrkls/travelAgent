@@ -10,6 +10,11 @@ final class VisitComposerController {
     private let uuid: () -> UUID
     private var lastSentPayload: VisitCreateRequest.LogicalPayload?
     private var composerAccountID: UUID?
+    private let draftRepository: (any VisitDraftRepository)?
+    private let mutationRepository: (any OfflineMutationRepository)?
+    private let mediaStore: (any DurableMediaStoring)?
+    private let syncEngine: MutationSyncEngine?
+    private var autosaveTask: Task<Void, Never>?
 
     var isDirty: Bool {
         state.isDirty || !mediaCoordinator.isEmpty
@@ -26,11 +31,19 @@ final class VisitComposerController {
         place: PlaceDetail,
         store: VisitStore,
         mediaService: (any VisitMediaServing)? = nil,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil,
         uuid: @escaping () -> UUID = UUID.init
     ) {
         self.store = store
         self.uuid = uuid
         self.composerAccountID = store.accountID
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         let activeAccount = store.accountID ?? UUID()
         let resolvedMediaService = mediaService ?? store.mediaService
         self.mediaCoordinator = VisitMediaUploadCoordinator(
@@ -43,6 +56,25 @@ final class VisitComposerController {
             category: place.category,
             clientMutationId: uuid()
         )
+
+        // Asynchronously restore persisted draft if available
+        if let draftRepo = draftRepository, let currentUserId = store.accountID {
+            Task { [weak self] in
+                if let draft = try? await draftRepo.getDraft(placeId: place.id, userId: currentUserId) {
+                    self?.restoreDraft(draft)
+                }
+            }
+        }
+    }
+
+    func restoreDraft(_ draft: DurableVisitDraft) {
+        state.overallScore = draft.overallScore
+        state.publicReview = draft.publicReview
+        state.privateMemory = draft.privateMemory
+        state.visitedAt = Date(timeIntervalSince1970: Double(draft.visitedAtEpochDay) * 86400)
+        state.visibility = VisitVisibility(rawValue: draft.visibility) ?? .public
+        state.dimensionScores = Dictionary(uniqueKeysWithValues: draft.dimensions.map { ($0.dimensionKey, $0.score) })
+        state.isDirty = true
     }
 
     func setOverall(_ value: Double) { edit { $0.overallScore = rounded(value) } }
@@ -67,6 +99,7 @@ final class VisitComposerController {
         guard state.publishState != .publishing else { return }
         mediaCoordinator.move(fromOffsets: fromOffsets, toOffset: toOffset)
         syncMediaState()
+        triggerAutosave()
         if state.publishState != .idle { state.publishState = .idle }
     }
 
@@ -74,6 +107,7 @@ final class VisitComposerController {
         guard state.publishState != .publishing else { return }
         mediaCoordinator.removeItem(id: id)
         syncMediaState()
+        triggerAutosave()
         if state.publishState != .idle { state.publishState = .idle }
     }
 
@@ -85,15 +119,58 @@ final class VisitComposerController {
     }
 
     func discard() {
+        autosaveTask?.cancel()
         mediaCoordinator.clear()
         syncMediaState()
         state.publishState = .idle
+
+        if let draftRepo = draftRepository, let accountID = composerAccountID {
+            let placeId = state.placeId
+            Task {
+                try? await draftRepo.deleteDraft(placeId: placeId, userId: accountID)
+            }
+        }
     }
 
     func syncMediaState() {
         state.mediaCount = mediaCoordinator.items.count
         state.mediaReadyForPublish = mediaCoordinator.mediaReadyForPublish
         state.mediaHasActiveWork = mediaCoordinator.hasActiveWork
+    }
+
+    private func triggerAutosave() {
+        autosaveTask?.cancel()
+        guard let draftRepo = draftRepository, let accountID = composerAccountID else { return }
+        let currentDraft = makeDurableDraft(userId: accountID)
+        let placeId = state.placeId
+        autosaveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: VisitDraftRepositoryConstants.autosaveDebounceMs * 1_000_000)
+            guard !Task.isCancelled, self != nil else { return }
+            try? await draftRepo.saveDraft(placeId: placeId, draft: currentDraft, userId: accountID)
+        }
+    }
+
+    private func makeDurableDraft(userId: UUID) -> DurableVisitDraft {
+        let calendar = Calendar(identifier: .iso8601)
+        let epochDay = Int64(calendar.startOfDay(for: state.visitedAt).timeIntervalSince1970 / 86400)
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let dims = state.dimensionScores.map {
+            DurableDraftDimensionScore(userId: userId, placeId: state.placeId, dimensionKey: $0.key, score: rounded($0.value))
+        }
+        return DurableVisitDraft(
+            userId: userId,
+            placeId: state.placeId,
+            overallScore: rounded(state.overallScore),
+            publicReview: state.publicReview,
+            privateMemory: state.privateMemory,
+            visitedAtEpochDay: epochDay,
+            visibility: state.visibility.rawValue,
+            dimensionsExpanded: !state.dimensionScores.isEmpty,
+            createdAtEpochMillis: now,
+            updatedAtEpochMillis: now,
+            dimensions: dims,
+            photos: []
+        )
     }
 
     @discardableResult
@@ -113,6 +190,69 @@ final class VisitComposerController {
             return nil
         }
 
+        // 1. If durable mutation repository is available, use durable enqueue!
+        if let mutationRepo = mutationRepository, let accountID = composerAccountID {
+            autosaveTask?.cancel()
+            let calendar = Calendar(identifier: .iso8601)
+            let epochDay = Int64(calendar.startOfDay(for: state.visitedAt).timeIntervalSince1970 / 86400)
+
+            let payload = DurablePendingVisitPayload(
+                mutationId: state.clientMutationId,
+                placeId: state.placeId,
+                visitedAtEpochDay: epochDay,
+                overallRating: rounded(state.overallScore),
+                publicReview: state.publicReview,
+                privateMemory: state.privateMemory,
+                visibility: state.visibility.rawValue
+            )
+            let dims = state.dimensionScores.map {
+                DurablePendingDimensionScore(mutationId: state.clientMutationId, dimensionKey: $0.key, score: rounded($0.value))
+            }
+
+            var photos: [DurablePendingPhoto] = []
+            for (index, item) in mediaCoordinator.items.enumerated() {
+                let localPath = item.tempFileURL.map { "visit-media/\(accountID.uuidString)/\($0.lastPathComponent)" }
+                photos.append(
+                    DurablePendingPhoto(
+                        mutationId: state.clientMutationId,
+                        position: index,
+                        ownerUserId: accountID,
+                        clientMediaId: item.id,
+                        localRelativePath: localPath,
+                        contentType: item.contentType,
+                        byteSize: item.byteSize,
+                        width: item.width,
+                        height: item.height,
+                        remoteMediaId: item.canonicalMediaId,
+                        uploadState: item.canonicalMediaId != nil ? .readyRemote : .localOnly,
+                        failureCategory: nil
+                    )
+                )
+            }
+
+            do {
+                _ = try await mutationRepo.commitVisit(
+                    payload: payload,
+                    dimensions: dims,
+                    photos: photos,
+                    userId: accountID
+                )
+                state.publishState = .success
+                mediaCoordinator.clear()
+                syncMediaState()
+
+                let engine = syncEngine
+                Task {
+                    _ = await engine?.drain()
+                }
+                return nil
+            } catch {
+                state.publishState = .retryableFailure(.server)
+                return nil
+            }
+        }
+
+        // 2. Online-first publish fallback (for in-memory / legacy tests)
         var request = makeRequest(mutationID: state.clientMutationId)
         if let lastSentPayload, lastSentPayload != request.logicalPayload {
             state.clientMutationId = uuid()
@@ -151,6 +291,7 @@ final class VisitComposerController {
         guard state.publishState != .publishing else { return }
         mutation(&state)
         syncMediaState()
+        triggerAutosave()
         if state.publishState != .idle { state.publishState = .idle }
     }
 

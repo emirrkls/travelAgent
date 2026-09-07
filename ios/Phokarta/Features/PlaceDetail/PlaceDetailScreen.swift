@@ -4,21 +4,36 @@ struct PlaceDetailScreen: View {
     @State private var controller: PlaceDetailController
     @State private var showingCollections = false
     @State private var showingVisitComposer = false
+    @State private var pendingVisits: [PendingVisit] = []
+    @State private var selectedPending: PendingVisit?
+    @State private var replaceDraftTarget: PendingVisit?
     @Environment(\.colorScheme) private var colorScheme
     private let saved: SavedPlaceStore
     private let collections: CollectionStore
     private let visits: VisitStore
+    private let draftRepository: (any VisitDraftRepository)?
+    private let mutationRepository: (any OfflineMutationRepository)?
+    private let mediaStore: (any DurableMediaStoring)?
+    private let syncEngine: MutationSyncEngine?
 
     init(
         placeId: UUID,
         places: any PlaceServing,
         saved: SavedPlaceStore,
         collections: CollectionStore,
-        visits: VisitStore
+        visits: VisitStore,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil
     ) {
         self.saved = saved
         self.collections = collections
         self.visits = visits
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         _controller = State(initialValue: PlaceDetailController(placeId: placeId, places: places))
     }
 
@@ -51,6 +66,7 @@ struct PlaceDetailScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             controller.startIfNeeded()
+            await reloadPendingVisits()
         }
         .onDisappear {
             controller.cancel()
@@ -62,10 +78,99 @@ struct PlaceDetailScreen: View {
         }
         .sheet(isPresented: $showingVisitComposer) {
             if let place = controller.content?.place {
-                VisitComposerScreen(place: place, store: visits) { _ in
+                VisitComposerScreen(
+                    place: place,
+                    store: visits,
+                    draftRepository: draftRepository,
+                    mutationRepository: mutationRepository,
+                    mediaStore: mediaStore,
+                    syncEngine: syncEngine
+                ) { _ in
                     controller.retry()
+                    Task { await reloadPendingVisits() }
                 }
             }
+        }
+        .sheet(item: $selectedPending) { pending in
+            if let place = controller.content?.place {
+                PendingVisitDetailSheet(
+                    place: place,
+                    pending: pending,
+                    onDismiss: { selectedPending = nil },
+                    onRetry: {
+                        if let mutationRepository, let userId = visits.accountID {
+                            Task {
+                                try? await mutationRepository.retry(mutationId: pending.mutationId, userId: userId)
+                                _ = await syncEngine?.drain()
+                                await reloadPendingVisits()
+                            }
+                        }
+                    },
+                    onEditAndRetry: {
+                        if let mutationRepository, let userId = visits.accountID {
+                            Task {
+                                let result = try? await mutationRepository.recoverFailedVisitForEditing(
+                                    mutationId: pending.mutationId,
+                                    userId: userId,
+                                    replaceExisting: false
+                                )
+                                if result == .existingDraftConflict {
+                                    replaceDraftTarget = pending
+                                } else if result == .success {
+                                    selectedPending = nil
+                                    await reloadPendingVisits()
+                                    showingVisitComposer = true
+                                }
+                            }
+                        }
+                    },
+                    onRemove: {
+                        if let mutationRepository, let userId = visits.accountID {
+                            Task {
+                                _ = try? await mutationRepository.removeFailedVisit(
+                                    mutationId: pending.mutationId,
+                                    userId: userId
+                                )
+                                await reloadPendingVisits()
+                            }
+                        }
+                    },
+                    onAcceptPolicy: {
+                        if let mutationRepository, let userId = visits.accountID {
+                            Task {
+                                try? await mutationRepository.retry(mutationId: pending.mutationId, userId: userId)
+                                _ = await syncEngine?.drain()
+                                await reloadPendingVisits()
+                            }
+                        }
+                    }
+                )
+            }
+        }
+        .alert(String(localized: "sync.replace_draft_title"), isPresented: Binding(
+            get: { replaceDraftTarget != nil },
+            set: { if !$0 { replaceDraftTarget = nil } }
+        )) {
+            Button(String(localized: "collections.cancel"), role: .cancel) {
+                replaceDraftTarget = nil
+            }
+            Button(String(localized: "sync.replace_draft_confirm"), role: .destructive) {
+                if let target = replaceDraftTarget, let mutationRepository, let userId = visits.accountID {
+                    Task {
+                        _ = try? await mutationRepository.recoverFailedVisitForEditing(
+                            mutationId: target.mutationId,
+                            userId: userId,
+                            replaceExisting: true
+                        )
+                        replaceDraftTarget = nil
+                        selectedPending = nil
+                        await reloadPendingVisits()
+                        showingVisitComposer = true
+                    }
+                }
+            }
+        } message: {
+            Text("sync.replace_draft_message")
         }
     }
 
@@ -328,9 +433,54 @@ struct PlaceDetailScreen: View {
     private func ownerVisits(_ placeID: UUID) -> some View {
         let rows = visits.visits(for: placeID)
         return Group {
-            if !rows.isEmpty {
+            if !rows.isEmpty || !pendingVisits.isEmpty {
                 VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
                     FeatureSectionHeader(title: String(localized: "visit.your_visits"))
+
+                    ForEach(pendingVisits) { pending in
+                        Button {
+                            selectedPending = pending
+                        } label: {
+                            VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
+                                HStack {
+                                    Text(ScoreFormatting.display(pending.overallRating)).font(.title3.bold())
+                                    Text(PlaceDateFormatting.mediumDate(from: pending.visitedAt)).foregroundStyle(.secondary)
+                                    Spacer()
+                                    HStack(spacing: 4) {
+                                        Image(systemName: pending.failed ? "exclamationmark.triangle.fill" : "arrow.triangle.2.circlepath")
+                                            .foregroundStyle(pending.failed ? .red : PhokartaColor.sage)
+                                        Text(String(localized: String.LocalizationValue(pending.failed ? "sync.status.failed" : "sync.status.pending")))
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(pending.failed ? .red : .secondary)
+                                    }
+                                }
+                                if !pending.review.isEmpty {
+                                    Text(pending.review).fixedSize(horizontal: false, vertical: true)
+                                }
+                                if !pending.personalNote.isEmpty {
+                                    Label {
+                                        Text(pending.personalNote).fixedSize(horizontal: false, vertical: true)
+                                    } icon: {
+                                        Image(systemName: "lock.fill")
+                                    }
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(PhokartaSpacing.md)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                PhokartaColor.surface(for: colorScheme),
+                                in: RoundedRectangle(cornerRadius: PhokartaRadius.md)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: PhokartaRadius.md)
+                                    .stroke(pending.failed ? Color.red.opacity(0.3) : Color.clear, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     ForEach(rows) { visit in
                         VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
                             HStack {
@@ -359,6 +509,13 @@ struct PlaceDetailScreen: View {
                     }
                 }
             }
+        }
+    }
+
+    private func reloadPendingVisits() async {
+        guard let mutationRepository, let userId = visits.accountID else { return }
+        if let place = controller.content?.place {
+            pendingVisits = (try? await mutationRepository.getPendingVisits(placeId: place.id, userId: userId)) ?? []
         }
     }
 

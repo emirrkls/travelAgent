@@ -12,7 +12,11 @@ struct MainTabView: View {
                 places: environment.places,
                 saved: environment.saved,
                 collections: environment.collections,
-                visits: environment.visits
+                visits: environment.visits,
+                draftRepository: environment.draftRepository,
+                mutationRepository: environment.mutationRepository,
+                mediaStore: environment.mediaStore,
+                syncEngine: environment.syncEngine
             )
                 .tabItem {
                     Label {
@@ -26,7 +30,11 @@ struct MainTabView: View {
                 store: environment.saved,
                 places: environment.places,
                 collections: environment.collections,
-                visits: environment.visits
+                visits: environment.visits,
+                draftRepository: environment.draftRepository,
+                mutationRepository: environment.mutationRepository,
+                mediaStore: environment.mediaStore,
+                syncEngine: environment.syncEngine
             )
             .tabItem {
                 Label("saved.title", systemImage: "bookmark")
@@ -36,7 +44,11 @@ struct MainTabView: View {
                 store: environment.collections,
                 saved: environment.saved,
                 places: environment.places,
-                visits: environment.visits
+                visits: environment.visits,
+                draftRepository: environment.draftRepository,
+                mutationRepository: environment.mutationRepository,
+                mediaStore: environment.mediaStore,
+                syncEngine: environment.syncEngine
             )
             .tabItem {
                 Label("collections.title", systemImage: "square.stack")
@@ -58,9 +70,17 @@ struct MainTabView: View {
             environment.saved.activate(accountID: user.id)
             environment.collections.activate(accountID: user.id)
             environment.visits.activate(accountID: user.id)
+            _ = await environment.syncEngine.drain()
             try? await environment.saved.refresh()
             try? await environment.collections.refreshList()
             try? await environment.visits.refresh()
+        }
+        .task {
+            for await isOnline in environment.networkMonitor.observePathUpdates() {
+                if isOnline {
+                    _ = await environment.syncEngine.drain()
+                }
+            }
         }
     }
 }
@@ -107,13 +127,30 @@ struct SavedScreen: View {
     let places: any PlaceServing
     let collections: CollectionStore
     let visits: VisitStore
+    let draftRepository: (any VisitDraftRepository)?
+    let mutationRepository: (any OfflineMutationRepository)?
+    let mediaStore: (any DurableMediaStoring)?
+    let syncEngine: MutationSyncEngine?
     @Environment(\.colorScheme) private var colorScheme
 
-    init(store: SavedPlaceStore, places: any PlaceServing, collections: CollectionStore, visits: VisitStore) {
+    init(
+        store: SavedPlaceStore,
+        places: any PlaceServing,
+        collections: CollectionStore,
+        visits: VisitStore,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil
+    ) {
         self.store = store
         self.places = places
         self.collections = collections
         self.visits = visits
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         _controller = State(initialValue: SavedController(store: store))
     }
 
@@ -156,7 +193,17 @@ struct SavedScreen: View {
             .refreshable { await controller.load() }
             .navigationDestination(for: AppRoute.self) { route in
                 if case .placeDetail(let id) = route {
-                    PlaceDetailScreen(placeId: id, places: places, saved: store, collections: collections, visits: visits)
+                    PlaceDetailScreen(
+                        placeId: id,
+                        places: places,
+                        saved: store,
+                        collections: collections,
+                        visits: visits,
+                        draftRepository: draftRepository,
+                        mutationRepository: mutationRepository,
+                        mediaStore: mediaStore,
+                        syncEngine: syncEngine
+                    )
                 }
             }
         }
@@ -227,13 +274,30 @@ struct CollectionsScreen: View {
     let saved: SavedPlaceStore
     let places: any PlaceServing
     let visits: VisitStore
+    let draftRepository: (any VisitDraftRepository)?
+    let mutationRepository: (any OfflineMutationRepository)?
+    let mediaStore: (any DurableMediaStoring)?
+    let syncEngine: MutationSyncEngine?
     @Environment(\.colorScheme) private var colorScheme
 
-    init(store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing, visits: VisitStore) {
+    init(
+        store: CollectionStore,
+        saved: SavedPlaceStore,
+        places: any PlaceServing,
+        visits: VisitStore,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil
+    ) {
         self.store = store
         self.saved = saved
         self.places = places
         self.visits = visits
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         _controller = State(initialValue: CollectionsController(store: store))
     }
 
@@ -290,7 +354,11 @@ struct CollectionsScreen: View {
                     store: store,
                     saved: saved,
                     places: places,
-                    visits: visits
+                    visits: visits,
+                    draftRepository: draftRepository,
+                    mutationRepository: mutationRepository,
+                    mediaStore: mediaStore,
+                    syncEngine: syncEngine
                 )
             }
         }
@@ -366,12 +434,30 @@ struct CollectionDetailScreen: View {
     let saved: SavedPlaceStore
     let places: any PlaceServing
     let visits: VisitStore
+    let draftRepository: (any VisitDraftRepository)?
+    let mutationRepository: (any OfflineMutationRepository)?
+    let mediaStore: (any DurableMediaStoring)?
+    let syncEngine: MutationSyncEngine?
 
-    init(collectionID: UUID, store: CollectionStore, saved: SavedPlaceStore, places: any PlaceServing, visits: VisitStore) {
+    init(
+        collectionID: UUID,
+        store: CollectionStore,
+        saved: SavedPlaceStore,
+        places: any PlaceServing,
+        visits: VisitStore,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        syncEngine: MutationSyncEngine? = nil
+    ) {
         self.store = store
         self.saved = saved
         self.places = places
         self.visits = visits
+        self.draftRepository = draftRepository
+        self.mutationRepository = mutationRepository
+        self.mediaStore = mediaStore
+        self.syncEngine = syncEngine
         _controller = State(initialValue: CollectionDetailController(collectionID: collectionID, store: store))
     }
 
@@ -409,7 +495,11 @@ struct CollectionDetailScreen: View {
                                             places: places,
                                             saved: saved,
                                             collections: store,
-                                            visits: visits
+                                            visits: visits,
+                                            draftRepository: draftRepository,
+                                            mutationRepository: mutationRepository,
+                                            mediaStore: mediaStore,
+                                            syncEngine: syncEngine
                                         )
                                     } label: {
                                         CollectionPlaceRow(place: row.place)

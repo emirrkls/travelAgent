@@ -20,8 +20,8 @@ import UniformTypeIdentifiers
 /// Orientation is preserved through `kCGImagePropertyOrientation`.
 enum VisitMediaPreparation {
 
-    private static let jpegType = UTType.jpeg.identifier as CFString
-    private static let pngType = UTType.png.identifier as CFString
+    private static var jpegType: CFString { UTType.jpeg.identifier as CFString }
+    private static var pngType: CFString { UTType.png.identifier as CFString }
 
     /// Result of preparing a single image for upload.
     struct PreparedMedia: Sendable {

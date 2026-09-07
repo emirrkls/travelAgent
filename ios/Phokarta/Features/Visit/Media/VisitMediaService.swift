@@ -57,6 +57,23 @@ struct VisitMediaService: VisitMediaServing {
     }
 
     /// Upload file bytes directly to a presigned S3 URL.
+    /// Constructs an isolated URLRequest for presigned upload.
+    /// Ensures no Authorization header is attached.
+    static func makePresignedUploadRequest(
+        url: URL,
+        contentType: String,
+        requiredHeaders: [String: String]
+    ) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        for (name, value) in requiredHeaders {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
+        return request
+    }
+
+    /// Upload file bytes directly to a presigned S3 URL.
     ///
     /// **CRITICAL:** This method does NOT attach `Authorization: Bearer` headers.
     /// The presigned URL contains auth in its query parameters.
@@ -67,12 +84,11 @@ struct VisitMediaService: VisitMediaServing {
         contentType: String,
         requiredHeaders: [String: String]
     ) async throws {
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        for (name, value) in requiredHeaders {
-            request.setValue(value, forHTTPHeaderField: name)
-        }
+        let request = Self.makePresignedUploadRequest(
+            url: url,
+            contentType: contentType,
+            requiredHeaders: requiredHeaders
+        )
 
         let (_, response) = try await URLSession.shared.upload(for: request, from: data)
         guard let http = response as? HTTPURLResponse else {
@@ -96,12 +112,11 @@ struct VisitMediaService: VisitMediaServing {
         contentType: String,
         requiredHeaders: [String: String]
     ) async throws {
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        for (name, value) in requiredHeaders {
-            request.setValue(value, forHTTPHeaderField: name)
-        }
+        let request = Self.makePresignedUploadRequest(
+            url: url,
+            contentType: contentType,
+            requiredHeaders: requiredHeaders
+        )
 
         let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
         guard let http = response as? HTTPURLResponse else {

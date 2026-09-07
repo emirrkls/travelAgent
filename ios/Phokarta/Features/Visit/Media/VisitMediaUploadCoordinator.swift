@@ -223,21 +223,9 @@ final class VisitMediaUploadCoordinator {
     }
 
     private func runUploadPipeline() async {
-        // Process items that are ready for upload, bounded by concurrency
-        await withTaskGroup(of: Void.self) { group in
-            var active = 0
-            for item in items where item.phase == .readyForIntent {
-                if active >= Self.maxConcurrency {
-                    await group.next()
-                    active -= 1
-                }
-                let id = item.id
-                group.addTask { @MainActor in
-                    await self.uploadItem(id: id)
-                }
-                active += 1
-            }
-            await group.waitForAll()
+        for item in items where item.phase == .readyForIntent {
+            guard !Task.isCancelled else { break }
+            await uploadItem(id: item.id)
         }
     }
 

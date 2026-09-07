@@ -152,46 +152,21 @@ final class VisitMediaTests: XCTestCase {
 
     // MARK: - 6. Presigned PUT Header Isolation (Mandatory)
 
-    func testPresignedPUTRequestHasNoAuthorizationHeader() async throws {
-        actor PUTProbe {
-            var capturedRequest: URLRequest?
-
-            func record(_ request: URLRequest) {
-                capturedRequest = request
-            }
-        }
-
-        let probe = PUTProbe()
-        let fakeTransport = FakeHTTPTransport { request in
-            await probe.record(request)
-            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
-        }
-        let config = try TestConfig.httpsTest()
-        let refresh = TokenRefreshCoordinator(store: InMemorySessionStore(session: testSession(access: "secret-token")), config: config, transport: fakeTransport)
-        let apiClient = APIClient(config: config, transport: fakeTransport, authRetry: refresh)
-        let mediaService = VisitMediaService(client: apiClient)
-
+    func testPresignedPUTRequestHasNoAuthorizationHeader() {
         let targetURL = URL(string: "https://storage.phokarta.local/media/object-key?presigned=true")!
         let requiredHeaders = ["x-amz-server-side-encryption": "AES256"]
 
-        try await mediaService.uploadToPresignedURL(
-            targetURL,
-            data: Data("bytes".utf8),
+        let request = VisitMediaService.makePresignedUploadRequest(
+            url: targetURL,
             contentType: "image/jpeg",
             requiredHeaders: requiredHeaders
         )
 
-        // Inspect URLRequest sent to URLSession
-        // URLSession.shared was used by default; for test isolation we test URLRequest construction directly
-        var directRequest = URLRequest(url: targetURL)
-        directRequest.httpMethod = "PUT"
-        directRequest.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
-        for (k, v) in requiredHeaders { directRequest.setValue(v, forHTTPHeaderField: k) }
-
-        XCTAssertEqual(directRequest.httpMethod, "PUT")
-        XCTAssertEqual(directRequest.value(forHTTPHeaderField: "Content-Type"), "image/jpeg")
-        XCTAssertEqual(directRequest.value(forHTTPHeaderField: "x-amz-server-side-encryption"), "AES256")
-        XCTAssertNil(directRequest.value(forHTTPHeaderField: "Authorization"), "CRITICAL: Presigned PUT must NOT contain Authorization header")
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.url, targetURL)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "image/jpeg")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-amz-server-side-encryption"), "AES256")
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"), "CRITICAL: Presigned PUT must NOT contain Authorization header")
     }
 
     // MARK: - 7. Intent Endpoint & DTO Contract
@@ -438,7 +413,7 @@ final class VisitMediaTests: XCTestCase {
         XCTAssertTrue(item.phase.isActive)
 
         // Failed item must block publish
-        var failedItem = VisitMediaItem(phase: .failedRetryable("Failed"))
+        let failedItem = VisitMediaItem(phase: .failedRetryable("Failed"))
         XCTAssertTrue(failedItem.phase.isFailed)
         XCTAssertFalse(failedItem.phase.isTerminal)
 

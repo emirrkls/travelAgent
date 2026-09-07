@@ -2117,6 +2117,96 @@
         "tr": { "stringUnit": { "state": "translated", "value": "Yayınlamadan önce güncel Kullanıcı Politikası'nı kabul etmen gerekiyor. Taslağın korunuyor." } }
       }
     },
+    "visit.media.section_title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Photos" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraflar" } }
+      }
+    },
+    "visit.media.add_photos": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add photos" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf ekle" } }
+      }
+    },
+    "visit.media.photos_count": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld of %lld photos" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "%lld / %lld fotoğraf" } }
+      }
+    },
+    "visit.media.photo": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Photo" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf" } }
+      }
+    },
+    "visit.media.preparing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparing photo" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf hazırlanıyor" } }
+      }
+    },
+    "visit.media.uploading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Uploading" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yükleniyor" } }
+      }
+    },
+    "visit.media.upload_failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Upload failed" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme başarısız" } }
+      }
+    },
+    "visit.media.retry": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Tekrar dene" } }
+      }
+    },
+    "visit.media.remove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove photo" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğrafı kaldır" } }
+      }
+    },
+    "visit.media.unsupported_format": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unsupported photo format" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Desteklenmeyen fotoğraf biçimi" } }
+      }
+    },
+    "visit.media.too_large": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Photo is too large" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf çok büyük" } }
+      }
+    },
+    "visit.media.prepare_failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to prepare photo" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf hazırlanamadı" } }
+      }
+    },
+    "visit.media.confirm_failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unable to confirm upload" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme onaylanamadı" } }
+      }
+    },
+    "visit.media.policy_required": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Policy acceptance required before uploading media" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf yüklemek için kullanım koşullarını kabul etmeniz gerekiyor" } }
+      }
+    },
+    "visit.media.waiting": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Waiting for upload" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme bekleniyor" } }
+      }
+    },
     "tab.profile": {
       "localizations": {
         "en": {

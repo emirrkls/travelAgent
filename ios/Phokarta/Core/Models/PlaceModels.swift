@@ -269,11 +269,12 @@ struct ReviewSummary: Decodable, Equatable, Sendable, Identifiable {
     let overallRating: Double
     let publicReview: String
     let photos: [String]
+    let media: [VisitMediaDTO]
     let verificationStatus: String?
 
     enum CodingKeys: String, CodingKey {
         case id, placeId, placeName, userId, username, displayName, avatarUrl
-        case visitedAt, overallRating, publicReview, photos, verificationStatus
+        case visitedAt, overallRating, publicReview, photos, media, verificationStatus
     }
 
     init(from decoder: Decoder) throws {
@@ -289,6 +290,7 @@ struct ReviewSummary: Decodable, Equatable, Sendable, Identifiable {
         overallRating = try container.decode(Double.self, forKey: .overallRating)
         publicReview = try container.decodeIfPresent(String.self, forKey: .publicReview) ?? ""
         photos = try container.decodeIfPresent([String].self, forKey: .photos) ?? []
+        media = try container.decodeIfPresent([VisitMediaDTO].self, forKey: .media) ?? []
         verificationStatus = try container.decodeIfPresent(String.self, forKey: .verificationStatus)
     }
 
@@ -304,6 +306,7 @@ struct ReviewSummary: Decodable, Equatable, Sendable, Identifiable {
         overallRating: Double,
         publicReview: String,
         photos: [String] = [],
+        media: [VisitMediaDTO] = [],
         verificationStatus: String? = nil
     ) {
         self.id = id
@@ -317,6 +320,7 @@ struct ReviewSummary: Decodable, Equatable, Sendable, Identifiable {
         self.overallRating = overallRating
         self.publicReview = publicReview
         self.photos = photos
+        self.media = media
         self.verificationStatus = verificationStatus
     }
 }

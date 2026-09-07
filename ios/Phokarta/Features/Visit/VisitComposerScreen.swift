@@ -56,6 +56,13 @@ struct VisitComposerScreen: View {
                 }
 
                 Section {
+                    VisitMediaStrip(
+                        coordinator: controller.mediaCoordinator,
+                        disabled: controller.state.publishState == .publishing
+                    )
+                }
+
+                Section {
                     PrivateMemoryEditor(text: controller.state.privateMemory) { controller.setPrivateMemory($0) }
                 } header: {
                     Text("visit.memory")
@@ -74,11 +81,11 @@ struct VisitComposerScreen: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(String(localized: "visit.record"))
             .navigationBarTitleDisplayMode(.inline)
-            .interactiveDismissDisabled(controller.state.isDirty)
+            .interactiveDismissDisabled(controller.isDirty)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("action.cancel") {
-                        if controller.state.isDirty { showDiscardConfirmation = true } else { dismiss() }
+                        if controller.isDirty { showDiscardConfirmation = true } else { dismiss() }
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -96,11 +103,14 @@ struct VisitComposerScreen: View {
                             Text("visit.publish")
                         }
                     }
-                    .disabled(!controller.state.canPublish)
+                    .disabled(!controller.canPublish)
                 }
             }
             .alert("visit.discard.title", isPresented: $showDiscardConfirmation) {
-                Button("visit.discard", role: .destructive) { dismiss() }
+                Button("visit.discard", role: .destructive) {
+                    controller.discard()
+                    dismiss()
+                }
                 Button("action.cancel", role: .cancel) {}
             } message: {
                 Text("visit.discard.message")

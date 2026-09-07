@@ -53,9 +53,19 @@ final class VisitStore {
     private(set) var accountID: UUID?
     private(set) var visits: [OwnerVisit] = []
     private let service: any VisitServing
+    let mediaService: any VisitMediaServing
     private var refreshID: UInt64 = 0
 
-    init(service: any VisitServing) { self.service = service }
+    init(service: any VisitServing, mediaService: (any VisitMediaServing)? = nil) {
+        self.service = service
+        if let mediaService {
+            self.mediaService = mediaService
+        } else if let visitService = service as? VisitService {
+            self.mediaService = VisitMediaService(client: visitService.client)
+        } else {
+            self.mediaService = NullVisitMediaService()
+        }
+    }
 
     func activate(accountID: UUID) {
         guard self.accountID != accountID else { return }

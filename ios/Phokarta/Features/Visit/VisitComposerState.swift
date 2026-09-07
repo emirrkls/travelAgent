@@ -8,6 +8,7 @@ enum VisitPublishState: Equatable, Sendable {
     case policyRequired(requiredVersion: String?)
     case success
 }
+
 struct VisitComposerState: Equatable, Sendable {
     let placeId: UUID
     let placeName: String
@@ -20,15 +21,22 @@ struct VisitComposerState: Equatable, Sendable {
     var visibility: VisitVisibility = .publicAccess
     var publishState: VisitPublishState = .idle
     var clientMutationId: UUID
+    var mediaCount: Int = 0
+    var mediaReadyForPublish: Bool = true
+    var mediaHasActiveWork: Bool = false
 
     var isDirty: Bool {
         overallScore != 8.0 || !dimensionScores.isEmpty ||
             !publicReview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !privateMemory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-            !Calendar.current.isDateInToday(visitedAt) || visibility != .publicAccess
+            !Calendar.current.isDateInToday(visitedAt) || visibility != .publicAccess ||
+            mediaCount > 0
     }
 
     var canPublish: Bool {
-        publishState != .publishing && VisitValidation.validate(self) == nil
+        publishState != .publishing &&
+            !mediaHasActiveWork &&
+            mediaReadyForPublish &&
+            VisitValidation.validate(self) == nil
     }
 }

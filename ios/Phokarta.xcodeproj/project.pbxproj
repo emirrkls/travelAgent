@@ -19,6 +19,15 @@
 		20000000000000000000000A /* VisitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* VisitService.swift */; };
 		20000000000000000000000B /* VisitValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* VisitValidation.swift */; };
 		20000000000000000000000C /* VisitFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* VisitFeatureTests.swift */; };
+		20000000000000000000000D /* VisitMediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000D /* VisitMediaModels.swift */; };
+		20000000000000000000000E /* VisitMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000E /* VisitMediaItem.swift */; };
+		20000000000000000000000F /* VisitMediaPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* VisitMediaPreparation.swift */; };
+		200000000000000000000010 /* VisitMediaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000010 /* VisitMediaService.swift */; };
+		200000000000000000000011 /* VisitMediaUploadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000011 /* VisitMediaUploadCoordinator.swift */; };
+		200000000000000000000012 /* VisitMediaPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000012 /* VisitMediaPicker.swift */; };
+		200000000000000000000013 /* VisitMediaThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* VisitMediaThumbnail.swift */; };
+		200000000000000000000014 /* VisitMediaStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* VisitMediaStrip.swift */; };
+		200000000000000000000015 /* VisitMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* VisitMediaTests.swift */; };
 		00301CD6EE1125FADF391AFB /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF0F1582A02B9D6F09D2D01 /* AppConfig.swift */; };
 		00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */; };
 		013BFA3653087876597AC8BB /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96E3E19DDC86EC178608DC1 /* AppError.swift */; };
@@ -100,6 +109,15 @@
 		10000000000000000000000A /* VisitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitService.swift; sourceTree = "<group>"; };
 		10000000000000000000000B /* VisitValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitValidation.swift; sourceTree = "<group>"; };
 		10000000000000000000000C /* VisitFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitFeatureTests.swift; sourceTree = "<group>"; };
+		10000000000000000000000D /* VisitMediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaModels.swift; sourceTree = "<group>"; };
+		10000000000000000000000E /* VisitMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaItem.swift; sourceTree = "<group>"; };
+		10000000000000000000000F /* VisitMediaPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaPreparation.swift; sourceTree = "<group>"; };
+		100000000000000000000010 /* VisitMediaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaService.swift; sourceTree = "<group>"; };
+		100000000000000000000011 /* VisitMediaUploadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaUploadCoordinator.swift; sourceTree = "<group>"; };
+		100000000000000000000012 /* VisitMediaPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaPicker.swift; sourceTree = "<group>"; };
+		100000000000000000000013 /* VisitMediaThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaThumbnail.swift; sourceTree = "<group>"; };
+		100000000000000000000014 /* VisitMediaStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaStrip.swift; sourceTree = "<group>"; };
+		100000000000000000000015 /* VisitMediaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitMediaTests.swift; sourceTree = "<group>"; };
 		02C772F33C4136E3DBC7E9F5 /* AuthFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
 		0349CA9D5CF622B7E5E93F46 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		0451A6C2D000C97E23171D82 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -300,6 +318,7 @@
 			isa = PBXGroup;
 			children = (
 				10000000000000000000000C /* VisitFeatureTests.swift */,
+				100000000000000000000015 /* VisitMediaTests.swift */,
 				5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */,
 				D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */,
 				8B535D30DF977344C97C124F /* AppConfigTests.swift */,
@@ -427,10 +446,34 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		300000000000000000000003 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000012 /* VisitMediaPicker.swift */,
+				100000000000000000000013 /* VisitMediaThumbnail.swift */,
+				100000000000000000000014 /* VisitMediaStrip.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		300000000000000000000004 /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000003 /* Components */,
+				10000000000000000000000E /* VisitMediaItem.swift */,
+				10000000000000000000000D /* VisitMediaModels.swift */,
+				10000000000000000000000F /* VisitMediaPreparation.swift */,
+				100000000000000000000010 /* VisitMediaService.swift */,
+				100000000000000000000011 /* VisitMediaUploadCoordinator.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
 		300000000000000000000002 /* Visit */ = {
 			isa = PBXGroup;
 			children = (
 				300000000000000000000001 /* Components */,
+				300000000000000000000004 /* Media */,
 				100000000000000000000006 /* VisitComposerController.swift */,
 				100000000000000000000007 /* VisitComposerScreen.swift */,
 				100000000000000000000008 /* VisitComposerState.swift */,
@@ -534,6 +577,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				20000000000000000000000C /* VisitFeatureTests.swift in Sources */,
+				200000000000000000000015 /* VisitMediaTests.swift in Sources */,
 				68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */,
 				00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */,
 				4A6C138339A77D3BFC27356C /* AppConfigTests.swift in Sources */,
@@ -565,6 +609,14 @@
 				200000000000000000000009 /* VisitModels.swift in Sources */,
 				20000000000000000000000A /* VisitService.swift in Sources */,
 				20000000000000000000000B /* VisitValidation.swift in Sources */,
+				20000000000000000000000D /* VisitMediaModels.swift in Sources */,
+				20000000000000000000000E /* VisitMediaItem.swift in Sources */,
+				20000000000000000000000F /* VisitMediaPreparation.swift in Sources */,
+				200000000000000000000010 /* VisitMediaService.swift in Sources */,
+				200000000000000000000011 /* VisitMediaUploadCoordinator.swift in Sources */,
+				200000000000000000000012 /* VisitMediaPicker.swift in Sources */,
+				200000000000000000000013 /* VisitMediaThumbnail.swift in Sources */,
+				200000000000000000000014 /* VisitMediaStrip.swift in Sources */,
 				FD1A5FA4C2790685CB08777D /* APIClient.swift in Sources */,
 				AF6BD00F8528695628A1866E /* APIEndpoint.swift in Sources */,
 				85A43F2F0F04CFD13B7E000F /* APIJSON.swift in Sources */,
@@ -659,7 +711,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -777,7 +829,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.4 — Visit
-Publish + Ratings**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.5 — Media
+Upload**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -42,9 +42,15 @@ category dimensions, public review, owner-only private memory, visit date,
 visibility, idempotent publish/replay, canonical owner history, live visited and
 latest personal-score state, account isolation, EN/TR copy, and XCTest coverage.
 
-Visit media, maps/location, durable draft/offline persistence, a durable
-mutation queue, full policy acceptance UI, live infrastructure changes, and
-store submission remain outside this milestone.
+v0.5 adds online-first Visit media upload: native system PhotosPicker, image
+preparation pipeline, HEIC-to-JPEG transcoding, EXIF GPS privacy metadata stripping,
+upload intent and presigned S3 PUT with authorization header isolation, upload
+confirmation, ordered canonical media attachment to Visit publish, lost-ACK retry,
+composer media strip and thumbnail UI, account isolation, and XCTest coverage.
+
+Maps/location, durable draft/offline persistence, a durable mutation queue,
+full policy acceptance UI, live infrastructure changes, and store submission
+remain outside this milestone.
 
 ## Generate, build, and test
 
@@ -88,14 +94,14 @@ The committed shared `Phokarta` scheme builds the app and runs
 
 See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [Xcode Cloud](../docs/XCODE_CLOUD.md),
-[auth contract](docs/AUTH_CONTRACT.md), and
-[Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md), and
-[Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md), and
-[Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md).
+[auth contract](docs/AUTH_CONTRACT.md),
+[Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md),
+[Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md),
+[Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md), and
+[Media Upload parity](docs/MEDIA_UPLOAD_PARITY.md).
 
 ## Remaining Mac/Apple QA
 
 - Real backend auth and Keychain persistence across relaunch
 - Explore and Place Detail runtime with a real backend
 - Physical-device, Dynamic Type, VoiceOver, and remote-image QA
-- Later distribution, TestFlight, and App Store work

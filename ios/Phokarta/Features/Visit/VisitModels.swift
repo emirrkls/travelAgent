@@ -21,6 +21,7 @@ enum VisitVisibility: String, Codable, CaseIterable, Equatable, Sendable {
         }
     }
 }
+
 struct VisitDimensionScore: Codable, Equatable, Sendable, Identifiable {
     let key: String
     let score: Double
@@ -35,9 +36,33 @@ struct VisitCreateRequest: Encodable, Equatable, Sendable {
     let dimensions: [VisitDimensionScore]
     let publicReview: String?
     let privateMemory: String?
-    let photos: [String]? = nil
-    let mediaIds: [UUID]? = nil
+    let photos: [String]?
+    let mediaIds: [UUID]?
     let visibility: VisitVisibility
+
+    init(
+        clientMutationId: UUID,
+        placeId: UUID,
+        visitedAt: String,
+        overallRating: Double,
+        dimensions: [VisitDimensionScore],
+        publicReview: String?,
+        privateMemory: String?,
+        photos: [String]? = nil,
+        mediaIds: [UUID]? = nil,
+        visibility: VisitVisibility
+    ) {
+        self.clientMutationId = clientMutationId
+        self.placeId = placeId
+        self.visitedAt = visitedAt
+        self.overallRating = overallRating
+        self.dimensions = dimensions
+        self.publicReview = publicReview
+        self.privateMemory = privateMemory
+        self.photos = photos
+        self.mediaIds = mediaIds
+        self.visibility = visibility
+    }
 
     var logicalPayload: LogicalPayload {
         LogicalPayload(
@@ -47,6 +72,7 @@ struct VisitCreateRequest: Encodable, Equatable, Sendable {
             dimensions: dimensions.sorted { $0.key < $1.key },
             publicReview: publicReview,
             privateMemory: privateMemory,
+            mediaIds: mediaIds ?? [],
             visibility: visibility
         )
     }
@@ -58,6 +84,7 @@ struct VisitCreateRequest: Encodable, Equatable, Sendable {
         let dimensions: [VisitDimensionScore]
         let publicReview: String?
         let privateMemory: String?
+        let mediaIds: [UUID]
         let visibility: VisitVisibility
     }
 }
@@ -71,6 +98,7 @@ struct OwnerVisit: Decodable, Equatable, Sendable, Identifiable {
     let dimensions: [VisitDimensionScore]
     let publicReview: String
     let privateMemory: String
+    let media: [VisitMediaDTO]
     let visibility: VisitVisibility
     let verificationStatus: String?
 
@@ -82,6 +110,7 @@ struct OwnerVisit: Decodable, Equatable, Sendable, Identifiable {
         dimensions: [VisitDimensionScore] = [],
         publicReview: String = "",
         privateMemory: String = "",
+        media: [VisitMediaDTO] = [],
         visibility: VisitVisibility = .publicAccess,
         verificationStatus: String? = nil
     ) {
@@ -92,13 +121,14 @@ struct OwnerVisit: Decodable, Equatable, Sendable, Identifiable {
         self.dimensions = dimensions
         self.publicReview = publicReview
         self.privateMemory = privateMemory
+        self.media = media
         self.visibility = visibility
         self.verificationStatus = verificationStatus
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, place, visitedAt, overallRating, dimensions
-        case publicReview, privateMemory, visibility, verificationStatus
+        case publicReview, privateMemory, media, visibility, verificationStatus
     }
 
     init(from decoder: Decoder) throws {
@@ -110,6 +140,7 @@ struct OwnerVisit: Decodable, Equatable, Sendable, Identifiable {
         dimensions = try values.decodeIfPresent([VisitDimensionScore].self, forKey: .dimensions) ?? []
         publicReview = try values.decodeIfPresent(String.self, forKey: .publicReview) ?? ""
         privateMemory = try values.decodeIfPresent(String.self, forKey: .privateMemory) ?? ""
+        media = try values.decodeIfPresent([VisitMediaDTO].self, forKey: .media) ?? []
         visibility = try values.decode(VisitVisibility.self, forKey: .visibility)
         verificationStatus = try values.decodeIfPresent(String.self, forKey: .verificationStatus)
     }

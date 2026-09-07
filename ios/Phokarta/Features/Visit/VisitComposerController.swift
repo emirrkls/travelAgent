@@ -5,14 +5,39 @@ import Observation
 @Observable
 final class VisitComposerController {
     var state: VisitComposerState
+    let mediaCoordinator: VisitMediaUploadCoordinator
     private let store: VisitStore
     private let uuid: () -> UUID
     private var lastSentPayload: VisitCreateRequest.LogicalPayload?
+    private var composerAccountID: UUID?
 
-    init(place: PlaceDetail, store: VisitStore, uuid: @escaping () -> UUID = UUID.init) {
+    var isDirty: Bool {
+        state.isDirty || !mediaCoordinator.isEmpty
+    }
+
+    var canPublish: Bool {
+        state.publishState != .publishing &&
+            mediaCoordinator.mediaReadyForPublish &&
+            !mediaCoordinator.hasActiveWork &&
+            VisitValidation.validate(state) == nil
+    }
+
+    init(
+        place: PlaceDetail,
+        store: VisitStore,
+        mediaService: (any VisitMediaServing)? = nil,
+        uuid: @escaping () -> UUID = UUID.init
+    ) {
         self.store = store
         self.uuid = uuid
-        state = VisitComposerState(
+        self.composerAccountID = store.accountID
+        let activeAccount = store.accountID ?? UUID()
+        let resolvedMediaService = mediaService ?? store.mediaService
+        self.mediaCoordinator = VisitMediaUploadCoordinator(
+            service: resolvedMediaService,
+            accountId: activeAccount
+        )
+        self.state = VisitComposerState(
             placeId: place.id,
             placeName: place.name,
             category: place.category,
@@ -38,11 +63,53 @@ final class VisitComposerController {
 
     func removeDimension(_ key: String) { edit { $0.dimensionScores[key] = nil } }
 
+    func moveMedia(fromOffsets: IndexSet, toOffset: Int) {
+        guard state.publishState != .publishing else { return }
+        mediaCoordinator.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        syncMediaState()
+        if state.publishState != .idle { state.publishState = .idle }
+    }
+
+    func removeMedia(id: UUID) {
+        guard state.publishState != .publishing else { return }
+        mediaCoordinator.removeItem(id: id)
+        syncMediaState()
+        if state.publishState != .idle { state.publishState = .idle }
+    }
+
+    func retryMedia(id: UUID) {
+        guard state.publishState != .publishing else { return }
+        mediaCoordinator.retryFailed(id: id)
+        syncMediaState()
+        if state.publishState != .idle { state.publishState = .idle }
+    }
+
+    func discard() {
+        mediaCoordinator.clear()
+        syncMediaState()
+        state.publishState = .idle
+    }
+
+    func syncMediaState() {
+        state.mediaCount = mediaCoordinator.items.count
+        state.mediaReadyForPublish = mediaCoordinator.mediaReadyForPublish
+        state.mediaHasActiveWork = mediaCoordinator.hasActiveWork
+    }
+
     @discardableResult
     func publish() async -> OwnerVisit? {
         guard state.publishState != .publishing else { return nil }
+        syncMediaState()
+        guard canPublish else { return nil }
         if let issue = VisitValidation.validate(state) {
             state.publishState = .validationFailure(issue.localizedMessage)
+            return nil
+        }
+
+        // Account isolation check: ensure current store account matches composer account
+        if let currentAccount = store.accountID, let composerAccount = composerAccountID, currentAccount != composerAccount {
+            discard()
+            state.publishState = .retryableFailure(.unauthorized)
             return nil
         }
 
@@ -56,6 +123,8 @@ final class VisitComposerController {
         do {
             let canonical = try await store.publish(request)
             state.publishState = .success
+            mediaCoordinator.clear()
+            syncMediaState()
             return canonical
         } catch is CancellationError {
             state.publishState = .idle
@@ -81,6 +150,7 @@ final class VisitComposerController {
     private func edit(_ mutation: (inout VisitComposerState) -> Void) {
         guard state.publishState != .publishing else { return }
         mutation(&state)
+        syncMediaState()
         if state.publishState != .idle { state.publishState = .idle }
     }
 
@@ -90,6 +160,7 @@ final class VisitComposerController {
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = .current
         dateFormatter.dateFormat = "yyyy-MM-dd"
+        let confirmedIds = mediaCoordinator.confirmedMediaIds
         return VisitCreateRequest(
             clientMutationId: mutationID,
             placeId: state.placeId,
@@ -99,6 +170,7 @@ final class VisitComposerController {
                 .sorted { $0.key < $1.key },
             publicReview: VisitValidation.trimmedOptional(state.publicReview),
             privateMemory: VisitValidation.trimmedOptional(state.privateMemory),
+            mediaIds: confirmedIds.isEmpty ? nil : confirmedIds,
             visibility: state.visibility
         )
     }

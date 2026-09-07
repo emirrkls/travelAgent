@@ -51,8 +51,10 @@ struct VisitMediaStrip: View {
         .frame(width: 80, height: 80)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [4]))
-                .foregroundStyle(disabled ? .tertiary : Color.accentColor)
+                .strokeBorder(
+                    disabled ? Color.secondary.opacity(0.4) : Color.accentColor,
+                    style: StrokeStyle(lineWidth: 1.5, dash: [4])
+                )
         )
     }
 

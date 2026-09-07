@@ -64,11 +64,11 @@ public actor PersistentDatabase {
 
     // MARK: - Transaction Management
 
-    public func withTransaction<T>(_ block: () throws -> T) throws -> T {
+    public func withTransaction<T>(_ block: (isolated PersistentDatabase) throws -> T) throws -> T {
         guard let handle = db else { throw PersistenceError.executionFailed("Database closed") }
         try Self.executeRaw(handle, "BEGIN IMMEDIATE;")
         do {
-            let result = try block()
+            let result = try block(self)
             try Self.executeRaw(handle, "COMMIT;")
             return result
         } catch {

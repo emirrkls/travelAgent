@@ -276,7 +276,7 @@ final class OfflineMutationSyncTests: XCTestCase {
             _ = try await mutationRepo.commitVisit(payload: payload, dimensions: [], photos: [], userId: userId)
 
             // Simulate visitService received the call and server created visit, but network dropped on response
-            await sharedVisitService.setErrorToThrow(AppError.network)
+            await sharedVisitService.setErrorToThrow(AppError.networkUnavailable)
 
             let engine = MutationSyncEngine(
                 mutationRepository: mutationRepo,

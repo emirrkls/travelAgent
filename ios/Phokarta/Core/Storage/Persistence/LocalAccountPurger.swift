@@ -14,12 +14,12 @@ public final class SQLiteLocalAccountPurger: LocalAccountPurger, Sendable {
     }
 
     public func purgeLocalData(userId: UUID) async throws {
-        try await database.withTransaction {
-            try database.execute(
+        try await database.withTransaction { db in
+            try db.execute(
                 "DELETE FROM visit_drafts WHERE userId = ?;",
                 params: [userId.uuidString]
             )
-            try database.execute(
+            try db.execute(
                 "DELETE FROM pending_mutations WHERE userId = ?;",
                 params: [userId.uuidString]
             )

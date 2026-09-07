@@ -14,7 +14,7 @@ public protocol SessionOwnerProvider: Sendable {
     func currentUserId() async -> UUID?
 }
 
-public actor MutationSyncEngine {
+actor MutationSyncEngine {
     private let mutationRepository: any OfflineMutationRepository
     private let draftRepository: any VisitDraftRepository
     private let mediaStore: any DurableMediaStoring
@@ -25,7 +25,7 @@ public actor MutationSyncEngine {
     private let clock: any EpochClock
     private var isDraining = false
 
-    public init(
+    init(
         mutationRepository: any OfflineMutationRepository,
         draftRepository: any VisitDraftRepository,
         mediaStore: any DurableMediaStoring,
@@ -45,7 +45,7 @@ public actor MutationSyncEngine {
         self.clock = clock
     }
 
-    public func drain(batchSize: Int = 20) async -> SyncRunResult {
+    func drain(batchSize: Int = 20) async -> SyncRunResult {
         guard !isDraining else {
             return SyncRunResult(retryableFailure: false, processed: 0)
         }
@@ -151,11 +151,11 @@ public actor MutationSyncEngine {
             placeId: bundle.payload.placeId,
             visitedAt: visitedAtStr,
             overallRating: bundle.payload.overallRating,
-            dimensions: dimensions.isEmpty ? nil : dimensions,
+            dimensions: dimensions,
             publicReview: VisitValidation.trimmedOptional(bundle.payload.publicReview),
             privateMemory: VisitValidation.trimmedOptional(bundle.payload.privateMemory),
             mediaIds: mediaIds.isEmpty ? nil : mediaIds,
-            visibility: VisitVisibility(rawValue: bundle.payload.visibility) ?? .public
+            visibility: VisitVisibility(rawValue: bundle.payload.visibility) ?? .publicAccess
         )
 
         do {
@@ -234,15 +234,16 @@ public actor MutationSyncEngine {
         }
 
         // 1. Create upload intent
-        let intent: MediaUploadIntent
+        let intentReq = MediaUploadIntentRequest(
+            clientMediaId: photo.clientMediaId,
+            contentType: contentType,
+            byteSize: byteSize,
+            width: photo.width,
+            height: photo.height
+        )
+        let intent: MediaUploadIntentResponse
         do {
-            intent = try await mediaService.createUploadIntent(
-                clientMediaId: photo.clientMediaId,
-                contentType: contentType,
-                byteSize: byteSize,
-                width: photo.width,
-                height: photo.height
-            )
+            intent = try await mediaService.createUploadIntent(intentReq)
         } catch let appError as AppError {
             let failure = classifyAppError(appError)
             return .photoFailed(failure)
@@ -277,12 +278,11 @@ public actor MutationSyncEngine {
 
         // 2. Direct S3 storage PUT (NO Authorization Bearer header!)
         do {
-            try await mediaService.uploadToStorage(
-                uploadUrl: uploadUrl,
-                requiredHeaders: intent.requiredHeaders,
-                fileUrl: localUrl,
+            try await mediaService.uploadToPresignedURL(
+                uploadUrl,
+                fileURL: localUrl,
                 contentType: contentType,
-                byteSize: byteSize
+                requiredHeaders: intent.requiredHeaders ?? [:]
             )
         } catch let appError as AppError {
             let failure = classifyAppError(appError)
@@ -296,8 +296,8 @@ public actor MutationSyncEngine {
 
         // 3. Confirm upload
         do {
-            let confirmedStatus = try await mediaService.confirmUpload(mediaId: intent.mediaId)
-            if confirmedStatus == .ready || confirmedStatus == .attached {
+            let confirmRes = try await mediaService.confirmUpload(mediaId: intent.mediaId)
+            if confirmRes.status == .ready || confirmRes.status == .attached {
                 try? await mutationRepository.updatePhotoRemoteState(
                     mutationId: mutation.mutationId,
                     position: photo.position,
@@ -326,9 +326,10 @@ public actor MutationSyncEngine {
     }
 
     private func classifyAppError(_ error: AppError) -> Outcome {
-        switch error {
-        case .network, .server:
+        if error.isTransient {
             return .failure(retryable: true, category: "CONNECTION")
+        }
+        switch error {
         case .rateLimited:
             return .failure(retryable: true, category: "HTTP_429")
         case .policyAcceptanceRequired:
@@ -339,6 +340,8 @@ public actor MutationSyncEngine {
             return .failure(retryable: false, category: "VALIDATION")
         case .notFound:
             return .failure(retryable: false, category: "NOT_FOUND")
+        case .forbidden:
+            return .failure(retryable: false, category: "FORBIDDEN")
         case .conflict:
             return .failure(retryable: false, category: "CONFLICT")
         default:

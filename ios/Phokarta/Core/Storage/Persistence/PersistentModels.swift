@@ -10,6 +10,8 @@ public enum MutationState: String, Sendable, Codable, CaseIterable {
     case syncing = "SYNCING"
     case failedRetryable = "FAILED_RETRYABLE"
     case failedPermanent = "FAILED_PERMANENT"
+
+    public static let queued = MutationState.pending
 }
 
 public enum MediaUploadState: String, Sendable, Codable, CaseIterable {

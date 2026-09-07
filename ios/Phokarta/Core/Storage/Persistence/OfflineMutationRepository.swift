@@ -44,9 +44,9 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
         let now = clock.nowMillis()
         let mutationId = payload.mutationId
 
-        try await database.withTransaction {
+        try await database.withTransaction { db in
             // 1. Insert into pending_mutations
-            try database.execute(
+            try db.execute(
                 """
                 INSERT INTO pending_mutations (
                     mutationId, userId, type, resourceKey, state,
@@ -69,7 +69,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             )
 
             // 2. Insert into pending_visit_payloads
-            try database.execute(
+            try db.execute(
                 """
                 INSERT INTO pending_visit_payloads (
                     mutationId, placeId, visitedAtEpochDay, overallRating,
@@ -89,7 +89,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
 
             // 3. Insert dimension scores
             for dim in dimensions {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO pending_visit_dimension_scores (
                         mutationId, dimensionKey, score
@@ -101,7 +101,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
 
             // 4. Insert photos
             for photo in photos {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO pending_visit_photos (
                         mutationId, position, ownerUserId, clientMediaId,
@@ -127,7 +127,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             }
 
             // 5. Delete draft atomically
-            try database.execute(
+            try db.execute(
                 "DELETE FROM visit_drafts WHERE userId = ? AND placeId = ?;",
                 params: [userId.uuidString, payload.placeId.uuidString]
             )
@@ -367,9 +367,9 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
 
         let now = clock.nowMillis()
 
-        return try await database.withTransaction {
+        return try await database.withTransaction { db in
             // Upsert draft
-            try database.execute(
+            try db.execute(
                 """
                 INSERT INTO visit_drafts (
                     userId, placeId, overallScore, publicReview, privateMemory,
@@ -400,12 +400,12 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             )
 
             // Replace draft dimension scores
-            try database.execute(
+            try db.execute(
                 "DELETE FROM visit_draft_dimension_scores WHERE userId = ? AND placeId = ?;",
                 params: [userId.uuidString, placeId.uuidString]
             )
             for dim in bundle.dimensions {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO visit_draft_dimension_scores (userId, placeId, dimensionKey, score)
                     VALUES (?, ?, ?, ?);
@@ -415,12 +415,12 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             }
 
             // Replace draft photos
-            try database.execute(
+            try db.execute(
                 "DELETE FROM visit_draft_photos WHERE ownerUserId = ? AND placeId = ?;",
                 params: [userId.uuidString, placeId.uuidString]
             )
             for photo in bundle.photos {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO visit_draft_photos (
                         ownerUserId, placeId, position, clientMediaId, localRelativePath,
@@ -446,7 +446,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             }
 
             // Delete failed mutation
-            let deleted = try database.execute(
+            let deleted = try db.execute(
                 "DELETE FROM pending_mutations WHERE mutationId = ? AND userId = ? AND state = 'FAILED_PERMANENT';",
                 params: [mutationId.uuidString, userId.uuidString]
             )
@@ -514,7 +514,7 @@ public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, S
             let rating = row.4
             let review = row.5
             let note = row.6
-            let visibility = VisitVisibility(rawValue: row.7) ?? .public
+            let visibility = VisitVisibility(rawValue: row.7) ?? .publicAccess
             let state = row.8
             let errorCategory = row.9
 

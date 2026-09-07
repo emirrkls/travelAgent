@@ -88,9 +88,9 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
 
     public func saveDraft(placeId: UUID, draft: DurableVisitDraft, userId: UUID) async throws {
         let now = clock.nowMillis()
-        try await database.withTransaction {
+        try await database.withTransaction { db in
             // Upsert visit_drafts
-            try database.execute(
+            try db.execute(
                 """
                 INSERT INTO visit_drafts (
                     userId, placeId, overallScore, publicReview, privateMemory,
@@ -121,13 +121,13 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
             )
 
             // Replace dimension scores
-            try database.execute(
+            try db.execute(
                 "DELETE FROM visit_draft_dimension_scores WHERE userId = ? AND placeId = ?;",
                 params: [userId.uuidString, placeId.uuidString]
             )
 
             for score in draft.dimensions {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO visit_draft_dimension_scores (userId, placeId, dimensionKey, score)
                     VALUES (?, ?, ?, ?);
@@ -139,8 +139,8 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
     }
 
     public func deleteDraft(placeId: UUID, userId: UUID) async throws {
-        try await database.withTransaction {
-            try database.execute(
+        try await database.withTransaction { db in
+            try db.execute(
                 "DELETE FROM visit_drafts WHERE userId = ? AND placeId = ?;",
                 params: [userId.uuidString, placeId.uuidString]
             )
@@ -149,8 +149,8 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
 
     public func deleteExpiredDrafts() async throws {
         let cutoff = clock.nowMillis() - VisitDraftRepositoryConstants.expiryMs
-        try await database.withTransaction {
-            try database.execute(
+        try await database.withTransaction { db in
+            try db.execute(
                 "DELETE FROM visit_drafts WHERE updatedAtEpochMillis < ?;",
                 params: [cutoff]
             )
@@ -193,9 +193,9 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
     }
 
     public func upsertPhotos(placeId: UUID, photos: [DurableDraftPhoto], userId: UUID) async throws {
-        try await database.withTransaction {
+        try await database.withTransaction { db in
             for photo in photos {
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO visit_draft_photos (
                         ownerUserId, placeId, position, clientMediaId, localRelativePath,
@@ -233,23 +233,21 @@ public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
     }
 
     public func removePhoto(placeId: UUID, relativePath: String, userId: UUID) async throws {
-        try await database.withTransaction {
-            let existing = try await getPhotos(placeId: placeId, userId: userId)
-            let remaining = existing.filter { $0.localRelativePath != relativePath }
-            try replacePhotos(placeId: placeId, photos: remaining, userId: userId)
-        }
+        let existing = try await getPhotos(placeId: placeId, userId: userId)
+        let remaining = existing.filter { $0.localRelativePath != relativePath }
+        try await replacePhotos(placeId: placeId, photos: remaining, userId: userId)
     }
 
     public func replacePhotos(placeId: UUID, photos: [DurableDraftPhoto], userId: UUID) async throws {
-        try await database.withTransaction {
-            try database.execute(
+        try await database.withTransaction { db in
+            try db.execute(
                 "DELETE FROM visit_draft_photos WHERE ownerUserId = ? AND placeId = ?;",
                 params: [userId.uuidString, placeId.uuidString]
             )
             for (index, photo) in photos.enumerated() {
                 var reindexed = photo
                 reindexed.position = index
-                try database.execute(
+                try db.execute(
                     """
                     INSERT INTO visit_draft_photos (
                         ownerUserId, placeId, position, clientMediaId, localRelativePath,

@@ -72,9 +72,8 @@ final class VisitComposerController {
         state.publicReview = draft.publicReview
         state.privateMemory = draft.privateMemory
         state.visitedAt = Date(timeIntervalSince1970: Double(draft.visitedAtEpochDay) * 86400)
-        state.visibility = VisitVisibility(rawValue: draft.visibility) ?? .public
+        state.visibility = VisitVisibility(rawValue: draft.visibility) ?? .publicAccess
         state.dimensionScores = Dictionary(uniqueKeysWithValues: draft.dimensions.map { ($0.dimensionKey, $0.score) })
-        state.isDirty = true
     }
 
     func setOverall(_ value: Double) { edit { $0.overallScore = rounded(value) } }
@@ -211,7 +210,7 @@ final class VisitComposerController {
 
             var photos: [DurablePendingPhoto] = []
             for (index, item) in mediaCoordinator.items.enumerated() {
-                let localPath = item.tempFileURL.map { "visit-media/\(accountID.uuidString)/\($0.lastPathComponent)" }
+                let localPath = item.localTempURL.map { "visit-media/\(accountID.uuidString)/\($0.lastPathComponent)" }
                 photos.append(
                     DurablePendingPhoto(
                         mutationId: state.clientMutationId,
@@ -220,7 +219,7 @@ final class VisitComposerController {
                         clientMediaId: item.id,
                         localRelativePath: localPath,
                         contentType: item.contentType,
-                        byteSize: item.byteSize,
+                        byteSize: item.uploadBytes,
                         width: item.width,
                         height: item.height,
                         remoteMediaId: item.canonicalMediaId,

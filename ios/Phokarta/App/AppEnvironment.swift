@@ -22,7 +22,7 @@ final class AuthSessionOwnerProvider: SessionOwnerProvider, @unchecked Sendable 
 
     func currentUserId() async -> UUID? {
         await MainActor.run {
-            if case .authenticated(let user) = controller?.state {
+            if case .signedIn(let user) = controller?.state {
                 return user.id
             }
             return nil

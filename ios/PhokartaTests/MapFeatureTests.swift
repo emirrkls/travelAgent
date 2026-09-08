@@ -162,21 +162,28 @@ final class MapFeatureTests: XCTestCase {
         let viewportA = MapViewport(north: 38, east: 28, south: 36, west: 26, centerLatitude: 37, centerLongitude: 27, zoom: 11)
         let viewportB = MapViewport(north: 40, east: 30, south: 38, west: 28, centerLatitude: 39, centerLongitude: 29, zoom: 11)
 
+        // Request A delays by 50ms; Request B returns immediately
+        mockService.boundsHandler = { west, south, east, north in
+            if west == viewportA.west {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                return [placeA]
+            } else {
+                return [placeB]
+            }
+        }
+
         // Trigger search A
         controller.fetchBounds(viewport: viewportA)
 
         // Quickly trigger search B before A finishes
         controller.fetchBounds(viewport: viewportB)
 
-        // Complete B first
-        mockService.completeBounds(with: [placeB], forRequestId: 2)
+        // Wait for search B to complete
         await controller.waitForPendingTasks()
-
         XCTAssertEqual(controller.allPlaces.map(\.id), [placeB.id])
 
-        // Now late A returns
-        mockService.completeBounds(with: [placeA], forRequestId: 1)
-        for _ in 0..<10 { await Task.yield() }
+        // Wait for delayed search A to complete
+        try? await Task.sleep(nanoseconds: 100_000_000)
 
         // State MUST remain B! Late A must not overwrite newer search B
         XCTAssertEqual(controller.allPlaces.map(\.id), [placeB.id])
@@ -207,7 +214,7 @@ final class MapFeatureTests: XCTestCase {
         locService.mockResult = .success(CLLocationCoordinate2D(latitude: 37.085, longitude: 27.53))
         controller.requestCurrentLocation(userInitiated: false)
 
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         // Because user already panned manually, cameraRequest must NOT be set
         XCTAssertNil(controller.cameraRequest)
@@ -234,7 +241,7 @@ final class MapFeatureTests: XCTestCase {
         )
 
         controller.requestCurrentLocation(userInitiated: true)
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         XCTAssertEqual(controller.locationMessageKey, "map.location_denied")
         XCTAssertNil(controller.userLocation)
@@ -530,7 +537,7 @@ final class MapFeatureTests: XCTestCase {
 // MARK: - Test Doubles
 private final class ControllableMapPlaceService: PlaceServing, @unchecked Sendable {
     var stubbedPlaces: [PlaceSummary] = []
-    private var pendingBoundsContinuations: [Int: CheckedContinuation<[PlaceSummary], Error>] = [:]
+    var boundsHandler: (@Sendable (Double, Double, Double, Double) async throws -> [PlaceSummary])?
 
     func bounds(
         west: Double,
@@ -541,18 +548,10 @@ private final class ControllableMapPlaceService: PlaceServing, @unchecked Sendab
         minRating: Double?,
         limit: Int
     ) async throws -> [PlaceSummary] {
-        if !stubbedPlaces.isEmpty {
-            return stubbedPlaces
+        if let handler = boundsHandler {
+            return try await handler(west, south, east, north)
         }
-        return try await withCheckedThrowingContinuation { continuation in
-            let id = pendingBoundsContinuations.count + 1
-            pendingBoundsContinuations[id] = continuation
-        }
-    }
-
-    func completeBounds(with places: [PlaceSummary], forRequestId id: Int) {
-        pendingBoundsContinuations[id]?.resume(returning: places)
-        pendingBoundsContinuations.removeValue(forKey: id)
+        return stubbedPlaces
     }
 
     func listPlaces(search: String?, category: PlaceCategory?, page: Int, size: Int) async throws -> PlacePage {

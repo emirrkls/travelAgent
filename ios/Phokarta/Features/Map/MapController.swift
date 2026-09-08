@@ -35,10 +35,14 @@ final class MapController {
     private var boundsRequestId: Int = 0
     private var boundsTask: Task<Void, Never>? = nil
     private var friendMetricsTask: Task<Void, Never>? = nil
+    private var locationTask: Task<Void, Never>? = nil
+    private var saveTask: Task<Void, Never>? = nil
 
     func waitForPendingTasks() async {
         await boundsTask?.value
         await friendMetricsTask?.value
+        await locationTask?.value
+        await saveTask?.value
     }
 
     init(
@@ -96,6 +100,7 @@ final class MapController {
 
     // MARK: - Bounds Loading
     func fetchBounds(viewport: MapViewport) {
+        appliedViewport = viewport
         boundsRequestId += 1
         let currentRequestId = boundsRequestId
         boundsTask?.cancel()
@@ -255,7 +260,8 @@ final class MapController {
     func toggleSaved(placeId: UUID) {
         saved.toggle(placeId)
         recomputeVisiblePlaces()
-        Task { [weak self] in
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
             guard let self else { return }
             await self.saved.waitForMutation(of: placeId)
             if self.saved.error(for: placeId) != nil {
@@ -273,7 +279,8 @@ final class MapController {
 
     // MARK: - Location
     func requestCurrentLocation(userInitiated: Bool = true) {
-        Task { [weak self] in
+        locationTask?.cancel()
+        locationTask = Task { [weak self] in
             guard let self else { return }
             let result = await self.locationService.requestLocation()
             switch result {

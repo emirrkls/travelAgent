@@ -30,12 +30,12 @@ struct UserSearchScreen: View {
                 if controller.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     FeatureEmptyState(
                         title: String(localized: "social.search_people"),
-                        subtitle: String(localized: "social.search_people_subtitle")
+                        message: String(localized: "social.search_people_subtitle")
                     )
                 } else {
                     FeatureEmptyState(
                         title: String(localized: "social.no_people_found"),
-                        subtitle: String(localized: "social.no_people_found_subtitle")
+                        message: String(localized: "social.no_people_found_subtitle")
                     )
                 }
             } else {

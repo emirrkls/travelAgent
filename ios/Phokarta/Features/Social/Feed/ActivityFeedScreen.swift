@@ -132,19 +132,19 @@ struct ActivityFeedScreen: View {
             if controller.activeScope == .community {
                 FeatureEmptyState(
                     title: String(localized: "social.activity_empty_community_title"),
-                    subtitle: String(localized: "social.activity_empty_community_body")
+                    message: String(localized: "social.activity_empty_community_body")
                 )
             } else {
                 switch feed.friendsEmptyReason {
                 case .noFriends:
                     FeatureEmptyState(
                         title: String(localized: "social.activity_empty_no_friends_title"),
-                        subtitle: String(localized: "social.activity_empty_no_friends_body")
+                        message: String(localized: "social.activity_empty_no_friends_body")
                     )
                 case .noActivity, .none:
                     FeatureEmptyState(
                         title: String(localized: "social.activity_empty_friends_title"),
-                        subtitle: String(localized: "social.activity_empty_friends_body")
+                        message: String(localized: "social.activity_empty_friends_body")
                     )
                 }
             }

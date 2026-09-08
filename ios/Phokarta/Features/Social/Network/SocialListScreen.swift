@@ -34,7 +34,7 @@ struct SocialListScreen: View {
             } else if controller.items.isEmpty {
                 FeatureEmptyState(
                     title: emptyTitleText,
-                    subtitle: emptySubtitleText
+                    message: emptySubtitleText
                 )
             } else {
                 List {

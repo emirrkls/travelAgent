@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.8 — Safety /
-Account Deletion / Policy Acceptance**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.9 — Maps +
+Final Parity / Polish**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -15,7 +15,7 @@ Bootstrapped on 2026-08-26 with macOS 26.2, Xcode 26.4.1, Apple Swift
 6.3.1 (Swift 5.10 language mode), and the iOS 26.4 SDK/runtime.
 
 - Debug build on iPhone 17 Pro / iOS 26.4 Simulator: **PASS**
-- XCTest: **68 discovered, 68 executed, 68 passed, 0 failed, 0 skipped**
+- XCTest: **216 discovered, 216 executed, 216 passed, 0 failed, 0 skipped**
 - Simulator smoke: Login/Register navigation, EN/TR, light/dark, no immediate crash
 - Real backend auth, Keychain relaunch, Explore runtime, Place Detail runtime: **NOT RUN**
 
@@ -72,7 +72,16 @@ v0.8 adds native Safety, Account Lifecycle, and Policy Acceptance:
 - Settings screen with Policy status, Blocked Users list, and Delete Account flows.
 - Complete deterministic test suite covering critical invariants P1–P18.
 
-Maps/location, push notifications, and store submission remain outside this milestone.
+v0.9 adds native MapKit Map Discovery and Final Parity / Polish:
+- Interactive Apple MapKit map discovery with pan/zoom tracking and "Search this area" button with normalized movement thresholds (\(\Delta\text{zoom} \ge 0.55\) or distance \(\ge 0.18\)).
+- Filter synchronization: Category, 9+ rating (minRating 9.0), Friends Visited (via `/api/v1/me/places/friend-metrics`), Visited, and Saved (Want to go) places.
+- Bottom sheet place list preview with sheet peek/expand and two-way annotation selection auto-scrolling.
+- Seamless Place Detail navigation with full camera and filter state preservation upon return.
+- CoreLocation When-In-Use permissions with intent guards against stale or late GPS callbacks, and zero durable location storage/logging.
+- Preserved 5-tab HIG navigation with dedicated Map tab (Tab 2) and unified Saved & Collections tab (Tab 4).
+- Deterministic concurrency and invariant test suite covering M1–M18 (216 tests total).
+
+AR, turn-by-turn directions, continuous background location, push notifications, and store submission remain outside this milestone.
 
 ## Generate, build, and test
 
@@ -120,8 +129,12 @@ See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [Explore/Place Detail parity](docs/EXPLORE_PLACE_DETAIL_PARITY.md),
 [Saved/Collections parity](docs/SAVED_COLLECTIONS_PARITY.md),
 [Visit Publish/Ratings parity](docs/VISIT_PUBLISH_RATINGS_PARITY.md),
-[Media Upload parity](docs/MEDIA_UPLOAD_PARITY.md), and
-[Durable Drafts + Offline Queue parity](docs/DURABLE_DRAFTS_OFFLINE_QUEUE_PARITY.md).
+[Media Upload parity](docs/MEDIA_UPLOAD_PARITY.md),
+[Durable Drafts + Offline Queue parity](docs/DURABLE_DRAFTS_OFFLINE_QUEUE_PARITY.md),
+[Social/Friends parity](docs/SOCIAL_FRIENDS_PARITY.md),
+[Safety/Account Deletion parity](docs/SAFETY_ACCOUNT_DELETION_PARITY.md),
+[Maps/Final parity](docs/MAPS_FINAL_PARITY.md), and
+[Beta Readiness](docs/BETA_READINESS.md).
 
 ## Remaining Mac/Apple QA
 

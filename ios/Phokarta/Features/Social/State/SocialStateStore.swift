@@ -3,14 +3,14 @@ import Observation
 
 @MainActor
 @Observable
-public final class SocialStateStore {
-    public private(set) var accountID: UUID?
-    public private(set) var ownerProfile: OwnerUserProfile?
-    public private(set) var confirmedRelationships: [UUID: RelationshipState] = [:]
-    public private(set) var desiredFollowing: [UUID: Bool] = [:]
-    public private(set) var busyUserIDs: Set<UUID> = []
-    public private(set) var errors: [UUID: AppError] = [:]
-    public private(set) var followerCountDeltas: [UUID: Int64] = [:]
+final class SocialStateStore {
+    private(set) var accountID: UUID?
+    private(set) var ownerProfile: OwnerUserProfile?
+    private(set) var confirmedRelationships: [UUID: RelationshipState] = [:]
+    private(set) var desiredFollowing: [UUID: Bool] = [:]
+    private(set) var busyUserIDs: Set<UUID> = []
+    private(set) var errors: [UUID: AppError] = [:]
+    private(set) var followerCountDeltas: [UUID: Int64] = [:]
 
     private let service: any SocialServing
     private var tasks: [UUID: Task<Void, Never>] = [:]
@@ -18,19 +18,19 @@ public final class SocialStateStore {
     private var userRevision: [UUID: UInt64] = [:]
     private var ownerRefreshID: UInt64 = 0
 
-    public var onFriendshipChanged: (@Sendable (UUID, Bool) -> Void)?
+    var onFriendshipChanged: (@Sendable (UUID, Bool) -> Void)?
 
-    public init(service: any SocialServing) {
+    init(service: any SocialServing) {
         self.service = service
     }
 
-    public func activate(accountID: UUID) {
+    func activate(accountID: UUID) {
         guard self.accountID != accountID else { return }
         clear()
         self.accountID = accountID
     }
 
-    public func clear() {
+    func clear() {
         tasks.values.forEach { $0.cancel() }
         tasks.removeAll()
         accountID = nil
@@ -45,20 +45,20 @@ public final class SocialStateStore {
         ownerRefreshID &+= 1
     }
 
-    public func isFollowing(_ userId: UUID) -> Bool {
+    func isFollowing(_ userId: UUID) -> Bool {
         if let desired = desiredFollowing[userId] {
             return desired
         }
         return confirmedRelationships[userId]?.isFollowing ?? false
     }
 
-    public func isFriend(_ userId: UUID) -> Bool {
+    func isFriend(_ userId: UUID) -> Bool {
         let following = isFollowing(userId)
         let followsYou = confirmedRelationships[userId]?.followsYou ?? false
         return following && followsYou
     }
 
-    public func relationship(for userId: UUID) -> RelationshipState? {
+    func relationship(for userId: UUID) -> RelationshipState? {
         guard let confirmed = confirmedRelationships[userId] else {
             if let desired = desiredFollowing[userId] {
                 return RelationshipState(isFollowing: desired, followsYou: false)
@@ -71,23 +71,23 @@ public final class SocialStateStore {
         return confirmed
     }
 
-    public func effectiveFollowerCount(baseCount: Int64, for userId: UUID) -> Int64 {
+    func effectiveFollowerCount(baseCount: Int64, for userId: UUID) -> Int64 {
         max(0, baseCount + (followerCountDeltas[userId] ?? 0))
     }
 
-    public func isBusy(_ userId: UUID) -> Bool {
+    func isBusy(_ userId: UUID) -> Bool {
         busyUserIDs.contains(userId)
     }
 
-    public func error(for userId: UUID) -> AppError? {
+    func error(for userId: UUID) -> AppError? {
         errors[userId]
     }
 
-    public func currentRevision(for userId: UUID) -> UInt64 {
+    func currentRevision(for userId: UUID) -> UInt64 {
         userRevision[userId] ?? 0
     }
 
-    public func recordConfirmedRelationship(_ relationship: RelationshipState?, for userId: UUID, requestRevision: UInt64 = 0) {
+    func recordConfirmedRelationship(_ relationship: RelationshipState?, for userId: UUID, requestRevision: UInt64 = 0) {
         guard (userRevision[userId] ?? 0) <= requestRevision else {
             // Newer local mutation exists, do not overwrite with stale response.
             return
@@ -102,11 +102,11 @@ public final class SocialStateStore {
         }
     }
 
-    public func recordConfirmedProfile(_ profile: PublicUserProfile, requestRevision: UInt64 = 0) {
+    func recordConfirmedProfile(_ profile: PublicUserProfile, requestRevision: UInt64 = 0) {
         recordConfirmedRelationship(profile.relationship, for: profile.id, requestRevision: requestRevision)
     }
 
-    public func refreshOwnerProfile() async throws -> OwnerUserProfile {
+    func refreshOwnerProfile() async throws -> OwnerUserProfile {
         guard accountID != nil else { throw AppError.unauthorized }
         ownerRefreshID &+= 1
         let currentRefresh = ownerRefreshID
@@ -116,7 +116,7 @@ public final class SocialStateStore {
         return profile
     }
 
-    public func toggleFollow(targetId: UUID, seedRelationship: RelationshipState? = nil) {
+    func toggleFollow(targetId: UUID, seedRelationship: RelationshipState? = nil) {
         if let seed = seedRelationship, confirmedRelationships[targetId] == nil {
             confirmedRelationships[targetId] = seed
         }
@@ -124,7 +124,7 @@ public final class SocialStateStore {
         setDesired(!current, for: targetId)
     }
 
-    public func setDesired(_ desired: Bool, for targetId: UUID) {
+    func setDesired(_ desired: Bool, for targetId: UUID) {
         guard accountID != nil else { return }
         guard targetId != accountID else {
             errors[targetId] = .validation("Cannot follow yourself")
@@ -151,7 +151,7 @@ public final class SocialStateStore {
         }
     }
 
-    public func waitForMutation(of targetId: UUID) async {
+    func waitForMutation(of targetId: UUID) async {
         await tasks[targetId]?.value
     }
 

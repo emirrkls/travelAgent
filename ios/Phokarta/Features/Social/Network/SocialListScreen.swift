@@ -1,11 +1,11 @@
 import SwiftUI
 
-public struct SocialListScreen: View {
+struct SocialListScreen: View {
     @State private var controller: SocialListController
-    public let onSelectUser: (UUID) -> Void
+    let onSelectUser: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         kind: SocialListKind,
         service: any SocialServing,
         store: SocialStateStore,
@@ -19,7 +19,7 @@ public struct SocialListScreen: View {
         ))
     }
 
-    public var body: some View {
+    var body: some View {
         Group {
             if controller.isLoadingInitial && controller.items.isEmpty {
                 ProgressView()

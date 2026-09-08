@@ -1,37 +1,37 @@
 import Foundation
 
-public struct RelationshipState: Codable, Equatable, Sendable {
-    public let isFollowing: Bool
-    public let followsYou: Bool
-    public let isFriend: Bool
+struct RelationshipState: Codable, Equatable, Sendable {
+    let isFollowing: Bool
+    let followsYou: Bool
+    let isFriend: Bool
 
-    public init(isFollowing: Bool, followsYou: Bool) {
+    init(isFollowing: Bool, followsYou: Bool) {
         self.isFollowing = isFollowing
         self.followsYou = followsYou
         self.isFriend = isFollowing && followsYou
     }
 
-    public init(isFollowing: Bool, followsYou: Bool, isFriend: Bool) {
+    init(isFollowing: Bool, followsYou: Bool, isFriend: Bool) {
         self.isFollowing = isFollowing
         self.followsYou = followsYou
         self.isFriend = isFriend
     }
 }
 
-public struct PublicUserProfile: Codable, Equatable, Sendable, Identifiable {
-    public let id: UUID
-    public let username: String
-    public let displayName: String
-    public let avatarUrl: String?
-    public let bio: String?
-    public let cityCount: Int
-    public let countryCount: Int
-    public let followerCount: Int64
-    public let followingCount: Int64
-    public let friendCount: Int64
-    public let relationship: RelationshipState?
+struct PublicUserProfile: Codable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let username: String
+    let displayName: String
+    let avatarUrl: String?
+    let bio: String?
+    let cityCount: Int
+    let countryCount: Int
+    let followerCount: Int64
+    let followingCount: Int64
+    let friendCount: Int64
+    let relationship: RelationshipState?
 
-    public init(
+    init(
         id: UUID,
         username: String,
         displayName: String,
@@ -58,18 +58,18 @@ public struct PublicUserProfile: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-public struct OwnerUserProfile: Codable, Equatable, Sendable, Identifiable {
-    public let id: UUID
-    public let email: String
-    public let username: String
-    public let displayName: String
-    public let bio: String?
-    public let avatarUrl: String?
-    public let followerCount: Int64
-    public let followingCount: Int64
-    public let friendCount: Int64
+struct OwnerUserProfile: Codable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let email: String
+    let username: String
+    let displayName: String
+    let bio: String?
+    let avatarUrl: String?
+    let followerCount: Int64
+    let followingCount: Int64
+    let friendCount: Int64
 
-    public init(
+    init(
         id: UUID,
         email: String,
         username: String,
@@ -92,14 +92,14 @@ public struct OwnerUserProfile: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-public struct UserSummary: Codable, Equatable, Sendable, Identifiable {
-    public let id: UUID
-    public let username: String
-    public let displayName: String
-    public let avatarUrl: String?
-    public let relationship: RelationshipState?
+struct UserSummary: Codable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let username: String
+    let displayName: String
+    let avatarUrl: String?
+    let relationship: RelationshipState?
 
-    public init(
+    init(
         id: UUID,
         username: String,
         displayName: String,
@@ -114,13 +114,13 @@ public struct UserSummary: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-public struct ActivityAuthor: Codable, Equatable, Sendable, Identifiable {
-    public let id: UUID
-    public let username: String
-    public let displayName: String
-    public let avatarUrl: String?
+struct ActivityAuthor: Codable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let username: String
+    let displayName: String
+    let avatarUrl: String?
 
-    public init(id: UUID, username: String, displayName: String, avatarUrl: String? = nil) {
+    init(id: UUID, username: String, displayName: String, avatarUrl: String? = nil) {
         self.id = id
         self.username = username
         self.displayName = displayName
@@ -128,14 +128,14 @@ public struct ActivityAuthor: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-public struct ActivityPlace: Codable, Equatable, Sendable, Identifiable {
-    public let id: UUID
-    public let name: String
-    public let category: PlaceCategory
-    public let city: String
-    public let coverImage: String?
+struct ActivityPlace: Codable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let name: String
+    let category: PlaceCategory
+    let city: String
+    let coverImage: String?
 
-    public init(id: UUID, name: String, category: PlaceCategory, city: String, coverImage: String? = nil) {
+    init(id: UUID, name: String, category: PlaceCategory, city: String, coverImage: String? = nil) {
         self.id = id
         self.name = name
         self.category = category
@@ -146,17 +146,17 @@ public struct ActivityPlace: Codable, Equatable, Sendable, Identifiable {
 
 /// Cross-place public visit event for the Activity feed.
 /// Structurally excludes owner memory, personal notes, and private user fields.
-public struct ActivityEvent: Codable, Equatable, Sendable, Identifiable {
-    public let visitId: UUID
-    public let author: ActivityAuthor
-    public let place: ActivityPlace
-    public let overallScore: Double
-    public let publicReview: String
-    public let visitedAt: String
+struct ActivityEvent: Codable, Equatable, Sendable, Identifiable {
+    let visitId: UUID
+    let author: ActivityAuthor
+    let place: ActivityPlace
+    let overallScore: Double
+    let publicReview: String
+    let visitedAt: String
 
-    public var id: UUID { visitId }
+    var id: UUID { visitId }
 
-    public init(
+    init(
         visitId: UUID,
         author: ActivityAuthor,
         place: ActivityPlace,
@@ -173,15 +173,15 @@ public struct ActivityEvent: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-public struct SocialPageResponse<T: Decodable & Sendable>: Decodable, Sendable {
-    public let content: [T]
-    public let page: Int
-    public let size: Int
-    public let totalElements: Int64
-    public let totalPages: Int
-    public let hasNext: Bool
+struct SocialPageResponse<T: Decodable & Sendable>: Decodable, Sendable {
+    let content: [T]
+    let page: Int
+    let size: Int
+    let totalElements: Int64
+    let totalPages: Int
+    let hasNext: Bool
 
-    public init(
+    init(
         content: [T],
         page: Int,
         size: Int,
@@ -198,12 +198,12 @@ public struct SocialPageResponse<T: Decodable & Sendable>: Decodable, Sendable {
     }
 }
 
-public enum ActivityScope: String, CaseIterable, Sendable {
+enum ActivityScope: String, CaseIterable, Sendable {
     case community = "community"
     case friends = "friends"
 }
 
-public enum SocialListKind: String, CaseIterable, Hashable, Sendable {
+enum SocialListKind: String, CaseIterable, Hashable, Sendable {
     case followers
     case following
     case friends

@@ -1,20 +1,20 @@
 import SwiftUI
 
-public struct UserProfileScreen: View {
+struct UserProfileScreen: View {
     @State private var controller: UserProfileController
-    public let userId: UUID
-    public let isOwnProfile: Bool
-    public let onSelectPlace: (UUID) -> Void
-    public let onSelectUser: (UUID) -> Void
-    public let onFollowers: () -> Void
-    public let onFollowing: () -> Void
-    public let onFriends: () -> Void
-    public let onUserSearch: () -> Void
-    public let onLogout: (() -> Void)?
+    let userId: UUID
+    let isOwnProfile: Bool
+    let onSelectPlace: (UUID) -> Void
+    let onSelectUser: (UUID) -> Void
+    let onFollowers: () -> Void
+    let onFollowing: () -> Void
+    let onFriends: () -> Void
+    let onUserSearch: () -> Void
+    let onLogout: (() -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         userId: UUID,
         isOwnProfile: Bool,
         service: any SocialServing,
@@ -44,7 +44,7 @@ public struct UserProfileScreen: View {
         ))
     }
 
-    public var body: some View {
+    var body: some View {
         Group {
             switch controller.phase {
             case .idle, .loading:

@@ -1,14 +1,14 @@
 import SwiftUI
 
-public struct ActivityFeedScreen: View {
+struct ActivityFeedScreen: View {
     @State private var controller: ActivityFeedController
-    public let currentUserId: UUID?
-    public let onOpenPlace: (UUID) -> Void
-    public let onOpenAuthor: (UUID) -> Void
+    let currentUserId: UUID?
+    let onOpenPlace: (UUID) -> Void
+    let onOpenAuthor: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         controller: ActivityFeedController,
         currentUserId: UUID?,
         onOpenPlace: @escaping (UUID) -> Void,
@@ -20,7 +20,7 @@ public struct ActivityFeedScreen: View {
         _controller = State(initialValue: controller)
     }
 
-    public init(
+    init(
         activityService: any ActivityServing,
         socialService: any SocialServing,
         store: SocialStateStore,
@@ -41,7 +41,7 @@ public struct ActivityFeedScreen: View {
         )
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             // Scope segmented selector
             Picker("social.scope", selection: Binding(

@@ -1,75 +1,75 @@
 import Foundation
 
-public struct PublicProfileEndpoint: APIEndpoint {
-    public typealias Response = PublicUserProfile
+struct PublicProfileEndpoint: APIEndpoint {
+    typealias Response = PublicUserProfile
 
-    public let userId: UUID
+    let userId: UUID
 
-    public init(userId: UUID) {
+    init(userId: UUID) {
         self.userId = userId
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/users/\(userId.uuidString.lowercased())" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/users/\(userId.uuidString.lowercased())" }
+    var requiresAuthentication: Bool { true }
 }
 
-public struct MeProfileEndpoint: APIEndpoint {
-    public typealias Response = OwnerUserProfile
+struct MeProfileEndpoint: APIEndpoint {
+    typealias Response = OwnerUserProfile
 
-    public init() {}
+    init() {}
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/me" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/me" }
+    var requiresAuthentication: Bool { true }
 }
 
-public struct FollowUserEndpoint: APIEndpoint {
-    public typealias Response = EmptyPayload
+struct FollowUserEndpoint: APIEndpoint {
+    typealias Response = EmptyPayload
 
-    public let userId: UUID
+    let userId: UUID
 
-    public init(userId: UUID) {
+    init(userId: UUID) {
         self.userId = userId
     }
 
-    public var method: HTTPMethod { .post }
-    public var path: String { "api/v1/users/\(userId.uuidString.lowercased())/follow" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .post }
+    var path: String { "api/v1/users/\(userId.uuidString.lowercased())/follow" }
+    var requiresAuthentication: Bool { true }
 }
 
-public struct UnfollowUserEndpoint: APIEndpoint {
-    public typealias Response = EmptyPayload
+struct UnfollowUserEndpoint: APIEndpoint {
+    typealias Response = EmptyPayload
 
-    public let userId: UUID
+    let userId: UUID
 
-    public init(userId: UUID) {
+    init(userId: UUID) {
         self.userId = userId
     }
 
-    public var method: HTTPMethod { .delete }
-    public var path: String { "api/v1/users/\(userId.uuidString.lowercased())/follow" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .delete }
+    var path: String { "api/v1/users/\(userId.uuidString.lowercased())/follow" }
+    var requiresAuthentication: Bool { true }
 }
 
-public struct SearchUsersEndpoint: APIEndpoint {
-    public typealias Response = SocialPageResponse<UserSummary>
+struct SearchUsersEndpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<UserSummary>
 
-    public let query: String
-    public let page: Int
-    public let size: Int
+    let query: String
+    let page: Int
+    let size: Int
 
-    public init(query: String, page: Int = 0, size: Int = 20) {
+    init(query: String, page: Int = 0, size: Int = 20) {
         self.query = query
         self.page = page
         self.size = size
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/users/search" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/users/search" }
+    var requiresAuthentication: Bool { true }
 
-    public var queryItems: [URLQueryItem] {
+    var queryItems: [URLQueryItem] {
         [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "page", value: String(page)),
@@ -78,22 +78,22 @@ public struct SearchUsersEndpoint: APIEndpoint {
     }
 }
 
-public struct FollowersEndpoint: APIEndpoint {
-    public typealias Response = SocialPageResponse<UserSummary>
+struct FollowersEndpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<UserSummary>
 
-    public let page: Int
-    public let size: Int
+    let page: Int
+    let size: Int
 
-    public init(page: Int = 0, size: Int = 20) {
+    init(page: Int = 0, size: Int = 20) {
         self.page = page
         self.size = size
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/me/followers" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/me/followers" }
+    var requiresAuthentication: Bool { true }
 
-    public var queryItems: [URLQueryItem] {
+    var queryItems: [URLQueryItem] {
         [
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "size", value: String(size)),
@@ -101,22 +101,22 @@ public struct FollowersEndpoint: APIEndpoint {
     }
 }
 
-public struct FollowingEndpoint: APIEndpoint {
-    public typealias Response = SocialPageResponse<UserSummary>
+struct FollowingEndpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<UserSummary>
 
-    public let page: Int
-    public let size: Int
+    let page: Int
+    let size: Int
 
-    public init(page: Int = 0, size: Int = 20) {
+    init(page: Int = 0, size: Int = 20) {
         self.page = page
         self.size = size
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/me/following" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/me/following" }
+    var requiresAuthentication: Bool { true }
 
-    public var queryItems: [URLQueryItem] {
+    var queryItems: [URLQueryItem] {
         [
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "size", value: String(size)),
@@ -124,22 +124,22 @@ public struct FollowingEndpoint: APIEndpoint {
     }
 }
 
-public struct FriendsEndpoint: APIEndpoint {
-    public typealias Response = SocialPageResponse<UserSummary>
+struct FriendsEndpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<UserSummary>
 
-    public let page: Int
-    public let size: Int
+    let page: Int
+    let size: Int
 
-    public init(page: Int = 0, size: Int = 20) {
+    init(page: Int = 0, size: Int = 20) {
         self.page = page
         self.size = size
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/me/friends" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/me/friends" }
+    var requiresAuthentication: Bool { true }
 
-    public var queryItems: [URLQueryItem] {
+    var queryItems: [URLQueryItem] {
         [
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "size", value: String(size)),
@@ -147,24 +147,24 @@ public struct FriendsEndpoint: APIEndpoint {
     }
 }
 
-public struct ActivityEndpoint: APIEndpoint {
-    public typealias Response = SocialPageResponse<ActivityEvent>
+struct ActivityEndpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<ActivityEvent>
 
-    public let scope: ActivityScope
-    public let page: Int
-    public let size: Int
+    let scope: ActivityScope
+    let page: Int
+    let size: Int
 
-    public init(scope: ActivityScope, page: Int = 0, size: Int = 20) {
+    init(scope: ActivityScope, page: Int = 0, size: Int = 20) {
         self.scope = scope
         self.page = page
         self.size = size
     }
 
-    public var method: HTTPMethod { .get }
-    public var path: String { "api/v1/activity" }
-    public var requiresAuthentication: Bool { true }
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/activity" }
+    var requiresAuthentication: Bool { true }
 
-    public var queryItems: [URLQueryItem] {
+    var queryItems: [URLQueryItem] {
         [
             URLQueryItem(name: "scope", value: scope.rawValue),
             URLQueryItem(name: "page", value: String(page)),

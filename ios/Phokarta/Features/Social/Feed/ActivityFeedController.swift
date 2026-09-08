@@ -1,36 +1,36 @@
 import Foundation
 import Observation
 
-public enum FriendsEmptyReason: Equatable, Sendable {
+enum FriendsEmptyReason: Equatable, Sendable {
     case none
     case noFriends
     case noActivity
 }
 
-public struct ScopeFeedState: Equatable, Sendable {
-    public var items: [ActivityEvent] = []
-    public var page: Int = 0
-    public var hasNext: Bool = false
-    public var isLoadingInitial: Bool = false
-    public var isLoadingMore: Bool = false
-    public var isRefreshing: Bool = false
-    public var errorMessage: AppError?
-    public var loadMoreErrorMessage: AppError?
-    public var friendsEmptyReason: FriendsEmptyReason = .none
-    public var hasLoaded: Bool = false
+struct ScopeFeedState: Equatable, Sendable {
+    var items: [ActivityEvent] = []
+    var page: Int = 0
+    var hasNext: Bool = false
+    var isLoadingInitial: Bool = false
+    var isLoadingMore: Bool = false
+    var isRefreshing: Bool = false
+    var errorMessage: AppError?
+    var loadMoreErrorMessage: AppError?
+    var friendsEmptyReason: FriendsEmptyReason = .none
+    var hasLoaded: Bool = false
 
-    public init(isLoadingInitial: Bool = false) {
+    init(isLoadingInitial: Bool = false) {
         self.isLoadingInitial = isLoadingInitial
     }
 }
 
 @MainActor
 @Observable
-public final class ActivityFeedController {
-    public private(set) var activeScope: ActivityScope = .community
-    public private(set) var community = ScopeFeedState(isLoadingInitial = true)
-    public private(set) var friends = ScopeFeedState()
-    public private(set) var expandedReviewIds: Set<UUID> = []
+final class ActivityFeedController {
+    private(set) var activeScope: ActivityScope = .community
+    private(set) var community = ScopeFeedState(isLoadingInitial: true)
+    private(set) var friends = ScopeFeedState()
+    private(set) var expandedReviewIds: Set<UUID> = []
 
     private let activityService: any ActivityServing
     private let socialService: any SocialServing
@@ -38,7 +38,7 @@ public final class ActivityFeedController {
     private var scopeGeneration: [ActivityScope: UInt64] = [:]
     private var didStart = false
 
-    public init(
+    init(
         activityService: any ActivityServing,
         socialService: any SocialServing,
         store: SocialStateStore
@@ -54,17 +54,17 @@ public final class ActivityFeedController {
         }
     }
 
-    public var activeFeed: ScopeFeedState {
+    var activeFeed: ScopeFeedState {
         activeScope == .friends ? friends : community
     }
 
-    public func startIfNeeded() {
+    func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
         Task { await loadInitial(scope: .community) }
     }
 
-    public func selectScope(_ scope: ActivityScope) {
+    func selectScope(_ scope: ActivityScope) {
         guard activeScope != scope else { return }
         activeScope = scope
         let current = scope == .friends ? friends : community
@@ -73,15 +73,15 @@ public final class ActivityFeedController {
         }
     }
 
-    public func refresh() async {
+    func refresh() async {
         await refresh(scope: activeScope)
     }
 
-    public func retry() async {
+    func retry() async {
         await loadInitial(scope: activeScope)
     }
 
-    public func loadNextPage() async {
+    func loadNextPage() async {
         let scope = activeScope
         var current = scope == .friends ? friends : community
         guard current.hasNext, !current.isLoadingMore, !current.isLoadingInitial, !current.isRefreshing else {
@@ -126,11 +126,11 @@ public final class ActivityFeedController {
         }
     }
 
-    public func retryLoadMore() async {
+    func retryLoadMore() async {
         await loadNextPage()
     }
 
-    public func toggleReviewExpanded(visitId: UUID) {
+    func toggleReviewExpanded(visitId: UUID) {
         if expandedReviewIds.contains(visitId) {
             expandedReviewIds.remove(visitId)
         } else {
@@ -138,16 +138,16 @@ public final class ActivityFeedController {
         }
     }
 
-    public func invalidateFriendsFeed() {
+    func invalidateFriendsFeed() {
         friends = ScopeFeedState()
         if activeScope == .friends {
             Task { await loadInitial(scope: .friends) }
         }
     }
 
-    public func loadInitial(scope: ActivityScope) async {
+    func loadInitial(scope: ActivityScope) async {
         var state = scope == .friends ? friends : community
-        state.isLoadingInitial = true
+        state.isLoadingInitial: true
         state.errorMessage = nil
         state.loadMoreErrorMessage = nil
         setScopeState(state, for: scope)

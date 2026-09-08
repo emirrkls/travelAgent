@@ -3,23 +3,23 @@ import Observation
 
 @MainActor
 @Observable
-public final class SocialListController {
-    public let kind: SocialListKind
-    public private(set) var items: [UserSummary] = []
-    public private(set) var page: Int = 0
-    public private(set) var hasNext: Bool = false
-    public private(set) var isLoadingInitial: Bool = false
-    public private(set) var isLoadingMore: Bool = false
-    public private(set) var isRefreshing: Bool = false
-    public private(set) var errorMessage: AppError?
-    public private(set) var loadMoreErrorMessage: AppError?
+final class SocialListController {
+    let kind: SocialListKind
+    private(set) var items: [UserSummary] = []
+    private(set) var page: Int = 0
+    private(set) var hasNext: Bool = false
+    private(set) var isLoadingInitial: Bool = false
+    private(set) var isLoadingMore: Bool = false
+    private(set) var isRefreshing: Bool = false
+    private(set) var errorMessage: AppError?
+    private(set) var loadMoreErrorMessage: AppError?
 
     private let service: any SocialServing
     private let store: SocialStateStore
     private var generation: UInt64 = 0
     private var didStart = false
 
-    public init(
+    init(
         kind: SocialListKind,
         service: any SocialServing,
         store: SocialStateStore
@@ -29,21 +29,21 @@ public final class SocialListController {
         self.store = store
     }
 
-    public func effectiveRelationship(for user: UserSummary) -> RelationshipState? {
+    func effectiveRelationship(for user: UserSummary) -> RelationshipState? {
         store.relationship(for: user.id) ?? user.relationship
     }
 
-    public func isMutating(userId: UUID) -> Bool {
+    func isMutating(userId: UUID) -> Bool {
         store.isBusy(userId)
     }
 
-    public func startIfNeeded() {
+    func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
         Task { await loadInitial() }
     }
 
-    public func refresh() async {
+    func refresh() async {
         if isLoadingInitial || isRefreshing { return }
         isRefreshing = true
         errorMessage = nil
@@ -83,7 +83,7 @@ public final class SocialListController {
         }
     }
 
-    public func loadNextPage() async {
+    func loadNextPage() async {
         guard hasNext, !isLoadingMore, !isLoadingInitial, !isRefreshing else { return }
         isLoadingMore = true
         loadMoreErrorMessage = nil
@@ -117,7 +117,7 @@ public final class SocialListController {
         }
     }
 
-    public func toggleFollow(for user: UserSummary) {
+    func toggleFollow(for user: UserSummary) {
         store.toggleFollow(targetId: user.id, seedRelationship: user.relationship)
     }
 

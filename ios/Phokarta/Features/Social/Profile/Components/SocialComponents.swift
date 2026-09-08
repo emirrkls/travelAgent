@@ -1,18 +1,18 @@
 import SwiftUI
 
-public struct UserAvatarView: View {
-    public let urlString: String?
-    public let name: String
-    public let size: CGFloat
+struct UserAvatarView: View {
+    let urlString: String?
+    let name: String
+    let size: CGFloat
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(urlString: String?, name: String, size: CGFloat = 44) {
+    init(urlString: String?, name: String, size: CGFloat = 44) {
         self.urlString = urlString
         self.name = name
         self.size = size
     }
 
-    public var body: some View {
+    var body: some View {
         Group {
             if let validURL = PlaceImageURL.displayURL(from: urlString) {
                 AsyncImage(url: validURL) { phase in
@@ -45,14 +45,14 @@ public struct UserAvatarView: View {
     }
 }
 
-public struct FollowActionButton: View {
-    public let relationship: RelationshipState?
-    public let isMutating: Bool
-    public let targetName: String
-    public let action: () -> Void
+struct FollowActionButton: View {
+    let relationship: RelationshipState?
+    let isMutating: Bool
+    let targetName: String
+    let action: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         relationship: RelationshipState?,
         isMutating: Bool,
         targetName: String,
@@ -90,7 +90,7 @@ public struct FollowActionButton: View {
         }
     }
 
-    public var body: some View {
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if isMutating {
@@ -126,15 +126,15 @@ public struct FollowActionButton: View {
     }
 }
 
-public struct FollowsYouHint: View {
-    public let relationship: RelationshipState?
+struct FollowsYouHint: View {
+    let relationship: RelationshipState?
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(relationship: RelationshipState?) {
+    init(relationship: RelationshipState?) {
         self.relationship = relationship
     }
 
-    public var body: some View {
+    var body: some View {
         if relationship?.followsYou == true && relationship?.isFollowing != true {
             Text("social.follows_you")
                 .font(.caption.weight(.medium))
@@ -149,17 +149,17 @@ public struct FollowsYouHint: View {
     }
 }
 
-public struct SocialCountersRow: View {
-    public let followerCount: Int64
-    public let followingCount: Int64
-    public let friendCount: Int64
-    public let isNavigable: Bool
-    public var onFollowers: (() -> Void)?
-    public var onFollowing: (() -> Void)?
-    public var onFriends: (() -> Void)?
+struct SocialCountersRow: View {
+    let followerCount: Int64
+    let followingCount: Int64
+    let friendCount: Int64
+    let isNavigable: Bool
+    var onFollowers: (() -> Void)?
+    var onFollowing: (() -> Void)?
+    var onFriends: (() -> Void)?
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         followerCount: Int64,
         followingCount: Int64,
         friendCount: Int64,
@@ -177,7 +177,7 @@ public struct SocialCountersRow: View {
         self.onFriends = onFriends
     }
 
-    public var body: some View {
+    var body: some View {
         HStack(spacing: 0) {
             counterItem(
                 value: followerCount,
@@ -230,16 +230,16 @@ public struct SocialCountersRow: View {
     }
 }
 
-public struct SocialUserRow: View {
-    public let user: UserSummary
-    public let relationship: RelationshipState?
-    public let isMutating: Bool
-    public let showFollowAction: Bool
-    public let onSelect: () -> Void
-    public let onToggleFollow: () -> Void
+struct SocialUserRow: View {
+    let user: UserSummary
+    let relationship: RelationshipState?
+    let isMutating: Bool
+    let showFollowAction: Bool
+    let onSelect: () -> Void
+    let onToggleFollow: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         user: UserSummary,
         relationship: RelationshipState?,
         isMutating: Bool,
@@ -255,7 +255,7 @@ public struct SocialUserRow: View {
         self.onToggleFollow = onToggleFollow
     }
 
-    public var body: some View {
+    var body: some View {
         HStack(spacing: PhokartaSpacing.md) {
             Button(action: onSelect) {
                 HStack(spacing: PhokartaSpacing.md) {

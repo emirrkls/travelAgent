@@ -1,15 +1,15 @@
 import SwiftUI
 
-public struct ActivityEventCard: View {
-    public let event: ActivityEvent
-    public let currentUserId: UUID?
-    public let isExpanded: Bool
-    public let onToggleExpand: () -> Void
-    public let onOpenPlace: (UUID) -> Void
-    public let onOpenAuthor: (UUID) -> Void
+struct ActivityEventCard: View {
+    let event: ActivityEvent
+    let currentUserId: UUID?
+    let isExpanded: Bool
+    let onToggleExpand: () -> Void
+    let onOpenPlace: (UUID) -> Void
+    let onOpenAuthor: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         event: ActivityEvent,
         currentUserId: UUID?,
         isExpanded: Bool,
@@ -45,7 +45,7 @@ public struct ActivityEventCard: View {
         event.publicReview.count > 120
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
             // Author row
             Button {

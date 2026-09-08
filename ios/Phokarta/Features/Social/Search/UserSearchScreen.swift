@@ -1,11 +1,11 @@
 import SwiftUI
 
-public struct UserSearchScreen: View {
+struct UserSearchScreen: View {
     @State private var controller: UserSearchController
-    public let onSelectUser: (UUID) -> Void
+    let onSelectUser: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    public init(
+    init(
         service: any SocialServing,
         store: SocialStateStore,
         onSelectUser: @escaping (UUID) -> Void
@@ -14,7 +14,7 @@ public struct UserSearchScreen: View {
         _controller = State(initialValue: UserSearchController(service: service, store: store))
     }
 
-    public var body: some View {
+    var body: some View {
         Group {
             if controller.isLoading && controller.items.isEmpty {
                 ProgressView()

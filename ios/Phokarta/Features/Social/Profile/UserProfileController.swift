@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-public enum UserProfilePhase: Equatable, Sendable {
+enum UserProfilePhase: Equatable, Sendable {
     case idle
     case loading
     case content
@@ -11,20 +11,20 @@ public enum UserProfilePhase: Equatable, Sendable {
 
 @MainActor
 @Observable
-public final class UserProfileController {
-    public let userId: UUID
-    public let isOwnProfile: Bool
+final class UserProfileController {
+    let userId: UUID
+    let isOwnProfile: Bool
 
-    public private(set) var phase: UserProfilePhase = .idle
-    public private(set) var profile: PublicUserProfile?
-    public private(set) var ownerProfile: OwnerUserProfile?
+    private(set) var phase: UserProfilePhase = .idle
+    private(set) var profile: PublicUserProfile?
+    private(set) var ownerProfile: OwnerUserProfile?
 
     private let service: any SocialServing
     private let store: SocialStateStore
     private var generation: UInt64 = 0
     private var didStart = false
 
-    public init(
+    init(
         userId: UUID,
         isOwnProfile: Bool,
         service: any SocialServing,
@@ -36,38 +36,38 @@ public final class UserProfileController {
         self.store = store
     }
 
-    public var effectiveRelationship: RelationshipState? {
+    var effectiveRelationship: RelationshipState? {
         store.relationship(for: userId) ?? profile?.relationship
     }
 
-    public var effectiveFollowerCount: Int64 {
+    var effectiveFollowerCount: Int64 {
         let base = profile?.followerCount ?? ownerProfile?.followerCount ?? 0
         return store.effectiveFollowerCount(baseCount: base, for: userId)
     }
 
-    public var followingCount: Int64 {
+    var followingCount: Int64 {
         profile?.followingCount ?? ownerProfile?.followingCount ?? 0
     }
 
-    public var friendCount: Int64 {
+    var friendCount: Int64 {
         profile?.friendCount ?? ownerProfile?.friendCount ?? 0
     }
 
-    public var isMutatingFollow: Bool {
+    var isMutatingFollow: Bool {
         store.isBusy(userId)
     }
 
-    public var followError: AppError? {
+    var followError: AppError? {
         store.error(for: userId)
     }
 
-    public func startIfNeeded() {
+    func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
         Task { await load() }
     }
 
-    public func load() async {
+    func load() async {
         generation &+= 1
         let currentGen = generation
 
@@ -105,11 +105,11 @@ public final class UserProfileController {
         }
     }
 
-    public func refresh() async {
+    func refresh() async {
         await load()
     }
 
-    public func toggleFollow() {
+    func toggleFollow() {
         guard !isOwnProfile else { return }
         store.toggleFollow(targetId: userId, seedRelationship: profile?.relationship)
     }

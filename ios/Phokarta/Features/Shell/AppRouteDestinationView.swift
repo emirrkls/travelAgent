@@ -1,13 +1,13 @@
 import SwiftUI
 
-public struct AppRouteDestinationView: View {
-    public let route: AppRoute
-    public let environment: AppEnvironment
-    public let currentUserId: UUID
-    public let onNavigate: (AppRoute) -> Void
-    public let onLogout: (() -> Void)?
+struct AppRouteDestinationView: View {
+    let route: AppRoute
+    let environment: AppEnvironment
+    let currentUserId: UUID
+    let onNavigate: (AppRoute) -> Void
+    let onLogout: (() -> Void)?
 
-    public init(
+    init(
         route: AppRoute,
         environment: AppEnvironment,
         currentUserId: UUID,
@@ -21,7 +21,7 @@ public struct AppRouteDestinationView: View {
         self.onLogout = onLogout
     }
 
-    public var body: some View {
+    var body: some View {
         switch route {
         case .placeDetail(let id):
             PlaceDetailScreen(

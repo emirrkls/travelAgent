@@ -3,22 +3,22 @@ import Observation
 
 @MainActor
 @Observable
-public final class UserSearchController {
-    public private(set) var query: String = ""
-    public private(set) var items: [UserSummary] = []
-    public private(set) var page: Int = 0
-    public private(set) var hasNext: Bool = false
-    public private(set) var isLoading: Bool = false
-    public private(set) var isLoadingMore: Bool = false
-    public private(set) var errorMessage: AppError?
-    public private(set) var loadMoreErrorMessage: AppError?
+final class UserSearchController {
+    private(set) var query: String = ""
+    private(set) var items: [UserSummary] = []
+    private(set) var page: Int = 0
+    private(set) var hasNext: Bool = false
+    private(set) var isLoading: Bool = false
+    private(set) var isLoadingMore: Bool = false
+    private(set) var errorMessage: AppError?
+    private(set) var loadMoreErrorMessage: AppError?
 
     private let service: any SocialServing
     private let store: SocialStateStore
     private var generation: UInt64 = 0
     private var debounceTask: Task<Void, Never>?
 
-    public init(
+    init(
         service: any SocialServing,
         store: SocialStateStore
     ) {
@@ -26,15 +26,15 @@ public final class UserSearchController {
         self.store = store
     }
 
-    public func effectiveRelationship(for user: UserSummary) -> RelationshipState? {
+    func effectiveRelationship(for user: UserSummary) -> RelationshipState? {
         store.relationship(for: user.id) ?? user.relationship
     }
 
-    public func isMutating(userId: UUID) -> Bool {
+    func isMutating(userId: UUID) -> Bool {
         store.isBusy(userId)
     }
 
-    public func setQuery(_ text: String) {
+    func setQuery(_ text: String) {
         query = text
         debounceTask?.cancel()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -55,7 +55,7 @@ public final class UserSearchController {
         }
     }
 
-    public func searchImmediate(_ text: String) {
+    func searchImmediate(_ text: String) {
         query = text
         debounceTask?.cancel()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -73,7 +73,7 @@ public final class UserSearchController {
         }
     }
 
-    public func retry() {
+    func retry() {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         Task { [weak self] in
@@ -81,7 +81,7 @@ public final class UserSearchController {
         }
     }
 
-    public func loadNextPage() async {
+    func loadNextPage() async {
         guard hasNext, !isLoadingMore, !isLoading else { return }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -120,7 +120,7 @@ public final class UserSearchController {
         }
     }
 
-    public func toggleFollow(for user: UserSummary) {
+    func toggleFollow(for user: UserSummary) {
         store.toggleFollow(targetId: user.id, seedRelationship: user.relationship)
     }
 

@@ -28,6 +28,70 @@ struct PlaceListEndpoint: APIEndpoint {
     }
 }
 
+struct PlaceBoundsEndpoint: APIEndpoint {
+    typealias Response = [PlaceSummary]
+
+    let west: Double
+    let south: Double
+    let east: Double
+    let north: Double
+    let category: PlaceCategory?
+    let minRating: Double?
+    let limit: Int
+
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/places/bounds" }
+    var requiresAuthentication: Bool { true }
+
+    var queryItems: [URLQueryItem] {
+        var items = [
+            URLQueryItem(name: "west", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), west)),
+            URLQueryItem(name: "south", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), south)),
+            URLQueryItem(name: "east", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), east)),
+            URLQueryItem(name: "north", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), north)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ]
+        if let category, let wire = category.wireValue {
+            items.append(URLQueryItem(name: "category", value: wire))
+        }
+        if let minRating {
+            items.append(URLQueryItem(name: "minRating", value: String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), minRating)))
+        }
+        return items
+    }
+}
+
+struct PlaceNearbyEndpoint: APIEndpoint {
+    typealias Response = [NearbyPlaceDTO]
+
+    let latitude: Double
+    let longitude: Double
+    let radiusMeters: Double
+    let category: PlaceCategory?
+    let minRating: Double?
+    let limit: Int
+
+    var method: HTTPMethod { .get }
+    var path: String { "api/v1/places/nearby" }
+    var requiresAuthentication: Bool { true }
+
+    var queryItems: [URLQueryItem] {
+        var items = [
+            URLQueryItem(name: "lat", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), latitude)),
+            URLQueryItem(name: "lon", value: String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), longitude)),
+            URLQueryItem(name: "radiusMeters", value: String(format: "%.0f", locale: Locale(identifier: "en_US_POSIX"), radiusMeters)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ]
+        if let category, let wire = category.wireValue {
+            items.append(URLQueryItem(name: "category", value: wire))
+        }
+        if let minRating {
+            items.append(URLQueryItem(name: "minRating", value: String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), minRating)))
+        }
+        return items
+    }
+}
+
 struct PlaceDetailEndpoint: APIEndpoint {
     typealias Response = PlaceDetail
 

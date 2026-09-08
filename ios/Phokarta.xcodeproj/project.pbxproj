@@ -25,6 +25,15 @@
 		200000000000000000000047 /* ReportFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000047 /* ReportFeatureTests.swift */; };
 		200000000000000000000048 /* PolicyFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000048 /* PolicyFeatureTests.swift */; };
 		200000000000000000000049 /* AccountDeletionFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000049 /* AccountDeletionFeatureTests.swift */; };
+		20000000000000000000004A /* MapModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004A /* MapModels.swift */; };
+		20000000000000000000004B /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004B /* LocationService.swift */; };
+		20000000000000000000004C /* MapController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004C /* MapController.swift */; };
+		20000000000000000000004D /* PlaceAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004D /* PlaceAnnotationView.swift */; };
+		20000000000000000000004E /* MapFilterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004E /* MapFilterBar.swift */; };
+		20000000000000000000004F /* SearchThisAreaButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000004F /* SearchThisAreaButton.swift */; };
+		200000000000000000000050 /* MapPlaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000050 /* MapPlaceSheet.swift */; };
+		200000000000000000000051 /* MapScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000051 /* MapScreen.swift */; };
+		200000000000000000000052 /* MapFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000052 /* MapFeatureTests.swift */; };
 		200000000000000000000023 /* SocialModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* SocialModels.swift */; };
 		200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* SocialAPIEndpoints.swift */; };
 		200000000000000000000025 /* SocialServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* SocialServices.swift */; };
@@ -167,6 +176,15 @@
 		100000000000000000000047 /* ReportFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportFeatureTests.swift; sourceTree = "<group>"; };
 		100000000000000000000048 /* PolicyFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyFeatureTests.swift; sourceTree = "<group>"; };
 		100000000000000000000049 /* AccountDeletionFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFeatureTests.swift; sourceTree = "<group>"; };
+		10000000000000000000004A /* MapModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapModels.swift; sourceTree = "<group>"; };
+		10000000000000000000004B /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		10000000000000000000004C /* MapController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapController.swift; sourceTree = "<group>"; };
+		10000000000000000000004D /* PlaceAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAnnotationView.swift; sourceTree = "<group>"; };
+		10000000000000000000004E /* MapFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFilterBar.swift; sourceTree = "<group>"; };
+		10000000000000000000004F /* SearchThisAreaButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchThisAreaButton.swift; sourceTree = "<group>"; };
+		100000000000000000000050 /* MapPlaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPlaceSheet.swift; sourceTree = "<group>"; };
+		100000000000000000000051 /* MapScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000052 /* MapFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFeatureTests.swift; sourceTree = "<group>"; };
 		100000000000000000000023 /* SocialModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialModels.swift; sourceTree = "<group>"; };
 		100000000000000000000024 /* SocialAPIEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialAPIEndpoints.swift; sourceTree = "<group>"; };
 		100000000000000000000025 /* SocialServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialServices.swift; sourceTree = "<group>"; };
@@ -497,6 +515,7 @@
 			children = (
 				300000000000000000000011 /* Safety */,
 				300000000000000000000007 /* Social */,
+				300000000000000000000016 /* Map */,
 				F107B6704DFD1AF8D3F959AF /* Auth */,
 				07F4EEADD711E6B223956E97 /* Explore */,
 				E80FC5B719825C4EE03E0A94 /* PlaceDetail */,
@@ -504,6 +523,29 @@
 				300000000000000000000002 /* Visit */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		300000000000000000000016 /* Map */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000004A /* MapModels.swift */,
+				10000000000000000000004B /* LocationService.swift */,
+				10000000000000000000004C /* MapController.swift */,
+				100000000000000000000051 /* MapScreen.swift */,
+				300000000000000000000017 /* Components */,
+			);
+			path = Map;
+			sourceTree = "<group>";
+		};
+		300000000000000000000017 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000004D /* PlaceAnnotationView.swift */,
+				10000000000000000000004E /* MapFilterBar.swift */,
+				10000000000000000000004F /* SearchThisAreaButton.swift */,
+				100000000000000000000050 /* MapPlaceSheet.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		36EB32C64820063D7551E4C3 /* Errors */ = {
@@ -577,6 +619,7 @@
 				100000000000000000000047 /* ReportFeatureTests.swift */,
 				100000000000000000000048 /* PolicyFeatureTests.swift */,
 				100000000000000000000049 /* AccountDeletionFeatureTests.swift */,
+				100000000000000000000052 /* MapFeatureTests.swift */,
 				100000000000000000000032 /* SocialTestSupport.swift */,
 				100000000000000000000033 /* SocialFollowCoordinatorTests.swift */,
 				100000000000000000000034 /* ActivityFeedControllerTests.swift */,
@@ -873,6 +916,7 @@
 				200000000000000000000047 /* ReportFeatureTests.swift in Sources */,
 				200000000000000000000048 /* PolicyFeatureTests.swift in Sources */,
 				200000000000000000000049 /* AccountDeletionFeatureTests.swift in Sources */,
+				200000000000000000000052 /* MapFeatureTests.swift in Sources */,
 				200000000000000000000032 /* SocialTestSupport.swift in Sources */,
 				200000000000000000000033 /* SocialFollowCoordinatorTests.swift in Sources */,
 				200000000000000000000034 /* ActivityFeedControllerTests.swift in Sources */,
@@ -916,6 +960,14 @@
 				200000000000000000000042 /* ReportModels.swift in Sources */,
 				200000000000000000000043 /* ReportService.swift in Sources */,
 				200000000000000000000044 /* ReportSheet.swift in Sources */,
+				20000000000000000000004A /* MapModels.swift in Sources */,
+				20000000000000000000004B /* LocationService.swift in Sources */,
+				20000000000000000000004C /* MapController.swift in Sources */,
+				20000000000000000000004D /* PlaceAnnotationView.swift in Sources */,
+				20000000000000000000004E /* MapFilterBar.swift in Sources */,
+				20000000000000000000004F /* SearchThisAreaButton.swift in Sources */,
+				200000000000000000000050 /* MapPlaceSheet.swift in Sources */,
+				200000000000000000000051 /* MapScreen.swift in Sources */,
 				200000000000000000000023 /* SocialModels.swift in Sources */,
 				200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */,
 				200000000000000000000025 /* SocialServices.swift in Sources */,

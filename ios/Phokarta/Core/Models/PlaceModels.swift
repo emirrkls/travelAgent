@@ -503,6 +503,13 @@ struct OwnerVisitSummary: Equatable, Sendable, Identifiable {
     let overallRating: Double
 }
 
+struct NearbyPlaceDTO: Decodable, Equatable, Sendable, Identifiable {
+    let place: PlaceSummary
+    let distanceMeters: Double
+
+    var id: UUID { place.id }
+}
+
 enum PlaceImageURL {
     /// Catalog images are backend `coverImage`/`photos` strings.
     /// Release never loads `http:`; Debug may for local fixtures.

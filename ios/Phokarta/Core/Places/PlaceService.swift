@@ -25,6 +25,50 @@ protocol PlaceServing: Sendable {
     func savedPlaceIDs() async throws -> Set<UUID>
 
     func ownerVisits() async throws -> [OwnerVisitSummary]
+
+    func bounds(
+        west: Double,
+        south: Double,
+        east: Double,
+        north: Double,
+        category: PlaceCategory?,
+        minRating: Double?,
+        limit: Int
+    ) async throws -> [PlaceSummary]
+
+    func nearby(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        category: PlaceCategory?,
+        minRating: Double?,
+        limit: Int
+    ) async throws -> [NearbyPlaceDTO]
+}
+
+extension PlaceServing {
+    func bounds(
+        west: Double,
+        south: Double,
+        east: Double,
+        north: Double,
+        category: PlaceCategory? = nil,
+        minRating: Double? = nil,
+        limit: Int = 50
+    ) async throws -> [PlaceSummary] {
+        []
+    }
+
+    func nearby(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double = 5000,
+        category: PlaceCategory? = nil,
+        minRating: Double? = nil,
+        limit: Int = 50
+    ) async throws -> [NearbyPlaceDTO] {
+        []
+    }
 }
 
 struct PlaceService: PlaceServing {
@@ -106,6 +150,48 @@ struct PlaceService: PlaceServing {
                 overallRating: $0.overallRating
             )
         }
+    }
+
+    func bounds(
+        west: Double,
+        south: Double,
+        east: Double,
+        north: Double,
+        category: PlaceCategory? = nil,
+        minRating: Double? = nil,
+        limit: Int = 50
+    ) async throws -> [PlaceSummary] {
+        try await client.send(
+            PlaceBoundsEndpoint(
+                west: west,
+                south: south,
+                east: east,
+                north: north,
+                category: category,
+                minRating: minRating,
+                limit: limit
+            )
+        )
+    }
+
+    func nearby(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double = 5000,
+        category: PlaceCategory? = nil,
+        minRating: Double? = nil,
+        limit: Int = 50
+    ) async throws -> [NearbyPlaceDTO] {
+        try await client.send(
+            PlaceNearbyEndpoint(
+                latitude: latitude,
+                longitude: longitude,
+                radiusMeters: radiusMeters,
+                category: category,
+                minRating: minRating,
+                limit: limit
+            )
+        )
     }
 }
 

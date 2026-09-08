@@ -28,6 +28,26 @@ struct MainTabView: View {
                 }
             }
 
+            MapScreen(
+                places: environment.places,
+                saved: environment.saved,
+                collections: environment.collections,
+                visits: environment.visits,
+                draftRepository: environment.draftRepository,
+                mutationRepository: environment.mutationRepository,
+                mediaStore: environment.mediaStore,
+                syncEngine: environment.syncEngine,
+                environment: environment,
+                currentUserId: user.id
+            )
+            .tabItem {
+                Label {
+                    Text("tab.map")
+                } icon: {
+                    Image(systemName: "map")
+                }
+            }
+
             ActivityTab(
                 environment: environment,
                 currentUserId: user.id
@@ -40,34 +60,12 @@ struct MainTabView: View {
                 }
             }
 
-            SavedScreen(
-                store: environment.saved,
-                places: environment.places,
-                collections: environment.collections,
-                visits: environment.visits,
-                draftRepository: environment.draftRepository,
-                mutationRepository: environment.mutationRepository,
-                mediaStore: environment.mediaStore,
-                syncEngine: environment.syncEngine,
+            SavedTab(
                 environment: environment,
-                currentUserId: user.id
+                user: user
             )
             .tabItem {
                 Label("saved.title", systemImage: "bookmark")
-            }
-
-            CollectionsScreen(
-                store: environment.collections,
-                saved: environment.saved,
-                places: environment.places,
-                visits: environment.visits,
-                draftRepository: environment.draftRepository,
-                mutationRepository: environment.mutationRepository,
-                mediaStore: environment.mediaStore,
-                syncEngine: environment.syncEngine
-            )
-            .tabItem {
-                Label("collections.title", systemImage: "square.stack")
             }
 
             ProfileTab(
@@ -102,6 +100,58 @@ struct MainTabView: View {
                 if isOnline {
                     _ = await environment.syncEngine.drain()
                 }
+            }
+        }
+    }
+}
+
+enum SavedCollectionsSegment: Int, CaseIterable {
+    case places = 0
+    case collections = 1
+}
+
+struct SavedTab: View {
+    @State private var selectedSegment: SavedCollectionsSegment = .places
+    let environment: AppEnvironment
+    let user: CurrentUser
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $selectedSegment) {
+                Text(String(localized: "saved.places_tab")).tag(SavedCollectionsSegment.places)
+                Text(String(localized: "saved.collections_tab")).tag(SavedCollectionsSegment.collections)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, PhokartaSpacing.md)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .background(PhokartaColor.background(for: colorScheme))
+
+            if selectedSegment == .places {
+                SavedScreen(
+                    store: environment.saved,
+                    places: environment.places,
+                    collections: environment.collections,
+                    visits: environment.visits,
+                    draftRepository: environment.draftRepository,
+                    mutationRepository: environment.mutationRepository,
+                    mediaStore: environment.mediaStore,
+                    syncEngine: environment.syncEngine,
+                    environment: environment,
+                    currentUserId: user.id
+                )
+            } else {
+                CollectionsScreen(
+                    store: environment.collections,
+                    saved: environment.saved,
+                    places: environment.places,
+                    visits: environment.visits,
+                    draftRepository: environment.draftRepository,
+                    mutationRepository: environment.mutationRepository,
+                    mediaStore: environment.mediaStore,
+                    syncEngine: environment.syncEngine
+                )
             }
         }
     }

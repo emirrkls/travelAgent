@@ -624,24 +624,11 @@ private final class FakeSavedPlaceService: SavedPlaceServing, @unchecked Sendabl
 }
 
 private final class FakeVisitService: VisitServing, @unchecked Sendable {
-    func createVisit(_ request: VisitCreateRequestDTO) async throws -> OwnerVisit {
+    func create(_ request: VisitCreateRequest) async throws -> OwnerVisit {
         throw AppError.general
     }
 
-    func publishVisit(draft: VisitDraft, placeId: UUID, clientMutationId: UUID) async throws -> OwnerVisit {
-        throw AppError.general
-    }
-
-    func publishVisit(
-        draft: VisitDraft,
-        placeId: UUID,
-        clientMutationId: UUID,
-        mediaIds: [UUID]
-    ) async throws -> OwnerVisit {
-        throw AppError.general
-    }
-
-    func ownerVisits(page: Int, size: Int) async throws -> PageDTO<OwnerVisit> {
-        PageDTO(content: [], page: 0, size: size, totalElements: 0, totalPages: 0, hasNext: false)
+    func ownerVisits() async throws -> [OwnerVisit] {
+        []
     }
 }

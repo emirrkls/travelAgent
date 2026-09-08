@@ -55,6 +55,10 @@ final class VisitStore {
     var visitedPlaceIDs: Set<UUID> {
         Set(visits.map(\.place.id))
     }
+
+    func isVisited(_ placeID: UUID) -> Bool {
+        visitedPlaceIDs.contains(placeID)
+    }
     private let service: any VisitServing
     let mediaService: any VisitMediaServing
     private var refreshID: UInt64 = 0

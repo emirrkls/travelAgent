@@ -8,7 +8,7 @@ struct PolicyStatus: Codable, Equatable, Sendable {
     let accepted: Bool
 }
 
-struct PolicyAcceptanceRequestDTO: Encodable, Sendable {
+struct PolicyAcceptanceRequestDTO: Codable, Equatable, Sendable {
     let policyVersion: String
 }
 

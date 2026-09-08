@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - DTO
 
-struct DeleteAccountRequestDTO: Encodable, Sendable {
+struct DeleteAccountRequestDTO: Codable, Equatable, Sendable {
     let currentPassword: String?
 
     // Redact from any description to prevent accidental logging

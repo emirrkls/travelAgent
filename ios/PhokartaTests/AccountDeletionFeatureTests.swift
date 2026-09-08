@@ -1,4 +1,5 @@
 import XCTest
+import SQLite3
 @testable import Phokarta
 
 @MainActor
@@ -57,7 +58,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // P8 invariants:
-        XCTAssertEqual(controller.phase, .success, "P8: Deletion controller must reach .success phase")
+        XCTAssertEqual(controller.phase, DeleteAccountPhase.success, "P8: Deletion controller must reach .success phase")
         XCTAssertTrue(sessionResetCalled, "P8: In-memory session state must be reset")
         XCTAssertTrue(signOutCalled, "P8: Session must be signed out")
         let purgedUser = await mockPurger.purgedUser
@@ -103,7 +104,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // P9 invariant: Lost-ACK converges to signed-out and purges local data
-        XCTAssertEqual(controller.phase, .success)
+        XCTAssertEqual(controller.phase, DeleteAccountPhase.success)
         XCTAssertTrue(sessionResetCalled)
         XCTAssertTrue(signOutCalled)
         let purgedUser = await mockPurger.purgedUser
@@ -324,7 +325,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Even with local purge error: session cleared and signed-out
-        XCTAssertEqual(controller.phase, .success)
+        XCTAssertEqual(controller.phase, DeleteAccountPhase.success)
         XCTAssertTrue(signOutCalled, "Must sign out even if local purge fails")
     }
 

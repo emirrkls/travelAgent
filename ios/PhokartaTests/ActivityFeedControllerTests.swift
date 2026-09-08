@@ -133,7 +133,7 @@ final class ActivityFeedControllerTests: XCTestCase {
     func testHardPrivacyInvariantNoPrivateMemoryInActivityDTO() throws {
         let sampleJSON = """
         {
-            "id": "11111111-2222-3333-4444-555555555555",
+            "visitId": "11111111-2222-3333-4444-555555555555",
             "author": {
                 "id": "22222222-3333-4444-5555-666666666666",
                 "username": "secret_traveler",

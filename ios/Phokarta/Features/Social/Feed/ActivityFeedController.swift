@@ -36,6 +36,7 @@ final class ActivityFeedController {
     private let socialService: any SocialServing
     private let store: SocialStateStore
     private var scopeGeneration: [ActivityScope: UInt64] = [:]
+    private var loadTasks: [ActivityScope: Task<Void, Never>] = [:]
     private var didStart = false
 
     init(
@@ -78,6 +79,8 @@ final class ActivityFeedController {
     }
 
     func retry() async {
+        loadTasks[activeScope]?.cancel()
+        loadTasks[activeScope] = nil
         await loadInitial(scope: activeScope)
     }
 
@@ -139,6 +142,8 @@ final class ActivityFeedController {
     }
 
     func invalidateFriendsFeed() {
+        loadTasks[.friends]?.cancel()
+        loadTasks[.friends] = nil
         friends = ScopeFeedState()
         if activeScope == .friends {
             Task { await loadInitial(scope: .friends) }
@@ -146,6 +151,19 @@ final class ActivityFeedController {
     }
 
     func loadInitial(scope: ActivityScope) async {
+        if let existing = loadTasks[scope] {
+            await existing.value
+            return
+        }
+        let task = Task { [weak self] in
+            await self?.performLoadInitial(scope: scope)
+        }
+        loadTasks[scope] = task
+        await task.value
+    }
+
+    private func performLoadInitial(scope: ActivityScope) async {
+        defer { loadTasks[scope] = nil }
         var state = scope == .friends ? friends : community
         state.isLoadingInitial = true
         state.errorMessage = nil

@@ -11,6 +11,7 @@ final class SocialStateStore {
     private(set) var busyUserIDs: Set<UUID> = []
     private(set) var errors: [UUID: AppError] = [:]
     private(set) var followerCountDeltas: [UUID: Int64] = [:]
+    private(set) var initialFollowing: [UUID: Bool] = [:]
 
     private let service: any SocialServing
     private var tasks: [UUID: Task<Void, Never>] = [:]
@@ -40,6 +41,7 @@ final class SocialStateStore {
         busyUserIDs.removeAll()
         errors.removeAll()
         followerCountDeltas.removeAll()
+        initialFollowing.removeAll()
         revision = 0
         userRevision.removeAll()
         ownerRefreshID &+= 1
@@ -72,7 +74,10 @@ final class SocialStateStore {
     }
 
     func effectiveFollowerCount(baseCount: Int64, for userId: UUID) -> Int64 {
-        max(0, baseCount + (followerCountDeltas[userId] ?? 0))
+        let currentFollowing = isFollowing(userId)
+        let initial = initialFollowing[userId] ?? confirmedRelationships[userId]?.isFollowing ?? currentFollowing
+        let delta: Int64 = (currentFollowing ? 1 : 0) - (initial ? 1 : 0)
+        return max(0, baseCount + delta)
     }
 
     func isBusy(_ userId: UUID) -> Bool {
@@ -94,8 +99,10 @@ final class SocialStateStore {
         }
         if let relationship {
             confirmedRelationships[userId] = relationship
+            initialFollowing[userId] = relationship.isFollowing
         } else {
             confirmedRelationships.removeValue(forKey: userId)
+            initialFollowing.removeValue(forKey: userId)
         }
         if desiredFollowing[userId] == nil {
             followerCountDeltas[userId] = 0
@@ -119,6 +126,9 @@ final class SocialStateStore {
     func toggleFollow(targetId: UUID, seedRelationship: RelationshipState? = nil) {
         if let seed = seedRelationship, confirmedRelationships[targetId] == nil {
             confirmedRelationships[targetId] = seed
+            if initialFollowing[targetId] == nil {
+                initialFollowing[targetId] = seed.isFollowing
+            }
         }
         let current = isFollowing(targetId)
         setDesired(!current, for: targetId)
@@ -132,18 +142,15 @@ final class SocialStateStore {
         }
 
         let confirmed = confirmedRelationships[targetId]?.isFollowing ?? false
+        if initialFollowing[targetId] == nil {
+            initialFollowing[targetId] = confirmed
+        }
         desiredFollowing[targetId] = desired
         errors[targetId] = nil
         busyUserIDs.insert(targetId)
 
-        // Compute count delta relative to confirmed state:
-        if desired && !confirmed {
-            followerCountDeltas[targetId] = 1
-        } else if !desired && confirmed {
-            followerCountDeltas[targetId] = -1
-        } else {
-            followerCountDeltas[targetId] = 0
-        }
+        let initial = initialFollowing[targetId] ?? confirmed
+        followerCountDeltas[targetId] = (desired ? 1 : 0) - (initial ? 1 : 0)
 
         guard tasks[targetId] == nil else { return }
         tasks[targetId] = Task { [weak self] in

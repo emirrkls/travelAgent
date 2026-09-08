@@ -147,7 +147,7 @@ final class ActivityFeedController {
 
     func loadInitial(scope: ActivityScope) async {
         var state = scope == .friends ? friends : community
-        state.isLoadingInitial: true
+        state.isLoadingInitial = true
         state.errorMessage = nil
         state.loadMoreErrorMessage = nil
         setScopeState(state, for: scope)

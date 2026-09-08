@@ -18,7 +18,7 @@ final class SocialStateStore {
     private var userRevision: [UUID: UInt64] = [:]
     private var ownerRefreshID: UInt64 = 0
 
-    var onFriendshipChanged: (@Sendable (UUID, Bool) -> Void)?
+    var onFriendshipChanged: (@MainActor (UUID, Bool) -> Void)?
 
     init(service: any SocialServing) {
         self.service = service

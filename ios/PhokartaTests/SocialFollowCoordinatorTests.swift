@@ -7,11 +7,15 @@ final class SocialFollowCoordinatorTests: XCTestCase {
     var store: SocialStateStore!
     let ownerID = SocialTestFixtures.aliceID
     let targetID = SocialTestFixtures.bobID
+    private var friendshipChangedTarget: UUID?
+    private var friendshipWasFriend: Bool?
 
     override func setUp() async throws {
         service = MockSocialService()
         store = SocialStateStore(service: service)
         store.activate(accountID: ownerID)
+        friendshipChangedTarget = nil
+        friendshipWasFriend = nil
     }
 
     func testInitialFollowAndMutualFriendshipTransition() async throws {
@@ -34,11 +38,9 @@ final class SocialFollowCoordinatorTests: XCTestCase {
         XCTAssertEqual(store.relationship(for: targetID)?.followsYou, true)
         XCTAssertEqual(store.isFriend(targetID), false)
 
-        var friendshipChangedTarget: UUID?
-        var friendshipWasFriend: Bool?
-        store.onFriendshipChanged = { id, isFriend in
-            friendshipChangedTarget = id
-            friendshipWasFriend = isFriend
+        store.onFriendshipChanged = { [weak self] id, isFriend in
+            self?.friendshipChangedTarget = id
+            self?.friendshipWasFriend = isFriend
         }
 
         // Toggle follow (optimistic)

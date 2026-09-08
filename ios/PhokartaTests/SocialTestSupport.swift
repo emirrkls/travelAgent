@@ -178,17 +178,16 @@ enum SocialTestFixtures {
             id: id,
             username: username,
             displayName: displayName,
-            bio: bio,
             avatarUrl: nil,
-            countryCount: 3,
+            bio: bio,
             cityCount: 8,
+            countryCount: 3,
             followerCount: followerCount,
             followingCount: followingCount,
             friendCount: friendCount,
             relationship: RelationshipState(
                 isFollowing: isFollowing,
-                followsYou: followsYou,
-                canMessage: false
+                followsYou: followsYou
             )
         )
     }

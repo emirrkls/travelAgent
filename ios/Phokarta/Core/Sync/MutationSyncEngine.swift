@@ -84,10 +84,13 @@ actor MutationSyncEngine {
                 continue
             }
 
+            var claimedMutation = mutation
+            claimedMutation.generation += 1
+
             let outcome: Outcome
-            switch mutation.type {
+            switch claimedMutation.type {
             case .publishVisit:
-                outcome = await syncVisit(mutation: mutation, userId: userId)
+                outcome = await syncVisit(mutation: claimedMutation, userId: userId)
             case .setSavedState:
                 outcome = .failure(retryable: false, category: "UNSUPPORTED_TYPE")
             }
@@ -101,13 +104,13 @@ actor MutationSyncEngine {
                 retryable = retryable || isRetryable
                 let newState: MutationState = isRetryable ? .failedRetryable : .failedPermanent
                 try? await mutationRepository.markFailure(
-                    mutationId: mutation.mutationId,
-                    generation: mutation.generation,
+                    mutationId: claimedMutation.mutationId,
+                    generation: claimedMutation.generation,
                     state: newState,
                     category: category,
                     now: Date(timeIntervalSince1970: Double(clock.nowMillis()) / 1000.0)
                 )
-                if category == "POLICY_ACCEPTANCE_REQUIRED" && mutation.type == .publishVisit {
+                if category == "POLICY_ACCEPTANCE_REQUIRED" && claimedMutation.type == .publishVisit {
                     pauseVisitPublishes = true
                 }
             }

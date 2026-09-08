@@ -515,7 +515,10 @@ final class DurablePersistenceTests: XCTestCase {
         XCTAssertEqual(sweepResult.removedFiles, 1)
         XCTAssertEqual(sweepResult.retainedFiles, 1)
 
-        XCTAssertNotNil(store.resolveOwned(ownerUserId: userId, relativePath: photo1.localRelativePath))
-        XCTAssertNil(store.resolveOwned(ownerUserId: userId, relativePath: photo2.localRelativePath))
+        let url1 = try XCTUnwrap(store.resolveOwned(ownerUserId: userId, relativePath: photo1.localRelativePath))
+        let url2 = try XCTUnwrap(store.resolveOwned(ownerUserId: userId, relativePath: photo2.localRelativePath))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url1.path), "photo1 must be retained on disk")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url2.path), "photo2 must be swept from disk")
+        XCTAssertEqual(store.getAllFileUrls().count, 1)
     }
 }

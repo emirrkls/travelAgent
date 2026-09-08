@@ -288,6 +288,19 @@ final class SavedPlaceStore {
         rows.values.sorted { $0.savedAt > $1.savedAt }
     }
 
+    var savedPlaceIDs: Set<UUID> {
+        var ids = confirmedIDs
+        for (id, _) in rows { ids.insert(id) }
+        for (id, desired) in desiredByID {
+            if desired {
+                ids.insert(id)
+            } else {
+                ids.remove(id)
+            }
+        }
+        return ids
+    }
+
     func activate(accountID: UUID) {
         guard self.accountID != accountID else { return }
         clear()

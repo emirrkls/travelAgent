@@ -326,7 +326,8 @@ final class MapFeatureTests: XCTestCase {
         XCTAssertEqual(controller.visiblePlaces.count, 0)
 
         // Save the place
-        _ = try await savedStore.toggle(placeId: place.id)
+        savedStore.toggle(place.id)
+        await savedStore.waitForMutation(of: place.id)
         controller.recomputeVisiblePlaces()
 
         XCTAssertEqual(controller.visiblePlaces.count, 1)

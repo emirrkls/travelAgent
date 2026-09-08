@@ -248,15 +248,17 @@ final class MapController {
 
     // MARK: - Saved Mutations
     func toggleSaved(placeId: UUID) {
+        saved.toggle(placeId)
+        recomputeVisiblePlaces()
         Task { [weak self] in
             guard let self else { return }
-            do {
-                _ = try await self.saved.toggle(placeId: placeId)
-                self.saveErrorMessageKey = nil
-                self.recomputeVisiblePlaces()
-            } catch {
+            await self.saved.waitForMutation(of: placeId)
+            if self.saved.error(for: placeId) != nil {
                 self.saveErrorMessageKey = "error.general"
+            } else {
+                self.saveErrorMessageKey = nil
             }
+            self.recomputeVisiblePlaces()
         }
     }
 

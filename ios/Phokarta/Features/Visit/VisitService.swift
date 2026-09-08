@@ -52,6 +52,9 @@ struct VisitService: VisitServing {
 final class VisitStore {
     private(set) var accountID: UUID?
     private(set) var visits: [OwnerVisit] = []
+    var visitedPlaceIDs: Set<UUID> {
+        Set(visits.map(\.place.id))
+    }
     private let service: any VisitServing
     let mediaService: any VisitMediaServing
     private var refreshID: UInt64 = 0

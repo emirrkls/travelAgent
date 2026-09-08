@@ -217,7 +217,7 @@ enum SocialTestFixtures {
     static func activityEvent(
         id: UUID = UUID(),
         author: ActivityAuthor = ActivityAuthor(id: bobID, username: "bob", displayName: "Bob", avatarUrl: nil),
-        place: ActivityPlace = ActivityPlace(id: UUID(), name: "Cappadocia Cave", category: .historic, city: "Nevsehir", coverImage: nil),
+        place: ActivityPlace = ActivityPlace(id: UUID(), name: "Cappadocia Cave", category: .attraction, city: "Nevsehir", coverImage: nil),
         score: Double = 9.0,
         review: String = "Amazing stay in Göreme!"
     ) -> ActivityEvent {

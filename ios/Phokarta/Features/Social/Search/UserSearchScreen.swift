@@ -63,7 +63,7 @@ struct UserSearchScreen: View {
                             ProgressView()
                             Spacer()
                         }
-                        .listRowBackground(Color.transparent)
+                        .listRowBackground(Color.clear)
                     }
 
                     if let loadMoreError = controller.loadMoreErrorMessage {
@@ -77,7 +77,7 @@ struct UserSearchScreen: View {
                             .font(.caption.bold())
                         }
                         .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.transparent)
+                        .listRowBackground(Color.clear)
                     }
                 }
                 .listStyle(.plain)

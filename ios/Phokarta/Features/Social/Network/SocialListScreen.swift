@@ -61,7 +61,7 @@ struct SocialListScreen: View {
                             ProgressView()
                             Spacer()
                         }
-                        .listRowBackground(Color.transparent)
+                        .listRowBackground(Color.clear)
                     }
 
                     if let loadMoreError = controller.loadMoreErrorMessage {
@@ -75,7 +75,7 @@ struct SocialListScreen: View {
                             .font(.caption.bold())
                         }
                         .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.transparent)
+                        .listRowBackground(Color.clear)
                     }
                 }
                 .listStyle(.plain)

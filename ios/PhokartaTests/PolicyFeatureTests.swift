@@ -263,42 +263,29 @@ final class PolicyFeatureTests: XCTestCase {
         XCTAssertEqual(eligibleBefore.first?.state, .failedRetryable)
 
         // 3. Mock remote visit creation on drain
-        actor Probe {
+        actor MockDrainVisitService: VisitServing {
             var receivedClientMutationId: UUID?
             var createCallCount = 0
 
-            func record(id: UUID) {
+            func create(_ request: VisitCreateRequest) async throws -> OwnerVisit {
                 createCallCount += 1
-                receivedClientMutationId = id
-            }
-        }
-
-        let probe = Probe()
-        struct MockVisitService: VisitServing {
-            let probe: Probe
-            func create(_ request: VisitCreateRequest) async throws -> CanonicalVisit {
-                await probe.record(id: request.clientMutationId)
-                return CanonicalVisit(
+                receivedClientMutationId = request.clientMutationId
+                return OwnerVisit(
                     id: UUID(),
-                    placeId: request.placeId,
-                    userId: UUID(),
+                    place: TestPlaces.summary(id: request.placeId),
                     visitedAt: request.visitedAt,
                     overallRating: request.overallRating,
-                    dimensions: [],
-                    publicReview: request.publicReview,
-                    privateMemory: request.privateMemory,
+                    dimensions: request.dimensions,
+                    publicReview: request.publicReview ?? "",
+                    privateMemory: request.privateMemory ?? "",
                     media: [],
-                    visibility: request.visibility,
-                    createdAt: "2026-09-08T10:00:00Z",
-                    updatedAt: "2026-09-08T10:00:00Z"
+                    visibility: request.visibility
                 )
             }
-        }
 
-        struct MockVisitMediaService: VisitMediaServing {
-            func createUploadIntent(_ request: MediaUploadIntentRequest) async throws -> MediaUploadIntentResponse { fatalError() }
-            func uploadToPresignedURL(_ url: URL, fileURL: URL, contentType: String, requiredHeaders: [String: String]) async throws {}
-            func confirmUpload(mediaId: UUID) async throws -> MediaConfirmResponse { fatalError() }
+            func ownerVisits() async throws -> [OwnerVisit] {
+                []
+            }
         }
 
         struct MockSessionOwner: SessionOwnerProvider {
@@ -306,12 +293,13 @@ final class PolicyFeatureTests: XCTestCase {
             func currentUserId() async -> UUID? { userId }
         }
 
+        let visitService = MockDrainVisitService()
         let syncEngine = MutationSyncEngine(
             mutationRepository: mutationRepo,
             draftRepository: draftRepo,
             mediaStore: mediaStore,
-            mediaService: MockVisitMediaService(),
-            visitService: MockVisitService(probe: probe),
+            mediaService: NullVisitMediaService(),
+            visitService: visitService,
             sessionProvider: MockSessionOwner(userId: accountA),
             clock: clock
         )
@@ -321,8 +309,8 @@ final class PolicyFeatureTests: XCTestCase {
 
         // P14 invariants:
         XCTAssertEqual(result.processed, 1, "P14: Queued visit must be processed upon drain")
-        let callCount = await probe.createCallCount
-        let receivedId = await probe.receivedClientMutationId
+        let callCount = await visitService.createCallCount
+        let receivedId = await visitService.receivedClientMutationId
         XCTAssertEqual(callCount, 1, "P14: Exactly one remote create must be performed")
         XCTAssertEqual(receivedId, mutationId, "P14: Exact same clientMutationId must be preserved")
 

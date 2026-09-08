@@ -165,4 +165,8 @@ enum VisitDimensionCatalog {
         let localized = String(localized: String.LocalizationValue(localizationKey))
         return localized == localizationKey ? key : localized
     }
+
+    static func title(for key: String) -> String {
+        localizedName(for: key)
+    }
 }

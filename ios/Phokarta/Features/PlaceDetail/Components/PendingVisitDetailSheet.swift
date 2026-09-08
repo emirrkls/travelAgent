@@ -90,7 +90,7 @@ struct PendingVisitDetailSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(pending.ratingDimensions.sorted(by: { $0.key < $1.key }), id: \.key) { item in
                                 HStack {
-                                    Text(VisitDimensionCatalog.title(for: item.key))
+                                    Text(VisitDimensionCatalog.localizedName(for: item.key))
                                         .font(.body)
                                     Spacer()
                                     Text(ScoreFormatting.display(item.value))

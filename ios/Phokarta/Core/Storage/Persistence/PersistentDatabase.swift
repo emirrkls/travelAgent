@@ -64,7 +64,7 @@ actor PersistentDatabase {
 
     // MARK: - Transaction Management
 
-    public func withTransaction<T>(_ block: (isolated PersistentDatabase) throws -> T) throws -> T {
+    func withTransaction<T>(_ block: @Sendable (isolated PersistentDatabase) throws -> T) throws -> T {
         guard let handle = db else { throw PersistenceError.executionFailed("Database closed") }
         try Self.executeRaw(handle, "BEGIN IMMEDIATE;")
         do {

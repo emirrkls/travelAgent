@@ -66,6 +66,7 @@ private actor MockVisitMediaService: VisitMediaServing {
         let mediaId = UUID()
         return MediaUploadIntentResponse(
             mediaId: mediaId,
+            status: .pendingUpload,
             uploadUrl: URL(string: "https://s3.example.com/upload/\(mediaId)")!,
             requiredHeaders: ["x-amz-acl": "private"],
             expiresAt: "2026-09-08T12:00:00Z"
@@ -79,14 +80,12 @@ private actor MockVisitMediaService: VisitMediaServing {
         confirmedMediaIds.append(mediaId)
         return MediaConfirmResponse(
             mediaId: mediaId,
-            status: "CONFIRMED",
-            confirmedAt: "2026-09-08T12:01:00Z"
+            status: .ready
         )
     }
 
     func mediaAccess(mediaId: UUID) async throws -> MediaAccessResponse {
         MediaAccessResponse(
-            mediaId: mediaId,
             url: URL(string: "https://s3.example.com/access/\(mediaId)")!,
             expiresAt: "2026-09-08T13:00:00Z"
         )
@@ -633,8 +632,10 @@ final class OfflineMutationSyncTests: XCTestCase {
 
     // MARK: - 6. Pre-ACK Privacy Test
 
+    @MainActor
     func testPendingVisitNeverAppearsInCanonicalStoreBeforeServerAck() async throws {
-        let visitStore = VisitStore()
+        let visitService = MockVisitService()
+        let visitStore = VisitStore(service: visitService)
         visitStore.activate(accountID: UUID())
 
         let pendingVisit = PendingVisit(
@@ -651,8 +652,8 @@ final class OfflineMutationSyncTests: XCTestCase {
             state: .queued
         )
 
-        // Assert pending visit is NOT present in canonical visitStore rows
-        XCTAssertTrue(visitStore.rows.isEmpty)
-        XCTAssertNil(visitStore.rows.first(where: { $0.id == pendingVisit.mutationId }))
+        // Assert pending visit is NOT present in canonical visitStore visits
+        XCTAssertTrue(visitStore.visits.isEmpty)
+        XCTAssertNil(visitStore.visits.first(where: { $0.id == pendingVisit.mutationId }))
     }
 }

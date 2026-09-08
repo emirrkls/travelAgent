@@ -252,7 +252,8 @@ final class DurablePersistenceTests: XCTestCase {
         )
         try await draftRepo.upsertPhotos(placeId: placeId, photos: [draftPhoto], userId: userId)
 
-        XCTAssertTrue(try await draftRepo.hasDraft(placeId: placeId, userId: userId))
+        let hasDraft = try await draftRepo.hasDraft(placeId: placeId, userId: userId)
+        XCTAssertTrue(hasDraft)
 
         // 2. Commit visit
         let mutationId = UUID()

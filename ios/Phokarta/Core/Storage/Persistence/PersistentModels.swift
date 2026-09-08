@@ -18,6 +18,8 @@ enum MediaUploadState: String, Sendable, Codable, CaseIterable {
     case localOnly = "LOCAL_ONLY"
     case intentCreated = "INTENT_CREATED"
     case readyRemote = "READY_REMOTE"
+
+    static let pendingLocal = MediaUploadState.localOnly
 }
 
 enum MediaFailureCategory {

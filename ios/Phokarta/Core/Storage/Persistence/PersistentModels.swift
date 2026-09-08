@@ -1,11 +1,11 @@
 import Foundation
 
-public enum MutationType: String, Sendable, Codable, CaseIterable {
+enum MutationType: String, Sendable, Codable, CaseIterable {
     case publishVisit = "PUBLISH_VISIT"
     case setSavedState = "SET_SAVED_STATE"
 }
 
-public enum MutationState: String, Sendable, Codable, CaseIterable {
+enum MutationState: String, Sendable, Codable, CaseIterable {
     case pending = "PENDING"
     case syncing = "SYNCING"
     case failedRetryable = "FAILED_RETRYABLE"
@@ -14,13 +14,13 @@ public enum MutationState: String, Sendable, Codable, CaseIterable {
     public static let queued = MutationState.pending
 }
 
-public enum MediaUploadState: String, Sendable, Codable, CaseIterable {
+enum MediaUploadState: String, Sendable, Codable, CaseIterable {
     case localOnly = "LOCAL_ONLY"
     case intentCreated = "INTENT_CREATED"
     case readyRemote = "READY_REMOTE"
 }
 
-public enum MediaFailureCategory {
+enum MediaFailureCategory {
     public static let legacyMediaReselectRequired = "LEGACY_MEDIA_RESELECT_REQUIRED"
     public static let unsupportedType = "UNSUPPORTED_TYPE"
     public static let tooLarge = "TOO_LARGE"
@@ -30,7 +30,7 @@ public enum MediaFailureCategory {
     public static let uploadRejected = "UPLOAD_REJECTED"
 }
 
-public enum SyncFailureReason: String, Sendable, Codable {
+enum SyncFailureReason: String, Sendable, Codable {
     case legacyMediaReselectRequired = "LEGACY_MEDIA_RESELECT_REQUIRED"
     case validation = "VALIDATION"
     case forbidden = "FORBIDDEN"
@@ -83,7 +83,7 @@ public enum SyncFailureReason: String, Sendable, Codable {
     }
 }
 
-public struct PendingVisitActions: Sendable, Equatable {
+struct PendingVisitActions: Sendable, Equatable {
     public let showRetry: Bool
     public let showEditAndRetry: Bool
     public let showRemove: Bool
@@ -123,7 +123,7 @@ public struct PendingVisitActions: Sendable, Equatable {
     }
 }
 
-public enum RecoverFailedVisitResult: Sendable, Equatable {
+enum RecoverFailedVisitResult: Sendable, Equatable {
     case success
     case existingDraftConflict
     case notFound
@@ -131,7 +131,7 @@ public enum RecoverFailedVisitResult: Sendable, Equatable {
     case invalidState
 }
 
-public enum RemoveFailedVisitResult: Sendable, Equatable {
+enum RemoveFailedVisitResult: Sendable, Equatable {
     case success
     case notFound
     case notOwner
@@ -140,7 +140,7 @@ public enum RemoveFailedVisitResult: Sendable, Equatable {
 
 // MARK: - Durable Record Structs
 
-public struct DurableVisitDraft: Sendable, Equatable {
+struct DurableVisitDraft: Sendable, Equatable {
     public let userId: UUID
     public let placeId: UUID
     public var overallScore: Double
@@ -188,7 +188,7 @@ public struct DurableVisitDraft: Sendable, Equatable {
     }
 }
 
-public struct DurableDraftDimensionScore: Sendable, Equatable {
+struct DurableDraftDimensionScore: Sendable, Equatable {
     public let userId: UUID
     public let placeId: UUID
     public let dimensionKey: String
@@ -202,7 +202,7 @@ public struct DurableDraftDimensionScore: Sendable, Equatable {
     }
 }
 
-public struct DurableDraftPhoto: Sendable, Equatable {
+struct DurableDraftPhoto: Sendable, Equatable {
     public let ownerUserId: UUID
     public let placeId: UUID
     public var position: Int
@@ -245,7 +245,7 @@ public struct DurableDraftPhoto: Sendable, Equatable {
     }
 }
 
-public struct DurablePendingMutation: Sendable, Equatable {
+struct DurablePendingMutation: Sendable, Equatable {
     public let mutationId: UUID
     public let userId: UUID
     public let type: MutationType
@@ -282,7 +282,7 @@ public struct DurablePendingMutation: Sendable, Equatable {
     }
 }
 
-public struct DurablePendingVisitPayload: Sendable, Equatable {
+struct DurablePendingVisitPayload: Sendable, Equatable {
     public let mutationId: UUID
     public let placeId: UUID
     public let visitedAtEpochDay: Int64
@@ -310,7 +310,7 @@ public struct DurablePendingVisitPayload: Sendable, Equatable {
     }
 }
 
-public struct DurablePendingDimensionScore: Sendable, Equatable {
+struct DurablePendingDimensionScore: Sendable, Equatable {
     public let mutationId: UUID
     public let dimensionKey: String
     public let score: Double
@@ -322,7 +322,7 @@ public struct DurablePendingDimensionScore: Sendable, Equatable {
     }
 }
 
-public struct DurablePendingPhoto: Sendable, Equatable {
+struct DurablePendingPhoto: Sendable, Equatable {
     public let mutationId: UUID
     public var position: Int
     public let ownerUserId: UUID
@@ -365,7 +365,7 @@ public struct DurablePendingPhoto: Sendable, Equatable {
     }
 }
 
-public struct PendingVisitMutationBundle: Sendable {
+struct PendingVisitMutationBundle: Sendable {
     public let mutation: DurablePendingMutation
     public let payload: DurablePendingVisitPayload
     public let dimensions: [DurablePendingDimensionScore]
@@ -447,44 +447,44 @@ struct PendingVisit: Sendable, Identifiable, Equatable {
     }
 }
 
-public enum VisitDraftRepositoryConstants {
-    public static let expiryMs: Int64 = 30 * 24 * 60 * 60 * 1000 // 30 days
-    public static let autosaveDebounceMs: UInt64 = 400
+enum VisitDraftRepositoryConstants {
+    static let expiryMs: Int64 = 30 * 24 * 60 * 60 * 1000 // 30 days
+    static let autosaveDebounceMs: UInt64 = 400
 }
 
 // MARK: - Testable Clock
 
-public protocol EpochClock: Sendable {
+protocol EpochClock: Sendable {
     func nowMillis() -> Int64
 }
 
-public struct SystemEpochClock: EpochClock {
-    public init() {}
-    public func nowMillis() -> Int64 {
+struct SystemEpochClock: EpochClock {
+    init() {}
+    func nowMillis() -> Int64 {
         Int64(Date().timeIntervalSince1970 * 1000)
     }
 }
 
-public final class TestEpochClock: EpochClock, @unchecked Sendable {
+final class TestEpochClock: EpochClock, @unchecked Sendable {
     private var currentMillis: Int64
 
-    public init(initialMillis: Int64 = 0) {
+    init(initialMillis: Int64 = 0) {
         self.currentMillis = initialMillis
     }
 
-    public func nowMillis() -> Int64 {
+    func nowMillis() -> Int64 {
         return currentMillis
     }
 
-    public func advance(byMillis millis: Int64) {
+    func advance(byMillis millis: Int64) {
         currentMillis += millis
     }
 
-    public func advanceDays(_ days: Int) {
+    func advanceDays(_ days: Int) {
         currentMillis += Int64(days) * 24 * 60 * 60 * 1000
     }
 
-    public func setMillis(_ millis: Int64) {
+    func setMillis(_ millis: Int64) {
         currentMillis = millis
     }
 }

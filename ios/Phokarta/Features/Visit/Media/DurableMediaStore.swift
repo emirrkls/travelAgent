@@ -1,7 +1,7 @@
 import Foundation
 import UniformTypeIdentifiers
 
-public protocol DurableMediaStoring: Sendable {
+protocol DurableMediaStoring: Sendable {
     var rootDirectory: URL { get }
 
     func importMedia(
@@ -18,11 +18,11 @@ public protocol DurableMediaStoring: Sendable {
     func getAllFileUrls() -> [URL]
 }
 
-public final class DurableMediaStore: DurableMediaStoring, @unchecked Sendable {
-    public let rootDirectory: URL
+final class DurableMediaStore: DurableMediaStoring, @unchecked Sendable {
+    let rootDirectory: URL
     private let fileManager = FileManager.default
 
-    public init(customRootDirectory: URL? = nil) {
+    init(customRootDirectory: URL? = nil) {
         if let custom = customRootDirectory {
             self.rootDirectory = custom
         } else {

@@ -1,14 +1,14 @@
 import Foundation
 import SQLite3
 
-public enum PersistenceError: Error, LocalizedError {
+enum PersistenceError: Error, LocalizedError {
     case databaseOpenFailed(String)
     case executionFailed(String)
     case transactionFailed(String)
     case recordNotFound
     case conflict(String)
 
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .databaseOpenFailed(let msg): return "Database open failed: \(msg)"
         case .executionFailed(let msg): return "SQLite execution failed: \(msg)"
@@ -19,11 +19,11 @@ public enum PersistenceError: Error, LocalizedError {
     }
 }
 
-public actor PersistentDatabase {
+actor PersistentDatabase {
     private var db: OpaquePointer?
     private let path: String?
 
-    public init(path: String? = nil) throws {
+    init(path: String? = nil) throws {
         self.path = path
         let openPath = path ?? ":memory:"
         var handle: OpaquePointer?

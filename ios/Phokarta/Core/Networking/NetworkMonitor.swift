@@ -1,19 +1,19 @@
 import Foundation
 import Network
 
-public protocol NetworkMonitoring: Sendable {
+protocol NetworkMonitoring: Sendable {
     var isConnected: Bool { get }
     func observePathUpdates() -> AsyncStream<Bool>
 }
 
-public final class SystemNetworkMonitor: NetworkMonitoring, @unchecked Sendable {
+final class SystemNetworkMonitor: NetworkMonitoring, @unchecked Sendable {
     private let monitor: NWPathMonitor
     private let queue = DispatchQueue(label: "com.emirrkls.phokarta.networkmonitor")
     private var currentPath: NWPath?
     private let lock = NSLock()
     private var continuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
 
-    public init() {
+    init() {
         self.monitor = NWPathMonitor()
         self.monitor.pathUpdateHandler = { [weak self] path in
             self?.handleUpdate(path)
@@ -66,12 +66,12 @@ public final class SystemNetworkMonitor: NetworkMonitoring, @unchecked Sendable 
     }
 }
 
-public final class TestNetworkMonitor: NetworkMonitoring, @unchecked Sendable {
+final class TestNetworkMonitor: NetworkMonitoring, @unchecked Sendable {
     private var connected: Bool
     private let lock = NSLock()
     private var continuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
 
-    public init(initialConnected: Bool = true) {
+    init(initialConnected: Bool = true) {
         self.connected = initialConnected
     }
 

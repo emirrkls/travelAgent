@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public protocol VisitDraftRepository: Sendable {
+protocol VisitDraftRepository: Sendable {
     func getDraft(placeId: UUID, userId: UUID) async throws -> DurableVisitDraft?
     func hasDraft(placeId: UUID, userId: UUID) async throws -> Bool
     func saveDraft(placeId: UUID, draft: DurableVisitDraft, userId: UUID) async throws
@@ -14,11 +14,11 @@ public protocol VisitDraftRepository: Sendable {
     func getAllPhotos() async throws -> [DurableDraftPhoto]
 }
 
-public final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
+final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
     private let database: PersistentDatabase
     private let clock: any EpochClock
 
-    public init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
+    init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
         self.database = database
         self.clock = clock
     }

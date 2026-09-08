@@ -1,30 +1,29 @@
 import Foundation
 
-public struct MediaReconciliationResult: Sendable, Equatable {
-    public let removedFiles: Int
-    public let retainedFiles: Int
+struct MediaReconciliationResult: Sendable, Equatable {
+    let removedFiles: Int
+    let retainedFiles: Int
 
-    public init(removedFiles: Int, retainedFiles: Int) {
+    init(removedFiles: Int, retainedFiles: Int) {
         self.removedFiles = removedFiles
         self.retainedFiles = retainedFiles
     }
 }
 
-public protocol MediaFileReconciling: Sendable {
+protocol MediaFileReconciling: Sendable {
     func reconcile() async throws -> MediaReconciliationResult
 }
 
-public final class MediaFileReconciler: MediaFileReconciling, Sendable {
+final class MediaFileReconciler: MediaFileReconciling, Sendable {
     private let mediaStore: any DurableMediaStoring
     private let draftRepository: any VisitDraftRepository
     private let mutationRepository: any OfflineMutationRepository
     private let lock: MediaFileMutationLock
     private let clock: any EpochClock
-    private let fileManager = FileManager.default
 
-    public static let staleFileGraceMs: Int64 = 5 * 60 * 1000 // 5 minutes
+    static let staleFileGraceMs: Int64 = 5 * 60 * 1000 // 5 minutes
 
-    public init(
+    init(
         mediaStore: any DurableMediaStoring,
         draftRepository: any VisitDraftRepository,
         mutationRepository: any OfflineMutationRepository,
@@ -38,8 +37,9 @@ public final class MediaFileReconciler: MediaFileReconciling, Sendable {
         self.clock = clock
     }
 
-    public func reconcile() async throws -> MediaReconciliationResult {
+    func reconcile() async throws -> MediaReconciliationResult {
         try await lock.withLock {
+            let fileManager = FileManager.default
             let root = mediaStore.rootDirectory
             guard fileManager.fileExists(atPath: root.path) else {
                 return MediaReconciliationResult(removedFiles: 0, retainedFiles: 0)

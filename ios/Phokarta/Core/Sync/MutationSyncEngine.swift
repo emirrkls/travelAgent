@@ -1,16 +1,16 @@
 import Foundation
 
-public struct SyncRunResult: Sendable, Equatable {
-    public let retryableFailure: Bool
-    public let processed: Int
+struct SyncRunResult: Sendable, Equatable {
+    let retryableFailure: Bool
+    let processed: Int
 
-    public init(retryableFailure: Bool, processed: Int) {
+    init(retryableFailure: Bool, processed: Int) {
         self.retryableFailure = retryableFailure
         self.processed = processed
     }
 }
 
-public protocol SessionOwnerProvider: Sendable {
+protocol SessionOwnerProvider: Sendable {
     func currentUserId() async -> UUID?
 }
 

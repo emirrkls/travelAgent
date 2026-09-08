@@ -1,19 +1,19 @@
 import Foundation
 
-public protocol LocalAccountPurger: Sendable {
+protocol LocalAccountPurger: Sendable {
     func purgeLocalData(userId: UUID) async throws
 }
 
-public final class SQLiteLocalAccountPurger: LocalAccountPurger, Sendable {
+final class SQLiteLocalAccountPurger: LocalAccountPurger, Sendable {
     private let database: PersistentDatabase
     private let mediaStore: (any DurableMediaStoring)?
 
-    public init(database: PersistentDatabase, mediaStore: (any DurableMediaStoring)? = nil) {
+    init(database: PersistentDatabase, mediaStore: (any DurableMediaStoring)? = nil) {
         self.database = database
         self.mediaStore = mediaStore
     }
 
-    public func purgeLocalData(userId: UUID) async throws {
+    func purgeLocalData(userId: UUID) async throws {
         try await database.withTransaction { db in
             try db.execute(
                 "DELETE FROM visit_drafts WHERE userId = ?;",

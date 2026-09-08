@@ -156,7 +156,8 @@ final class ActivityFeedController {
             return
         }
         let task = Task { [weak self] in
-            await self?.performLoadInitial(scope: scope)
+            guard let self else { return }
+            await self.performLoadInitial(scope: scope)
         }
         loadTasks[scope] = task
         await task.value

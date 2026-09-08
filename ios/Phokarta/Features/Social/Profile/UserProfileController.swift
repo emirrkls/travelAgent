@@ -113,4 +113,9 @@ final class UserProfileController {
         guard !isOwnProfile else { return }
         store.toggleFollow(targetId: userId, seedRelationship: profile?.relationship)
     }
+
+    func markUnavailable() {
+        profile = nil
+        phase = .unavailable
+    }
 }

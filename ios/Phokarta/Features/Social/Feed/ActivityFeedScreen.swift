@@ -6,15 +6,21 @@ struct ActivityFeedScreen: View {
     let onOpenPlace: (UUID) -> Void
     let onOpenAuthor: (UUID) -> Void
 
+    let reportService: (any ReportServing)?
+    @State private var activeReportController: ReportController?
+    @State private var showReportSheet = false
+
     @Environment(\.colorScheme) private var colorScheme
 
     init(
         controller: ActivityFeedController,
         currentUserId: UUID?,
+        reportService: (any ReportServing)? = nil,
         onOpenPlace: @escaping (UUID) -> Void,
         onOpenAuthor: @escaping (UUID) -> Void
     ) {
         self.currentUserId = currentUserId
+        self.reportService = reportService
         self.onOpenPlace = onOpenPlace
         self.onOpenAuthor = onOpenAuthor
         _controller = State(initialValue: controller)
@@ -25,6 +31,7 @@ struct ActivityFeedScreen: View {
         socialService: any SocialServing,
         store: SocialStateStore,
         currentUserId: UUID? = nil,
+        reportService: (any ReportServing)? = nil,
         onOpenPlace: @escaping (UUID) -> Void,
         onOpenAuthor: @escaping (UUID) -> Void
     ) {
@@ -36,6 +43,7 @@ struct ActivityFeedScreen: View {
         self.init(
             controller: controller,
             currentUserId: currentUserId,
+            reportService: reportService,
             onOpenPlace: onOpenPlace,
             onOpenAuthor: onOpenAuthor
         )
@@ -64,6 +72,21 @@ struct ActivityFeedScreen: View {
         .task {
             controller.startIfNeeded()
         }
+        .sheet(isPresented: $showReportSheet) {
+            if let activeReportController {
+                ReportSheet(controller: activeReportController) {
+                    showReportSheet = false
+                }
+            }
+        }
+    }
+
+    private func openReportVisit(visitId: UUID, placeName: String) {
+        guard let reportService else { return }
+        let rc = ReportController(service: reportService)
+        rc.open(target: .visit(id: visitId, placeName: placeName))
+        activeReportController = rc
+        showReportSheet = true
     }
 
     @ViewBuilder
@@ -91,7 +114,10 @@ struct ActivityFeedScreen: View {
                             isExpanded: controller.expandedReviewIds.contains(event.visitId),
                             onToggleExpand: { controller.toggleReviewExpanded(visitId: event.visitId) },
                             onOpenPlace: onOpenPlace,
-                            onOpenAuthor: onOpenAuthor
+                            onOpenAuthor: onOpenAuthor,
+                            onReportVisit: reportService != nil ? { visitId, placeName in
+                                openReportVisit(visitId: visitId, placeName: placeName)
+                            } : nil
                         )
                         .onAppear {
                             if event.id == feed.items.last?.id && feed.hasNext {

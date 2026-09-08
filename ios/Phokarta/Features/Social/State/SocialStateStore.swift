@@ -47,6 +47,22 @@ final class SocialStateStore {
         ownerRefreshID &+= 1
     }
 
+    /// Removes all cached state for a blocked user and fires friendship callback.
+    func invalidateUser(_ userId: UUID) {
+        let wasFriend = isFriend(userId)
+        tasks[userId]?.cancel()
+        tasks.removeValue(forKey: userId)
+        confirmedRelationships.removeValue(forKey: userId)
+        desiredFollowing.removeValue(forKey: userId)
+        busyUserIDs.remove(userId)
+        errors.removeValue(forKey: userId)
+        followerCountDeltas.removeValue(forKey: userId)
+        initialFollowing.removeValue(forKey: userId)
+        if wasFriend {
+            onFriendshipChanged?(userId, false)
+        }
+    }
+
     func isFollowing(_ userId: UUID) -> Bool {
         if let desired = desiredFollowing[userId] {
             return desired

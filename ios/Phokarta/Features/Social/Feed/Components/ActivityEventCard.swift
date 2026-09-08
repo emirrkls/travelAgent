@@ -7,6 +7,7 @@ struct ActivityEventCard: View {
     let onToggleExpand: () -> Void
     let onOpenPlace: (UUID) -> Void
     let onOpenAuthor: (UUID) -> Void
+    var onReportVisit: ((UUID, String) -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     init(
@@ -15,7 +16,8 @@ struct ActivityEventCard: View {
         isExpanded: Bool,
         onToggleExpand: @escaping () -> Void,
         onOpenPlace: @escaping (UUID) -> Void,
-        onOpenAuthor: @escaping (UUID) -> Void
+        onOpenAuthor: @escaping (UUID) -> Void,
+        onReportVisit: ((UUID, String) -> Void)? = nil
     ) {
         self.event = event
         self.currentUserId = currentUserId
@@ -23,6 +25,7 @@ struct ActivityEventCard: View {
         self.onToggleExpand = onToggleExpand
         self.onOpenPlace = onOpenPlace
         self.onOpenAuthor = onOpenAuthor
+        self.onReportVisit = onReportVisit
     }
 
     private var isCurrentUser: Bool {
@@ -48,23 +51,41 @@ struct ActivityEventCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
             // Author row
-            Button {
-                onOpenAuthor(event.author.id)
-            } label: {
-                HStack(spacing: PhokartaSpacing.sm) {
-                    UserAvatarView(urlString: event.author.avatarUrl, name: event.author.displayName, size: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(authorDisplayName)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                        Text(PlaceDateFormatting.mediumDate(from: event.visitedAt))
-                            .font(.caption)
-                            .foregroundStyle(PhokartaColor.muted(for: colorScheme))
+            HStack(spacing: PhokartaSpacing.sm) {
+                Button {
+                    onOpenAuthor(event.author.id)
+                } label: {
+                    HStack(spacing: PhokartaSpacing.sm) {
+                        UserAvatarView(urlString: event.author.avatarUrl, name: event.author.displayName, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(authorDisplayName)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                            Text(PlaceDateFormatting.mediumDate(from: event.visitedAt))
+                                .font(.caption)
+                                .foregroundStyle(PhokartaColor.muted(for: colorScheme))
+                        }
                     }
-                    Spacer()
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if !isCurrentUser, let onReportVisit {
+                    Menu {
+                        Button {
+                            onReportVisit(event.visitId, event.place.name)
+                        } label: {
+                            Label(String(localized: "report.action_visit"), systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(PhokartaColor.muted(for: colorScheme))
+                            .padding(PhokartaSpacing.xs)
+                    }
+                    .accessibilityLabel(String(localized: "action.more_options"))
                 }
             }
-            .buttonStyle(.plain)
 
             // Place info row
             Button {

@@ -12,29 +12,44 @@ struct UserProfileScreen: View {
     let onUserSearch: () -> Void
     let onLogout: (() -> Void)?
 
+    private let store: SocialStateStore
+    let blockService: (any BlockServing)?
+    let reportService: (any ReportServing)?
+    let onSettings: (() -> Void)?
+
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showBlockConfirmation = false
+    @State private var showReportSheet = false
+    @State private var activeReportController: ReportController?
 
     init(
         userId: UUID,
         isOwnProfile: Bool,
         service: any SocialServing,
         store: SocialStateStore,
+        blockService: (any BlockServing)? = nil,
+        reportService: (any ReportServing)? = nil,
         onSelectPlace: @escaping (UUID) -> Void,
         onSelectUser: @escaping (UUID) -> Void,
         onFollowers: @escaping () -> Void,
         onFollowing: @escaping () -> Void,
         onFriends: @escaping () -> Void,
         onUserSearch: @escaping () -> Void,
+        onSettings: (() -> Void)? = nil,
         onLogout: (() -> Void)? = nil
     ) {
         self.userId = userId
         self.isOwnProfile = isOwnProfile
+        self.store = store
+        self.blockService = blockService
+        self.reportService = reportService
         self.onSelectPlace = onSelectPlace
         self.onSelectUser = onSelectUser
         self.onFollowers = onFollowers
         self.onFollowing = onFollowing
         self.onFriends = onFriends
         self.onUserSearch = onUserSearch
+        self.onSettings = onSettings
         self.onLogout = onLogout
         _controller = State(initialValue: UserProfileController(
             userId: userId,
@@ -75,6 +90,74 @@ struct UserProfileScreen: View {
         }
         .task {
             controller.startIfNeeded()
+        }
+        .toolbar {
+            if !isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            showBlockConfirmation = true
+                        } label: {
+                            Label(String(localized: "block.action"), systemImage: "person.slash")
+                        }
+
+                        Button {
+                            openReport()
+                        } label: {
+                            Label(String(localized: "report.action_user"), systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                    }
+                    .accessibilityLabel(String(localized: "action.more_options"))
+                }
+            } else if let onSettings {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onSettings) {
+                        Image(systemName: "gearshape")
+                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                    }
+                    .accessibilityLabel(String(localized: "settings.title"))
+                }
+            }
+        }
+        .confirmationDialog(
+            String(localized: "block.confirm_title"),
+            isPresented: $showBlockConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "block.action"), role: .destructive) {
+                performBlock()
+            }
+            Button(String(localized: "action.cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "block.confirm_body"))
+        }
+        .sheet(isPresented: $showReportSheet) {
+            if let activeReportController {
+                ReportSheet(controller: activeReportController) {
+                    showReportSheet = false
+                }
+            }
+        }
+    }
+
+    private func openReport() {
+        guard let reportService else { return }
+        let rc = ReportController(service: reportService)
+        rc.open(target: .user(id: userId, displayName: displayName))
+        activeReportController = rc
+        showReportSheet = true
+    }
+
+    private func performBlock() {
+        Task {
+            if let blockService {
+                try? await blockService.block(userId: userId)
+            }
+            store.invalidateUser(userId)
+            controller.markUnavailable()
         }
     }
 

@@ -33,19 +33,27 @@ struct ScoreSummaryCard: View {
 
 struct ReviewRowView: View {
     let review: ReviewSummary
+    var onSelectAuthor: ((UUID) -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PhokartaSpacing.sm) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(review.displayName)
-                    .font(.headline)
-                    .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                Spacer()
-                Text(ScoreFormatting.display(review.overallRating))
-                    .font(.headline)
-                    .foregroundStyle(PhokartaColor.sage)
+        VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
+            Button {
+                onSelectAuthor?(review.userId)
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(review.displayName)
+                        .font(.headline)
+                        .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                    Spacer()
+                    Text(ScoreFormatting.display(review.overallRating))
+                        .font(.headline)
+                        .foregroundStyle(PhokartaColor.sage)
+                }
             }
+            .buttonStyle(.plain)
+            .disabled(onSelectAuthor == nil)
+
             Text(PlaceDateFormatting.mediumDate(from: review.visitedAt))
                 .font(.caption)
                 .foregroundStyle(PhokartaColor.muted(for: colorScheme))
@@ -77,24 +85,31 @@ struct ReviewRowView: View {
 
 struct FriendsPreviewList: View {
     let friends: [FriendPreview]
+    var onSelectFriend: ((UUID) -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.sm) {
             FeatureSectionHeader(title: String(localized: "place.friends.visited"))
             ForEach(friends.prefix(5)) { friend in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(friend.displayName)
-                            .font(.headline)
-                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                        Text(ScoreFormatting.display(friend.latestScore))
-                            .font(.subheadline)
-                            .foregroundStyle(PhokartaColor.sage)
+                Button {
+                    onSelectFriend?(friend.userId)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(friend.displayName)
+                                .font(.headline)
+                                .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                            Text(ScoreFormatting.display(friend.latestScore))
+                                .font(.subheadline)
+                                .foregroundStyle(PhokartaColor.sage)
+                        }
+                        Spacer()
+                        ScoreBadgeView(value: friend.latestScore, compact: true)
                     }
-                    Spacer()
-                    ScoreBadgeView(value: friend.latestScore, compact: true)
                 }
+                .buttonStyle(.plain)
+                .disabled(onSelectFriend == nil)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
                     String(

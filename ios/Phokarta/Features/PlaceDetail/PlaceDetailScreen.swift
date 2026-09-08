@@ -15,6 +15,7 @@ struct PlaceDetailScreen: View {
     private let mutationRepository: (any OfflineMutationRepository)?
     private let mediaStore: (any DurableMediaStoring)?
     private let syncEngine: MutationSyncEngine?
+    private let onSelectUser: ((UUID) -> Void)?
 
     init(
         placeId: UUID,
@@ -25,7 +26,8 @@ struct PlaceDetailScreen: View {
         draftRepository: (any VisitDraftRepository)? = nil,
         mutationRepository: (any OfflineMutationRepository)? = nil,
         mediaStore: (any DurableMediaStoring)? = nil,
-        syncEngine: MutationSyncEngine? = nil
+        syncEngine: MutationSyncEngine? = nil,
+        onSelectUser: ((UUID) -> Void)? = nil
     ) {
         self.saved = saved
         self.collections = collections
@@ -34,6 +36,7 @@ struct PlaceDetailScreen: View {
         self.mutationRepository = mutationRepository
         self.mediaStore = mediaStore
         self.syncEngine = syncEngine
+        self.onSelectUser = onSelectUser
         _controller = State(initialValue: PlaceDetailController(placeId: placeId, places: places))
     }
 
@@ -248,7 +251,7 @@ struct PlaceDetailScreen: View {
                 }
 
                 if let friends = content.friends, !friends.friends.isEmpty {
-                    FriendsPreviewList(friends: friends.friends)
+                    FriendsPreviewList(friends: friends.friends, onSelectFriend: onSelectUser)
                 }
 
                 reviews(content)
@@ -424,7 +427,7 @@ struct PlaceDetailScreen: View {
                     .foregroundStyle(PhokartaColor.muted(for: colorScheme))
             } else {
                 ForEach(rows) { review in
-                    ReviewRowView(review: review)
+                    ReviewRowView(review: review, onSelectAuthor: onSelectUser)
                 }
             }
         }

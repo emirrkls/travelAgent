@@ -12,6 +12,8 @@ struct ExploreScreen: View {
     private let mutationRepository: (any OfflineMutationRepository)?
     private let mediaStore: (any DurableMediaStoring)?
     private let syncEngine: MutationSyncEngine?
+    private let environment: AppEnvironment?
+    private let currentUserId: UUID?
 
     init(
         places: any PlaceServing,
@@ -21,7 +23,9 @@ struct ExploreScreen: View {
         draftRepository: (any VisitDraftRepository)? = nil,
         mutationRepository: (any OfflineMutationRepository)? = nil,
         mediaStore: (any DurableMediaStoring)? = nil,
-        syncEngine: MutationSyncEngine? = nil
+        syncEngine: MutationSyncEngine? = nil,
+        environment: AppEnvironment? = nil,
+        currentUserId: UUID? = nil
     ) {
         self.places = places
         self.saved = saved
@@ -31,6 +35,8 @@ struct ExploreScreen: View {
         self.mutationRepository = mutationRepository
         self.mediaStore = mediaStore
         self.syncEngine = syncEngine
+        self.environment = environment
+        self.currentUserId = currentUserId
         _controller = State(initialValue: ExploreController(places: places))
     }
 
@@ -65,19 +71,30 @@ struct ExploreScreen: View {
                 await controller.refresh()
             }
             .navigationDestination(for: AppRoute.self) { route in
-                switch route {
-                case .placeDetail(let id):
-                    PlaceDetailScreen(
-                        placeId: id,
-                        places: places,
-                        saved: saved,
-                        collections: collections,
-                        visits: visits,
-                        draftRepository: draftRepository,
-                        mutationRepository: mutationRepository,
-                        mediaStore: mediaStore,
-                        syncEngine: syncEngine
+                if let environment, let currentUserId {
+                    AppRouteDestinationView(
+                        route: route,
+                        environment: environment,
+                        currentUserId: currentUserId,
+                        onNavigate: { path.append($0) }
                     )
+                } else {
+                    switch route {
+                    case .placeDetail(let id):
+                        PlaceDetailScreen(
+                            placeId: id,
+                            places: places,
+                            saved: saved,
+                            collections: collections,
+                            visits: visits,
+                            draftRepository: draftRepository,
+                            mutationRepository: mutationRepository,
+                            mediaStore: mediaStore,
+                            syncEngine: syncEngine
+                        )
+                    default:
+                        EmptyView()
+                    }
                 }
             }
         }

@@ -47,6 +47,9 @@ struct AppEnvironment {
     let syncEngine: MutationSyncEngine
     let purger: any LocalAccountPurger
     let networkMonitor: any NetworkMonitoring
+    let social: any SocialServing
+    let activity: any ActivityServing
+    let socialState: SocialStateStore
 
     @MainActor
     static func live() throws -> AppEnvironment {
@@ -99,10 +102,15 @@ struct AppEnvironment {
         let purger = SQLiteLocalAccountPurger(database: database, mediaStore: mediaStore)
         let networkMonitor = SystemNetworkMonitor()
 
+        let socialService = SocialService(client: client)
+        let activityService = ActivityService(client: client)
+        let socialState = SocialStateStore(service: socialService)
+
         let session = AuthSessionController(auth: auth) {
             saved.clear()
             collections.clear()
             visits.clear()
+            socialState.clear()
         }
         relay.controller = session
         sessionOwner.controller = session
@@ -123,7 +131,10 @@ struct AppEnvironment {
             mediaReconciler: mediaReconciler,
             syncEngine: syncEngine,
             purger: purger,
-            networkMonitor: networkMonitor
+            networkMonitor: networkMonitor,
+            social: socialService,
+            activity: activityService,
+            socialState: socialState
         )
     }
 
@@ -136,7 +147,10 @@ struct AppEnvironment {
         places: (any PlaceServing)? = nil,
         customDatabase: PersistentDatabase? = nil,
         customMediaStore: (any DurableMediaStoring)? = nil,
-        customNetworkMonitor: (any NetworkMonitoring)? = nil
+        customNetworkMonitor: (any NetworkMonitoring)? = nil,
+        customSocial: (any SocialServing)? = nil,
+        customActivity: (any ActivityServing)? = nil,
+        customSocialState: SocialStateStore? = nil
     ) -> AppEnvironment {
         let relay = TerminalAuthRelay()
         let refresh = TokenRefreshCoordinator(
@@ -152,6 +166,9 @@ struct AppEnvironment {
         let visitService = VisitService(client: client)
         let visitMediaService = VisitMediaService(client: client)
         let visits = VisitStore(service: visitService, mediaService: visitMediaService)
+        let socialService = customSocial ?? SocialService(client: client)
+        let activityService = customActivity ?? ActivityService(client: client)
+        let socialState = customSocialState ?? SocialStateStore(service: socialService)
 
         let database = customDatabase ?? (try! PersistentDatabase())
         let draftRepository = SQLiteVisitDraftRepository(database: database)
@@ -181,6 +198,7 @@ struct AppEnvironment {
             saved.clear()
             collections.clear()
             visits.clear()
+            socialState.clear()
         }
         relay.controller = session
         sessionOwner.controller = session
@@ -201,7 +219,10 @@ struct AppEnvironment {
             mediaReconciler: mediaReconciler,
             syncEngine: syncEngine,
             purger: purger,
-            networkMonitor: networkMonitor
+            networkMonitor: networkMonitor,
+            social: socialService,
+            activity: activityService,
+            socialState: socialState
         )
     }
 }

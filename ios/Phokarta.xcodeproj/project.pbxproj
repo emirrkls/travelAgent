@@ -7,6 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		200000000000000000000023 /* SocialModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* SocialModels.swift */; };
+		200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* SocialAPIEndpoints.swift */; };
+		200000000000000000000025 /* SocialServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* SocialServices.swift */; };
+		200000000000000000000026 /* SocialStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* SocialStateStore.swift */; };
+		200000000000000000000027 /* UserProfileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000027 /* UserProfileController.swift */; };
+		200000000000000000000028 /* UserProfileScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000028 /* UserProfileScreen.swift */; };
+		200000000000000000000029 /* SocialComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000029 /* SocialComponents.swift */; };
+		20000000000000000000002A /* ActivityFeedController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002A /* ActivityFeedController.swift */; };
+		20000000000000000000002B /* ActivityFeedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002B /* ActivityFeedScreen.swift */; };
+		20000000000000000000002C /* ActivityEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002C /* ActivityEventCard.swift */; };
+		20000000000000000000002D /* SocialListController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002D /* SocialListController.swift */; };
+		20000000000000000000002E /* SocialListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002E /* SocialListScreen.swift */; };
+		20000000000000000000002F /* UserSearchController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002F /* UserSearchController.swift */; };
+		200000000000000000000030 /* UserSearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000030 /* UserSearchScreen.swift */; };
+		200000000000000000000031 /* AppRouteDestinationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000031 /* AppRouteDestinationView.swift */; };
+		200000000000000000000032 /* SocialTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000032 /* SocialTestSupport.swift */; };
+		200000000000000000000033 /* SocialFollowCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000033 /* SocialFollowCoordinatorTests.swift */; };
+		200000000000000000000034 /* ActivityFeedControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000034 /* ActivityFeedControllerTests.swift */; };
+		200000000000000000000035 /* UserProfileControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000035 /* UserProfileControllerTests.swift */; };
+		200000000000000000000036 /* UserSearchControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000036 /* UserSearchControllerTests.swift */; };
+		200000000000000000000037 /* SocialAccountIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000037 /* SocialAccountIsolationTests.swift */; };
 		200000000000000000000001 /* DimensionRatingRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* DimensionRatingRow.swift */; };
 		200000000000000000000002 /* OverallRatingControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* OverallRatingControl.swift */; };
 		200000000000000000000003 /* PrivateMemoryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* PrivateMemoryEditor.swift */; };
@@ -110,6 +131,27 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		100000000000000000000023 /* SocialModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialModels.swift; sourceTree = "<group>"; };
+		100000000000000000000024 /* SocialAPIEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialAPIEndpoints.swift; sourceTree = "<group>"; };
+		100000000000000000000025 /* SocialServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialServices.swift; sourceTree = "<group>"; };
+		100000000000000000000026 /* SocialStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialStateStore.swift; sourceTree = "<group>"; };
+		100000000000000000000027 /* UserProfileController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileController.swift; sourceTree = "<group>"; };
+		100000000000000000000028 /* UserProfileScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000029 /* SocialComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialComponents.swift; sourceTree = "<group>"; };
+		10000000000000000000002A /* ActivityFeedController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityFeedController.swift; sourceTree = "<group>"; };
+		10000000000000000000002B /* ActivityFeedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityFeedScreen.swift; sourceTree = "<group>"; };
+		10000000000000000000002C /* ActivityEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEventCard.swift; sourceTree = "<group>"; };
+		10000000000000000000002D /* SocialListController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialListController.swift; sourceTree = "<group>"; };
+		10000000000000000000002E /* SocialListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialListScreen.swift; sourceTree = "<group>"; };
+		10000000000000000000002F /* UserSearchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSearchController.swift; sourceTree = "<group>"; };
+		100000000000000000000030 /* UserSearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSearchScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000031 /* AppRouteDestinationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouteDestinationView.swift; sourceTree = "<group>"; };
+		100000000000000000000032 /* SocialTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialTestSupport.swift; sourceTree = "<group>"; };
+		100000000000000000000033 /* SocialFollowCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialFollowCoordinatorTests.swift; sourceTree = "<group>"; };
+		100000000000000000000034 /* ActivityFeedControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityFeedControllerTests.swift; sourceTree = "<group>"; };
+		100000000000000000000035 /* UserProfileControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileControllerTests.swift; sourceTree = "<group>"; };
+		100000000000000000000036 /* UserSearchControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSearchControllerTests.swift; sourceTree = "<group>"; };
+		100000000000000000000037 /* SocialAccountIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialAccountIsolationTests.swift; sourceTree = "<group>"; };
 		100000000000000000000001 /* DimensionRatingRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DimensionRatingRow.swift; sourceTree = "<group>"; };
 		100000000000000000000002 /* OverallRatingControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverallRatingControl.swift; sourceTree = "<group>"; };
 		100000000000000000000003 /* PrivateMemoryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateMemoryEditor.swift; sourceTree = "<group>"; };
@@ -207,6 +249,99 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		300000000000000000000007 /* Social */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000008 /* Feed */,
+				30000000000000000000000A /* Models */,
+				30000000000000000000000B /* Network */,
+				30000000000000000000000C /* Profile */,
+				30000000000000000000000E /* Search */,
+				30000000000000000000000F /* Services */,
+				300000000000000000000010 /* State */,
+			);
+			path = Social;
+			sourceTree = "<group>";
+		};
+		300000000000000000000008 /* Feed */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000002A /* ActivityFeedController.swift */,
+				10000000000000000000002B /* ActivityFeedScreen.swift */,
+				300000000000000000000009 /* Components */,
+			);
+			path = Feed;
+			sourceTree = "<group>";
+		};
+		300000000000000000000009 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000002C /* ActivityEventCard.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000023 /* SocialModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000B /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000002D /* SocialListController.swift */,
+				10000000000000000000002E /* SocialListScreen.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000C /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				30000000000000000000000D /* Components */,
+				100000000000000000000027 /* UserProfileController.swift */,
+				100000000000000000000028 /* UserProfileScreen.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000D /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000029 /* SocialComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000E /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000002F /* UserSearchController.swift */,
+				100000000000000000000030 /* UserSearchScreen.swift */,
+			);
+			path = Search;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000F /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000024 /* SocialAPIEndpoints.swift */,
+				100000000000000000000025 /* SocialServices.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		300000000000000000000010 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000026 /* SocialStateStore.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
 		07F4EEADD711E6B223956E97 /* Explore */ = {
 			isa = PBXGroup;
 			children = (
@@ -272,6 +407,7 @@
 		36BCB926FAF7A714271E5228 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				300000000000000000000007 /* Social */,
 				F107B6704DFD1AF8D3F959AF /* Auth */,
 				07F4EEADD711E6B223956E97 /* Explore */,
 				E80FC5B719825C4EE03E0A94 /* PlaceDetail */,
@@ -326,6 +462,7 @@
 		5E99B1F9C4226732A7EB80D5 /* Shell */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000031 /* AppRouteDestinationView.swift */,
 				82133562FCBEDA645BD22488 /* MainTabView.swift */,
 			);
 			path = Shell;
@@ -346,6 +483,12 @@
 		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000032 /* SocialTestSupport.swift */,
+				100000000000000000000033 /* SocialFollowCoordinatorTests.swift */,
+				100000000000000000000034 /* ActivityFeedControllerTests.swift */,
+				100000000000000000000035 /* UserProfileControllerTests.swift */,
+				100000000000000000000036 /* UserSearchControllerTests.swift */,
+				100000000000000000000037 /* SocialAccountIsolationTests.swift */,
 				100000000000000000000021 /* DurablePersistenceTests.swift */,
 				100000000000000000000022 /* OfflineMutationSyncTests.swift */,
 				10000000000000000000000C /* VisitFeatureTests.swift */,
@@ -631,6 +774,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000032 /* SocialTestSupport.swift in Sources */,
+				200000000000000000000033 /* SocialFollowCoordinatorTests.swift in Sources */,
+				200000000000000000000034 /* ActivityFeedControllerTests.swift in Sources */,
+				200000000000000000000035 /* UserProfileControllerTests.swift in Sources */,
+				200000000000000000000036 /* UserSearchControllerTests.swift in Sources */,
+				200000000000000000000037 /* SocialAccountIsolationTests.swift in Sources */,
 				200000000000000000000021 /* DurablePersistenceTests.swift in Sources */,
 				200000000000000000000022 /* OfflineMutationSyncTests.swift in Sources */,
 				20000000000000000000000C /* VisitFeatureTests.swift in Sources */,
@@ -655,6 +804,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000023 /* SocialModels.swift in Sources */,
+				200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */,
+				200000000000000000000025 /* SocialServices.swift in Sources */,
+				200000000000000000000026 /* SocialStateStore.swift in Sources */,
+				200000000000000000000027 /* UserProfileController.swift in Sources */,
+				200000000000000000000028 /* UserProfileScreen.swift in Sources */,
+				200000000000000000000029 /* SocialComponents.swift in Sources */,
+				20000000000000000000002A /* ActivityFeedController.swift in Sources */,
+				20000000000000000000002B /* ActivityFeedScreen.swift in Sources */,
+				20000000000000000000002C /* ActivityEventCard.swift in Sources */,
+				20000000000000000000002D /* SocialListController.swift in Sources */,
+				20000000000000000000002E /* SocialListScreen.swift in Sources */,
+				20000000000000000000002F /* UserSearchController.swift in Sources */,
+				200000000000000000000030 /* UserSearchScreen.swift in Sources */,
+				200000000000000000000031 /* AppRouteDestinationView.swift in Sources */,
 				20000000000000000000001F /* DurableMediaStore.swift in Sources */,
 				20000000000000000000001B /* LocalAccountPurger.swift in Sources */,
 				20000000000000000000001E /* MediaFileMutationLock.swift in Sources */,
@@ -779,7 +943,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -897,7 +1061,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

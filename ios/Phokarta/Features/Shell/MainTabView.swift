@@ -16,15 +16,29 @@ struct MainTabView: View {
                 draftRepository: environment.draftRepository,
                 mutationRepository: environment.mutationRepository,
                 mediaStore: environment.mediaStore,
-                syncEngine: environment.syncEngine
+                syncEngine: environment.syncEngine,
+                environment: environment,
+                currentUserId: user.id
             )
-                .tabItem {
-                    Label {
-                        Text("tab.explore")
-                    } icon: {
-                        Image(systemName: "safari")
-                    }
+            .tabItem {
+                Label {
+                    Text("tab.explore")
+                } icon: {
+                    Image(systemName: "safari")
                 }
+            }
+
+            ActivityTab(
+                environment: environment,
+                currentUserId: user.id
+            )
+            .tabItem {
+                Label {
+                    Text("tab.activity")
+                } icon: {
+                    Image(systemName: "bell")
+                }
+            }
 
             SavedScreen(
                 store: environment.saved,
@@ -34,7 +48,9 @@ struct MainTabView: View {
                 draftRepository: environment.draftRepository,
                 mutationRepository: environment.mutationRepository,
                 mediaStore: environment.mediaStore,
-                syncEngine: environment.syncEngine
+                syncEngine: environment.syncEngine,
+                environment: environment,
+                currentUserId: user.id
             )
             .tabItem {
                 Label("saved.title", systemImage: "bookmark")
@@ -54,9 +70,13 @@ struct MainTabView: View {
                 Label("collections.title", systemImage: "square.stack")
             }
 
-            ProfilePlaceholderView(user: user) {
-                Task { await environment.session.logout() }
-            }
+            ProfileTab(
+                environment: environment,
+                user: user,
+                onLogout: {
+                    Task { await environment.session.logout() }
+                }
+            )
             .tabItem {
                 Label {
                     Text("tab.profile")
@@ -70,10 +90,12 @@ struct MainTabView: View {
             environment.saved.activate(accountID: user.id)
             environment.collections.activate(accountID: user.id)
             environment.visits.activate(accountID: user.id)
+            environment.socialState.activate(accountID: user.id)
             _ = await environment.syncEngine.drain()
             try? await environment.saved.refresh()
             try? await environment.collections.refreshList()
             try? await environment.visits.refresh()
+            _ = try? await environment.socialState.refreshOwnerProfile()
         }
         .task {
             for await isOnline in environment.networkMonitor.observePathUpdates() {
@@ -131,6 +153,8 @@ struct SavedScreen: View {
     let mutationRepository: (any OfflineMutationRepository)?
     let mediaStore: (any DurableMediaStoring)?
     let syncEngine: MutationSyncEngine?
+    let environment: AppEnvironment?
+    let currentUserId: UUID?
     @Environment(\.colorScheme) private var colorScheme
 
     init(
@@ -141,7 +165,9 @@ struct SavedScreen: View {
         draftRepository: (any VisitDraftRepository)? = nil,
         mutationRepository: (any OfflineMutationRepository)? = nil,
         mediaStore: (any DurableMediaStoring)? = nil,
-        syncEngine: MutationSyncEngine? = nil
+        syncEngine: MutationSyncEngine? = nil,
+        environment: AppEnvironment? = nil,
+        currentUserId: UUID? = nil
     ) {
         self.store = store
         self.places = places
@@ -151,6 +177,8 @@ struct SavedScreen: View {
         self.mutationRepository = mutationRepository
         self.mediaStore = mediaStore
         self.syncEngine = syncEngine
+        self.environment = environment
+        self.currentUserId = currentUserId
         _controller = State(initialValue: SavedController(store: store))
     }
 
@@ -192,7 +220,14 @@ struct SavedScreen: View {
             .navigationTitle(String(localized: "saved.title"))
             .refreshable { await controller.load() }
             .navigationDestination(for: AppRoute.self) { route in
-                if case .placeDetail(let id) = route {
+                if let environment, let currentUserId {
+                    AppRouteDestinationView(
+                        route: route,
+                        environment: environment,
+                        currentUserId: currentUserId,
+                        onNavigate: { path.append($0) }
+                    )
+                } else if case .placeDetail(let id) = route {
                     PlaceDetailScreen(
                         placeId: id,
                         places: places,
@@ -618,40 +653,62 @@ struct CreateCollectionSheet: View {
     }
 }
 
-struct ProfilePlaceholderView: View {
-    let user: CurrentUser
-    let onLogout: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
+struct ActivityTab: View {
+    let environment: AppEnvironment
+    let currentUserId: UUID
+    @State private var path: [AppRoute] = []
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
-                Text(user.displayName)
-                    .font(.title.bold())
-                    .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                Text(user.username)
-                    .font(.body)
-                    .foregroundStyle(PhokartaColor.muted(for: colorScheme))
-                Text("profile.placeholder")
-                    .font(.body)
-                    .foregroundStyle(PhokartaColor.muted(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer()
-                Button(action: onLogout) {
-                    Text("auth.logout")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, PhokartaSpacing.md)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .background(PhokartaColor.accent(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
-                .accessibilityLabel(String(localized: "auth.logout"))
+        NavigationStack(path: $path) {
+            ActivityFeedScreen(
+                activityService: environment.activity,
+                socialState: environment.socialState,
+                onSelectPlace: { path.append(.placeDetail($0)) },
+                onSelectUser: { path.append(.userProfile($0)) },
+                onFindPeople: { path.append(.userSearch) }
+            )
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteDestinationView(
+                    route: route,
+                    environment: environment,
+                    currentUserId: currentUserId,
+                    onNavigate: { path.append($0) }
+                )
             }
-            .padding(PhokartaSpacing.lg)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(PhokartaColor.background(for: colorScheme))
-            .navigationTitle(String(localized: "profile.title"))
+        }
+    }
+}
+
+struct ProfileTab: View {
+    let environment: AppEnvironment
+    let user: CurrentUser
+    let onLogout: () -> Void
+    @State private var path: [AppRoute] = []
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            UserProfileScreen(
+                userId: user.id,
+                isOwnProfile: true,
+                service: environment.social,
+                store: environment.socialState,
+                onSelectPlace: { path.append(.placeDetail($0)) },
+                onSelectUser: { path.append(.userProfile($0)) },
+                onFollowers: { path.append(.socialList(.followers)) },
+                onFollowing: { path.append(.socialList(.following)) },
+                onFriends: { path.append(.socialList(.friends)) },
+                onUserSearch: { path.append(.userSearch) },
+                onLogout: onLogout
+            )
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteDestinationView(
+                    route: route,
+                    environment: environment,
+                    currentUserId: user.id,
+                    onNavigate: { path.append($0) },
+                    onLogout: onLogout
+                )
+            }
         }
     }
 }

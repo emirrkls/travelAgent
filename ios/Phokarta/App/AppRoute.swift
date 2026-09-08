@@ -1,5 +1,8 @@
 import Foundation
 
-enum AppRoute: Hashable, Sendable {
+public enum AppRoute: Hashable, Sendable {
     case placeDetail(UUID)
+    case userProfile(UUID)
+    case socialList(SocialListKind)
+    case userSearch
 }

@@ -1683,206 +1683,546 @@
     },
     "action.cancel": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Vazgeç" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vazgeç"
+          }
+        }
       }
     },
     "action.done": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Done" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bitti" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitti"
+          }
+        }
       }
     },
     "action.try_again": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Try again" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Tekrar dene" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar dene"
+          }
+        }
       }
     },
     "collection.empty": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Empty collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon boş" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyon boş"
+          }
+        }
       }
     },
     "collection.unavailable": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This collection is unavailable." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bu koleksiyona erişilemiyor." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This collection is unavailable."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu koleksiyona erişilemiyor."
+          }
+        }
       }
     },
     "collection.visibility.friends": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Friends" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Arkadaşlar" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
       }
     },
     "collection.visibility.private": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel"
+          }
+        }
       }
     },
     "collection.visibility.public": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Public" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkese açık"
+          }
+        }
       }
     },
     "collections.add": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add to collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyona ekle" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyona ekle"
+          }
+        }
       }
     },
     "collections.added": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Added" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Eklendi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eklendi"
+          }
+        }
       }
     },
     "collections.cover_url": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Cover image URL" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kapak görseli URL’si" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover image URL"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapak görseli URL’si"
+          }
+        }
       }
     },
     "collections.create": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Create" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Oluştur" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oluştur"
+          }
+        }
       }
     },
     "collections.description_optional": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Description (optional)" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Açıklama (isteğe bağlı)" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description (optional)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açıklama (isteğe bağlı)"
+          }
+        }
       }
     },
     "collections.empty": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "No collections" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon yok" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No collections"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyon yok"
+          }
+        }
       }
     },
     "collections.loading": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Loading collections" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyonlar yükleniyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading collections"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyonlar yükleniyor"
+          }
+        }
       }
     },
     "collections.name": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Collection name" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon adı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collection name"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyon adı"
+          }
+        }
       }
     },
     "collections.new": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "New collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yeni koleksiyon" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeni koleksiyon"
+          }
+        }
       }
     },
     "collections.not_added": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Not added" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Eklenmedi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not added"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eklenmedi"
+          }
+        }
       }
     },
     "collections.place_count %@": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@ places" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "%@ yer" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ places"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ yer"
+          }
+        }
       }
     },
     "collections.remove": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Remove" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaldır" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaldır"
+          }
+        }
       }
     },
     "collections.remove_place %@": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Remove %@ from collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "%@ adlı yeri koleksiyondan kaldır" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@ from collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ adlı yeri koleksiyondan kaldır"
+          }
+        }
       }
     },
     "collections.title": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Collections" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyonlar" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collections"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyonlar"
+          }
+        }
       }
     },
     "collections.visibility": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Visibility" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Görünürlük" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görünürlük"
+          }
+        }
       }
     },
     "collections.unable_add": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to add to collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyona eklenemedi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to add to collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyona eklenemedi"
+          }
+        }
       }
     },
     "collections.unable_create": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to create collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon oluşturulamadı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to create collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyon oluşturulamadı"
+          }
+        }
       }
     },
     "collections.unable_remove": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to remove from collection" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyondan kaldırılamadı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to remove from collection"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyondan kaldırılamadı"
+          }
+        }
       }
     },
     "error.policy_acceptance_required": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Accept the current user policy before creating or adding to a collection. Policy acceptance is not yet available on iOS." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Koleksiyon oluşturmadan veya koleksiyona eklemeden önce güncel kullanıcı politikasını kabul et. Politika kabulü henüz iOS’ta kullanılamıyor." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept the current user policy before creating or adding to a collection. Policy acceptance is not yet available on iOS."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koleksiyon oluşturmadan veya koleksiyona eklemeden önce güncel kullanıcı politikasını kabul et. Politika kabulü henüz iOS’ta kullanılamıyor."
+          }
+        }
       }
     },
     "saved.empty": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "No saved places" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilmiş yer yok" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No saved places"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedilmiş yer yok"
+          }
+        }
       }
     },
     "saved.loading": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Loading saved places" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilen yerler yükleniyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading saved places"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedilen yerler yükleniyor"
+          }
+        }
       }
     },
     "saved.remove": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Remove from saved" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenlerden kaldır" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedilenlerden kaldır"
+          }
+        }
       }
     },
     "saved.save": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Save place" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yeri kaydet" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save place"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeri kaydet"
+          }
+        }
       }
     },
     "saved.title": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Saved" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenler" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedilenler"
+          }
+        }
       }
     },
     "saved.unable_remove": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to remove from saved" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Kaydedilenlerden kaldırılamadı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to remove from saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydedilenlerden kaldırılamadı"
+          }
+        }
       }
     },
     "saved.unable_save": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to save place" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yer kaydedilemedi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to save place"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yer kaydedilemedi"
+          }
+        }
       }
     },
     "tab.explore": {
@@ -1903,308 +2243,818 @@
     },
     "visit.record": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Record a visit" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyareti kaydet" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record a visit"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyareti kaydet"
+          }
+        }
       }
     },
     "visit.overall": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Overall" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Genel" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overall"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genel"
+          }
+        }
       }
     },
     "visit.date": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Visit date" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret tarihi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visit date"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret tarihi"
+          }
+        }
       }
     },
     "visit.dimensions": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Rate the details" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ayrıntıları puanla" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate the details"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayrıntıları puanla"
+          }
+        }
       }
     },
     "visit.dimensions.help": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Optional. Add only the details you want to rate." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "İsteğe bağlı. Yalnızca puanlamak istediğin ayrıntıları ekle." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional. Add only the details you want to rate."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İsteğe bağlı. Yalnızca puanlamak istediğin ayrıntıları ekle."
+          }
+        }
       }
     },
     "visit.review": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Public review" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public review"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkese açık yorum"
+          }
+        }
       }
     },
     "visit.review.a11y": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Public review input" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum alanı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public review input"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkese açık yorum alanı"
+          }
+        }
       }
     },
     "visit.memory": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private memory · Only you" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı · Yalnızca sen" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private memory · Only you"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel anı · Yalnızca sen"
+          }
+        }
       }
     },
     "visit.memory.help": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Only you can see this memory." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bu anıyı yalnızca sen görebilirsin." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only you can see this memory."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu anıyı yalnızca sen görebilirsin."
+          }
+        }
       }
     },
     "visit.memory.a11y": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private memory input, only you" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı alanı, yalnızca sen" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private memory input, only you"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel anı alanı, yalnızca sen"
+          }
+        }
       }
     },
     "visit.memory.only_you": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private memory, only you" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı, yalnızca sen" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private memory, only you"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel anı, yalnızca sen"
+          }
+        }
       }
     },
     "visit.visibility": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Visibility" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Görünürlük" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibility"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görünürlük"
+          }
+        }
       }
     },
     "visit.visibility.public": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Public" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkese açık"
+          }
+        }
       }
     },
     "visit.visibility.friends": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Friends" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Arkadaşlar" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
       }
     },
     "visit.visibility.private": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel"
+          }
+        }
       }
     },
     "visit.visibility.public.help": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Your review can appear in Community and to friends." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yorumun Topluluk'ta ve arkadaşlarına görünebilir." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your review can appear in Community and to friends."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yorumun Topluluk'ta ve arkadaşlarına görünebilir."
+          }
+        }
       }
     },
     "visit.visibility.friends.help": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Only mutual friends can see your review." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yorumunu yalnızca karşılıklı arkadaşların görebilir." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only mutual friends can see your review."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yorumunu yalnızca karşılıklı arkadaşların görebilir."
+          }
+        }
       }
     },
     "visit.visibility.private.help": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Only you can see this visit." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bu ziyareti yalnızca sen görebilirsin." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only you can see this visit."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu ziyareti yalnızca sen görebilirsin."
+          }
+        }
       }
     },
     "visit.publish": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Publish" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yayınla" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publish"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınla"
+          }
+        }
       }
     },
     "visit.publishing": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Publishing visit" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret yayınlanıyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publishing visit"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret yayınlanıyor"
+          }
+        }
       }
     },
     "visit.your_visits": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Your visits" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaretlerin" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your visits"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaretlerin"
+          }
+        }
       }
     },
     "visit.dimension.add": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add score" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Puan ekle" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add score"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puan ekle"
+          }
+        }
       }
     },
     "visit.dimension.add_named %@": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add a score for %@" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "%@ için puan ekle" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a score for %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ için puan ekle"
+          }
+        }
       }
     },
     "visit.dimension.remove %@": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Remove %@ score" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "%@ puanını kaldır" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@ score"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ puanını kaldır"
+          }
+        }
       }
     },
     "visit.score_out_of_ten %@": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%@ out of 10" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "10 üzerinden %@" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ out of 10"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 üzerinden %@"
+          }
+        }
       }
     },
     "visit.discard.title": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Discard visit draft?" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret taslağı silinsin mi?" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard visit draft?"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret taslağı silinsin mi?"
+          }
+        }
       }
     },
     "visit.discard.message": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Your unsent rating, review, and private memory will be lost." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Gönderilmemiş puanın, yorumun ve özel anın kaybolacak." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your unsent rating, review, and private memory will be lost."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönderilmemiş puanın, yorumun ve özel anın kaybolacak."
+          }
+        }
       }
     },
     "visit.discard": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Discard" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Sil" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sil"
+          }
+        }
       }
     },
     "visit.error.overall": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Choose an overall score from 0 to 10." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "0 ile 10 arasında bir genel puan seç." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an overall score from 0 to 10."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 ile 10 arasında bir genel puan seç."
+          }
+        }
       }
     },
     "visit.error.future_date": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Visit date cannot be in the future." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret tarihi gelecekte olamaz." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visit date cannot be in the future."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret tarihi gelecekte olamaz."
+          }
+        }
       }
     },
     "visit.error.review_limit": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Public review must be 4,000 characters or fewer." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Herkese açık yorum en fazla 4.000 karakter olabilir." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public review must be 4,000 characters or fewer."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herkese açık yorum en fazla 4.000 karakter olabilir."
+          }
+        }
       }
     },
     "visit.error.memory_limit": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Private memory must be 4,000 characters or fewer." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Özel anı en fazla 4.000 karakter olabilir." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private memory must be 4,000 characters or fewer."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel anı en fazla 4.000 karakter olabilir."
+          }
+        }
       }
     },
     "visit.error.dimension": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "One or more detail scores are invalid for this place." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bir veya daha fazla ayrıntı puanı bu yer için geçersiz." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One or more detail scores are invalid for this place."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir veya daha fazla ayrıntı puanı bu yer için geçersiz."
+          }
+        }
       }
     },
     "visit.error.changed_payload": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This retry no longer matches the original visit. Edit the draft and publish as a new attempt." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Bu yeniden deneme ilk ziyaretle artık eşleşmiyor. Taslağı düzenleyip yeni bir deneme olarak yayınla." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This retry no longer matches the original visit. Edit the draft and publish as a new attempt."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu yeniden deneme ilk ziyaretle artık eşleşmiyor. Taslağı düzenleyip yeni bir deneme olarak yayınla."
+          }
+        }
       }
     },
     "visit.error.publish": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to publish the visit. Your draft is still here." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Ziyaret yayınlanamadı. Taslağın korunuyor." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to publish the visit. Your draft is still here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziyaret yayınlanamadı. Taslağın korunuyor."
+          }
+        }
       }
     },
     "visit.error.policy": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Accepting the current User Policy is required before publishing. Your draft is preserved." } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yayınlamadan önce güncel Kullanıcı Politikası'nı kabul etmen gerekiyor. Taslağın korunuyor." } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepting the current User Policy is required before publishing. Your draft is preserved."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yayınlamadan önce güncel Kullanıcı Politikası'nı kabul etmen gerekiyor. Taslağın korunuyor."
+          }
+        }
       }
     },
     "visit.media.section_title": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Photos" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraflar" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraflar"
+          }
+        }
       }
     },
     "visit.media.add_photos": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add photos" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf ekle" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add photos"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf ekle"
+          }
+        }
       }
     },
     "visit.media.photos_count": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%lld of %lld photos" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "%lld / %lld fotoğraf" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of %lld photos"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld fotoğraf"
+          }
+        }
       }
     },
     "visit.media.photo": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Photo" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf"
+          }
+        }
       }
     },
     "visit.media.preparing": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Preparing photo" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf hazırlanıyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing photo"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf hazırlanıyor"
+          }
+        }
       }
     },
     "visit.media.uploading": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Uploading" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yükleniyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleniyor"
+          }
+        }
       }
     },
     "visit.media.upload_failed": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Upload failed" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme başarısız" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload failed"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleme başarısız"
+          }
+        }
       }
     },
     "visit.media.retry": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Retry" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Tekrar dene" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar dene"
+          }
+        }
       }
     },
     "visit.media.remove": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Remove photo" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğrafı kaldır" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove photo"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğrafı kaldır"
+          }
+        }
       }
     },
     "visit.media.unsupported_format": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unsupported photo format" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Desteklenmeyen fotoğraf biçimi" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsupported photo format"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desteklenmeyen fotoğraf biçimi"
+          }
+        }
       }
     },
     "visit.media.too_large": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Photo is too large" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf çok büyük" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo is too large"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf çok büyük"
+          }
+        }
       }
     },
     "visit.media.prepare_failed": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to prepare photo" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf hazırlanamadı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to prepare photo"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf hazırlanamadı"
+          }
+        }
       }
     },
     "visit.media.confirm_failed": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Unable to confirm upload" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme onaylanamadı" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to confirm upload"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleme onaylanamadı"
+          }
+        }
       }
     },
     "visit.media.policy_required": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Policy acceptance required before uploading media" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf yüklemek için kullanım koşullarını kabul etmeniz gerekiyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Policy acceptance required before uploading media"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf yüklemek için kullanım koşullarını kabul etmeniz gerekiyor"
+          }
+        }
       }
     },
     "visit.media.waiting": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Waiting for upload" } },
-        "tr": { "stringUnit": { "state": "translated", "value": "Yükleme bekleniyor" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for upload"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleme bekleniyor"
+          }
+        }
       }
     },
     "tab.profile": {
@@ -2523,6 +3373,662 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bekleyen Ziyaret"
+          }
+        }
+      }
+    },
+    "tab.activity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activity"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktivite"
+          }
+        }
+      }
+    },
+    "social.community": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Community"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Topluluk"
+          }
+        }
+      }
+    },
+    "social.friends": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
+      }
+    },
+    "social.followers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Followers"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takipçiler"
+          }
+        }
+      }
+    },
+    "social.following": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Following"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takip"
+          }
+        }
+      }
+    },
+    "social.follows_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follows you"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seni takip ediyor"
+          }
+        }
+      }
+    },
+    "social.follow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takip et"
+          }
+        }
+      }
+    },
+    "social.profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
+          }
+        }
+      }
+    },
+    "social.profile_unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile unavailable"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil kullanılamıyor"
+          }
+        }
+      }
+    },
+    "social.find_people": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find people"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnsanları bul"
+          }
+        }
+      }
+    },
+    "social.travel_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Travel Summary"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seyahat Özeti"
+          }
+        }
+      }
+    },
+    "social.you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen"
+          }
+        }
+      }
+    },
+    "social.search_people": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find People"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İnsanları Bul"
+          }
+        }
+      }
+    },
+    "social.search_people_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search by name or username"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İsim veya kullanıcı adıyla ara"
+          }
+        }
+      }
+    },
+    "social.search_people_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find travelers by name or username."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gezginleri isim veya kullanıcı adıyla bulun."
+          }
+        }
+      }
+    },
+    "social.searching": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching travelers…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gezginler aranıyor…"
+          }
+        }
+      }
+    },
+    "social.no_people_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No people found"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimse bulunamadı"
+          }
+        }
+      }
+    },
+    "social.no_people_found_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try searching with a different name or username."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Farklı bir isim veya kullanıcı adı ile aramayı deneyin."
+          }
+        }
+      }
+    },
+    "social.loading_activity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading activity…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktivite yükleniyor…"
+          }
+        }
+      }
+    },
+    "social.loading_list": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükleniyor…"
+          }
+        }
+      }
+    },
+    "social.loading_profile": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading profile…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil yükleniyor…"
+          }
+        }
+      }
+    },
+    "social.activity_empty_community_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No community activity yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz topluluk aktivitesi yok"
+          }
+        }
+      }
+    },
+    "social.activity_empty_community_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public visits from travelers will appear here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gezginlerin herkese açık ziyaretleri burada görünür."
+          }
+        }
+      }
+    },
+    "social.activity_empty_friends_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No friend activity yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz arkadaş aktivitesi yok"
+          }
+        }
+      }
+    },
+    "social.activity_empty_friends_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When people you mutually follow publish visits, they'll show up here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karşılıklı takip ettiğin kişiler ziyaret yayınladığında burada görünür."
+          }
+        }
+      }
+    },
+    "social.activity_empty_no_friends_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No friends yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz arkadaş yok"
+          }
+        }
+      }
+    },
+    "social.activity_empty_no_friends_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mutual follows become friends on Phokarta."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karşılıklı takipler Phokarta'da arkadaş olur."
+          }
+        }
+      }
+    },
+    "social.no_followers_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No followers yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz takipçi yok"
+          }
+        }
+      }
+    },
+    "social.no_followers_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People who follow you will appear here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seni takip eden kişiler burada görünür."
+          }
+        }
+      }
+    },
+    "social.no_following_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not following anyone"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimse takip edilmiyor"
+          }
+        }
+      }
+    },
+    "social.no_following_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "People you follow will appear here."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takip ettiğin kişiler burada görünür."
+          }
+        }
+      }
+    },
+    "social.no_friends_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No friends yet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz arkadaş yok"
+          }
+        }
+      }
+    },
+    "social.no_friends_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mutual follows become friends on Phokarta."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karşılıklı takipler Phokarta'da arkadaş olur."
+          }
+        }
+      }
+    },
+    "action.read_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read more"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devamını oku"
+          }
+        }
+      }
+    },
+    "action.show_less": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show less"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha az göster"
+          }
+        }
+      }
+    },
+    "a11y.follow_user %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kullanıcısını takip et"
+          }
+        }
+      }
+    },
+    "a11y.unfollow_user %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unfollow %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kullanıcısını takipten çık"
+          }
+        }
+      }
+    },
+    "a11y.followers_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Followers"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takipçiler"
+          }
+        }
+      }
+    },
+    "a11y.following_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Following"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takip"
+          }
+        }
+      }
+    },
+    "a11y.friends_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşlar"
+          }
+        }
+      }
+    },
+    "social.countries_cities_summary %lld %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visited %1$lld countries, %2$lld cities"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ülkede, %2$lld şehirde bulundu"
           }
         }
       }

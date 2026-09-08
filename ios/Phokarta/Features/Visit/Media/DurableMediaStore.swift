@@ -20,9 +20,11 @@ protocol DurableMediaStoring: Sendable {
 
 final class DurableMediaStore: DurableMediaStoring, @unchecked Sendable {
     let rootDirectory: URL
+    private let clock: any EpochClock
     private let fileManager = FileManager.default
 
-    init(customRootDirectory: URL? = nil) {
+    init(customRootDirectory: URL? = nil, clock: any EpochClock = SystemEpochClock()) {
+        self.clock = clock
         if let custom = customRootDirectory {
             self.rootDirectory = custom
         } else {
@@ -93,6 +95,10 @@ final class DurableMediaStore: DurableMediaStoring, @unchecked Sendable {
         // Clean up temporary preparation file
         try? fileManager.removeItem(at: prepared.tempFileURL)
 
+        // Set modification date based on clock so orphan sweeper grace period evaluates correctly
+        let modDate = Date(timeIntervalSince1970: Double(clock.nowMillis()) / 1000.0)
+        try? fileManager.setAttributes([.modificationDate: modDate], ofItemAtPath: targetUrl.path)
+
         let byteSize = (try? fileManager.attributesOfItem(atPath: targetUrl.path)[.size] as? Int64)
             ?? prepared.byteSize
 
@@ -119,18 +125,27 @@ final class DurableMediaStore: DurableMediaStoring, @unchecked Sendable {
         let safeOwner = safeOwnerId(ownerUserId)
         let ownerRoot = rootDirectory.appendingPathComponent(safeOwner, isDirectory: true).standardizedFileURL
 
-        // Support either "visit-media/<owner>/<file>" or "<owner>/<file>" or directly "<file>"
-        let candidate: URL
+        // Only allow paths scoped to safeOwner or bare filenames:
+        // 1) "visit-media/<safeOwner>/<file>"
+        // 2) "<safeOwner>/<file>"
+        // 3) "<file>" (contains no slashes)
+        let filename: String
         if relativePath.hasPrefix("visit-media/\(safeOwner)/") {
-            let filename = String(relativePath.dropFirst("visit-media/\(safeOwner)/".count))
-            candidate = ownerRoot.appendingPathComponent(filename).standardizedFileURL
+            filename = String(relativePath.dropFirst("visit-media/\(safeOwner)/".count))
         } else if relativePath.hasPrefix("\(safeOwner)/") {
-            let filename = String(relativePath.dropFirst("\(safeOwner)/".count))
-            candidate = ownerRoot.appendingPathComponent(filename).standardizedFileURL
+            filename = String(relativePath.dropFirst("\(safeOwner)/".count))
+        } else if !relativePath.contains("/") {
+            filename = relativePath
         } else {
-            candidate = ownerRoot.appendingPathComponent(relativePath).standardizedFileURL
+            // Any other path containing path separators belongs to another user or an invalid directory
+            return nil
         }
 
+        if filename.isEmpty || filename.contains("/") || filename.contains("\\") {
+            return nil
+        }
+
+        let candidate = ownerRoot.appendingPathComponent(filename).standardizedFileURL
         guard candidate.path.hasPrefix(ownerRoot.path) else { return nil }
         return candidate
     }

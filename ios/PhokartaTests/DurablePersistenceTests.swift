@@ -168,12 +168,13 @@ final class DurablePersistenceTests: XCTestCase {
 
         let userA = UUID()
         let userB = UUID()
-        let placeId = UUID()
+        let draftPlaceId = UUID()
+        let mutationPlaceId = UUID()
 
         // User A saves draft
         let draftA = DurableVisitDraft(
             userId: userA,
-            placeId: placeId,
+            placeId: draftPlaceId,
             overallScore: 9.0,
             publicReview: "User A review",
             privateMemory: "User A memory",
@@ -183,13 +184,13 @@ final class DurablePersistenceTests: XCTestCase {
             createdAtEpochMillis: clock.nowMillis(),
             updatedAtEpochMillis: clock.nowMillis()
         )
-        try await draftRepo.saveDraft(placeId: placeId, draft: draftA, userId: userA)
+        try await draftRepo.saveDraft(placeId: draftPlaceId, draft: draftA, userId: userA)
 
         // User A enqueues a mutation
         let mutationIdA = UUID()
         let payloadA = DurablePendingVisitPayload(
             mutationId: mutationIdA,
-            placeId: placeId,
+            placeId: mutationPlaceId,
             visitedAtEpochDay: 19700,
             overallRating: 9.0,
             publicReview: "User A public",
@@ -199,17 +200,17 @@ final class DurablePersistenceTests: XCTestCase {
         _ = try await mutationRepo.commitVisit(payload: payloadA, dimensions: [], photos: [], userId: userA)
 
         // Assert User B sees nothing
-        let draftForB = try await draftRepo.getDraft(placeId: placeId, userId: userB)
+        let draftForB = try await draftRepo.getDraft(placeId: draftPlaceId, userId: userB)
         XCTAssertNil(draftForB, "User B must not see User A's draft")
 
         let mutationsForB = try await mutationRepo.getEligibleMutations(userId: userB, limit: 10)
         XCTAssertTrue(mutationsForB.isEmpty, "User B must not see User A's mutations")
 
-        let pendingForB = try await mutationRepo.getPendingVisits(placeId: placeId, userId: userB)
+        let pendingForB = try await mutationRepo.getPendingVisits(placeId: mutationPlaceId, userId: userB)
         XCTAssertTrue(pendingForB.isEmpty, "User B must not see User A's pending visits")
 
         // Assert User A sees their own data
-        let draftForA = try await draftRepo.getDraft(placeId: placeId, userId: userA)
+        let draftForA = try await draftRepo.getDraft(placeId: draftPlaceId, userId: userA)
         XCTAssertNotNil(draftForA)
         let mutationsForA = try await mutationRepo.getEligibleMutations(userId: userA, limit: 10)
         XCTAssertEqual(mutationsForA.count, 1)
@@ -451,9 +452,9 @@ final class DurablePersistenceTests: XCTestCase {
 
     func testMediaFileReconcilerSweepsOrphansAfterGracePeriod() async throws {
         let storeDir = tempDir.appendingPathComponent("media_reconcile")
-        let store = DurableMediaStore(customRootDirectory: storeDir)
-        let db = try PersistentDatabase(path: nil)
         let clock = TestEpochClock(initialMillis: 1_700_000_000_000)
+        let store = DurableMediaStore(customRootDirectory: storeDir, clock: clock)
+        let db = try PersistentDatabase(path: nil)
         let draftRepo = SQLiteVisitDraftRepository(database: db, clock: clock)
         let mutationRepo = SQLiteOfflineMutationRepository(database: db, clock: clock)
         let lock = MediaFileMutationLock()

@@ -19,51 +19,68 @@ enum PersistenceError: Error, LocalizedError {
     }
 }
 
+private final class DatabaseHandle: @unchecked Sendable {
+    var pointer: OpaquePointer?
+
+    init(_ pointer: OpaquePointer?) {
+        self.pointer = pointer
+    }
+
+    deinit {
+        if let pointer = pointer {
+            sqlite3_close(pointer)
+        }
+    }
+
+    func close() {
+        if let pointer = pointer {
+            sqlite3_close(pointer)
+            self.pointer = nil
+        }
+    }
+}
+
 actor PersistentDatabase {
-    private var db: OpaquePointer?
+    private let handle: DatabaseHandle
     private let path: String?
+
+    private var db: OpaquePointer? {
+        handle.pointer
+    }
 
     init(path: String? = nil) throws {
         self.path = path
         let openPath = path ?? ":memory:"
-        var handle: OpaquePointer?
+        var rawPointer: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
-        if sqlite3_open_v2(openPath, &handle, flags, nil) != SQLITE_OK {
-            let errorMsg = handle.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "Unknown error"
-            sqlite3_close(handle)
+        if sqlite3_open_v2(openPath, &rawPointer, flags, nil) != SQLITE_OK {
+            let errorMsg = rawPointer.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "Unknown error"
+            sqlite3_close(rawPointer)
             throw PersistenceError.databaseOpenFailed(errorMsg)
         }
-        self.db = handle
+        self.handle = DatabaseHandle(rawPointer)
 
         // Apply PRAGMAs
-        try Self.executeRaw(handle, "PRAGMA foreign_keys = ON;")
+        try Self.executeRaw(rawPointer, "PRAGMA foreign_keys = ON;")
         if path != nil && path != ":memory:" {
-            try Self.executeRaw(handle, "PRAGMA journal_mode = WAL;")
-            try Self.executeRaw(handle, "PRAGMA synchronous = NORMAL;")
+            try Self.executeRaw(rawPointer, "PRAGMA journal_mode = WAL;")
+            try Self.executeRaw(rawPointer, "PRAGMA synchronous = NORMAL;")
         }
 
-        try Self.migrateSchema(handle)
-    }
-
-    deinit {
-        if let handle = db {
-            sqlite3_close(handle)
-        }
+        try Self.migrateSchema(rawPointer)
     }
 
     public func close() {
-        if let handle = db {
-            sqlite3_close(handle)
-            db = nil
-        }
+        handle.close()
     }
 
     public func isOpen() -> Bool {
-        db != nil
+        handle.pointer != nil
     }
 
     // MARK: - Transaction Management
 
+    @discardableResult
     func withTransaction<T>(_ block: @Sendable (isolated PersistentDatabase) throws -> T) throws -> T {
         guard let handle = db else { throw PersistenceError.executionFailed("Database closed") }
         try Self.executeRaw(handle, "BEGIN IMMEDIATE;")

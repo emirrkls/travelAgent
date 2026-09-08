@@ -241,7 +241,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         let changes = try await database.execute(
             """
             UPDATE pending_mutations
-            SET state = 'SYNCING', updatedAtEpochMillis = ?
+            SET state = 'SYNCING', generation = generation + 1, updatedAtEpochMillis = ?
             WHERE mutationId = ? AND state IN ('PENDING', 'FAILED_RETRYABLE');
             """,
             params: [nowMillis, mutationId.uuidString]
@@ -251,13 +251,14 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
 
     public func recoverStaleSyncing(now: Date) async throws {
         let nowMillis = Int64(now.timeIntervalSince1970 * 1000)
+        let staleCutoff = nowMillis - (5 * 60 * 1000)
         try await database.execute(
             """
             UPDATE pending_mutations
-            SET state = 'PENDING', updatedAtEpochMillis = ?
-            WHERE state = 'SYNCING';
+            SET state = 'PENDING', generation = generation + 1, updatedAtEpochMillis = ?
+            WHERE state = 'SYNCING' AND updatedAtEpochMillis <= ?;
             """,
-            params: [nowMillis]
+            params: [nowMillis, staleCutoff]
         )
     }
 
@@ -319,7 +320,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         try await database.execute(
             """
             UPDATE pending_mutations
-            SET state = 'PENDING', lastErrorCategory = NULL, updatedAtEpochMillis = ?
+            SET state = 'PENDING', generation = generation + 1, lastErrorCategory = NULL, updatedAtEpochMillis = ?
             WHERE mutationId = ? AND userId = ?;
             """,
             params: [now, mutationId.uuidString, userId.uuidString]

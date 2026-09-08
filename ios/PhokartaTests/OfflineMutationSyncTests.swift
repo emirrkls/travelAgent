@@ -562,7 +562,8 @@ final class OfflineMutationSyncTests: XCTestCase {
         XCTAssertTrue(pending[0].failed)
         XCTAssertEqual(pending[0].state, .failedPermanent)
         XCTAssertEqual(pending[0].failureReason, .forbidden)
-        XCTAssertTrue(pending[0].actions.showEditAndRetry)
+        XCTAssertFalse(pending[0].actions.showEditAndRetry)
+        XCTAssertTrue(pending[0].actions.showRemove)
         XCTAssertFalse(pending[0].actions.showRetry, "Permanent failure must NOT show Retry button")
     }
 

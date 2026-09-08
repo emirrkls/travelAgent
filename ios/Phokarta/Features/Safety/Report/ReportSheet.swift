@@ -138,7 +138,7 @@ struct ReportSheet: View {
             Text(error.localizedMessage)
         } actions: {
             Button(String(localized: "action.try_again")) {
-                controller.phase = .selectingReason
+                controller.retry()
             }
         }
     }

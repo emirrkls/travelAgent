@@ -85,6 +85,10 @@ final class ReportController {
         }
     }
 
+    func retry() {
+        phase = .selectingReason
+    }
+
     func dismiss() {
         phase = .idle
         target = nil

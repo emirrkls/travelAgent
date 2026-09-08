@@ -96,21 +96,17 @@ final class DeleteAccountController {
         phase = .confirming
     }
 
-    private func performLocalTeardown(userId: UUID?) {
+    private func performLocalTeardown(userId: UUID?) async {
         // 1. Reset in-memory stores
         sessionReset()
 
         // 2. Purge durable local data
         if let userId {
-            Task {
-                try? await purger.purgeLocalData(userId: userId)
-            }
+            try? await purger.purgeLocalData(userId: userId)
         }
 
         // 3. Clear session / sign out
-        Task {
-            await signOut()
-        }
+        await signOut()
     }
 
     private static func extractCode(_ error: AppError) -> String? {

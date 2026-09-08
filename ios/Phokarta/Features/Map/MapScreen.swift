@@ -1,6 +1,8 @@
 import SwiftUI
 import MapKit
 
+/// Interactive Apple MapKit discovery screen with filter synchronization,
+/// "Search this area" intent tracking, and seamless Place Detail navigation.
 struct MapScreen: View {
     @State private var controller: MapController
     @State private var cameraPosition: MapCameraPosition = .region(

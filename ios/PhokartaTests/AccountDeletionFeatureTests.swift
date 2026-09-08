@@ -1,5 +1,7 @@
 import XCTest
 import SQLite3
+import CoreGraphics
+import ImageIO
 @testable import Phokarta
 
 @MainActor
@@ -7,6 +9,27 @@ final class AccountDeletionFeatureTests: XCTestCase {
     private var tempDir: URL!
     private let userA = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
     private let userB = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+    private func makeTestJPEG(width: Int = 40, height: Int = 40) -> Data {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.setFillColor(CGColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let cgImage = context.makeImage()!
+        let data = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, cgImage, nil)
+        CGImageDestinationFinalize(destination)
+        return data as Data
+    }
 
     override func setUp() async throws {
         try await super.setUp()
@@ -121,13 +144,15 @@ final class AccountDeletionFeatureTests: XCTestCase {
         let mutationRepo = SQLiteOfflineMutationRepository(database: db, clock: clock)
         let purger = SQLiteLocalAccountPurger(database: db)
 
-        let placeA = UUID()
-        let placeB = UUID()
+        let placeDraftA = UUID()
+        let placeMutationA = UUID()
+        let placeDraftB = UUID()
+        let placeMutationB = UUID()
 
         // User A draft
         let draftA = DurableVisitDraft(
             userId: userA,
-            placeId: placeA,
+            placeId: placeDraftA,
             overallScore: 9.0,
             publicReview: "User A review",
             privateMemory: "User A private memory",
@@ -137,12 +162,12 @@ final class AccountDeletionFeatureTests: XCTestCase {
             createdAtEpochMillis: clock.nowMillis(),
             updatedAtEpochMillis: clock.nowMillis()
         )
-        try await draftRepo.saveDraft(placeId: placeA, draft: draftA, userId: userA)
+        try await draftRepo.saveDraft(placeId: placeDraftA, draft: draftA, userId: userA)
 
         // User B draft
         let draftB = DurableVisitDraft(
             userId: userB,
-            placeId: placeB,
+            placeId: placeDraftB,
             overallScore: 8.0,
             publicReview: "User B review",
             privateMemory: "User B private memory",
@@ -152,12 +177,12 @@ final class AccountDeletionFeatureTests: XCTestCase {
             createdAtEpochMillis: clock.nowMillis(),
             updatedAtEpochMillis: clock.nowMillis()
         )
-        try await draftRepo.saveDraft(placeId: placeB, draft: draftB, userId: userB)
+        try await draftRepo.saveDraft(placeId: placeDraftB, draft: draftB, userId: userB)
 
         // User A mutation
         let mutationA = DurablePendingVisitPayload(
             mutationId: UUID(),
-            placeId: placeA,
+            placeId: placeMutationA,
             visitedAtEpochDay: 19700,
             overallRating: 9.0,
             publicReview: "Review A",
@@ -169,7 +194,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
         // User B mutation
         let mutationB = DurablePendingVisitPayload(
             mutationId: UUID(),
-            placeId: placeB,
+            placeId: placeMutationB,
             visitedAtEpochDay: 19700,
             overallRating: 8.0,
             publicReview: "Review B",
@@ -183,14 +208,14 @@ final class AccountDeletionFeatureTests: XCTestCase {
 
         // P10, P16 Invariants:
         // User A data must be completely gone
-        let draftAfterA = try await draftRepo.getDraft(placeId: placeA, userId: userA)
+        let draftAfterA = try await draftRepo.getDraft(placeId: placeDraftA, userId: userA)
         XCTAssertNil(draftAfterA, "P10: User A draft must be purged")
 
         let mutationsAfterA = try await mutationRepo.getEligibleMutations(userId: userA, limit: 10)
         XCTAssertTrue(mutationsAfterA.isEmpty, "P10: User A mutations must be purged")
 
         // User B data must be completely intact!
-        let draftAfterB = try await draftRepo.getDraft(placeId: placeB, userId: userB)
+        let draftAfterB = try await draftRepo.getDraft(placeId: placeDraftB, userId: userB)
         XCTAssertNotNil(draftAfterB, "P16: User B draft must remain intact")
         XCTAssertEqual(draftAfterB?.privateMemory, "User B private memory")
 
@@ -228,7 +253,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
         let results = try await db.query(
             "SELECT privateMemory FROM visit_drafts WHERE userId = ?;",
             params: [userA.uuidString]
-        ) { stmt in
+        ) { @Sendable stmt in
             String(cString: sqlite3_column_text(stmt, 0))
         }
         XCTAssertTrue(results.isEmpty, "P10: Private memory must be completely deleted from disk")
@@ -241,9 +266,9 @@ final class AccountDeletionFeatureTests: XCTestCase {
         let store = DurableMediaStore(customRootDirectory: storeDir)
         let purger = SQLiteLocalAccountPurger(database: try PersistentDatabase(path: nil), mediaStore: store)
 
-        let dummyData = Data("JPEG_DATA_DUMMY".utf8)
-        let photoA = try await store.importMedia(ownerUserId: userA, placeId: UUID(), position: 0, data: dummyData, clientMediaId: nil)
-        let photoB = try await store.importMedia(ownerUserId: userB, placeId: UUID(), position: 0, data: dummyData, clientMediaId: nil)
+        let testJPEG = makeTestJPEG()
+        let photoA = try await store.importMedia(ownerUserId: userA, placeId: UUID(), position: 0, data: testJPEG, clientMediaId: nil)
+        let photoB = try await store.importMedia(ownerUserId: userB, placeId: UUID(), position: 0, data: testJPEG, clientMediaId: nil)
 
         // Both files exist initially
         let urlA = store.resolveOwned(ownerUserId: userA, relativePath: photoA.localRelativePath)!

@@ -68,15 +68,15 @@ final class PolicyStatusStore {
         }
     }
 
-    func acceptPolicy() async -> Bool {
-        guard let version = requiredVersion else { return false }
+    func acceptPolicy(version: String? = nil) async -> Bool {
+        guard let effectiveVersion = version ?? requiredVersion else { return false }
         generation &+= 1
         let currentGen = generation
         isLoading = true
         error = nil
 
         do {
-            let result = try await service.acceptPolicy(version: version)
+            let result = try await service.acceptPolicy(version: effectiveVersion)
             guard currentGen == generation, !Task.isCancelled else { return false }
             status = result
             isLoading = false

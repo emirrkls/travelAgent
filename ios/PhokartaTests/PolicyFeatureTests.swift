@@ -77,15 +77,32 @@ final class PolicyFeatureTests: XCTestCase {
 
     func testStalePolicyResponseCannotOverrideNewerAcceptance() async throws {
         actor SlowGate {
-            var gate: CheckedContinuation<Void, Never>?
-            func wait() async {
+            private var isWaiting = false
+            private var isOpen = false
+            private var continuation: CheckedContinuation<Void, Never>?
+            private var waitContinuation: CheckedContinuation<Void, Never>?
+
+            func waitUntilBlocked() async {
+                if isWaiting { return }
                 await withCheckedContinuation { cont in
-                    self.gate = cont
+                    waitContinuation = cont
                 }
             }
+
+            func wait() async {
+                if isOpen { return }
+                await withCheckedContinuation { cont in
+                    continuation = cont
+                    isWaiting = true
+                    waitContinuation?.resume()
+                    waitContinuation = nil
+                }
+            }
+
             func open() {
-                gate?.resume()
-                gate = nil
+                isOpen = true
+                continuation?.resume()
+                continuation = nil
             }
         }
 
@@ -123,8 +140,12 @@ final class PolicyFeatureTests: XCTestCase {
         // Launch slow background status load
         let slowLoad = Task { await policyStore.loadStatus() }
 
-        // Accept policy (advances generation)
-        _ = await policyStore.acceptPolicy()
+        // Wait until slow load is actually blocked at slowGate
+        await slowGate.waitUntilBlocked()
+
+        // Accept policy with version (advances generation)
+        let acceptResult = await policyStore.acceptPolicy(version: "2026-08-beta")
+        XCTAssertTrue(acceptResult)
         XCTAssertTrue(policyStore.isAccepted)
 
         // Now release slow load

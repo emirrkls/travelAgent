@@ -127,7 +127,7 @@ final class SocialStateStore {
     func setDesired(_ desired: Bool, for targetId: UUID) {
         guard accountID != nil else { return }
         guard targetId != accountID else {
-            errors[targetId] = .validation("Cannot follow yourself")
+            errors[targetId] = .validation(message: "Cannot follow yourself", fields: [:])
             return
         }
 

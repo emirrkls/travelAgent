@@ -1,5 +1,6 @@
 import XCTest
 import CoreLocation
+import SQLite3
 @testable import Phokarta
 
 final class MapFeatureTests: XCTestCase {
@@ -468,24 +469,15 @@ final class MapFeatureTests: XCTestCase {
     }
 
     // MARK: - 102. Location Privacy Invariant
-    func testLocationPrivacyNoDurableHistoryTable() throws {
+    func testLocationPrivacyNoDurableHistoryTable() async throws {
         let tempPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString + ".sqlite3")
         defer { try? FileManager.default.removeItem(atPath: tempPath) }
 
         let db = try PersistentDatabase(path: tempPath)
         // Verify schema tables
-        let tables = try db.read { dbPointer -> [String] in
-            var list: [String] = []
-            var stmt: OpaquePointer?
-            if sqlite3_prepare_v2(dbPointer, "SELECT name FROM sqlite_master WHERE type='table';", -1, &stmt, nil) == SQLITE_OK {
-                while sqlite3_step(stmt) == SQLITE_ROW {
-                    if let cName = sqlite3_column_text(stmt, 0) {
-                        list.append(String(cString: cName))
-                    }
-                }
-            }
-            sqlite3_finalize(stmt)
-            return list
+        let tables: [String] = try await db.query("SELECT name FROM sqlite_master WHERE type='table';") { stmt in
+            guard let cName = sqlite3_column_text(stmt, 0) else { return "" }
+            return String(cString: cName)
         }
 
         XCTAssertFalse(tables.contains("user_locations"), "Schema must not contain user_locations table")
@@ -569,7 +561,7 @@ private final class ControllableMapPlaceService: PlaceServing, @unchecked Sendab
     }
 
     func friendsSummary(placeId: UUID) async throws -> FriendPlaceSummary {
-        FriendPlaceSummary(friendVisits: [], friendsVisitedCount: 0, friendAverageScore: nil)
+        FriendPlaceSummary(averageScore: nil, friendsVisitedCount: 0, friends: [])
     }
 
     func friendMetrics(placeIds: [UUID]) async throws -> [FriendPlaceMetrics] {
@@ -610,9 +602,9 @@ private final class FakeSavedPlaceService: SavedPlaceServing, @unchecked Sendabl
             )
             let dto = SavedPlaceDTO(
                 place: place,
+                savedAt: "2026-09-08T12:00:00Z",
                 friendAverageScore: nil,
-                friendsVisitedCount: 0,
-                savedAt: "2026-09-08T12:00:00Z"
+                friendsVisitedCount: 0
             )
             saved[placeId] = dto
             return dto
@@ -625,7 +617,7 @@ private final class FakeSavedPlaceService: SavedPlaceServing, @unchecked Sendabl
 
 private final class FakeVisitService: VisitServing, @unchecked Sendable {
     func create(_ request: VisitCreateRequest) async throws -> OwnerVisit {
-        throw AppError.general
+        throw AppError.server
     }
 
     func ownerVisits() async throws -> [OwnerVisit] {

@@ -61,4 +61,17 @@ final class AuthSessionController {
         sessionReset()
         state = .signedOut
     }
+
+    /// Terminal account deletion: purge local data, clear session, sign out.
+    /// Called after backend deletion succeeds, or on lost-ACK convergence.
+    func handleAccountDeletion(userId: UUID, purger: any LocalAccountPurger) async {
+        sessionReset()
+        do {
+            try await purger.purgeLocalData(userId: userId)
+        } catch {
+            // Best-effort: sign out regardless of local purge failure
+        }
+        await auth.logout()
+        state = .signedOut
+    }
 }

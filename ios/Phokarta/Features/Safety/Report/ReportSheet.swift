@@ -60,7 +60,7 @@ struct ReportSheet: View {
                             Spacer()
                             if controller.selectedReason == reason {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.accent)
+                                    .foregroundStyle(Color.accentColor)
                                     .accessibilityLabel(String(localized: "accessibility.selected"))
                             }
                         }

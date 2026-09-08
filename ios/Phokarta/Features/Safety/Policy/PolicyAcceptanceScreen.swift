@@ -36,7 +36,7 @@ struct PolicyAcceptanceScreen: View {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: isChecked ? "checkmark.square.fill" : "square")
                                 .font(.title3)
-                                .foregroundStyle(isChecked ? .accent : .secondary)
+                                .foregroundStyle(isChecked ? Color.accentColor : Color.secondary)
                             Text(String(localized: "policy.checkbox_label"))
                                 .font(.subheadline)
                                 .foregroundStyle(.primary)

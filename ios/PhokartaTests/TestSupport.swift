@@ -78,6 +78,30 @@ actor FakeHTTPTransport: HTTPTransport {
     }
 }
 
+actor CallCounter {
+    private(set) var count = 0
+
+    init(count: Int = 0) {
+        self.count = count
+    }
+
+    func increment() {
+        count += 1
+    }
+}
+
+actor ValueBox<T: Sendable> {
+    private(set) var value: T
+
+    init(_ value: T) {
+        self.value = value
+    }
+
+    func set(_ value: T) {
+        self.value = value
+    }
+}
+
 enum TestConfig {
     static func httpsTest() throws -> AppConfig {
         try AppConfig.parse(

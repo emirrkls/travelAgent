@@ -11,6 +11,7 @@ final class ReportFeatureTests: XCTestCase {
     func testReportUserEncoding() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
+        let targetId = targetUserId
         let transport = FakeHTTPTransport { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/reports")
@@ -18,7 +19,7 @@ final class ReportFeatureTests: XCTestCase {
 
             let body = try JSONDecoder().decode(CreateReportRequestDTO.self, from: request.httpBody!)
             XCTAssertEqual(body.targetType, .user)
-            XCTAssertEqual(body.targetId, self.targetUserId)
+            XCTAssertEqual(body.targetId, targetId)
             XCTAssertEqual(body.reason, .harassment)
             XCTAssertEqual(body.details, "Harassing messages in reviews")
 
@@ -54,13 +55,14 @@ final class ReportFeatureTests: XCTestCase {
     func testReportVisitEncoding() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
+        let visitId = targetVisitId
         let transport = FakeHTTPTransport { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/reports")
 
             let body = try JSONDecoder().decode(CreateReportRequestDTO.self, from: request.httpBody!)
             XCTAssertEqual(body.targetType, .visit)
-            XCTAssertEqual(body.targetId, self.targetVisitId)
+            XCTAssertEqual(body.targetId, visitId)
             XCTAssertEqual(body.reason, .spam)
             XCTAssertNil(body.details)
 
@@ -97,10 +99,10 @@ final class ReportFeatureTests: XCTestCase {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
         let existingId = UUID()
-        var submissionCount = 0
+        let submissionCounter = CallCounter()
 
         let transport = FakeHTTPTransport { request in
-            submissionCount += 1
+            await submissionCounter.increment()
             // Backend returns 200 OK (not 201) with the existing OPEN report
             let responseJSON = """
             {
@@ -126,7 +128,8 @@ final class ReportFeatureTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // P6 invariant: duplicate report handled cleanly, no repeat loop
-        XCTAssertEqual(submissionCount, 1)
+        let count = await submissionCounter.count
+        XCTAssertEqual(count, 1)
         XCTAssertEqual(controller.phase, .success(isDuplicate: false))
     }
 
@@ -135,10 +138,10 @@ final class ReportFeatureTests: XCTestCase {
     func testReportRateLimitTransitionsToSafeTryLater() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
-        var callCount = 0
+        let callCounter = CallCounter()
 
         let transport = FakeHTTPTransport { request in
-            callCount += 1
+            await callCounter.increment()
             return TestJSON.http(
                 request.url!,
                 status: 429,
@@ -157,7 +160,8 @@ final class ReportFeatureTests: XCTestCase {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // P7 invariant: 429 transitions to rateLimited phase, no retry storm
-        XCTAssertEqual(callCount, 1, "Must not retry on 429")
+        let count = await callCounter.count
+        XCTAssertEqual(count, 1, "Must not retry on 429")
         XCTAssertEqual(controller.phase, .rateLimited)
     }
 
@@ -209,11 +213,11 @@ final class ReportFeatureTests: XCTestCase {
     func testReportDetailsCappedAt2000Characters() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
-        var observedDetailsLength = 0
+        let observedLengthBox = ValueBox<Int>(0)
 
         let transport = FakeHTTPTransport { request in
             let body = try JSONDecoder().decode(CreateReportRequestDTO.self, from: request.httpBody!)
-            observedDetailsLength = body.details?.count ?? 0
+            await observedLengthBox.set(body.details?.count ?? 0)
             let resJSON = """
             {
                 "id": "\(UUID().uuidString.lowercased())",
@@ -230,13 +234,14 @@ final class ReportFeatureTests: XCTestCase {
         let service = ReportService(client: client)
         let controller = ReportController(service: service)
 
-        controller.open(target: .visit(id: targetVisitId, placeName: "Some Cafe"))
-        controller.selectedReason = .spam
+        controller.open(target: ReportTarget.visit(id: targetVisitId, placeName: "Some Cafe"))
+        controller.selectedReason = ReportReason.spam
         controller.details = String(repeating: "A", count: 3000)
         controller.submit()
 
         try await Task.sleep(nanoseconds: 50_000_000)
 
+        let observedDetailsLength = await observedLengthBox.value
         XCTAssertEqual(observedDetailsLength, 2000, "Details must be capped at 2000 characters")
     }
 

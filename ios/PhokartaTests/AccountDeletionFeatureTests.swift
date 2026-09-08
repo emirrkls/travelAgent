@@ -23,10 +23,7 @@ final class AccountDeletionFeatureTests: XCTestCase {
     // MARK: - 76. CANONICAL DELETE SUCCESS TEST (P8)
 
     func testCanonicalAccountDeletionSuccess() async throws {
-        var purgeCalledForUser: UUID?
-        let mockPurger = MockAccountPurger { userId in
-            purgeCalledForUser = userId
-        }
+        let mockPurger = MockAccountPurger()
 
         var sessionResetCalled = false
         var signOutCalled = false
@@ -44,12 +41,13 @@ final class AccountDeletionFeatureTests: XCTestCase {
         let client = APIClient(config: config, transport: transport, authRetry: refresh)
         let service = AccountDeletionService(client: client)
 
+        let targetUser = userA
         let controller = DeleteAccountController(
             service: service,
             purger: mockPurger,
             sessionReset: { sessionResetCalled = true },
             signOut: { signOutCalled = true },
-            currentUserId: { self.userA }
+            currentUserId: { targetUser }
         )
 
         controller.showConfirmation()
@@ -62,16 +60,14 @@ final class AccountDeletionFeatureTests: XCTestCase {
         XCTAssertEqual(controller.phase, .success, "P8: Deletion controller must reach .success phase")
         XCTAssertTrue(sessionResetCalled, "P8: In-memory session state must be reset")
         XCTAssertTrue(signOutCalled, "P8: Session must be signed out")
-        XCTAssertEqual(purgeCalledForUser, userA, "P8: Purger must be called for deleted user")
+        let purgedUser = await mockPurger.purgedUser
+        XCTAssertEqual(purgedUser, userA, "P8: Purger must be called for deleted user")
     }
 
     // MARK: - 75. LOST ACK DELETE TEST (P9)
 
     func testLostAckDeleteConvergesToSignedOut() async throws {
-        var purgeCalledForUser: UUID?
-        let mockPurger = MockAccountPurger { userId in
-            purgeCalledForUser = userId
-        }
+        let mockPurger = MockAccountPurger()
 
         var sessionResetCalled = false
         var signOutCalled = false
@@ -91,12 +87,13 @@ final class AccountDeletionFeatureTests: XCTestCase {
         let client = APIClient(config: config, transport: transport, authRetry: refresh)
         let service = AccountDeletionService(client: client)
 
+        let targetUser = userA
         let controller = DeleteAccountController(
             service: service,
             purger: mockPurger,
             sessionReset: { sessionResetCalled = true },
             signOut: { signOutCalled = true },
-            currentUserId: { self.userA }
+            currentUserId: { targetUser }
         )
 
         controller.showConfirmation()
@@ -109,7 +106,8 @@ final class AccountDeletionFeatureTests: XCTestCase {
         XCTAssertEqual(controller.phase, .success)
         XCTAssertTrue(sessionResetCalled)
         XCTAssertTrue(signOutCalled)
-        XCTAssertEqual(purgeCalledForUser, userA)
+        let purgedUser = await mockPurger.purgedUser
+        XCTAssertEqual(purgedUser, userA)
     }
 
     // MARK: - 99. SQLITE ACCOUNT PURGE TEST (P10, P16)
@@ -310,12 +308,13 @@ final class AccountDeletionFeatureTests: XCTestCase {
 
         var signOutCalled = false
 
+        let targetUser = userA
         let controller = DeleteAccountController(
             service: service,
             purger: FailingPurger(),
             sessionReset: {},
             signOut: { signOutCalled = true },
-            currentUserId: { self.userA }
+            currentUserId: { targetUser }
         )
 
         controller.showConfirmation()
@@ -340,14 +339,10 @@ final class AccountDeletionFeatureTests: XCTestCase {
 
 // MARK: - Helper
 
-private final class MockAccountPurger: LocalAccountPurger, @unchecked Sendable {
-    private let onPurge: (UUID) -> Void
-
-    init(onPurge: @escaping (UUID) -> Void) {
-        self.onPurge = onPurge
-    }
+private actor MockAccountPurger: LocalAccountPurger {
+    private(set) var purgedUser: UUID?
 
     func purgeLocalData(userId: UUID) async throws {
-        onPurge(userId)
+        purgedUser = userId
     }
 }

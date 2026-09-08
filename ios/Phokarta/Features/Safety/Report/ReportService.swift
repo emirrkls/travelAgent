@@ -2,12 +2,12 @@ import Foundation
 
 // MARK: - Enums
 
-enum ReportTargetType: String, Codable, Sendable {
+enum ReportTargetType: String, Codable, Equatable, Sendable {
     case user = "USER"
     case visit = "VISIT"
 }
 
-enum ReportReason: String, CaseIterable, Codable, Sendable {
+enum ReportReason: String, CaseIterable, Codable, Equatable, Sendable {
     case spam = "SPAM"
     case harassment = "HARASSMENT"
     case hateOrAbuse = "HATE_OR_ABUSE"
@@ -31,7 +31,7 @@ enum ReportReason: String, CaseIterable, Codable, Sendable {
     }
 }
 
-enum ReportStatus: String, Codable, Sendable {
+enum ReportStatus: String, Codable, Equatable, Sendable {
     case open = "OPEN"
     case reviewed = "REVIEWED"
     case actioned = "ACTIONED"
@@ -40,7 +40,7 @@ enum ReportStatus: String, Codable, Sendable {
 
 // MARK: - DTOs
 
-struct CreateReportRequestDTO: Encodable, Sendable {
+struct CreateReportRequestDTO: Codable, Equatable, Sendable {
     let targetType: ReportTargetType
     let targetId: UUID
     let reason: ReportReason

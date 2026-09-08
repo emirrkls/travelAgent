@@ -90,14 +90,15 @@ final class PolicyFeatureTests: XCTestCase {
         }
 
         let slowGate = SlowGate()
-        var callCount = 0
+        let callCounter = CallCounter()
 
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
         let transport = FakeHTTPTransport { request in
             if request.httpMethod == "GET" {
-                callCount += 1
-                if callCount == 1 {
+                await callCounter.increment()
+                let currentCount = await callCounter.count
+                if currentCount == 1 {
                     // Stale slow response
                     await slowGate.wait()
                     let staleJSON = """

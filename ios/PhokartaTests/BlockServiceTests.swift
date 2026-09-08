@@ -7,9 +7,10 @@ final class BlockServiceTests: XCTestCase {
     func testBlockEndpointMethodAndAuth() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
+        let targetId = targetUserId
         let transport = FakeHTTPTransport { request in
             XCTAssertEqual(request.httpMethod, "PUT")
-            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(self.targetUserId.uuidString.lowercased())")
+            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(targetId.uuidString.lowercased())")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-1")
             return TestJSON.http(request.url!, status: 204)
         }
@@ -23,9 +24,10 @@ final class BlockServiceTests: XCTestCase {
     func testUnblockEndpointMethodAndAuth() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
+        let targetId = targetUserId
         let transport = FakeHTTPTransport { request in
             XCTAssertEqual(request.httpMethod, "DELETE")
-            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(self.targetUserId.uuidString.lowercased())")
+            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(targetId.uuidString.lowercased())")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-1")
             return TestJSON.http(request.url!, status: 204)
         }
@@ -78,9 +80,9 @@ final class BlockServiceTests: XCTestCase {
     func testBlockIdempotency() async throws {
         let store = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
-        var callCount = 0
+        let callCounter = CallCounter()
         let transport = FakeHTTPTransport { request in
-            callCount += 1
+            await callCounter.increment()
             return TestJSON.http(request.url!, status: 204)
         }
         let refresh = TokenRefreshCoordinator(store: store, config: config, transport: transport)
@@ -89,7 +91,8 @@ final class BlockServiceTests: XCTestCase {
 
         try await service.block(userId: targetUserId)
         try await service.block(userId: targetUserId)
-        XCTAssertEqual(callCount, 2)
+        let count = await callCounter.count
+        XCTAssertEqual(count, 2)
     }
 
     func testSelfBlockThrowsBadRequest() async throws {

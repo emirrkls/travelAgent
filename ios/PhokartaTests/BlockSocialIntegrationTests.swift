@@ -57,9 +57,10 @@ final class BlockSocialIntegrationTests: XCTestCase {
         // Mock unblock service
         let storeSession = InMemorySessionStore(session: testSession(access: "access-1"))
         let config = try TestConfig.httpsTest()
+        let unblockTargetId = targetId
         let transport = FakeHTTPTransport { request in
             XCTAssertEqual(request.httpMethod, "DELETE")
-            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(self.targetId.uuidString.lowercased())")
+            XCTAssertEqual(request.url?.path, "/api/v1/me/blocks/\(unblockTargetId.uuidString.lowercased())")
             return TestJSON.http(request.url!, status: 204)
         }
         let refresh = TokenRefreshCoordinator(store: storeSession, config: config, transport: transport)
@@ -101,16 +102,7 @@ final class BlockSocialIntegrationTests: XCTestCase {
     func testCommunityAggregateRemainsBackendAuthoritativeAfterBlock() {
         // P4 invariant: Global Community score/count remains backend aggregate behavior.
         // Client must not subtract blocked user's contributions client-side.
-        let backendSummary = PlaceSummary(
-            id: UUID(),
-            name: "Test Place",
-            category: .cafe,
-            coverImage: nil,
-            city: "Istanbul",
-            region: "Marmara",
-            country: "Turkey",
-            latitude: 41.0,
-            longitude: 29.0,
+        let backendSummary = TestPlaces.summary(
             communityScore: 8.7,
             ratingCount: 42
         )

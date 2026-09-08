@@ -64,7 +64,7 @@ final class ReportController {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let response = try await service.submitReport(request)
+                _ = try await service.submitReport(request)
                 // 201 = new, 200 = duplicate OPEN
                 // We detect duplicate via response status being returned as-is
                 // The API client doesn't distinguish 200 vs 201 in the response object,

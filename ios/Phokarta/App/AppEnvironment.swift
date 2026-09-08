@@ -50,6 +50,11 @@ struct AppEnvironment {
     let social: any SocialServing
     let activity: any ActivityServing
     let socialState: SocialStateStore
+    let blockService: any BlockServing
+    let reportService: any ReportServing
+    let policyService: any PolicyServing
+    let accountDeletionService: any AccountDeletionServing
+    let policyStore: PolicyStatusStore
 
     @MainActor
     static func live() throws -> AppEnvironment {
@@ -106,11 +111,18 @@ struct AppEnvironment {
         let activityService = ActivityService(client: client)
         let socialState = SocialStateStore(service: socialService)
 
+        let blockSvc = BlockService(client: client)
+        let reportSvc = ReportService(client: client)
+        let policySvc = PolicyService(client: client)
+        let accountDelSvc = AccountDeletionService(client: client)
+        let policyStore = PolicyStatusStore(service: policySvc)
+
         let session = AuthSessionController(auth: auth) {
             saved.clear()
             collections.clear()
             visits.clear()
             socialState.clear()
+            policyStore.clear()
         }
         relay.controller = session
         sessionOwner.controller = session
@@ -134,7 +146,12 @@ struct AppEnvironment {
             networkMonitor: networkMonitor,
             social: socialService,
             activity: activityService,
-            socialState: socialState
+            socialState: socialState,
+            blockService: blockSvc,
+            reportService: reportSvc,
+            policyService: policySvc,
+            accountDeletionService: accountDelSvc,
+            policyStore: policyStore
         )
     }
 
@@ -194,11 +211,18 @@ struct AppEnvironment {
         let purger = SQLiteLocalAccountPurger(database: database, mediaStore: mediaStore)
         let networkMonitor = customNetworkMonitor ?? TestNetworkMonitor()
 
+        let blockSvc = BlockService(client: client)
+        let reportSvc = ReportService(client: client)
+        let policySvc = PolicyService(client: client)
+        let accountDelSvc = AccountDeletionService(client: client)
+        let policyStore = PolicyStatusStore(service: policySvc)
+
         let session = AuthSessionController(auth: auth, initialState: initialState) {
             saved.clear()
             collections.clear()
             visits.clear()
             socialState.clear()
+            policyStore.clear()
         }
         relay.controller = session
         sessionOwner.controller = session
@@ -222,7 +246,12 @@ struct AppEnvironment {
             networkMonitor: networkMonitor,
             social: socialService,
             activity: activityService,
-            socialState: socialState
+            socialState: socialState,
+            blockService: blockSvc,
+            reportService: reportSvc,
+            policyService: policySvc,
+            accountDeletionService: accountDelSvc,
+            policyStore: policyStore
         )
     }
 }

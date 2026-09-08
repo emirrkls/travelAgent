@@ -42,12 +42,15 @@ struct AppRouteDestinationView: View {
                 isOwnProfile: id == currentUserId,
                 service: environment.social,
                 store: environment.socialState,
+                blockService: environment.blockService,
+                reportService: environment.reportService,
                 onSelectPlace: { onNavigate(.placeDetail($0)) },
                 onSelectUser: { onNavigate(.userProfile($0)) },
                 onFollowers: { onNavigate(.socialList(.followers)) },
                 onFollowing: { onNavigate(.socialList(.following)) },
                 onFriends: { onNavigate(.socialList(.friends)) },
                 onUserSearch: { onNavigate(.userSearch) },
+                onSettings: id == currentUserId ? { onNavigate(.settings) } : nil,
                 onLogout: id == currentUserId ? onLogout : nil
             )
         case .socialList(let kind):
@@ -62,6 +65,35 @@ struct AppRouteDestinationView: View {
                 service: environment.social,
                 store: environment.socialState,
                 onSelectUser: { onNavigate(.userProfile($0)) }
+            )
+        case .settings:
+            SettingsScreen(
+                session: environment.session,
+                blockController: BlockController(
+                    service: environment.blockService,
+                    socialState: environment.socialState
+                ),
+                reportController: ReportController(service: environment.reportService),
+                deleteAccountController: DeleteAccountController(
+                    service: environment.accountDeletionService,
+                    purger: environment.purger,
+                    sessionReset: {
+                        environment.saved.clear()
+                        environment.collections.clear()
+                        environment.visits.clear()
+                        environment.socialState.clear()
+                        environment.policyStore.clear()
+                    },
+                    signOut: {
+                        await environment.session.logout()
+                    },
+                    currentUserId: {
+                        currentUserId
+                    }
+                ),
+                policyStore: environment.policyStore,
+                blockService: environment.blockService,
+                syncEngine: environment.syncEngine
             )
         }
     }

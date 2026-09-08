@@ -7,6 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		200000000000000000000038 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000038 /* SettingsScreen.swift */; };
+		200000000000000000000039 /* AccountDeletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000039 /* AccountDeletionService.swift */; };
+		20000000000000000000003A /* DeleteAccountController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003A /* DeleteAccountController.swift */; };
+		20000000000000000000003B /* DeleteAccountScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003B /* DeleteAccountScreen.swift */; };
+		20000000000000000000003C /* BlockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003C /* BlockController.swift */; };
+		20000000000000000000003D /* BlockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003D /* BlockService.swift */; };
+		20000000000000000000003E /* PolicyAcceptanceScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003E /* PolicyAcceptanceScreen.swift */; };
+		20000000000000000000003F /* PolicyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003F /* PolicyService.swift */; };
+		200000000000000000000040 /* PolicyStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000040 /* PolicyStatusStore.swift */; };
+		200000000000000000000041 /* ReportController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000041 /* ReportController.swift */; };
+		200000000000000000000042 /* ReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000042 /* ReportModels.swift */; };
+		200000000000000000000043 /* ReportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000043 /* ReportService.swift */; };
+		200000000000000000000044 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000044 /* ReportSheet.swift */; };
+		200000000000000000000045 /* BlockServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000045 /* BlockServiceTests.swift */; };
+		200000000000000000000046 /* BlockSocialIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000046 /* BlockSocialIntegrationTests.swift */; };
+		200000000000000000000047 /* ReportFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000047 /* ReportFeatureTests.swift */; };
+		200000000000000000000048 /* PolicyFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000048 /* PolicyFeatureTests.swift */; };
+		200000000000000000000049 /* AccountDeletionFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000049 /* AccountDeletionFeatureTests.swift */; };
 		200000000000000000000023 /* SocialModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* SocialModels.swift */; };
 		200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* SocialAPIEndpoints.swift */; };
 		200000000000000000000025 /* SocialServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* SocialServices.swift */; };
@@ -131,6 +149,24 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		100000000000000000000038 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000039 /* AccountDeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionService.swift; sourceTree = "<group>"; };
+		10000000000000000000003A /* DeleteAccountController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountController.swift; sourceTree = "<group>"; };
+		10000000000000000000003B /* DeleteAccountScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountScreen.swift; sourceTree = "<group>"; };
+		10000000000000000000003C /* BlockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockController.swift; sourceTree = "<group>"; };
+		10000000000000000000003D /* BlockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockService.swift; sourceTree = "<group>"; };
+		10000000000000000000003E /* PolicyAcceptanceScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyAcceptanceScreen.swift; sourceTree = "<group>"; };
+		10000000000000000000003F /* PolicyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyService.swift; sourceTree = "<group>"; };
+		100000000000000000000040 /* PolicyStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyStatusStore.swift; sourceTree = "<group>"; };
+		100000000000000000000041 /* ReportController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportController.swift; sourceTree = "<group>"; };
+		100000000000000000000042 /* ReportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportModels.swift; sourceTree = "<group>"; };
+		100000000000000000000043 /* ReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportService.swift; sourceTree = "<group>"; };
+		100000000000000000000044 /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
+		100000000000000000000045 /* BlockServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockServiceTests.swift; sourceTree = "<group>"; };
+		100000000000000000000046 /* BlockSocialIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockSocialIntegrationTests.swift; sourceTree = "<group>"; };
+		100000000000000000000047 /* ReportFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportFeatureTests.swift; sourceTree = "<group>"; };
+		100000000000000000000048 /* PolicyFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyFeatureTests.swift; sourceTree = "<group>"; };
+		100000000000000000000049 /* AccountDeletionFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFeatureTests.swift; sourceTree = "<group>"; };
 		100000000000000000000023 /* SocialModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialModels.swift; sourceTree = "<group>"; };
 		100000000000000000000024 /* SocialAPIEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialAPIEndpoints.swift; sourceTree = "<group>"; };
 		100000000000000000000025 /* SocialServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialServices.swift; sourceTree = "<group>"; };
@@ -249,6 +285,58 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		300000000000000000000011 /* Safety */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000012 /* Account */,
+				300000000000000000000013 /* Block */,
+				300000000000000000000014 /* Policy */,
+				300000000000000000000015 /* Report */,
+				100000000000000000000038 /* SettingsScreen.swift */,
+			);
+			path = Safety;
+			sourceTree = "<group>";
+		};
+		300000000000000000000012 /* Account */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000039 /* AccountDeletionService.swift */,
+				10000000000000000000003A /* DeleteAccountController.swift */,
+				10000000000000000000003B /* DeleteAccountScreen.swift */,
+			);
+			path = Account;
+			sourceTree = "<group>";
+		};
+		300000000000000000000013 /* Block */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000003C /* BlockController.swift */,
+				10000000000000000000003D /* BlockService.swift */,
+			);
+			path = Block;
+			sourceTree = "<group>";
+		};
+		300000000000000000000014 /* Policy */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000003E /* PolicyAcceptanceScreen.swift */,
+				10000000000000000000003F /* PolicyService.swift */,
+				100000000000000000000040 /* PolicyStatusStore.swift */,
+			);
+			path = Policy;
+			sourceTree = "<group>";
+		};
+		300000000000000000000015 /* Report */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000041 /* ReportController.swift */,
+				100000000000000000000042 /* ReportModels.swift */,
+				100000000000000000000043 /* ReportService.swift */,
+				100000000000000000000044 /* ReportSheet.swift */,
+			);
+			path = Report;
+			sourceTree = "<group>";
+		};
 		300000000000000000000007 /* Social */ = {
 			isa = PBXGroup;
 			children = (
@@ -407,6 +495,7 @@
 		36BCB926FAF7A714271E5228 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				300000000000000000000011 /* Safety */,
 				300000000000000000000007 /* Social */,
 				F107B6704DFD1AF8D3F959AF /* Auth */,
 				07F4EEADD711E6B223956E97 /* Explore */,
@@ -483,6 +572,11 @@
 		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000045 /* BlockServiceTests.swift */,
+				100000000000000000000046 /* BlockSocialIntegrationTests.swift */,
+				100000000000000000000047 /* ReportFeatureTests.swift */,
+				100000000000000000000048 /* PolicyFeatureTests.swift */,
+				100000000000000000000049 /* AccountDeletionFeatureTests.swift */,
 				100000000000000000000032 /* SocialTestSupport.swift */,
 				100000000000000000000033 /* SocialFollowCoordinatorTests.swift */,
 				100000000000000000000034 /* ActivityFeedControllerTests.swift */,
@@ -774,6 +868,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000045 /* BlockServiceTests.swift in Sources */,
+				200000000000000000000046 /* BlockSocialIntegrationTests.swift in Sources */,
+				200000000000000000000047 /* ReportFeatureTests.swift in Sources */,
+				200000000000000000000048 /* PolicyFeatureTests.swift in Sources */,
+				200000000000000000000049 /* AccountDeletionFeatureTests.swift in Sources */,
 				200000000000000000000032 /* SocialTestSupport.swift in Sources */,
 				200000000000000000000033 /* SocialFollowCoordinatorTests.swift in Sources */,
 				200000000000000000000034 /* ActivityFeedControllerTests.swift in Sources */,
@@ -804,6 +903,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000038 /* SettingsScreen.swift in Sources */,
+				200000000000000000000039 /* AccountDeletionService.swift in Sources */,
+				20000000000000000000003A /* DeleteAccountController.swift in Sources */,
+				20000000000000000000003B /* DeleteAccountScreen.swift in Sources */,
+				20000000000000000000003C /* BlockController.swift in Sources */,
+				20000000000000000000003D /* BlockService.swift in Sources */,
+				20000000000000000000003E /* PolicyAcceptanceScreen.swift in Sources */,
+				20000000000000000000003F /* PolicyService.swift in Sources */,
+				200000000000000000000040 /* PolicyStatusStore.swift in Sources */,
+				200000000000000000000041 /* ReportController.swift in Sources */,
+				200000000000000000000042 /* ReportModels.swift in Sources */,
+				200000000000000000000043 /* ReportService.swift in Sources */,
+				200000000000000000000044 /* ReportSheet.swift in Sources */,
 				200000000000000000000023 /* SocialModels.swift in Sources */,
 				200000000000000000000024 /* SocialAPIEndpoints.swift in Sources */,
 				200000000000000000000025 /* SocialServices.swift in Sources */,
@@ -943,7 +1055,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.7.0;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -1061,7 +1173,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.7.0;
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

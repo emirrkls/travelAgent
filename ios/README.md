@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.7 — Social /
-Friends / Community**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.8 — Safety /
+Account Deletion / Policy Acceptance**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -64,8 +64,15 @@ responses, place detail integration (friends preview and review author navigatio
 centralized deep-linking via AppRouteDestinationView and 5-tab navigation, account
 isolation, and deterministic race and privacy test suite.
 
-Maps/location, full policy acceptance modal UI, block/report user UI (deferred to v0.8),
-live infrastructure changes, and store submission remain outside this milestone.
+v0.8 adds native Safety, Account Lifecycle, and Policy Acceptance:
+- User blocking with directed storage, symmetric visibility barrier, atomic two-way follow cleanup, non-restoring unblock, and real-time social state invalidation.
+- User and Visit reporting with reason selector, optional details, duplicate OPEN report suppression, 429 rate limit handling, and non-blocking safety isolation.
+- Hard account deletion with password verification, in-memory store reset, disk-backed SQLite and media purger, lost-ACK convergence to signed-out, and re-registration UUID isolation.
+- UGC Policy Acceptance with required-version tracking, version-mismatch validation, 403 non-logout error mapping, and automatic offline queue resume with mutation ID preservation.
+- Settings screen with Policy status, Blocked Users list, and Delete Account flows.
+- Complete deterministic test suite covering critical invariants P1–P18.
+
+Maps/location, push notifications, and store submission remain outside this milestone.
 
 ## Generate, build, and test
 

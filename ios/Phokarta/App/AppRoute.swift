@@ -5,4 +5,5 @@ enum AppRoute: Hashable, Sendable {
     case userProfile(UUID)
     case socialList(SocialListKind)
     case userSearch
+    case settings
 }

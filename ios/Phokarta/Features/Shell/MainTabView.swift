@@ -667,6 +667,7 @@ struct ActivityTab: View {
                     store: environment.socialState
                 ),
                 currentUserId: currentUserId,
+                reportService: environment.reportService,
                 onOpenPlace: { path.append(.placeDetail($0)) },
                 onOpenAuthor: { path.append(.userProfile($0)) }
             )
@@ -695,12 +696,15 @@ struct ProfileTab: View {
                 isOwnProfile: true,
                 service: environment.social,
                 store: environment.socialState,
+                blockService: environment.blockService,
+                reportService: environment.reportService,
                 onSelectPlace: { path.append(.placeDetail($0)) },
                 onSelectUser: { path.append(.userProfile($0)) },
                 onFollowers: { path.append(.socialList(.followers)) },
                 onFollowing: { path.append(.socialList(.following)) },
                 onFriends: { path.append(.socialList(.friends)) },
                 onUserSearch: { path.append(.userSearch) },
+                onSettings: { path.append(.settings) },
                 onLogout: onLogout
             )
             .navigationDestination(for: AppRoute.self) { route in

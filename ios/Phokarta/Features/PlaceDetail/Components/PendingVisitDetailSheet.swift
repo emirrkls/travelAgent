@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct PendingVisitDetailSheet: View {
+struct PendingVisitDetailSheet: View {
     let place: PlaceDetail
     let pending: PendingVisit
     let onDismiss: () -> Void
@@ -12,7 +12,7 @@ public struct PendingVisitDetailSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showingRemoveAlert = false
 
-    public init(
+    init(
         place: PlaceDetail,
         pending: PendingVisit,
         onDismiss: @escaping () -> Void,
@@ -43,7 +43,7 @@ public struct PendingVisitDetailSheet: View {
         pending.actions
     }
 
-    public var body: some View {
+    var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: PhokartaSpacing.md) {

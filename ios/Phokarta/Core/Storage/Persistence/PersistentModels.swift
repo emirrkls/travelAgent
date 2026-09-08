@@ -384,27 +384,27 @@ public struct PendingVisitMutationBundle: Sendable {
     }
 }
 
-public struct PendingVisit: Sendable, Identifiable, Equatable {
-    public let mutationId: UUID
-    public let placeId: UUID
-    public let userId: UUID
-    public let visitedAt: Date
-    public let overallRating: Double
-    public let ratingDimensions: [String: Double]
-    public let review: String
-    public let personalNote: String
-    public let photos: [String]
-    public let visibility: VisitVisibility
-    public let state: MutationState
-    public let lastErrorCategory: String?
+struct PendingVisit: Sendable, Identifiable, Equatable {
+    let mutationId: UUID
+    let placeId: UUID
+    let userId: UUID
+    let visitedAt: Date
+    let overallRating: Double
+    let ratingDimensions: [String: Double]
+    let review: String
+    let personalNote: String
+    let photos: [String]
+    let visibility: VisitVisibility
+    let state: MutationState
+    let lastErrorCategory: String?
 
-    public var id: UUID { mutationId }
+    var id: UUID { mutationId }
 
-    public var failed: Bool {
+    var failed: Bool {
         state == .failedPermanent || state == .failedRetryable
     }
 
-    public var failureReason: SyncFailureReason? {
+    var failureReason: SyncFailureReason? {
         if lastErrorCategory == "POLICY_ACCEPTANCE_REQUIRED" {
             return .policyAcceptanceRequired
         }
@@ -414,11 +414,11 @@ public struct PendingVisit: Sendable, Identifiable, Equatable {
         return nil
     }
 
-    public var actions: PendingVisitActions {
+    var actions: PendingVisitActions {
         PendingVisitActions.actionsFor(state: state, errorCategory: lastErrorCategory)
     }
 
-    public init(
+    init(
         mutationId: UUID,
         placeId: UUID,
         userId: UUID,

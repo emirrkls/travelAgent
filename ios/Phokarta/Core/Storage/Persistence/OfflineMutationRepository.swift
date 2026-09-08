@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public protocol OfflineMutationRepository: Sendable {
+protocol OfflineMutationRepository: Sendable {
     func commitVisit(
         payload: DurablePendingVisitPayload,
         dimensions: [DurablePendingDimensionScore],
@@ -26,11 +26,11 @@ public protocol OfflineMutationRepository: Sendable {
     func getVisitPhotos(mutationId: UUID) async throws -> [DurablePendingPhoto]
 }
 
-public final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable {
+final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable {
     private let database: PersistentDatabase
     private let clock: any EpochClock
 
-    public init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
+    init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
         self.database = database
         self.clock = clock
     }

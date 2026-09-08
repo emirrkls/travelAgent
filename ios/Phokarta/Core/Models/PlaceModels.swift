@@ -518,6 +518,13 @@ enum PlaceImageURL {
 }
 
 enum PlaceDateFormatting {
+    static func mediumDate(from date: Date) -> String {
+        let display = DateFormatter()
+        display.dateStyle = .medium
+        display.timeStyle = .none
+        return display.string(from: date)
+    }
+
     static func mediumDate(from isoDate: String) -> String {
         let parser = DateFormatter()
         parser.calendar = Calendar(identifier: .iso8601)
@@ -527,10 +534,7 @@ enum PlaceDateFormatting {
         guard let date = parser.date(from: String(isoDate.prefix(10))) else {
             return isoDate
         }
-        let display = DateFormatter()
-        display.dateStyle = .medium
-        display.timeStyle = .none
-        return display.string(from: date)
+        return mediumDate(from: date)
     }
 }
 

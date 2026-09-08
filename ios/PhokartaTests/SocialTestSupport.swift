@@ -31,8 +31,6 @@ actor MockSocialService: SocialServing {
     var friends: [UserSummary] = []
     var searchResults: [UserSummary] = []
 
-    var followHandler: (@Sendable (UUID) async throws -> RelationshipState)?
-    var unfollowHandler: (@Sendable (UUID) async throws -> RelationshipState)?
     var errorToThrow: AppError?
     var gateBeforeResponse: TestGate?
 
@@ -49,18 +47,18 @@ actor MockSocialService: SocialServing {
         ownerProfile = profile
     }
 
-    func fetchPublicProfile(id: UUID) async throws -> PublicUserProfile {
+    func getPublicProfile(userId: UUID) async throws -> PublicUserProfile {
         if let gate = gateBeforeResponse {
             await gate.wait()
         }
         if let error = errorToThrow { throw error }
-        guard let profile = publicProfiles[id] else {
+        guard let profile = publicProfiles[userId] else {
             throw AppError.notFound
         }
         return profile
     }
 
-    func fetchOwnerProfile() async throws -> OwnerUserProfile {
+    func getMeProfile() async throws -> OwnerUserProfile {
         if let gate = gateBeforeResponse {
             await gate.wait()
         }
@@ -71,42 +69,22 @@ actor MockSocialService: SocialServing {
         return profile
     }
 
-    func follow(userId: UUID) async throws -> RelationshipState {
+    func follow(userId: UUID) async throws {
         followCallCount += 1
         followCalls.append(userId)
         if let gate = gateBeforeResponse {
             await gate.wait()
         }
         if let error = errorToThrow { throw error }
-        if let handler = followHandler {
-            return try await handler(userId)
-        }
-        let followsYou = publicProfiles[userId]?.relationship.followsYou ?? false
-        return RelationshipState(
-            isFollowing: true,
-            followsYou: followsYou,
-            isFriend: followsYou,
-            canMessage: false
-        )
     }
 
-    func unfollow(userId: UUID) async throws -> RelationshipState {
+    func unfollow(userId: UUID) async throws {
         unfollowCallCount += 1
         unfollowCalls.append(userId)
         if let gate = gateBeforeResponse {
             await gate.wait()
         }
         if let error = errorToThrow { throw error }
-        if let handler = unfollowHandler {
-            return try await handler(userId)
-        }
-        let followsYou = publicProfiles[userId]?.relationship.followsYou ?? false
-        return RelationshipState(
-            isFollowing: false,
-            followsYou: followsYou,
-            isFriend: false,
-            canMessage: false
-        )
     }
 
     func searchUsers(query: String, page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
@@ -118,22 +96,22 @@ actor MockSocialService: SocialServing {
             $0.username.localizedCaseInsensitiveContains(query) ||
             $0.displayName.localizedCaseInsensitiveContains(query)
         }
-        return SocialPageResponse(content: filtered, page: page, size: size, totalElements: filtered.count, totalPages: 1, last: true)
+        return SocialPageResponse(content: filtered, page: page, size: size, totalElements: Int64(filtered.count), totalPages: 1, hasNext: false)
     }
 
-    func fetchFollowers(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
+    func getFollowers(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
         if let error = errorToThrow { throw error }
-        return SocialPageResponse(content: followers, page: page, size: size, totalElements: followers.count, totalPages: 1, last: true)
+        return SocialPageResponse(content: followers, page: page, size: size, totalElements: Int64(followers.count), totalPages: 1, hasNext: false)
     }
 
-    func fetchFollowing(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
+    func getFollowing(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
         if let error = errorToThrow { throw error }
-        return SocialPageResponse(content: following, page: page, size: size, totalElements: following.count, totalPages: 1, last: true)
+        return SocialPageResponse(content: following, page: page, size: size, totalElements: Int64(following.count), totalPages: 1, hasNext: false)
     }
 
-    func fetchFriends(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
+    func getFriends(page: Int, size: Int) async throws -> SocialPageResponse<UserSummary> {
         if let error = errorToThrow { throw error }
-        return SocialPageResponse(content: friends, page: page, size: size, totalElements: friends.count, totalPages: 1, last: true)
+        return SocialPageResponse(content: friends, page: page, size: size, totalElements: Int64(friends.count), totalPages: 1, hasNext: false)
     }
 }
 
@@ -150,7 +128,7 @@ actor MockActivityService: ActivityServing {
         pagesByScope[scope]?[page] = response
     }
 
-    func fetchActivity(scope: ActivityScope, page: Int, size: Int) async throws -> SocialPageResponse<ActivityEvent> {
+    func getActivity(scope: ActivityScope, page: Int, size: Int) async throws -> SocialPageResponse<ActivityEvent> {
         fetchCalls.append((scope, page))
         if let gate = gateBeforeResponse {
             await gate.wait()
@@ -159,7 +137,7 @@ actor MockActivityService: ActivityServing {
         if let response = pagesByScope[scope]?[page] {
             return response
         }
-        return SocialPageResponse(content: [], page: page, size: size, totalElements: 0, totalPages: 0, last: true)
+        return SocialPageResponse(content: [], page: page, size: size, totalElements: 0, totalPages: 0, hasNext: false)
     }
 }
 
@@ -172,9 +150,17 @@ enum SocialTestFixtures {
         id: UUID,
         username: String,
         displayName: String,
-        avatarUrl: String? = nil
+        avatarUrl: String? = nil,
+        isFollowing: Bool = false,
+        followsYou: Bool = false
     ) -> UserSummary {
-        UserSummary(id: id, username: username, displayName: displayName, avatarUrl: avatarUrl)
+        UserSummary(
+            id: id,
+            username: username,
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+            relationship: RelationshipState(isFollowing: isFollowing, followsYou: followsYou)
+        )
     }
 
     static func publicProfile(
@@ -202,7 +188,6 @@ enum SocialTestFixtures {
             relationship: RelationshipState(
                 isFollowing: isFollowing,
                 followsYou: followsYou,
-                isFriend: isFollowing && followsYou,
                 canMessage: false
             )
         )
@@ -237,12 +222,12 @@ enum SocialTestFixtures {
         review: String = "Amazing stay in Göreme!"
     ) -> ActivityEvent {
         ActivityEvent(
-            id: id,
+            visitId: id,
             author: author,
             place: place,
-            visitedAt: "2026-09-01T10:00:00Z",
             overallScore: score,
-            publicReview: review
+            publicReview: review,
+            visitedAt: "2026-09-01T10:00:00Z"
         )
     }
 }

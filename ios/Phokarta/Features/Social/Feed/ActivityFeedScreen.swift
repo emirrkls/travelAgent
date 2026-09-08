@@ -20,6 +20,27 @@ public struct ActivityFeedScreen: View {
         _controller = State(initialValue: controller)
     }
 
+    public init(
+        activityService: any ActivityServing,
+        socialService: any SocialServing,
+        store: SocialStateStore,
+        currentUserId: UUID? = nil,
+        onOpenPlace: @escaping (UUID) -> Void,
+        onOpenAuthor: @escaping (UUID) -> Void
+    ) {
+        let controller = ActivityFeedController(
+            activityService: activityService,
+            socialService: socialService,
+            store: store
+        )
+        self.init(
+            controller: controller,
+            currentUserId: currentUserId,
+            onOpenPlace: onOpenPlace,
+            onOpenAuthor: onOpenAuthor
+        )
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             // Scope segmented selector

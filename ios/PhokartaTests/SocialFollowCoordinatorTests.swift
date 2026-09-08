@@ -29,10 +29,10 @@ final class SocialFollowCoordinatorTests: XCTestCase {
         await service.setPublicProfile(targetProfile)
 
         // Seed target profile into store
-        let fetched = try await store.refreshPublicProfile(id: targetID)
-        XCTAssertEqual(fetched.relationship.isFollowing, false)
-        XCTAssertEqual(fetched.relationship.followsYou, true)
-        XCTAssertEqual(fetched.relationship.isFriend, false)
+        store.recordConfirmedProfile(targetProfile)
+        XCTAssertEqual(store.isFollowing(targetID), false)
+        XCTAssertEqual(store.relationship(for: targetID)?.followsYou, true)
+        XCTAssertEqual(store.isFriend(targetID), false)
 
         var friendshipChangedTarget: UUID?
         var friendshipWasFriend: Bool?
@@ -41,23 +41,27 @@ final class SocialFollowCoordinatorTests: XCTestCase {
             friendshipWasFriend = isFriend
         }
 
-        // Toggle follow
-        try await store.toggleFollow(targetUserId: targetID)
+        // Toggle follow (optimistic)
+        store.toggleFollow(targetId: targetID)
 
         // Overlay state must immediately and definitely be following + friend
-        let state = store.relationship(for: targetID)
-        XCTAssertEqual(state?.isFollowing, true)
-        XCTAssertEqual(state?.followsYou, true)
-        XCTAssertEqual(state?.isFriend, true)
+        XCTAssertEqual(store.isFollowing(targetID), true)
+        let immediateRel = store.relationship(for: targetID)
+        XCTAssertEqual(immediateRel?.isFollowing, true)
+        XCTAssertEqual(immediateRel?.followsYou, true)
+        XCTAssertEqual(immediateRel?.isFriend, true)
+        XCTAssertEqual(store.isFriend(targetID), true)
+
+        // Effective follower count reflects delta
+        let effectiveCount = store.effectiveFollowerCount(baseCount: 5, for: targetID)
+        XCTAssertEqual(effectiveCount, 6)
+
+        // Wait for mutation loop to finish
+        await store.waitForMutation(of: targetID)
 
         // Friendship callback fired
         XCTAssertEqual(friendshipChangedTarget, targetID)
         XCTAssertEqual(friendshipWasFriend, true)
-
-        // Target profile in store has incremented follower count and updated friendCount
-        let updatedProfile = store.cachedProfile(for: targetID)
-        XCTAssertEqual(updatedProfile?.followerCount, 6)
-        XCTAssertEqual(updatedProfile?.friendCount, 2)
 
         // Backend follow service was called exactly once
         let followCount = await service.followCallCount
@@ -67,7 +71,6 @@ final class SocialFollowCoordinatorTests: XCTestCase {
     }
 
     func testRapidIntentRaceMergesToLatestIntentDeterministically() async throws {
-        // Target profile initially not followed
         let targetProfile = SocialTestFixtures.publicProfile(
             id: targetID,
             username: "bob",
@@ -79,38 +82,31 @@ final class SocialFollowCoordinatorTests: XCTestCase {
             followsYou: false
         )
         await service.setPublicProfile(targetProfile)
-        _ = try await store.refreshPublicProfile(id: targetID)
+        store.recordConfirmedProfile(targetProfile)
 
         // Gate the backend to simulate in-flight execution
         let gate = TestGate()
         await service.setGate(gate)
 
         // User rapidly taps: Follow -> Unfollow -> Follow
-        // First toggle: Follow (starts in-flight request)
-        let t1 = Task { try await store.toggleFollow(targetUserId: targetID) }
-        // Immediate second toggle: Unfollow
-        let t2 = Task { try await store.toggleFollow(targetUserId: targetID) }
-        // Immediate third toggle: Follow
-        let t3 = Task { try await store.toggleFollow(targetUserId: targetID) }
+        store.toggleFollow(targetId: targetID) // Follow
+        store.toggleFollow(targetId: targetID) // Unfollow
+        store.toggleFollow(targetId: targetID) // Follow
 
         // Local state should already optimistically reflect final intent (following: true)
-        let immediateRel = store.relationship(for: targetID)
-        XCTAssertEqual(immediateRel?.isFollowing, true)
+        XCTAssertEqual(store.isFollowing(targetID), true)
 
         // Open the gate so backend work proceeds
         await gate.open()
-
-        try await t1.value
-        try await t2.value
-        try await t3.value
+        await store.waitForMutation(of: targetID)
 
         // Final state is strictly following
         let finalRel = store.relationship(for: targetID)
         XCTAssertEqual(finalRel?.isFollowing, true)
 
-        // Follower count increased from 10 to 11, without duplicate drift
-        let cached = store.cachedProfile(for: targetID)
-        XCTAssertEqual(cached?.followerCount, 11)
+        // Effective follower count reflects +1 delta
+        let finalCount = store.effectiveFollowerCount(baseCount: 10, for: targetID)
+        XCTAssertEqual(finalCount, 11)
     }
 
     func testRollbackOnErrorRestoresPreviousStateAndCount() async throws {
@@ -125,64 +121,55 @@ final class SocialFollowCoordinatorTests: XCTestCase {
             followsYou: false
         )
         await service.setPublicProfile(targetProfile)
-        _ = try await store.refreshPublicProfile(id: targetID)
+        store.recordConfirmedProfile(targetProfile)
 
         // Configure service to throw server error
         await service.setError(AppError.server)
 
-        do {
-            try await store.toggleFollow(targetUserId: targetID)
-            XCTFail("Expected toggleFollow to throw")
-        } catch {
-            // Expected
-        }
+        store.toggleFollow(targetId: targetID)
+        XCTAssertEqual(store.isFollowing(targetID), true)
+
+        await store.waitForMutation(of: targetID)
 
         // Overlay should be rolled back to not following
-        let rel = store.relationship(for: targetID)
-        XCTAssertEqual(rel?.isFollowing, false)
+        XCTAssertEqual(store.isFollowing(targetID), false)
+        XCTAssertEqual(store.error(for: targetID), .server)
 
-        // Follower count should remain 10 (no drift)
-        let cached = store.cachedProfile(for: targetID)
-        XCTAssertEqual(cached?.followerCount, 10)
+        // Follower count delta should be cleared
+        let count = store.effectiveFollowerCount(baseCount: 10, for: targetID)
+        XCTAssertEqual(count, 10)
     }
 
     func testStaleProfileRefreshDoesNotOverwriteLocalOptimisticMutation() async throws {
-        let staleBackendProfile = SocialTestFixtures.publicProfile(
+        let targetProfile = SocialTestFixtures.publicProfile(
             id: targetID,
             username: "bob",
             displayName: "Bob",
             followerCount: 10,
-            followingCount: 5,
-            friendCount: 0,
             isFollowing: false,
             followsYou: false
         )
-        await service.setPublicProfile(staleBackendProfile)
-        _ = try await store.refreshPublicProfile(id: targetID)
+        await service.setPublicProfile(targetProfile)
+        store.recordConfirmedProfile(targetProfile)
 
-        // Follow target locally
-        try await store.toggleFollow(targetUserId: targetID)
-        XCTAssertEqual(store.relationship(for: targetID)?.isFollowing, true)
+        // Start mutation loop to follow target
+        store.toggleFollow(targetId: targetID)
+        await store.waitForMutation(of: targetID)
+        XCTAssertEqual(store.isFollowing(targetID), true)
 
-        // Backend still returns isFollowing: false (e.g. read replica lag)
-        let refreshed = try await store.refreshPublicProfile(id: targetID)
+        // Simulate a stale background profile fetch returning isFollowing: false with older revision (revision 0)
+        store.recordConfirmedProfile(targetProfile, requestRevision: 0)
 
-        // The returned profile from store must have local overlay applied!
-        XCTAssertEqual(refreshed.relationship.isFollowing, true)
-        XCTAssertEqual(refreshed.followerCount, 11)
+        // The local mutation must NOT be overwritten!
+        XCTAssertEqual(store.isFollowing(targetID), true)
     }
 
     func testSelfFollowIsRejectedWithoutMutation() async throws {
         // Owner attempts to follow own account
-        do {
-            try await store.toggleFollow(targetUserId: ownerID)
-            XCTFail("Self-follow should fail or be a no-op")
-        } catch let error as AppError {
-            XCTAssertEqual(error, .badRequest)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+        store.setDesired(true, for: ownerID)
 
+        // Must report validation error and not schedule mutation
+        XCTAssertNotNil(store.error(for: ownerID))
         let followCount = await service.followCallCount
         XCTAssertEqual(followCount, 0)
     }

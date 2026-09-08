@@ -661,11 +661,14 @@ struct ActivityTab: View {
     var body: some View {
         NavigationStack(path: $path) {
             ActivityFeedScreen(
-                activityService: environment.activity,
-                socialState: environment.socialState,
-                onSelectPlace: { path.append(.placeDetail($0)) },
-                onSelectUser: { path.append(.userProfile($0)) },
-                onFindPeople: { path.append(.userSearch) }
+                controller: ActivityFeedController(
+                    activityService: environment.activity,
+                    socialService: environment.social,
+                    store: environment.socialState
+                ),
+                currentUserId: currentUserId,
+                onOpenPlace: { path.append(.placeDetail($0)) },
+                onOpenAuthor: { path.append(.userProfile($0)) }
             )
             .navigationDestination(for: AppRoute.self) { route in
                 AppRouteDestinationView(

@@ -1,7 +1,7 @@
 # Phokarta iOS
 
-Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.6 — Durable
-Drafts + Offline Mutation Queue**.
+Native Swift/SwiftUI client for Phokarta. Current milestone: **v0.7 — Social /
+Friends / Community**.
 
 - Deployment target: iOS 17.0
 - Bundle ID: `com.emirrkls.phokarta` (xcconfig-overridable)
@@ -56,8 +56,16 @@ interrupted SYNCING recovery, confirmed media reuse (READY_REMOTE), media order 
 failed visit recovery for editing (M1 -> draft -> M2), transient retry with identical M1,
 orphan media reconciliation with grace period, and comprehensive deterministic concurrency tests.
 
-Maps/location, full policy acceptance modal UI, social/friends screens, live infrastructure changes,
-and store submission remain outside this milestone.
+v0.7 adds native social, friends, and community capabilities: public and owner profile
+screens, followers, following, and friends lists, live user search, dual-scope activity
+feed (Community and Friends), desired-state follow coordinator with serial queue,
+optimistic UI with rollback, count delta management, generation protection against stale
+responses, place detail integration (friends preview and review author navigation),
+centralized deep-linking via AppRouteDestinationView and 5-tab navigation, account
+isolation, and deterministic race and privacy test suite.
+
+Maps/location, full policy acceptance modal UI, block/report user UI (deferred to v0.8),
+live infrastructure changes, and store submission remain outside this milestone.
 
 ## Generate, build, and test
 

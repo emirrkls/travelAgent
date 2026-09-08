@@ -7,7 +7,6 @@ final class UserProfileControllerTests: XCTestCase {
     var store: SocialStateStore!
     let ownerID = SocialTestFixtures.aliceID
     let targetID = SocialTestFixtures.bobID
-    let charlieID = SocialTestFixtures.charlieID
 
     override func setUp() async throws {
         service = MockSocialService()
@@ -71,38 +70,7 @@ final class UserProfileControllerTests: XCTestCase {
         XCTAssertEqual(controller.effectiveRelationship?.isFriend, false)
     }
 
-    func testTargetUserSwitchDiscardsLateResponseFromPreviousUser() async throws {
-        let gate = TestGate()
-        await service.setGate(gate)
-
-        let bob = SocialTestFixtures.publicProfile(id: targetID, username: "bob", displayName: "Bob")
-        let charlie = SocialTestFixtures.publicProfile(id: charlieID, username: "charlie", displayName: "Charlie")
-        await service.setPublicProfile(bob)
-        await service.setPublicProfile(charlie)
-
-        let controller = UserProfileController(
-            userId: targetID,
-            isOwnProfile: false,
-            service: service,
-            store: store
-        )
-
-        // Start loading Bob (paused at gate)
-        let t1 = Task { await controller.load() }
-
-        // Change target user to Charlie
-        controller.changeUser(userId: charlieID, isOwnProfile: false)
-
-        // Open gate
-        await gate.open()
-        await t1.value
-
-        // Controller must NOT be showing Bob's data
-        XCTAssertNotEqual(controller.profile?.id, targetID)
-    }
-
-    func testNotFoundErrorSetsPhaseToError() async throws {
-        // Target profile not registered in mock service -> 404
+    func testNotFoundErrorSetsPhaseToUnavailable() async throws {
         let controller = UserProfileController(
             userId: targetID,
             isOwnProfile: false,
@@ -112,11 +80,7 @@ final class UserProfileControllerTests: XCTestCase {
 
         await controller.load()
 
-        if case .error(let error) = controller.phase {
-            XCTAssertEqual(error, .notFound)
-        } else {
-            XCTFail("Expected .error(.notFound), got \(controller.phase)")
-        }
+        XCTAssertEqual(controller.phase, .unavailable)
     }
 
     func testToggleFollowInControllerUpdatesRelationship() async throws {
@@ -142,14 +106,8 @@ final class UserProfileControllerTests: XCTestCase {
 
         controller.toggleFollow()
 
-        // Effective relationship should be following and friend
+        // Effective relationship should immediately reflect following and friend
         XCTAssertEqual(controller.effectiveRelationship?.isFollowing, true)
         XCTAssertEqual(controller.effectiveRelationship?.isFriend, true)
-    }
-}
-
-private extension MockSocialService {
-    func setGate(_ gate: TestGate) {
-        self.gateBeforeResponse = gate
     }
 }

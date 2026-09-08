@@ -17,7 +17,7 @@ final class SocialAccountIsolationTests: XCTestCase {
 
         // 1. Activate for Account A
         store.activate(accountID: accountA)
-        XCTAssertEqual(store.activeAccountID, accountA)
+        XCTAssertEqual(store.accountID, accountA)
 
         let targetProfile = SocialTestFixtures.publicProfile(
             id: targetUser,
@@ -29,20 +29,21 @@ final class SocialAccountIsolationTests: XCTestCase {
         await service.setPublicProfile(targetProfile)
 
         // Follow target user as Account A
-        _ = try await store.refreshPublicProfile(id: targetUser)
-        try await store.toggleFollow(targetUserId: targetUser)
+        store.recordConfirmedProfile(targetProfile)
+        store.toggleFollow(targetId: targetUser)
+        await store.waitForMutation(of: targetUser)
 
+        XCTAssertEqual(store.isFollowing(targetUser), true)
         XCTAssertEqual(store.relationship(for: targetUser)?.isFollowing, true)
-        XCTAssertNotNil(store.cachedProfile(for: targetUser))
 
         // 2. Switch account to Account B
         store.activate(accountID: accountB)
-        XCTAssertEqual(store.activeAccountID, accountB)
+        XCTAssertEqual(store.accountID, accountB)
 
         // All previous overlays and caches must be wiped clean!
         XCTAssertNil(store.relationship(for: targetUser))
-        XCTAssertNil(store.cachedProfile(for: targetUser))
         XCTAssertNil(store.ownerProfile)
+        XCTAssertEqual(store.isFollowing(targetUser), false)
     }
 
     func testClearOnLogoutWipesEverything() async throws {
@@ -57,9 +58,9 @@ final class SocialAccountIsolationTests: XCTestCase {
         // Terminal auth loss or logout
         store.clear()
 
-        XCTAssertNil(store.activeAccountID)
+        XCTAssertNil(store.accountID)
         XCTAssertNil(store.ownerProfile)
         XCTAssertNil(store.relationship(for: targetUser))
-        XCTAssertNil(store.cachedProfile(for: targetUser))
+        XCTAssertEqual(store.isFollowing(targetUser), false)
     }
 }

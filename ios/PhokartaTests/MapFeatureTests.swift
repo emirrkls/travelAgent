@@ -170,13 +170,13 @@ final class MapFeatureTests: XCTestCase {
 
         // Complete B first
         mockService.completeBounds(with: [placeB], forRequestId: 2)
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         XCTAssertEqual(controller.allPlaces.map(\.id), [placeB.id])
 
         // Now late A returns
         mockService.completeBounds(with: [placeA], forRequestId: 1)
-        await Task.yield()
+        for _ in 0..<10 { await Task.yield() }
 
         // State MUST remain B! Late A must not overwrite newer search B
         XCTAssertEqual(controller.allPlaces.map(\.id), [placeB.id])
@@ -241,7 +241,7 @@ final class MapFeatureTests: XCTestCase {
 
         // Map remains fully usable: bootstrap default area works
         controller.bootstrapDefaultAreaIfNeeded()
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         XCTAssertEqual(controller.allPlaces.count, 1)
         XCTAssertEqual(controller.visiblePlaces.count, 1)
@@ -313,15 +313,19 @@ final class MapFeatureTests: XCTestCase {
         let mockPlaces = ControllableMapPlaceService()
         mockPlaces.stubbedPlaces = [place]
 
+        let accountId = UUID()
+        savedStore.activate(accountID: accountId)
+
         let controller = MapController(
             places: mockPlaces,
             saved: savedStore,
             visits: visitStore,
-            locationService: MockLocationService()
+            locationService: MockLocationService(),
+            currentAccountId: accountId
         )
 
         controller.bootstrapDefaultAreaIfNeeded()
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         controller.toggleWantToGo()
         XCTAssertEqual(controller.visiblePlaces.count, 0)
@@ -356,7 +360,7 @@ final class MapFeatureTests: XCTestCase {
         )
 
         controller.bootstrapDefaultAreaIfNeeded()
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         controller.selectPlace(place.id)
         XCTAssertEqual(controller.selectedPlaceId, place.id)
@@ -386,7 +390,7 @@ final class MapFeatureTests: XCTestCase {
         )
 
         controller.bootstrapDefaultAreaIfNeeded()
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         // Community score is backend authoritative
         XCTAssertEqual(controller.allPlaces.first?.communityScore, 8.8)
@@ -401,7 +405,7 @@ final class MapFeatureTests: XCTestCase {
     // MARK: - 99. Detail Round-Trip Preservation
     @MainActor
     func testDetailRoundTripPreservesCameraAndFilters() async {
-        let place = makePlace(name: "Detail Place")
+        let place = makePlace(name: "Detail Place", communityScore: 9.5)
         let mockPlaces = ControllableMapPlaceService()
         mockPlaces.stubbedPlaces = [place]
         let savedStore = SavedPlaceStore(service: FakeSavedPlaceService())
@@ -416,10 +420,13 @@ final class MapFeatureTests: XCTestCase {
 
         let initialViewport = MapViewport(north: 38, east: 28, south: 36, west: 26, centerLatitude: 37, centerLongitude: 27, zoom: 11)
         controller.onCameraChange(viewport: initialViewport, isUserInteraction: true)
-        controller.toggleHighlyRated()
-        controller.selectPlace(place.id)
+        controller.fetchBounds(viewport: initialViewport)
+        await controller.waitForPendingTasks()
 
-        await Task.yield()
+        controller.toggleHighlyRated()
+        await controller.waitForPendingTasks()
+
+        controller.selectPlace(place.id)
 
         // Simulate navigating to Detail and coming back: MapController instance state is preserved
         XCTAssertEqual(controller.cameraViewport, initialViewport)
@@ -444,7 +451,7 @@ final class MapFeatureTests: XCTestCase {
         )
 
         controller.bootstrapDefaultAreaIfNeeded()
-        await Task.yield()
+        await controller.waitForPendingTasks()
 
         XCTAssertEqual(controller.allPlaces.count, 1)
         XCTAssertEqual(controller.visiblePlaces.count, 1)

@@ -36,6 +36,11 @@ final class MapController {
     private var boundsTask: Task<Void, Never>? = nil
     private var friendMetricsTask: Task<Void, Never>? = nil
 
+    func waitForPendingTasks() async {
+        await boundsTask?.value
+        await friendMetricsTask?.value
+    }
+
     init(
         places: any PlaceServing,
         saved: SavedPlaceStore,

@@ -9,5 +9,5 @@ public record CreateCollectionRequest(
         @NotBlank @Size(max = 120) String title,
         @Size(max = 1000) String description,
         @NotNull Visibility visibility,
-        @NotBlank @Size(max = 500) String coverImage) {
+        @NotNull @Size(max = 500) String coverImage) {
 }

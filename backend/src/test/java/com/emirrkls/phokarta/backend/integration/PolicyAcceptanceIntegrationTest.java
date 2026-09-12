@@ -141,9 +141,10 @@ class PolicyAcceptanceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title":"Allowed list","description":"",
-                                "visibility":"PUBLIC","coverImage":"https://example.test/c.jpg"}
+                                "visibility":"PUBLIC","coverImage":""}
                                 """))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.coverImage").value(""));
     }
 
     @Test

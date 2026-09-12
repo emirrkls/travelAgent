@@ -121,7 +121,7 @@ The committed shared `Phokarta` scheme builds the app and runs
 | Build | API URL | HTTP |
 |---|---|---|
 | Debug | `http://127.0.0.1:8080/` unless locally overridden | local networking allowed |
-| Release | `https://api.phokarta.invalid/` placeholder | HTTPS required |
+| Release | `https://api.phokarta.com/` beta backend | HTTPS required |
 
 See [Mac bootstrap](../docs/IOS_BOOTSTRAP.md),
 [Xcode Cloud](../docs/XCODE_CLOUD.md),

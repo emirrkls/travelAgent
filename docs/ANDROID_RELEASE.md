@@ -26,10 +26,10 @@ Optional policy URLs (`PHOKARTA_TERMS_URL`, `PHOKARTA_COMMUNITY_GUIDELINES_URL`,
 Release builds require an absolute `https://` URL with a trailing slash.
 
 ```powershell
-.\gradlew.bat bundleRelease -PPHOKARTA_API_BASE_URL=https://api.example.invalid/
+.\gradlew.bat bundleRelease
 ```
 
-If the property is omitted, release configuration uses the non-production placeholder `https://api.phokarta.invalid/`. That host is not a live backend. A real beta backend URL is an external infrastructure input.
+If the property is omitted, release configuration uses the live beta backend `https://api.phokarta.com/`. The existing `PHOKARTA_API_BASE_URL` environment/Gradle-property override remains available for a deliberate future environment, but release configuration rejects reserved `.invalid` hosts.
 
 Debug still defaults to `http://10.0.2.2:8080/` and permits cleartext only for `10.0.2.2`, `127.0.0.1`, and `localhost`.
 
@@ -72,7 +72,7 @@ From the repository root, JDK 17:
 .\gradlew.bat lintDebug
 .\gradlew.bat assembleDebug
 .\gradlew.bat compileReleaseKotlin
-.\gradlew.bat bundleRelease -PPHOKARTA_API_BASE_URL=https://<beta-api-host>/
+.\gradlew.bat bundleRelease
 ```
 
 Output (unsigned/local-debug-signed or upload-signed):

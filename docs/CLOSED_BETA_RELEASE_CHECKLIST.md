@@ -8,7 +8,7 @@ Status language: `[x]` done in repo, `[ ]` still required. External items stay u
 
 - [x] applicationId / namespace `com.emirrkls.phokarta`
 - [x] Release HTTPS API URL injection (no HTTP fallback)
-- [x] Placeholder `https://api.phokarta.invalid/` when no URL is supplied
+- [x] Live beta Release fallback `https://api.phokarta.com/` with reserved `.invalid` hosts rejected
 - [x] Debug-only HTTP logging (`HttpLoggingInterceptor` BASIC)
 - [x] Photo Picker (`PickVisualMedia`); no `READ_MEDIA_IMAGES`
 - [x] No background location; map works without permission
@@ -20,7 +20,7 @@ Status language: `[x]` done in repo, `[ ]` still required. External items stay u
 - [x] Demo catalog no longer overlays Profile identity (bio/avatar/taste)
 - [x] `compileSdk` / `targetSdk` **36** (`minSdk` 26 unchanged)
 - [x] Versioned server-authoritative User Policy gate before Visit create, media upload/confirm, and collection create/add
-- [ ] Live `PHOKARTA_API_BASE_URL` for the beta host
+- [x] Live `PHOKARTA_API_BASE_URL` for the beta host
 - [ ] Restricted production/release Maps Android key
 - [ ] Adaptive launcher icon + Play 512×512 icon (current asset is a 48dp vector)
 

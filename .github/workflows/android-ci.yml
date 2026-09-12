@@ -34,9 +34,6 @@ jobs:
   unit-lint-and-release-compile:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      PHOKARTA_API_BASE_URL: https://api.phokarta.invalid/
-
     steps:
       - name: Check out source
         uses: actions/checkout@v4

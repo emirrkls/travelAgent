@@ -10,7 +10,7 @@ Configured via xcconfig `PHOKARTA_API_BASE_URL`, injected into Info.plist, norma
 
 - Debug may use `http://` for local development.
 - Release must be absolute `https://`.
-- `https://api.phokarta.invalid/` is an explicit non-production placeholder. Runtime refuses to send auth traffic to `.invalid` hosts.
+- Release uses `https://api.phokarta.com/`. Runtime refuses to send auth traffic to `.invalid` hosts if an accidental override is supplied.
 
 ## Endpoints implemented in iOS v0.1
 

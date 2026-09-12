@@ -108,7 +108,7 @@ android {
         release {
             isMinifyEnabled = false
             isDebuggable = false
-            val baseUrl = apiBaseUrl("https://api.phokarta.invalid/").let { url ->
+            val baseUrl = apiBaseUrl("https://api.phokarta.com/").let { url ->
                 if (url.endsWith("/")) url else "${url.trimEnd('/')}/"
             }
             val parsedBaseUrl = runCatching { URI(baseUrl) }.getOrNull()
@@ -116,9 +116,10 @@ android {
                 parsedBaseUrl?.isAbsolute == true &&
                     parsedBaseUrl.scheme.equals("https", ignoreCase = true) &&
                     !parsedBaseUrl.host.isNullOrBlank() &&
+                    parsedBaseUrl.host.lowercase().let { it != "invalid" && !it.endsWith(".invalid") } &&
                     baseUrl.endsWith("/"),
             ) {
-                "Release PHOKARTA_API_BASE_URL must be an absolute https:// URL with a trailing slash."
+                "Release PHOKARTA_API_BASE_URL must be a non-placeholder absolute https:// URL with a trailing slash."
             }
             buildConfigField("String", "PHOKARTA_API_BASE_URL", "\"$baseUrl\"")
             addPolicyUrlFields(requireHttps = true)

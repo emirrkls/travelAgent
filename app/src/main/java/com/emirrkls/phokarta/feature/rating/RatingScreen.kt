@@ -1,5 +1,6 @@
 package com.emirrkls.phokarta.feature.rating
 
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,6 +98,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(20),
+    ) { uris -> viewModel.addPhotos(uris) }
+    val documentPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris -> viewModel.addPhotos(uris) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
@@ -458,7 +462,11 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             }
             TextButton(
                 onClick = {
-                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    try {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    } catch (_: ActivityNotFoundException) {
+                        documentPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp"))
+                    }
                 },
                 enabled = draftEditsEnabled && state.draft.photos.size < 20,
             ) {

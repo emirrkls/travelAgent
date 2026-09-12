@@ -74,7 +74,7 @@ class AccountDeletionMinioIntegrationTest {
 
     @Container
     static final GenericContainer<?> MINIO = new GenericContainer<>(
-            DockerImageName.parse("minio/minio:RELEASE.2025-07-23T15-54-02Z"))
+            DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z"))
             .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
             .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
             .withCommand("server", "/data")

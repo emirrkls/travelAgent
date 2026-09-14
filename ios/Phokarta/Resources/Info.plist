@@ -6,6 +6,8 @@
 	<string>$(PHOKARTA_API_BASE_URL)</string>
 	<key>PHOKARTA_ALLOWS_INSECURE_HTTP</key>
 	<string>$(PHOKARTA_ALLOWS_INSECURE_HTTP)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>NSAppTransportSecurity</key>

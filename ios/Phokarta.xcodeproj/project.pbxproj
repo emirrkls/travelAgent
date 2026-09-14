@@ -102,6 +102,8 @@
 		29E5DEA3ADF03D391F730BA6 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */; };
 		2F2A72BC8FF186E55C5AEDCD /* ConcurrentRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DEDE4CB575378EDB7C36AD /* ConcurrentRefreshTests.swift */; };
 		34215BEAC51D24E816173346 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0600377D52460F51182B7EB0 /* Assets.xcassets */; };
+		D1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy */; };
+		D3F2A3B4C5D6E7F8091A2B3C /* ReleasePackagingContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F2A3B4C5D6E7F8091A2B3C /* ReleasePackagingContractTests.swift */; };
 		37E633F2727FCA649633C0F0 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4949C5EC6020864D819CEB37 /* SessionStore.swift */; };
 		3B2249D5433AA5E0FAC2CB41 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = E318FEE1813E01ACE394B75B /* Tokens.swift */; };
 		3BA4A661EEAACAE9D5CEC426 /* PlaceDetailState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CC6CAFECFE0FEB94E68730B /* PlaceDetailState.swift */; };
@@ -244,6 +246,8 @@
 		0349CA9D5CF622B7E5E93F46 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		0451A6C2D000C97E23171D82 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		0600377D52460F51182B7EB0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		E3F2A3B4C5D6E7F8091A2B3C /* ReleasePackagingContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleasePackagingContractTests.swift; sourceTree = "<group>"; };
 		07CBDD2D44800FEF9886C7DB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		09A068EF54D3A98FE136E34C /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		0C9E8DB2BEC242406C126C71 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
@@ -586,6 +590,7 @@
 			children = (
 				0600377D52460F51182B7EB0 /* Assets.xcassets */,
 				43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */,
+				E1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -633,6 +638,7 @@
 				5CE3650D77A5E39625978958 /* APIErrorDecodingTests.swift */,
 				D6609ECC6A6F96ECEEDA483E /* APIRequestEncodingTests.swift */,
 				8B535D30DF977344C97C124F /* AppConfigTests.swift */,
+				E3F2A3B4C5D6E7F8091A2B3C /* ReleasePackagingContractTests.swift */,
 				C5E1159FC11AC63141A2CB4A /* AuthFieldValidatorTests.swift */,
 				6E16C76D106DD3F6A01489C4 /* AuthRepositoryTests.swift */,
 				F1DEDE4CB575378EDB7C36AD /* ConcurrentRefreshTests.swift */,
@@ -901,6 +907,7 @@
 			files = (
 				34215BEAC51D24E816173346 /* Assets.xcassets in Resources */,
 				29E5DEA3ADF03D391F730BA6 /* Localizable.xcstrings in Resources */,
+				D1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -930,6 +937,7 @@
 				68F4BBF5AE31B21C46A8F17A /* APIErrorDecodingTests.swift in Sources */,
 				00B1268A1CD9EC4D0EA903ED /* APIRequestEncodingTests.swift in Sources */,
 				4A6C138339A77D3BFC27356C /* AppConfigTests.swift in Sources */,
+				D3F2A3B4C5D6E7F8091A2B3C /* ReleasePackagingContractTests.swift in Sources */,
 				97AA0E9AC1106B47F27977BB /* AuthFieldValidatorTests.swift in Sources */,
 				7089AA61B1F3306A7CCF2FEC /* AuthRepositoryTests.swift in Sources */,
 				2F2A72BC8FF186E55C5AEDCD /* ConcurrentRefreshTests.swift in Sources */,
@@ -1107,7 +1115,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.0;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;
@@ -1225,7 +1233,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8.0;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(PHOKARTA_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = Phokarta;
 				SDKROOT = iphoneos;

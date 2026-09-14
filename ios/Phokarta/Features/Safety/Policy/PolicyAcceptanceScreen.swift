@@ -4,6 +4,7 @@ struct PolicyAcceptanceScreen: View {
     let store: PolicyStatusStore
     var syncEngine: MutationSyncEngine? = nil
     let onAccepted: () -> Void
+    @Environment(\.dismiss) private var dismiss
     @State private var isChecked = false
 
     var body: some View {
@@ -59,6 +60,7 @@ struct PolicyAcceptanceScreen: View {
                         if accepted {
                             _ = await syncEngine?.drain()
                             onAccepted()
+                            dismiss()
                         }
                     }
                 } label: {

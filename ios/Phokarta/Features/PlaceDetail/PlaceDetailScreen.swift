@@ -506,6 +506,9 @@ struct PlaceDetailScreen: View {
                                 .foregroundStyle(.secondary)
                                 .accessibilityLabel("\(String(localized: "visit.memory.only_you")): \(visit.privateMemory)")
                             }
+                            if !visit.media.isEmpty {
+                                VisitMediaGallery(media: visit.media)
+                            }
                         }
                         .padding(PhokartaSpacing.md)
                         .background(PhokartaColor.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.md))

@@ -38,36 +38,42 @@ struct ReviewRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
-            Button {
-                onSelectAuthor?(review.userId)
-            } label: {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(review.displayName)
-                        .font(.headline)
+            VStack(alignment: .leading, spacing: PhokartaSpacing.xs) {
+                Button {
+                    onSelectAuthor?(review.userId)
+                } label: {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(review.displayName)
+                            .font(.headline)
+                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                        Spacer()
+                        Text(ScoreFormatting.display(review.overallRating))
+                            .font(.headline)
+                            .foregroundStyle(PhokartaColor.sage)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(onSelectAuthor == nil)
+
+                Text(PlaceDateFormatting.mediumDate(from: review.visitedAt))
+                    .font(.caption)
+                    .foregroundStyle(PhokartaColor.muted(for: colorScheme))
+                if !review.publicReview.isEmpty {
+                    Text(review.publicReview)
+                        .font(.body)
                         .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                    Spacer()
-                    Text(ScoreFormatting.display(review.overallRating))
-                        .font(.headline)
-                        .foregroundStyle(PhokartaColor.sage)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(onSelectAuthor == nil)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityText)
 
-            Text(PlaceDateFormatting.mediumDate(from: review.visitedAt))
-                .font(.caption)
-                .foregroundStyle(PhokartaColor.muted(for: colorScheme))
-            if !review.publicReview.isEmpty {
-                Text(review.publicReview)
-                    .font(.body)
-                    .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
+            if !review.media.isEmpty {
+                VisitMediaGallery(media: review.media)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, PhokartaSpacing.sm)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
     }
 
     private var accessibilityText: String {
@@ -80,6 +86,74 @@ struct ReviewRowView: View {
             parts.append(review.publicReview)
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// Displays the short-lived signed read URLs returned with a canonical Visit.
+/// `AsyncImage` talks directly to object storage and therefore never receives
+/// the backend API client's Bearer authorization header.
+struct VisitMediaGallery: View {
+    let media: [VisitMediaDTO]
+    @State private var selectedMedia: VisitMediaDTO?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: PhokartaSpacing.sm) {
+                ForEach(Self.ordered(media)) { attachment in
+                    Button {
+                        selectedMedia = attachment
+                    } label: {
+                        PlaceImageView(path: attachment.accessUrl?.absoluteString)
+                            .frame(width: 120, height: 90)
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: PhokartaRadius.md,
+                                    style: .continuous
+                                )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "visit.media.photo"))
+                }
+            }
+        }
+        .sheet(item: $selectedMedia) { attachment in
+            VisitMediaPreview(attachment: attachment)
+        }
+    }
+
+    static func ordered(_ media: [VisitMediaDTO]) -> [VisitMediaDTO] {
+        media.sorted {
+            if $0.sortOrder == $1.sortOrder {
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            return $0.sortOrder < $1.sortOrder
+        }
+    }
+}
+
+private struct VisitMediaPreview: View {
+    let attachment: VisitMediaDTO
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            PlaceImageView(
+                path: attachment.accessUrl?.absoluteString,
+                contentMode: .fit
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black)
+            .navigationTitle(String(localized: "visit.media.photo"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("action.done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 

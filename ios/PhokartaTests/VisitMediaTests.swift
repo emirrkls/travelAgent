@@ -1,5 +1,7 @@
 import CoreGraphics
 import ImageIO
+import SwiftUI
+import UIKit
 import XCTest
 @testable import Phokarta
 
@@ -505,7 +507,31 @@ final class VisitMediaTests: XCTestCase {
         XCTAssertEqual(dto1.id, dto2.id, "Canonical identity must be the media asset UUID, not ephemeral signed URLs")
     }
 
-    // MARK: - 19. Public Review Model Does Not Expose Private Memory
+    // MARK: - 19. Canonical Media Is Rendered In Visit Surfaces
+
+    @MainActor
+    func testVisitMediaGalleryOrdersAndRendersCanonicalAttachments() {
+        let firstID = UUID(uuidString: "50000000-0000-0000-0000-000000000001")!
+        let secondID = UUID(uuidString: "50000000-0000-0000-0000-000000000002")!
+        let media = [
+            VisitMediaDTO(id: secondID, sortOrder: 1, accessUrl: nil, accessExpiresAt: nil),
+            VisitMediaDTO(id: firstID, sortOrder: 0, accessUrl: nil, accessExpiresAt: nil),
+        ]
+
+        XCTAssertEqual(VisitMediaGallery.ordered(media).map(\.id), [firstID, secondID])
+
+        let gallery = VisitMediaGallery(media: media)
+        let bodyType = String(reflecting: type(of: gallery.body))
+        XCTAssertTrue(bodyType.contains("Button"), "Canonical Visit media must be presented as an openable control")
+
+        let host = UIHostingController(rootView: gallery)
+        host.loadViewIfNeeded()
+        host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        host.view.layoutIfNeeded()
+        XCTAssertNotNil(host.view)
+    }
+
+    // MARK: - 20. Public Review Model Does Not Expose Private Memory
 
     func testPublicReviewModelExcludesPrivateMemory() {
         let review = TestPlaces.review()

@@ -1,3 +1,5 @@
+import SwiftUI
+import UIKit
 import XCTest
 @testable import Phokarta
 
@@ -56,6 +58,33 @@ final class PolicyFeatureTests: XCTestCase {
 
         XCTAssertTrue(policyStore.needsAcceptance)
         XCTAssertEqual(policyStore.requiredVersion, "2026-08-beta")
+    }
+
+    func testPolicyScreenRendersInsideExistingNavigationStackWithoutNestingAnotherStack() throws {
+        let client = APIClient(
+            config: try TestConfig.httpsTest(),
+            transport: FakeHTTPTransport { _ in
+                XCTFail("Rendering the policy screen must not perform a network request")
+                throw URLError(.badServerResponse)
+            }
+        )
+        let policyStore = PolicyStatusStore(service: PolicyService(client: client))
+        policyStore.activate(accountId: accountA)
+        policyStore.markPolicyRequired(requiredVersion: "2026-08-beta")
+
+        let screen = PolicyAcceptanceScreen(store: policyStore) {}
+        let bodyType = String(reflecting: type(of: screen.body))
+        XCTAssertFalse(
+            bodyType.contains("NavigationStack"),
+            "The policy destination is already pushed inside ProfileTab's NavigationStack"
+        )
+
+        let host = UIHostingController(rootView: NavigationStack { screen })
+        host.loadViewIfNeeded()
+        host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        host.view.layoutIfNeeded()
+
+        XCTAssertNotNil(host.view)
     }
 
     // MARK: - 91. POLICY ACCEPTANCE TEST

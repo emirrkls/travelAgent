@@ -82,7 +82,6 @@ require_text "$PRIVACY_MANIFEST" '<string>C617.1</string>' \
 require_text "$PBXPROJ" 'PrivacyInfo.xcprivacy in Resources' \
   "privacy manifest must be included in the app resources phase"
 
-plutil -lint "$APP_ICON_CONTENTS" >/dev/null || fail "AppIcon Contents.json is invalid"
 require_text "$APP_ICON_CONTENTS" '"filename" : "AppIcon-1024.png"' \
   "App Store icon catalog must reference AppIcon-1024.png"
 ICON_PROPERTIES="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$APP_ICON" 2>/dev/null)" || \

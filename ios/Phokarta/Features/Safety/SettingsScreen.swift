@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 
 struct SettingsScreen: View {
@@ -68,15 +69,15 @@ struct SettingsScreen: View {
 // MARK: - Blocked Users List
 
 struct BlockedUsersListScreen: View {
-    let service: any BlockServing
-    @State private var users: [BlockedUser] = []
-    @State private var isLoading = false
-    @State private var page = 0
-    @State private var hasNext = true
+    @State private var controller: BlockedUsersListController
+
+    init(service: any BlockServing) {
+        _controller = State(initialValue: BlockedUsersListController(service: service))
+    }
 
     var body: some View {
         List {
-            ForEach(users) { user in
+            ForEach(controller.users) { user in
                 HStack {
                     VStack(alignment: .leading) {
                         Text(user.displayName)
@@ -86,18 +87,40 @@ struct BlockedUsersListScreen: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+
+                    Button {
+                        Task { await controller.unblock(userID: user.userId) }
+                    } label: {
+                        if controller.unblockingUserID == user.userId {
+                            ProgressView()
+                                .controlSize(.small)
+                                .accessibilityLabel(String(localized: "block.unblock"))
+                        } else {
+                            Text(String(localized: "block.unblock"))
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.unblockingUserID != nil)
+                    .accessibilityIdentifier("blocked-user-unblock-\(user.userId.uuidString.lowercased())")
                 }
             }
 
-            if hasNext && !isLoading {
+            if let error = controller.error {
+                Label(error.localizedMessage, systemImage: "exclamationmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .accessibilityLabel(error.localizedMessage)
+            }
+
+            if controller.hasNext && !controller.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .task { await loadMore() }
+                    .task { await controller.loadMore() }
             }
         }
         .navigationTitle(String(localized: "settings.blocked_users"))
         .overlay {
-            if users.isEmpty && !isLoading {
+            if controller.users.isEmpty && !controller.isLoading {
                 ContentUnavailableView(
                     String(localized: "block.empty_title"),
                     systemImage: "person.slash",
@@ -105,20 +128,62 @@ struct BlockedUsersListScreen: View {
                 )
             }
         }
-        .task { await loadMore() }
+        .task { await controller.loadMore() }
+    }
+}
+
+@MainActor
+@Observable
+final class BlockedUsersListController {
+    private(set) var users: [BlockedUser] = []
+    private(set) var isLoading = false
+    private(set) var hasNext = true
+    private(set) var unblockingUserID: UUID?
+    private(set) var error: AppError?
+
+    private let service: any BlockServing
+    private var page = 0
+
+    init(service: any BlockServing) {
+        self.service = service
     }
 
-    private func loadMore() async {
-        guard !isLoading else { return }
+    func loadMore() async {
+        guard !isLoading, hasNext else { return }
         isLoading = true
         defer { isLoading = false }
+
         do {
             let result = try await service.listBlocked(page: page, size: 20)
-            users.append(contentsOf: result.content)
+            let existingIDs = Set(users.map(\.userId))
+            users.append(contentsOf: result.content.filter { !existingIDs.contains($0.userId) })
             hasNext = result.hasNext
             page += 1
+            error = nil
+        } catch is CancellationError {
+            return
+        } catch let appError as AppError {
+            error = appError
         } catch {
-            // Silently handle; user can retry by scrolling
+            self.error = .server
+        }
+    }
+
+    func unblock(userID: UUID) async {
+        guard unblockingUserID == nil else { return }
+        unblockingUserID = userID
+        error = nil
+        defer { unblockingUserID = nil }
+
+        do {
+            try await service.unblock(userId: userID)
+            users.removeAll { $0.userId == userID }
+        } catch is CancellationError {
+            return
+        } catch let appError as AppError {
+            error = appError
+        } catch {
+            self.error = .server
         }
     }
 }

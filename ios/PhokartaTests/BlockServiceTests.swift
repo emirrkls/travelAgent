@@ -165,3 +165,84 @@ final class BlockServiceTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class BlockedUsersListControllerTests: XCTestCase {
+    private let targetUserID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+    func testUnblockRemovesUserAfterServerSuccess() async {
+        let user = blockedUser()
+        let service = BlockedUsersServiceStub(users: [user])
+        let controller = BlockedUsersListController(service: service)
+
+        await controller.loadMore()
+        XCTAssertEqual(controller.users, [user])
+
+        await controller.unblock(userID: targetUserID)
+
+        XCTAssertTrue(controller.users.isEmpty)
+        XCTAssertNil(controller.unblockingUserID)
+        XCTAssertNil(controller.error)
+        let unblockedUserIDs = await service.unblockedUserIDs()
+        XCTAssertEqual(unblockedUserIDs, [targetUserID])
+    }
+
+    func testUnblockFailureKeepsUserAndExposesError() async {
+        let user = blockedUser()
+        let service = BlockedUsersServiceStub(users: [user], unblockError: .networkUnavailable)
+        let controller = BlockedUsersListController(service: service)
+
+        await controller.loadMore()
+        await controller.unblock(userID: targetUserID)
+
+        XCTAssertEqual(controller.users, [user])
+        XCTAssertNil(controller.unblockingUserID)
+        XCTAssertEqual(controller.error, .networkUnavailable)
+    }
+
+    private func blockedUser() -> BlockedUser {
+        BlockedUser(
+            userId: targetUserID,
+            username: "blocked_user",
+            displayName: "Blocked User",
+            avatarUrl: nil,
+            blockedAt: "2026-09-14T12:00:00Z"
+        )
+    }
+}
+
+private actor BlockedUsersServiceStub: BlockServing {
+    private var users: [BlockedUser]
+    private var unblocked: [UUID] = []
+    private let unblockError: AppError?
+
+    init(users: [BlockedUser], unblockError: AppError? = nil) {
+        self.users = users
+        self.unblockError = unblockError
+    }
+
+    func block(userId: UUID) async throws {}
+
+    func unblock(userId: UUID) async throws {
+        if let unblockError {
+            throw unblockError
+        }
+        unblocked.append(userId)
+        users.removeAll { $0.userId == userId }
+    }
+
+    func listBlocked(page: Int, size: Int) async throws -> SocialPageResponse<BlockedUser> {
+        SocialPageResponse(
+            content: users,
+            page: page,
+            size: size,
+            totalElements: Int64(users.count),
+            totalPages: users.isEmpty ? 0 : 1,
+            hasNext: false
+        )
+    }
+
+    func unblockedUserIDs() -> [UUID] {
+        unblocked
+    }
+}

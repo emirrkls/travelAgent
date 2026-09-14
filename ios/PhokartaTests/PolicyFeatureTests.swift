@@ -33,6 +33,31 @@ final class PolicyFeatureTests: XCTestCase {
         XCTAssertFalse(status.accepted)
     }
 
+    func testAuthenticatedBootstrapActivatesAndLoadsPolicyStatus() async throws {
+        let sessionStore = InMemorySessionStore(session: testSession(access: "access-1"))
+        let config = try TestConfig.httpsTest()
+        let transport = FakeHTTPTransport { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v1/me/policy-status")
+            let statusJSON = """
+            {
+                "requiredVersion": "2026-08-beta",
+                "acceptedVersion": null,
+                "accepted": false
+            }
+            """
+            return TestJSON.http(request.url!, status: 200, data: Data(statusJSON.utf8))
+        }
+        let refresh = TokenRefreshCoordinator(store: sessionStore, config: config, transport: transport)
+        let client = APIClient(config: config, transport: transport, authRetry: refresh)
+        let policyStore = PolicyStatusStore(service: PolicyService(client: client))
+
+        await policyStore.activateAndLoad(accountId: accountA)
+
+        XCTAssertTrue(policyStore.needsAcceptance)
+        XCTAssertEqual(policyStore.requiredVersion, "2026-08-beta")
+    }
+
     // MARK: - 91. POLICY ACCEPTANCE TEST
 
     func testPolicyAcceptanceEndpointAndStoreUpdate() async throws {

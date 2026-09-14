@@ -35,6 +35,13 @@ final class PolicyStatusStore {
         self.accountId = accountId
     }
 
+    /// Starts policy tracking for the authenticated account and fetches the
+    /// backend-authoritative acceptance state before gated mutations are used.
+    func activateAndLoad(accountId: UUID) async {
+        activate(accountId: accountId)
+        await loadStatus()
+    }
+
     func clear() {
         status = nil
         isLoading = false

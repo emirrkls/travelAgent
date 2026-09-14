@@ -89,6 +89,7 @@ struct MainTabView: View {
             environment.collections.activate(accountID: user.id)
             environment.visits.activate(accountID: user.id)
             environment.socialState.activate(accountID: user.id)
+            await environment.policyStore.activateAndLoad(accountId: user.id)
             _ = await environment.syncEngine.drain()
             try? await environment.saved.refresh()
             try? await environment.collections.refreshList()

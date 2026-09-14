@@ -2102,13 +2102,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accept the current user policy before creating or adding to a collection. Policy acceptance is not yet available on iOS."
+            "value": "Accept the current user policy in Profile > Settings > User Policy before creating or adding to a collection."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koleksiyon oluşturmadan veya koleksiyona eklemeden önce güncel kullanıcı politikasını kabul et. Politika kabulü henüz iOS’ta kullanılamıyor."
+            "value": "Koleksiyon oluşturmadan veya koleksiyona eklemeden önce Profil > Ayarlar > Kullanıcı Politikası yolundan güncel politikayı kabul et."
           }
         }
       }

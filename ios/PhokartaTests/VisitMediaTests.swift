@@ -429,7 +429,7 @@ final class VisitMediaTests: XCTestCase {
     // MARK: - 15. Account Isolation
 
     @MainActor
-    func testAccountIsolationCleansMedia() {
+    func testAccountIsolationCleansMedia() async {
         let store = VisitStore(service: VisitServiceProbe(results: []))
         store.activate(accountID: TestJSON.userID)
 
@@ -438,7 +438,7 @@ final class VisitMediaTests: XCTestCase {
         XCTAssertFalse(coordinator.isEmpty)
 
         // Switch account / clear
-        coordinator.clear()
+        await coordinator.clear()
         XCTAssertTrue(coordinator.isEmpty, "Switching accounts must clear all media items")
         XCTAssertEqual(coordinator.confirmedMediaIds, [])
     }

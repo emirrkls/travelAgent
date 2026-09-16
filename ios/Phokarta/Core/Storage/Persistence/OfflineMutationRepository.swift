@@ -169,21 +169,25 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         let mutationId = payload.mutationId
         try await database.withTransaction { db in
             try db.execute(
-                """INSERT INTO pending_mutations (
+                """
+                INSERT INTO pending_mutations (
                     mutationId,userId,type,resourceKey,state,generation,attemptCount,
                     createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?);""",
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?);
+                """,
                 params: [
                     mutationId.uuidString, userId.uuidString, MutationType.publishExperienceV2.rawValue,
                     mutationId.uuidString, MutationState.pending.rawValue, 1, 0, now, now, nil, 2
                 ]
             )
             try db.execute(
-                """INSERT INTO pending_experience_v2_payloads (
+                """
+                INSERT INTO pending_experience_v2_payloads (
                     mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
                     overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
                     title,titleSource,story,tip,privateMemory,visibility
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);""",
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+                """,
                 params: [
                     mutationId.uuidString, payload.placeId.uuidString, payload.visitedAtEpochDay,
                     payload.primaryExperienceCode, payload.rawExperienceLabel,
@@ -196,9 +200,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             )
             for dimension in dimensions.sorted(by: { $0.dimensionKey < $1.dimensionKey }) {
                 try db.execute(
-                    """INSERT INTO pending_experience_v2_dimensions
+                    """
+                    INSERT INTO pending_experience_v2_dimensions
                         (mutationId,dimensionKey,semanticStateCode,templateVersion)
-                       VALUES (?,?,?,?);""",
+                    VALUES (?,?,?,?);
+                    """,
                     params: [
                         mutationId.uuidString, dimension.dimensionKey,
                         dimension.semanticStateCode, dimension.templateVersion
@@ -207,10 +213,12 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             }
             for photo in photos.sorted(by: { $0.position < $1.position }) {
                 try db.execute(
-                    """INSERT INTO pending_visit_photos (
+                    """
+                    INSERT INTO pending_visit_photos (
                         mutationId,position,ownerUserId,clientMediaId,localRelativePath,contentType,
                         byteSize,width,height,remoteMediaId,uploadState,failureCategory
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);""",
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);
+                    """,
                     params: [
                         mutationId.uuidString, photo.position, userId.uuidString,
                         photo.clientMediaId.uuidString, photo.localRelativePath, photo.contentType,
@@ -331,9 +339,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
 
     public func getExperienceV2Bundle(mutationId: UUID) async throws -> PendingExperienceV2MutationBundle? {
         let mutations = try await database.query(
-            """SELECT mutationId,userId,type,resourceKey,state,generation,attemptCount,
-                      createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
-               FROM pending_mutations WHERE mutationId = ? AND type = 'PUBLISH_EXPERIENCE_V2';""",
+            """
+            SELECT mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                   createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
+            FROM pending_mutations WHERE mutationId = ? AND type = 'PUBLISH_EXPERIENCE_V2';
+            """,
             params: [mutationId.uuidString]
         ) { stmt in
             DurablePendingMutation(
@@ -352,10 +362,12 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         }
         guard let mutation = mutations.first else { return nil }
         let payloads = try await database.query(
-            """SELECT mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
-                      overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
-                      title,titleSource,story,tip,privateMemory,visibility
-               FROM pending_experience_v2_payloads WHERE mutationId = ?;""",
+            """
+            SELECT mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
+                   overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
+                   title,titleSource,story,tip,privateMemory,visibility
+            FROM pending_experience_v2_payloads WHERE mutationId = ?;
+            """,
             params: [mutationId.uuidString]
         ) { stmt in
             DurablePendingExperienceV2Payload(
@@ -379,8 +391,10 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         }
         guard let payload = payloads.first else { return nil }
         let dimensions = try await database.query(
-            """SELECT mutationId,dimensionKey,semanticStateCode,templateVersion
-               FROM pending_experience_v2_dimensions WHERE mutationId = ? ORDER BY dimensionKey;""",
+            """
+            SELECT mutationId,dimensionKey,semanticStateCode,templateVersion
+            FROM pending_experience_v2_dimensions WHERE mutationId = ? ORDER BY dimensionKey;
+            """,
             params: [mutationId.uuidString]
         ) { stmt in
             DurablePendingExperienceV2Dimension(
@@ -635,10 +649,12 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         guard bundle.mutation.state == .failedPermanent else { return .invalidState }
         let placeId = bundle.payload.placeId
         let existingCount = try await database.query(
-                """SELECT COUNT(*) FROM visit_drafts
-                   WHERE userId = ? AND placeId = ? AND
-                     (primaryExperienceCode IS NOT NULL OR overallFeelingCode IS NOT NULL OR
-                      story <> '' OR tip <> '' OR privateMemory <> '' OR title IS NOT NULL);""",
+                """
+                SELECT COUNT(*) FROM visit_drafts
+                WHERE userId = ? AND placeId = ? AND
+                  (primaryExperienceCode IS NOT NULL OR overallFeelingCode IS NOT NULL OR
+                   story <> '' OR tip <> '' OR privateMemory <> '' OR title IS NOT NULL);
+                """,
                 params: [userId.uuidString, placeId.uuidString],
                 mapRow: { Int(sqlite3_column_int($0, 0)) }
            ).first ?? 0
@@ -649,7 +665,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         return try await database.withTransaction { db in
             let p = bundle.payload
             try db.execute(
-                """INSERT INTO visit_drafts (
+                """
+                INSERT INTO visit_drafts (
                     userId,placeId,overallScore,publicReview,privateMemory,visitedAtEpochDay,
                     visibility,dimensionsExpanded,createdAtEpochMillis,updatedAtEpochMillis,
                     payloadVersion,primaryExperienceCode,rawExperienceLabel,overallFeelingCode,
@@ -664,7 +681,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     overallFeelingCode=excluded.overallFeelingCode,companionCode=excluded.companionCode,
                     timeOfDayCode=excluded.timeOfDayCode,vibeCodes=excluded.vibeCodes,
                     practicalSignalCodes=excluded.practicalSignalCodes,title=excluded.title,
-                    titleSource=excluded.titleSource,story=excluded.story,tip=excluded.tip;""",
+                    titleSource=excluded.titleSource,story=excluded.story,tip=excluded.tip;
+                """,
                 params: [
                     userId.uuidString, placeId.uuidString, 8.0, p.story, p.privateMemory,
                     p.visitedAtEpochDay, p.visibility, !bundle.dimensions.isEmpty, now, now, 2,
@@ -681,9 +699,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             for dimension in bundle.dimensions {
                 let score = DimensionStateCode(rawValue: dimension.semanticStateCode)?.compatibilityScore ?? 0
                 try db.execute(
-                    """INSERT INTO visit_draft_dimension_scores
+                    """
+                    INSERT INTO visit_draft_dimension_scores
                         (userId,placeId,dimensionKey,score,semanticStateCode,templateVersion)
-                       VALUES (?,?,?,?,?,?);""",
+                    VALUES (?,?,?,?,?,?);
+                    """,
                     params: [
                         userId.uuidString, placeId.uuidString, dimension.dimensionKey,
                         Double(score), dimension.semanticStateCode, dimension.templateVersion
@@ -696,10 +716,12 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             )
             for photo in bundle.photos.sorted(by: { $0.position < $1.position }) {
                 try db.execute(
-                    """INSERT INTO visit_draft_photos (
+                    """
+                    INSERT INTO visit_draft_photos (
                         ownerUserId,placeId,position,clientMediaId,localRelativePath,contentType,
                         byteSize,width,height,remoteMediaId,uploadState,failureCategory
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);""",
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);
+                    """,
                     params: [
                         userId.uuidString, placeId.uuidString, photo.position,
                         photo.clientMediaId.uuidString, photo.localRelativePath ?? "",

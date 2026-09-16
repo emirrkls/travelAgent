@@ -795,8 +795,8 @@ final class DurablePersistenceTests: XCTestCase {
             mutationId: mutation, placeId: place, visitedAtEpochDay: 20712,
             primaryExperienceCode: "GUN_BATIMI", rawExperienceLabel: nil,
             overallFeelingCode: "BAYILDIM", companionCode: "PARTNER",
-            timeOfDayCode: "EVENING", vibeCodes: ["SCENIC", "CALM"],
-            practicalSignalCodes: ["FREE", "ARRIVE_EARLY"], title: "Golden hour",
+            timeOfDayCode: "EVENING", vibeCodes: ["CALM", "SCENIC"],
+            practicalSignalCodes: ["ARRIVE_EARLY", "FREE"], title: "Golden hour",
             titleSource: "CUSTOM", story: "story", tip: "arrive early",
             privateMemory: "owner only", visibility: "FRIENDS"
         )

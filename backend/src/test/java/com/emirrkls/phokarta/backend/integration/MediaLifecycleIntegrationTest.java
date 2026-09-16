@@ -148,15 +148,15 @@ class MediaLifecycleIntegrationTest {
 
         UUID friendsMedia = attach(OWNER, Visibility.FRIENDS);
         follow(VIEWER, OWNER);
-        assertStatus(403, () -> media.access(friendsMedia, VIEWER));
-        assertStatus(403, () -> media.access(friendsMedia, null));
+        assertStatus(404, () -> media.access(friendsMedia, VIEWER));
+        assertStatus(404, () -> media.access(friendsMedia, null));
         follow(OWNER, VIEWER);
         assertThat(media.access(friendsMedia, VIEWER).url()).isNotNull();
 
         UUID privateMedia = attach(OWNER, Visibility.PRIVATE);
         assertThat(media.access(privateMedia, OWNER).url()).isNotNull();
-        assertStatus(403, () -> media.access(privateMedia, VIEWER));
-        assertStatus(403, () -> media.access(privateMedia, null));
+        assertStatus(404, () -> media.access(privateMedia, VIEWER));
+        assertStatus(404, () -> media.access(privateMedia, null));
     }
 
     @Test
@@ -180,7 +180,7 @@ class MediaLifecycleIntegrationTest {
         mvc.perform(get("/api/v1/media/{mediaId}/access", publicMedia))
                 .andExpect(status().isOk());
         mvc.perform(get("/api/v1/media/{mediaId}/access", privateMedia))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test

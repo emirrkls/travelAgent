@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import SQLite3
 import XCTest
 @testable import Phokarta
 
@@ -713,5 +714,103 @@ final class DurablePersistenceTests: XCTestCase {
         let draftB = try await repo.getDraft(placeId: TestPlaces.placeID, userId: userB)
         XCTAssertNil(draftA)
         XCTAssertNotNil(draftB)
+    }
+
+    func testSchemaOneUpgradePreservesV1RowsAndAddsVersionTwoColumns() async throws {
+        let path = tempDir.appendingPathComponent("schema-v1.sqlite3").path
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(path, &handle), SQLITE_OK)
+        defer { sqlite3_close(handle) }
+        let user = UUID()
+        let place = UUID()
+        let sql = """
+        CREATE TABLE visit_drafts (
+          userId TEXT NOT NULL, placeId TEXT NOT NULL, overallScore REAL NOT NULL,
+          publicReview TEXT NOT NULL, privateMemory TEXT NOT NULL, visitedAtEpochDay INTEGER NOT NULL,
+          visibility TEXT NOT NULL, dimensionsExpanded INTEGER NOT NULL,
+          createdAtEpochMillis INTEGER NOT NULL, updatedAtEpochMillis INTEGER NOT NULL,
+          PRIMARY KEY(userId,placeId));
+        CREATE TABLE visit_draft_dimension_scores (
+          userId TEXT NOT NULL, placeId TEXT NOT NULL, dimensionKey TEXT NOT NULL, score REAL NOT NULL,
+          PRIMARY KEY(userId,placeId,dimensionKey));
+        CREATE TABLE pending_mutations (
+          mutationId TEXT PRIMARY KEY,userId TEXT NOT NULL,type TEXT NOT NULL,resourceKey TEXT NOT NULL,
+          state TEXT NOT NULL,generation INTEGER NOT NULL,attemptCount INTEGER NOT NULL,
+          createdAtEpochMillis INTEGER NOT NULL,updatedAtEpochMillis INTEGER NOT NULL,lastErrorCategory TEXT);
+        INSERT INTO visit_drafts VALUES ('\(user.uuidString)','\(place.uuidString)',8,'legacy','memory',20000,'PUBLIC',0,1,1);
+        INSERT INTO pending_mutations VALUES ('legacy-v1','\(user.uuidString)','PUBLISH_VISIT','legacy-v1','PENDING',1,0,1,1,NULL);
+        PRAGMA user_version = 1;
+        """
+        XCTAssertEqual(sqlite3_exec(handle, sql, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(handle)
+        handle = nil
+
+        let db = try PersistentDatabase(path: path)
+        let version = try await db.query("PRAGMA user_version;", mapRow: { Int(sqlite3_column_int($0, 0)) })
+        XCTAssertEqual(version.first, 2)
+        let draftVersion = try await db.query(
+            "SELECT payloadVersion, story, titleSource FROM visit_drafts WHERE userId = ? AND placeId = ?;",
+            params: [user.uuidString, place.uuidString]
+        ) { (Int(sqlite3_column_int($0, 0)), String(cString: sqlite3_column_text($0, 1)), String(cString: sqlite3_column_text($0, 2))) }
+        XCTAssertEqual(draftVersion.first?.0, 1)
+        XCTAssertEqual(draftVersion.first?.1, "")
+        XCTAssertEqual(draftVersion.first?.2, "GENERATED")
+        let mutationVersion = try await db.query(
+            "SELECT payloadVersion FROM pending_mutations WHERE mutationId = 'legacy-v1';",
+            mapRow: { Int(sqlite3_column_int($0, 0)) }
+        )
+        XCTAssertEqual(mutationVersion.first, 1)
+    }
+
+    func testNativeV2DraftAndPendingPayloadRoundTripEverySemanticField() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let draftRepo = SQLiteVisitDraftRepository(database: db)
+        let mutationRepo = SQLiteOfflineMutationRepository(database: db)
+        let user = UUID()
+        let place = UUID()
+        let mutation = UUID()
+        let draft = DurableVisitDraft(
+            userId: user, placeId: place, overallScore: 8, publicReview: "story",
+            privateMemory: "owner only", visitedAtEpochDay: 20712, visibility: "FRIENDS",
+            dimensionsExpanded: true, createdAtEpochMillis: 1, updatedAtEpochMillis: 1,
+            dimensions: [DurableDraftDimensionScore(
+                userId: user, placeId: place, dimensionKey: "SCENERY", score: 10,
+                semanticStateCode: "VERY_GOOD", templateVersion: 1
+            )], payloadVersion: 2, primaryExperienceCode: "GUN_BATIMI",
+            overallFeelingCode: "BAYILDIM", companionCode: "PARTNER",
+            timeOfDayCode: "EVENING", vibeCodes: ["SCENIC", "CALM"],
+            practicalSignalCodes: ["FREE", "ARRIVE_EARLY"], title: "Golden hour",
+            titleSource: "CUSTOM", story: "story", tip: "arrive early"
+        )
+        try await draftRepo.saveDraft(placeId: place, draft: draft, userId: user)
+        let restored = try XCTUnwrap(try await draftRepo.getDraft(placeId: place, userId: user))
+        XCTAssertEqual(restored.payloadVersion, 2)
+        XCTAssertEqual(restored.primaryExperienceCode, "GUN_BATIMI")
+        XCTAssertEqual(restored.overallFeelingCode, "BAYILDIM")
+        XCTAssertEqual(restored.vibeCodes, ["CALM", "SCENIC"])
+        XCTAssertEqual(restored.dimensions.first?.semanticStateCode, "VERY_GOOD")
+
+        let payload = DurablePendingExperienceV2Payload(
+            mutationId: mutation, placeId: place, visitedAtEpochDay: 20712,
+            primaryExperienceCode: "GUN_BATIMI", rawExperienceLabel: nil,
+            overallFeelingCode: "BAYILDIM", companionCode: "PARTNER",
+            timeOfDayCode: "EVENING", vibeCodes: ["SCENIC", "CALM"],
+            practicalSignalCodes: ["FREE", "ARRIVE_EARLY"], title: "Golden hour",
+            titleSource: "CUSTOM", story: "story", tip: "arrive early",
+            privateMemory: "owner only", visibility: "FRIENDS"
+        )
+        try await mutationRepo.commitExperienceV2(
+            payload: payload,
+            dimensions: [DurablePendingExperienceV2Dimension(
+                mutationId: mutation, dimensionKey: "SCENERY",
+                semanticStateCode: "VERY_GOOD", templateVersion: 1
+            )],
+            photos: [], userId: user
+        )
+        let bundle = try XCTUnwrap(try await mutationRepo.getExperienceV2Bundle(mutationId: mutation))
+        XCTAssertEqual(bundle.mutation.payloadVersion, 2)
+        XCTAssertEqual(bundle.payload, payload)
+        XCTAssertEqual(bundle.dimensions.first?.semanticStateCode, "VERY_GOOD")
+        XCTAssertNil(try await draftRepo.getDraft(placeId: place, userId: user))
     }
 }

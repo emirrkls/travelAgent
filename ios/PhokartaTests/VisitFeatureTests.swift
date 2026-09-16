@@ -32,6 +32,26 @@ final class VisitContractTests: XCTestCase {
         XCTAssertEqual(dimension["score"] as? Double, 9.1)
     }
 
+    func testNativeExperienceRequestUsesV2EndpointAndHasNoNumericOverallField() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let request = try client.makeRequest(CreateExperienceV2Endpoint(body: ExperienceV2CreateRequest(
+            clientMutationId: UUID(), placeId: TestPlaces.placeID, visitDate: "2026-09-16",
+            primaryExperienceCode: .gunBatimi, rawExperienceLabel: nil,
+            overallFeelingCode: .bayildim, companionCode: .partner, timeOfDayCode: .evening,
+            vibeCodes: [.calm, .scenic], practicalSignalCodes: [.arriveEarly],
+            dimensions: [ExperienceV2CreateDimension(
+                key: "SCENERY", semanticStateCode: .veryGood, templateVersion: 1
+            )], title: nil, titleSource: .generated, story: "story", tip: nil,
+            privateMemory: "owner only", visibility: .publicAccess, mediaIds: []
+        )))
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v2/experiences")
+        let json = try XCTUnwrap(request.httpBody).visitJSONObject()
+        XCTAssertEqual(json["overallFeelingCode"] as? String, "BAYILDIM")
+        XCTAssertNil(json["overallRating"])
+        XCTAssertEqual(json["titleSource"] as? String, "GENERATED")
+    }
+
     func testMinimalRequestOmitsWhitespaceTextAndOptionalDimensionsRemainEmpty() throws {
         let state = VisitComposerState(
             placeId: TestPlaces.placeID,
@@ -175,6 +195,23 @@ final class VisitValidationTests: XCTestCase {
         XCTAssertNil(VisitValidation.validate(state))
         state.dimensionScores["FOOD"] = 8
         XCTAssertEqual(VisitValidation.validate(state), .invalidDimension)
+    }
+
+    func testNativeV2RequiresPrimaryFeelingContentAndCapsVibesAndMedia() {
+        var state = fixtureState()
+        state.payloadVersion = 2
+        XCTAssertEqual(VisitValidation.validate(state), .primaryExperienceRequired)
+        state.primaryExperience = .gunBatimi
+        XCTAssertEqual(VisitValidation.validate(state), .feelingRequired)
+        state.overallFeeling = .guzeldi
+        XCTAssertEqual(VisitValidation.validate(state), .contentRequired)
+        state.story = "story"
+        XCTAssertNil(VisitValidation.validate(state))
+        state.vibes = [.calm, .scenic, .romantic]
+        XCTAssertEqual(VisitValidation.validate(state), .tooManyVibes)
+        state.vibes = [.calm, .scenic]
+        state.mediaCount = 7
+        XCTAssertEqual(VisitValidation.validate(state), .tooManyMedia)
     }
 
     private func fixtureState(category: PlaceCategory = .beach) -> VisitComposerState {

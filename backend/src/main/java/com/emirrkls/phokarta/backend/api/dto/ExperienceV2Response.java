@@ -43,7 +43,12 @@ public record ExperienceV2Response(
     public enum Classification { LEGACY_COMPATIBILITY, NATIVE_V2 }
     public enum MediaKind { LEGACY_URL, MANAGED }
 
-    public record Author(UUID id, String username, String displayName, String avatarUrl) {}
+    public record Author(
+            UUID id,
+            String username,
+            String displayName,
+            String avatarUrl,
+            RelationshipV2Response relationship) {}
 
     public record Place(
             UUID id,

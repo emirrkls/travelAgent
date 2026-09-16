@@ -4,9 +4,12 @@ import com.emirrkls.phokarta.backend.api.dto.PageResponse;
 import com.emirrkls.phokarta.backend.api.dto.ProfileSummaryV2Response;
 import com.emirrkls.phokarta.backend.api.dto.ProfileV2Response;
 import com.emirrkls.phokarta.backend.api.dto.RelationshipV2Response;
+import com.emirrkls.phokarta.backend.api.dto.CursorPageResponse;
+import com.emirrkls.phokarta.backend.api.dto.ExperienceSummaryV2Response;
 import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.FollowRequestService;
 import com.emirrkls.phokarta.backend.service.ProfileV2Service;
+import com.emirrkls.phokarta.backend.service.ExperienceFeedService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -26,10 +29,13 @@ import java.util.UUID;
 public class UserV2Controller {
     private final ProfileV2Service profiles;
     private final FollowRequestService followRequests;
+    private final ExperienceFeedService experiences;
 
-    public UserV2Controller(ProfileV2Service profiles, FollowRequestService followRequests) {
+    public UserV2Controller(ProfileV2Service profiles, FollowRequestService followRequests,
+                            ExperienceFeedService experiences) {
         this.profiles = profiles;
         this.followRequests = followRequests;
+        this.experiences = experiences;
     }
 
     @GetMapping("/search")
@@ -43,6 +49,16 @@ public class UserV2Controller {
     @GetMapping("/{userId}")
     public ProfileV2Response profile(@PathVariable UUID userId) {
         return profiles.profile(userId, SecurityUtils.currentUserId().orElse(null));
+    }
+
+    @GetMapping("/{userId}/experiences")
+    public CursorPageResponse<ExperienceSummaryV2Response> experiences(
+            @PathVariable UUID userId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
+        profiles.profile(userId, SecurityUtils.currentUserId().orElse(null));
+        return experiences.forProfile(userId, SecurityUtils.currentUserId().orElse(null),
+                cursor, size);
     }
 
     @PostMapping("/{userId}/follow")

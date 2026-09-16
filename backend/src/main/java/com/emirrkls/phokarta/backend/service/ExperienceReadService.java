@@ -28,18 +28,21 @@ public class ExperienceReadService {
     private final VisitDimensionScoreRepository dimensions;
     private final MediaService media;
     private final ViewerAccessPolicy access;
+    private final FollowRequestService relationships;
 
     public ExperienceReadService(
             VisitRepository visits,
             VisitExperienceDetailRepository details,
             VisitDimensionScoreRepository dimensions,
             MediaService media,
-            ViewerAccessPolicy access) {
+            ViewerAccessPolicy access,
+            FollowRequestService relationships) {
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
         this.media = media;
         this.access = access;
+        this.relationships = relationships;
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +59,7 @@ public class ExperienceReadService {
                 .toList();
         List<VisitMediaResponse> managed = media.descriptorsForVisits(List.of(experienceId))
                 .getOrDefault(experienceId, List.of());
-        return map(visit, detail, scores, managed);
+        return map(visit, detail, scores, managed, viewerId);
     }
 
     ExperienceV2Response map(
@@ -64,6 +67,15 @@ public class ExperienceReadService {
             VisitExperienceDetail detail,
             List<VisitDimensionScore> scores,
             List<VisitMediaResponse> managedMedia) {
+        return map(visit, detail, scores, managedMedia, visit.getUser().getId());
+    }
+
+    ExperienceV2Response map(
+            Visit visit,
+            VisitExperienceDetail detail,
+            List<VisitDimensionScore> scores,
+            List<VisitMediaResponse> managedMedia,
+            UUID viewerId) {
         boolean nativeV2 = detail != null;
         var feelingCode = nativeV2
                 ? detail.getOverallFeelingCode()
@@ -93,7 +105,8 @@ public class ExperienceReadService {
                         : ExperienceV2Response.Classification.LEGACY_COMPATIBILITY,
                 new ExperienceV2Response.Author(
                         visit.getUser().getId(), visit.getUser().getUsername(),
-                        visit.getUser().getDisplayName(), visit.getUser().getAvatarUrl()),
+                        visit.getUser().getDisplayName(), visit.getUser().getAvatarUrl(),
+                        relationships.relationship(viewerId, visit.getUser().getId())),
                 new ExperienceV2Response.Place(
                         visit.getPlace().getId(), visit.getPlace().getName(),
                         visit.getPlace().getCategory(), visit.getPlace().getCity(),

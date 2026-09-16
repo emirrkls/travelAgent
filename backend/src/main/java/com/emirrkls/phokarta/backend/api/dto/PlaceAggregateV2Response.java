@@ -13,6 +13,7 @@ public record PlaceAggregateV2Response(
         PlaceIdentity place,
         long visibleExperienceCount,
         long communityContributionCount,
+        List<PrimaryExperienceCount> primaryExperiences,
         List<FeelingCount> feelings,
         List<DimensionAggregate> dimensions,
         List<PracticalSignalAggregate> practicalSignals) {
@@ -21,6 +22,9 @@ public record PlaceAggregateV2Response(
                                 String region, String country, String coverImage) {}
 
     public record FeelingCount(OverallFeelingCode code, long contributionCount) {}
+
+    /** Viewer-visible authored-card population, distinct from anonymous Community counts. */
+    public record PrimaryExperienceCount(String code, long visibleExperienceCount) {}
 
     public record DimensionAggregate(
             String key,

@@ -9,6 +9,28 @@ import java.util.List;
 import java.util.UUID;
 
 public interface VisitExperienceDetailRepository extends JpaRepository<VisitExperienceDetail, UUID> {
+    interface OrderedCodeRow {
+        UUID getVisitId();
+        String getCode();
+        int getPosition();
+    }
+
+    @Query(value = """
+            select value.visit_id as "visitId", value.vibe_code as code, value.position
+            from visit_experience_vibes value
+            where value.visit_id in (:visitIds)
+            order by value.visit_id, value.position
+            """, nativeQuery = true)
+    List<OrderedCodeRow> findVibesByVisitIds(@Param("visitIds") List<UUID> visitIds);
+
+    @Query(value = """
+            select value.visit_id as "visitId", value.practical_signal_code as code, value.position
+            from visit_experience_practical_signals value
+            where value.visit_id in (:visitIds)
+            order by value.visit_id, value.position
+            """, nativeQuery = true)
+    List<OrderedCodeRow> findPracticalSignalsByVisitIds(@Param("visitIds") List<UUID> visitIds);
+
     interface FeelingAggregateRow {
         String getFeelingCode();
         long getContributionCount();

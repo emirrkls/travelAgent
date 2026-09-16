@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceAggregateV2ServiceTest {
@@ -27,13 +28,14 @@ class PlaceAggregateV2ServiceTest {
     @Mock private VisitRepository visits;
     @Mock private VisitExperienceDetailRepository details;
     @Mock private VisitDimensionScoreRepository dimensions;
+    @Mock private ExperienceFeedService experienceFeeds;
     @Mock private Place place;
     private PlaceAggregateV2Service service;
     private UUID placeId;
 
     @BeforeEach
     void setUp() {
-        service = new PlaceAggregateV2Service(places, visits, details, dimensions);
+        service = new PlaceAggregateV2Service(places, visits, details, dimensions, experienceFeeds);
         placeId = UUID.randomUUID();
         when(places.findById(placeId)).thenReturn(Optional.of(place));
         when(place.getId()).thenReturn(placeId);
@@ -43,6 +45,7 @@ class PlaceAggregateV2ServiceTest {
         when(details.aggregatePracticalSignals(placeId)).thenReturn(List.of());
         when(dimensions.aggregateV2ForPlace(placeId)).thenReturn(List.of());
         when(dimensions.aggregateSemanticStatesForPlace(placeId)).thenReturn(List.of());
+        lenient().when(experienceFeeds.primaryDistribution(placeId, null)).thenReturn(List.of());
     }
 
     @Test
@@ -55,6 +58,7 @@ class PlaceAggregateV2ServiceTest {
     @Test
     void visibleCountAndGlobalContributionCountAreIndependent() {
         UUID viewer = UUID.randomUUID();
+        when(experienceFeeds.primaryDistribution(placeId, viewer)).thenReturn(List.of());
         when(visits.countVisibleAtPlace(placeId, viewer)).thenReturn(1L);
         when(visits.countCommunityContributions(placeId)).thenReturn(4L);
         var response = service.get(placeId, viewer);

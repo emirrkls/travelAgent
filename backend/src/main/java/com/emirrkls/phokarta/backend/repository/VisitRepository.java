@@ -19,6 +19,10 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     @Query("select v from Visit v where v.id = :id")
     java.util.Optional<Visit> findDetailedById(@Param("id") UUID id);
 
+    @EntityGraph(attributePaths = {"user", "place"})
+    @Query("select v from Visit v where v.id in :ids")
+    List<Visit> findDetailedByIds(@Param("ids") Collection<UUID> ids);
+
     @EntityGraph(attributePaths = {"place", "user"})
     java.util.Optional<Visit> findByUserIdAndClientMutationId(UUID userId, UUID clientMutationId);
 

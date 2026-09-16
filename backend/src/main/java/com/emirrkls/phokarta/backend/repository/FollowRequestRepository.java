@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface FollowRequestRepository extends JpaRepository<FollowRequest, UUID> {
@@ -40,6 +42,16 @@ public interface FollowRequestRepository extends JpaRepository<FollowRequest, UU
     @EntityGraph(attributePaths = {"requester", "target"})
     Optional<FollowRequest> findByRequesterIdAndTargetIdAndStatus(
             UUID requesterId, UUID targetId, FollowRequestStatus status);
+
+    @Query("""
+            select request.target.id from FollowRequest request
+            where request.requester.id = :requesterId
+              and request.target.id in :targetIds
+              and request.status = com.emirrkls.phokarta.backend.domain.model.FollowRequestStatus.PENDING
+            """)
+    List<UUID> findPendingTargetIds(
+            @Param("requesterId") UUID requesterId,
+            @Param("targetIds") Collection<UUID> targetIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"requester", "target"})

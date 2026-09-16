@@ -20,6 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class FollowRequestService {
@@ -147,6 +152,40 @@ public class FollowRequestService {
         }
         return new RelationshipV2Response(RelationshipV2Response.State.NONE,
                 inbound, true, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, RelationshipV2Response> relationships(
+            UUID viewerId, Collection<UUID> rawTargetIds) {
+        Set<UUID> targetIds = new LinkedHashSet<>(rawTargetIds);
+        if (viewerId == null || targetIds.isEmpty()) return Map.of();
+        targetIds.remove(viewerId);
+        if (targetIds.isEmpty()) return Map.of();
+
+        Set<UUID> outbound = Set.copyOf(follows.findFollowedIdsAmong(viewerId, targetIds));
+        Set<UUID> inbound = Set.copyOf(follows.findFollowerIdsAmong(viewerId, targetIds));
+        Set<UUID> pending = Set.copyOf(requests.findPendingTargetIds(viewerId, targetIds));
+        Map<UUID, RelationshipV2Response> result = new LinkedHashMap<>();
+        for (UUID targetId : targetIds) {
+            boolean follows = outbound.contains(targetId);
+            boolean followsViewer = inbound.contains(targetId);
+            RelationshipV2Response response;
+            if (follows && followsViewer) {
+                response = new RelationshipV2Response(
+                        RelationshipV2Response.State.FRIENDS, true, false, false);
+            } else if (follows) {
+                response = new RelationshipV2Response(
+                        RelationshipV2Response.State.FOLLOWING, followsViewer, false, false);
+            } else if (pending.contains(targetId)) {
+                response = new RelationshipV2Response(
+                        RelationshipV2Response.State.REQUEST_PENDING, followsViewer, false, true);
+            } else {
+                response = new RelationshipV2Response(
+                        RelationshipV2Response.State.NONE, followsViewer, true, false);
+            }
+            result.put(targetId, response);
+        }
+        return Map.copyOf(result);
     }
 
     private FollowRequest requireOwnedPending(UUID targetId, UUID requestId) {

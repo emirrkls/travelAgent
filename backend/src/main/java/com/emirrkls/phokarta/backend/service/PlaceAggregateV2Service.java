@@ -27,14 +27,17 @@ public class PlaceAggregateV2Service {
     private final VisitRepository visits;
     private final VisitExperienceDetailRepository details;
     private final VisitDimensionScoreRepository dimensions;
+    private final ExperienceFeedService experienceFeeds;
 
     public PlaceAggregateV2Service(PlaceRepository places, VisitRepository visits,
                                    VisitExperienceDetailRepository details,
-                                   VisitDimensionScoreRepository dimensions) {
+                                   VisitDimensionScoreRepository dimensions,
+                                   ExperienceFeedService experienceFeeds) {
         this.places = places;
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
+        this.experienceFeeds = experienceFeeds;
     }
 
     public PlaceAggregateV2Response get(UUID placeId, UUID viewerId) {
@@ -74,10 +77,17 @@ public class PlaceAggregateV2Service {
                                 row.getContributionCount(), contributionCount))
                         .toList();
 
+        List<PlaceAggregateV2Response.PrimaryExperienceCount> primaryExperiences =
+                experienceFeeds.primaryDistribution(placeId, viewerId).stream()
+                        .map(value -> new PlaceAggregateV2Response.PrimaryExperienceCount(
+                                value.code(), value.count()))
+                        .toList();
+
         return new PlaceAggregateV2Response(
                 new PlaceAggregateV2Response.PlaceIdentity(place.getId(), place.getName(),
                         place.getCategory(), place.getCity(), place.getRegion(), place.getCountry(),
                         place.getCoverImage()),
-                visibleCount, contributionCount, feelings, dimensionAggregates, signals);
+                visibleCount, contributionCount, primaryExperiences,
+                feelings, dimensionAggregates, signals);
     }
 }

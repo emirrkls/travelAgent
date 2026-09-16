@@ -168,6 +168,15 @@ enum VisitMediaPreparation {
         return properties[kCGImagePropertyGPSDictionary] != nil
     }
 
+    /// Builds the lightweight composer thumbnail used when durable media is restored.
+    static func makeThumbnail(data: Data) throws -> Data {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0 else {
+            throw PrepareError.thumbnailFailed
+        }
+        return try generateThumbnail(source: source)
+    }
+
     /// Clean up a temporary file created during preparation.
     static func cleanupTempFile(at url: URL?) {
         guard let url else { return }

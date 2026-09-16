@@ -128,8 +128,10 @@ struct VisitComposerScreen: View {
             }
             .alert("visit.discard.title", isPresented: $showDiscardConfirmation) {
                 Button("visit.discard", role: .destructive) {
-                    controller.discard()
-                    dismiss()
+                    Task {
+                        await controller.discard()
+                        dismiss()
+                    }
                 }
                 Button("action.cancel", role: .cancel) {}
             } message: {

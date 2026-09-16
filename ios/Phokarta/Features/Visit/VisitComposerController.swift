@@ -15,9 +15,10 @@ final class VisitComposerController {
     private let mediaStore: (any DurableMediaStoring)?
     private let syncEngine: MutationSyncEngine?
     private var autosaveTask: Task<Void, Never>?
+    private var restoreTask: Task<Void, Never>?
 
     var isDirty: Bool {
-        state.isDirty || !mediaCoordinator.isEmpty
+        state.isDirty || !mediaCoordinator.isEmpty || mediaCoordinator.hasActiveWork
     }
 
     var canPublish: Bool {
@@ -46,34 +47,62 @@ final class VisitComposerController {
         self.syncEngine = syncEngine
         let activeAccount = store.accountID ?? UUID()
         let resolvedMediaService = mediaService ?? store.mediaService
-        self.mediaCoordinator = VisitMediaUploadCoordinator(
-            service: resolvedMediaService,
-            accountId: activeAccount
-        )
         self.state = VisitComposerState(
             placeId: place.id,
             placeName: place.name,
             category: place.category,
             clientMutationId: uuid()
         )
+        self.mediaCoordinator = VisitMediaUploadCoordinator(
+            service: resolvedMediaService,
+            accountId: activeAccount,
+            placeId: place.id,
+            draftRepository: draftRepository,
+            mediaStore: mediaStore
+        )
+        self.mediaCoordinator.configureDraftProvider { [weak self] in
+            guard let self else {
+                let now = Int64(Date().timeIntervalSince1970 * 1000)
+                return DurableVisitDraft(
+                    userId: activeAccount,
+                    placeId: place.id,
+                    overallScore: 5,
+                    publicReview: "",
+                    privateMemory: "",
+                    visitedAtEpochDay: 0,
+                    visibility: VisitVisibility.publicAccess.rawValue,
+                    dimensionsExpanded: false,
+                    createdAtEpochMillis: now,
+                    updatedAtEpochMillis: now
+                )
+            }
+            return self.makeDurableDraft(userId: activeAccount)
+        }
 
         // Asynchronously restore persisted draft if available
         if let draftRepo = draftRepository, let currentUserId = store.accountID {
-            Task { [weak self] in
+            restoreTask = Task { [weak self] in
                 if let draft = try? await draftRepo.getDraft(placeId: place.id, userId: currentUserId) {
-                    self?.restoreDraft(draft)
+                    await self?.restoreDraft(draft)
                 }
             }
         }
     }
 
-    func restoreDraft(_ draft: DurableVisitDraft) {
+    func restoreDraft(_ draft: DurableVisitDraft) async {
+        guard draft.userId == composerAccountID, draft.placeId == state.placeId else { return }
         state.overallScore = draft.overallScore
         state.publicReview = draft.publicReview
         state.privateMemory = draft.privateMemory
         state.visitedAt = Date(timeIntervalSince1970: Double(draft.visitedAtEpochDay) * 86400)
         state.visibility = VisitVisibility(rawValue: draft.visibility) ?? .publicAccess
         state.dimensionScores = Dictionary(uniqueKeysWithValues: draft.dimensions.map { ($0.dimensionKey, $0.score) })
+        await mediaCoordinator.restoreDurablePhotos(draft.photos)
+        syncMediaState()
+    }
+
+    func waitForInitialRestore() async {
+        await restoreTask?.value
     }
 
     func setOverall(_ value: Double) { edit { $0.overallScore = rounded(value) } }
@@ -117,18 +146,11 @@ final class VisitComposerController {
         if state.publishState != .idle { state.publishState = .idle }
     }
 
-    func discard() {
+    func discard() async {
         autosaveTask?.cancel()
-        mediaCoordinator.clear()
+        await mediaCoordinator.clear()
         syncMediaState()
         state.publishState = .idle
-
-        if let draftRepo = draftRepository, let accountID = composerAccountID {
-            let placeId = state.placeId
-            Task {
-                try? await draftRepo.deleteDraft(placeId: placeId, userId: accountID)
-            }
-        }
     }
 
     func syncMediaState() {
@@ -184,7 +206,7 @@ final class VisitComposerController {
 
         // Account isolation check: ensure current store account matches composer account
         if let currentAccount = store.accountID, let composerAccount = composerAccountID, currentAccount != composerAccount {
-            discard()
+            await discard()
             state.publishState = .retryableFailure(.unauthorized)
             return nil
         }
@@ -192,6 +214,7 @@ final class VisitComposerController {
         // 1. If durable mutation repository is available, use durable enqueue!
         if let mutationRepo = mutationRepository, let accountID = composerAccountID {
             autosaveTask?.cancel()
+            await mediaCoordinator.flushPersistence()
             let calendar = Calendar(identifier: .iso8601)
             let epochDay = Int64(calendar.startOfDay(for: state.visitedAt).timeIntervalSince1970 / 86400)
 
@@ -210,14 +233,13 @@ final class VisitComposerController {
 
             var photos: [DurablePendingPhoto] = []
             for (index, item) in mediaCoordinator.items.enumerated() {
-                let localPath = item.localTempURL.map { "visit-media/\(accountID.uuidString)/\($0.lastPathComponent)" }
                 photos.append(
                     DurablePendingPhoto(
                         mutationId: state.clientMutationId,
                         position: index,
                         ownerUserId: accountID,
                         clientMediaId: item.id,
-                        localRelativePath: localPath,
+                        localRelativePath: item.localRelativePath,
                         contentType: item.contentType,
                         byteSize: item.uploadBytes,
                         width: item.width,
@@ -237,7 +259,7 @@ final class VisitComposerController {
                     userId: accountID
                 )
                 state.publishState = .success
-                mediaCoordinator.clear()
+                await mediaCoordinator.clear(keepingDurableFiles: true)
                 syncMediaState()
 
                 let engine = syncEngine
@@ -262,7 +284,7 @@ final class VisitComposerController {
         do {
             let canonical = try await store.publish(request)
             state.publishState = .success
-            mediaCoordinator.clear()
+            await mediaCoordinator.clear()
             syncMediaState()
             return canonical
         } catch is CancellationError {

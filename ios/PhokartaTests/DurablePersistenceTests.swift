@@ -521,4 +521,197 @@ final class DurablePersistenceTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: url2.path), "photo2 must be swept from disk")
         XCTAssertEqual(store.getAllFileUrls().count, 1)
     }
+
+    // MARK: - 9. Selected-media durability before publication
+
+    @MainActor
+    func testSelectedMediaIsDurableBeforeItAppearsInComposer() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteVisitDraftRepository(database: db)
+        let mediaStore = DurableMediaStore(customRootDirectory: tempDir.appendingPathComponent("selected-durable"))
+        let userId = UUID()
+        let itemId = UUID()
+        let store = VisitStore(service: VisitServiceProbe(results: []))
+        store.activate(accountID: userId)
+        let controller = VisitComposerController(
+            place: TestPlaces.detail(),
+            store: store,
+            mediaService: NullVisitMediaService(),
+            draftRepository: repo,
+            mediaStore: mediaStore
+        )
+        await controller.waitForInitialRestore()
+
+        let added = await controller.mediaCoordinator.addSelectedData(makeTestJPEG(), id: itemId)
+        XCTAssertTrue(added)
+
+        let photos = try await repo.getPhotos(placeId: TestPlaces.placeID, userId: userId)
+        XCTAssertEqual(photos.map(\.clientMediaId), [itemId])
+        XCTAssertEqual(controller.mediaCoordinator.items.map(\.id), [itemId])
+        let fileURL = try XCTUnwrap(mediaStore.resolveOwned(
+            ownerUserId: userId,
+            relativePath: try XCTUnwrap(photos.first?.localRelativePath)
+        ))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+    }
+
+    @MainActor
+    func testProcessDeathRestoresSelectedMediaInExactOrder() async throws {
+        let dbPath = tempDir.appendingPathComponent("composer-relaunch.sqlite3").path
+        let mediaRoot = tempDir.appendingPathComponent("composer-relaunch-media")
+        let userId = UUID()
+        let ids = [UUID(), UUID(), UUID()]
+
+        do {
+            let db = try PersistentDatabase(path: dbPath)
+            let repo = SQLiteVisitDraftRepository(database: db)
+            let mediaStore = DurableMediaStore(customRootDirectory: mediaRoot)
+            let store = VisitStore(service: VisitServiceProbe(results: []))
+            store.activate(accountID: userId)
+            let controller = VisitComposerController(
+                place: TestPlaces.detail(),
+                store: store,
+                mediaService: NullVisitMediaService(),
+                draftRepository: repo,
+                mediaStore: mediaStore
+            )
+            await controller.waitForInitialRestore()
+            for id in ids {
+                let added = await controller.mediaCoordinator.addSelectedData(makeTestJPEG(), id: id)
+                XCTAssertTrue(added)
+            }
+            await controller.mediaCoordinator.flushPersistence()
+            await db.close()
+        }
+
+        do {
+            let db = try PersistentDatabase(path: dbPath)
+            let repo = SQLiteVisitDraftRepository(database: db)
+            let mediaStore = DurableMediaStore(customRootDirectory: mediaRoot)
+            let store = VisitStore(service: VisitServiceProbe(results: []))
+            store.activate(accountID: userId)
+            let relaunched = VisitComposerController(
+                place: TestPlaces.detail(),
+                store: store,
+                mediaService: NullVisitMediaService(),
+                draftRepository: repo,
+                mediaStore: mediaStore
+            )
+            await relaunched.waitForInitialRestore()
+            XCTAssertEqual(relaunched.mediaCoordinator.items.map(\.id), ids)
+            let restoredIDs = try await repo.getPhotos(placeId: TestPlaces.placeID, userId: userId).map(\.clientMediaId)
+            XCTAssertEqual(restoredIDs, ids)
+            await db.close()
+        }
+    }
+
+    @MainActor
+    func testSelectedMediaFromAccountAIsInvisibleToAccountB() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteVisitDraftRepository(database: db)
+        let mediaStore = DurableMediaStore(customRootDirectory: tempDir.appendingPathComponent("account-isolation"))
+        let userA = UUID()
+        let userB = UUID()
+
+        let storeA = VisitStore(service: VisitServiceProbe(results: []))
+        storeA.activate(accountID: userA)
+        let controllerA = VisitComposerController(
+            place: TestPlaces.detail(), store: storeA, mediaService: NullVisitMediaService(),
+            draftRepository: repo, mediaStore: mediaStore
+        )
+        await controllerA.waitForInitialRestore()
+        let added = await controllerA.mediaCoordinator.addSelectedData(makeTestJPEG())
+        XCTAssertTrue(added)
+
+        let storeB = VisitStore(service: VisitServiceProbe(results: []))
+        storeB.activate(accountID: userB)
+        let controllerB = VisitComposerController(
+            place: TestPlaces.detail(), store: storeB, mediaService: NullVisitMediaService(),
+            draftRepository: repo, mediaStore: mediaStore
+        )
+        await controllerB.waitForInitialRestore()
+
+        XCTAssertTrue(controllerB.mediaCoordinator.items.isEmpty)
+        let photosForB = try await repo.getPhotos(placeId: TestPlaces.placeID, userId: userB)
+        XCTAssertTrue(photosForB.isEmpty)
+    }
+
+    @MainActor
+    func testDiscardDeletesOnlyTargetDraftMedia() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteVisitDraftRepository(database: db)
+        let mediaStore = DurableMediaStore(customRootDirectory: tempDir.appendingPathComponent("target-discard"))
+        let userId = UUID()
+        let placeA = TestPlaces.placeID
+        let placeB = UUID()
+        let visitStore = VisitStore(service: VisitServiceProbe(results: []))
+        visitStore.activate(accountID: userId)
+
+        let controllerA = VisitComposerController(
+            place: TestPlaces.detail(id: placeA), store: visitStore, mediaService: NullVisitMediaService(),
+            draftRepository: repo, mediaStore: mediaStore
+        )
+        let controllerB = VisitComposerController(
+            place: TestPlaces.detail(id: placeB), store: visitStore, mediaService: NullVisitMediaService(),
+            draftRepository: repo, mediaStore: mediaStore
+        )
+        await controllerA.waitForInitialRestore()
+        await controllerB.waitForInitialRestore()
+        let addedA = await controllerA.mediaCoordinator.addSelectedData(makeTestJPEG())
+        let addedB = await controllerB.mediaCoordinator.addSelectedData(makeTestJPEG())
+        XCTAssertTrue(addedA)
+        XCTAssertTrue(addedB)
+        let placeBPhotos = try await repo.getPhotos(placeId: placeB, userId: userId)
+        let retained = try XCTUnwrap(placeBPhotos.first)
+
+        await controllerA.discard()
+
+        let discardedPhotos = try await repo.getPhotos(placeId: placeA, userId: userId)
+        let retainedPhotos = try await repo.getPhotos(placeId: placeB, userId: userId)
+        XCTAssertTrue(discardedPhotos.isEmpty)
+        XCTAssertEqual(retainedPhotos.count, 1)
+        let retainedURL = try XCTUnwrap(mediaStore.resolveOwned(ownerUserId: userId, relativePath: retained.localRelativePath))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: retainedURL.path))
+    }
+
+    @MainActor
+    func testAccountPurgeDeletesOnlyPurgedAccountsMedia() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let clock = TestEpochClock(initialMillis: 1_700_000_000_000)
+        let repo = SQLiteVisitDraftRepository(database: db, clock: clock)
+        let mediaStore = DurableMediaStore(customRootDirectory: tempDir.appendingPathComponent("account-purge"))
+        let userA = UUID()
+        let userB = UUID()
+
+        func addPhoto(for userId: UUID) async throws -> DurableDraftPhoto {
+            let draft = DurableVisitDraft(
+                userId: userId, placeId: TestPlaces.placeID, overallScore: 5,
+                publicReview: "", privateMemory: "", visitedAtEpochDay: 0,
+                visibility: VisitVisibility.publicAccess.rawValue, dimensionsExpanded: false,
+                createdAtEpochMillis: clock.nowMillis(), updatedAtEpochMillis: clock.nowMillis()
+            )
+            try await repo.saveDraft(placeId: TestPlaces.placeID, draft: draft, userId: userId)
+            let photo = try await mediaStore.importMedia(
+                ownerUserId: userId, placeId: TestPlaces.placeID, position: 0,
+                data: makeTestJPEG(), clientMediaId: UUID()
+            )
+            try await repo.replacePhotos(placeId: TestPlaces.placeID, photos: [photo], userId: userId)
+            return photo
+        }
+
+        let photoA = try await addPhoto(for: userA)
+        let photoB = try await addPhoto(for: userB)
+        let urlA = try XCTUnwrap(mediaStore.resolveOwned(ownerUserId: userA, relativePath: photoA.localRelativePath))
+        let urlB = try XCTUnwrap(mediaStore.resolveOwned(ownerUserId: userB, relativePath: photoB.localRelativePath))
+        let purger = SQLiteLocalAccountPurger(database: db, mediaStore: mediaStore, mediaLock: MediaFileMutationLock())
+
+        try await purger.purgeLocalData(userId: userA)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: urlA.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: urlB.path))
+        let draftA = try await repo.getDraft(placeId: TestPlaces.placeID, userId: userA)
+        let draftB = try await repo.getDraft(placeId: TestPlaces.placeID, userId: userB)
+        XCTAssertNil(draftA)
+        XCTAssertNotNil(draftB)
+    }
 }

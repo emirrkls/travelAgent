@@ -241,6 +241,14 @@ final class OfflineMutationSyncTests: XCTestCase {
         // 6. Verify mutation is deleted from queue after success
         let pendingAfter = try await mutationRepo.getPendingVisits(placeId: placeId, userId: userId)
         XCTAssertTrue(pendingAfter.isEmpty, "Mutation must be removed from queue upon successful publish")
+        let durableURL = try XCTUnwrap(mediaStore.resolveOwned(
+            ownerUserId: userId,
+            relativePath: photo.localRelativePath
+        ))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: durableURL.path),
+            "A successfully published mutation must delete its transferred local media"
+        )
     }
 
     // MARK: - 2. Process-Death Lost-ACK Integration Test

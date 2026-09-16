@@ -77,8 +77,11 @@ struct VisitMediaItem: Identifiable, Equatable, Sendable {
     var height: Int?
     /// Backend-assigned canonical media asset UUID (available after `.confirmed`).
     var canonicalMediaId: UUID?
-    /// Temporary file URL for sanitized upload bytes.
+    /// App-private file URL for sanitized upload bytes. Durable drafts point into
+    /// `DurableMediaStore`; legacy/in-memory flows may still use a temporary URL.
     var localTempURL: URL?
+    /// Owner-relative durable path persisted in SQLite. Nil for legacy/in-memory items.
+    var localRelativePath: String?
 
     init(id: UUID = UUID(), phase: VisitMediaItemPhase = .selected) {
         self.id = id

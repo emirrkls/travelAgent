@@ -11,7 +11,8 @@ import SwiftUI
 /// Design decisions:
 /// - Bounded concurrency: max 2 concurrent uploads to limit memory pressure.
 /// - Item-scoped retry: confirmed items remain confirmed; only failed items retry.
-/// - Online-first: no durable state. Process death loses unsubmitted media.
+/// - Durable-first: a selected item is not exposed until its sanitized file and
+///   SQLite ownership record are both committed.
 /// - Account isolation: coordinator validates accountId on mutations.
 @MainActor
 @Observable
@@ -22,7 +23,15 @@ final class VisitMediaUploadCoordinator {
     private(set) var items: [VisitMediaItem] = []
     private let service: any VisitMediaServing
     private let accountId: UUID
+    private let placeId: UUID?
+    private let draftRepository: (any VisitDraftRepository)?
+    private let mediaStore: (any DurableMediaStoring)?
+    private let mediaLock: MediaFileMutationLock
+    private var draftProvider: (@MainActor () -> DurableVisitDraft)?
     private var uploadTask: Task<Void, Never>?
+    private var selectionTasks: [UUID: Task<Void, Never>] = [:]
+    private var selectionTail: Task<Void, Never>?
+    private var persistenceTask: Task<Void, Never>?
 
     /// Maximum concurrent upload operations.
     private static let maxConcurrency = 2
@@ -34,7 +43,7 @@ final class VisitMediaUploadCoordinator {
     }
 
     var hasActiveWork: Bool {
-        items.contains { $0.phase.isActive }
+        !selectionTasks.isEmpty || items.contains { $0.phase.isActive }
     }
 
     var hasFailed: Bool {
@@ -42,7 +51,7 @@ final class VisitMediaUploadCoordinator {
     }
 
     var hasUnresolvedFailure: Bool {
-        items.contains { $0.phase.isRetryable || $0.phase == .failedPermanent("") ? false : $0.phase.isFailed }
+        items.contains { $0.phase.isFailed }
     }
 
     var confirmedMediaIds: [UUID] {
@@ -50,20 +59,39 @@ final class VisitMediaUploadCoordinator {
     }
 
     var mediaReadyForPublish: Bool {
-        items.isEmpty || items.allSatisfy { $0.phase == .confirmed }
+        items.isEmpty || items.allSatisfy { item in
+            if item.phase == .confirmed { return true }
+            if case .failedPermanent = item.phase { return false }
+            return item.localRelativePath != nil && !item.phase.isActive
+        }
     }
 
     var remainingSlots: Int {
-        max(0, MediaContract.maxPerVisit - items.count)
+        max(0, MediaContract.maxPerVisit - items.count - selectionTasks.count)
     }
 
     var isEmpty: Bool { items.isEmpty }
 
     // MARK: - Init
 
-    init(service: any VisitMediaServing, accountId: UUID) {
+    init(
+        service: any VisitMediaServing,
+        accountId: UUID,
+        placeId: UUID? = nil,
+        draftRepository: (any VisitDraftRepository)? = nil,
+        mediaStore: (any DurableMediaStoring)? = nil,
+        mediaLock: MediaFileMutationLock = .shared
+    ) {
         self.service = service
         self.accountId = accountId
+        self.placeId = placeId
+        self.draftRepository = draftRepository
+        self.mediaStore = mediaStore
+        self.mediaLock = mediaLock
+    }
+
+    func configureDraftProvider(_ provider: @escaping @MainActor () -> DurableVisitDraft) {
+        draftProvider = provider
     }
 
     // MARK: - Add from Picker
@@ -74,18 +102,87 @@ final class VisitMediaUploadCoordinator {
         let toAdd = Array(pickerItems.prefix(slotsAvailable))
         guard !toAdd.isEmpty else { return }
 
-        var newItems: [VisitMediaItem] = []
-        for _ in toAdd {
-            newItems.append(VisitMediaItem())
-        }
-        items.append(contentsOf: newItems)
-
-        // Start preparation for each item
-        for (index, pickerItem) in toAdd.enumerated() {
-            let itemId = newItems[index].id
-            Task {
-                await prepareItem(itemId: itemId, pickerItem: pickerItem)
+        for pickerItem in toAdd {
+            let itemId = UUID()
+            let previous = selectionTail
+            let task = Task { [weak self] in
+                await previous?.value
+                guard !Task.isCancelled,
+                      let data = try? await pickerItem.loadTransferable(type: Data.self) else {
+                    self?.selectionTasks[itemId] = nil
+                    return
+                }
+                _ = await self?.addSelectedData(data, id: itemId)
+                self?.selectionTasks[itemId] = nil
             }
+            selectionTasks[itemId] = task
+            selectionTail = task
+        }
+    }
+
+    /// Deterministic entry point used by the picker pipeline and durability tests.
+    /// Returns only after the item is durably owned by the draft when durable
+    /// dependencies are configured.
+    @discardableResult
+    func addSelectedData(_ data: Data, id: UUID = UUID()) async -> Bool {
+        if let placeId, let draftRepository, let mediaStore, let draftProvider {
+            let draft = draftProvider()
+            do {
+                let photo = try await mediaLock.withLock {
+                    try Task.checkCancellation()
+                    try await draftRepository.saveDraft(placeId: placeId, draft: draft, userId: accountId)
+                    let current = try await draftRepository.getPhotos(placeId: placeId, userId: accountId)
+                    let imported = try await mediaStore.importMedia(
+                        ownerUserId: accountId,
+                        placeId: placeId,
+                        position: current.count,
+                        data: data,
+                        clientMediaId: id
+                    )
+                    do {
+                        try await draftRepository.replacePhotos(
+                            placeId: placeId,
+                            photos: current + [imported],
+                            userId: accountId
+                        )
+                    } catch {
+                        await mediaStore.deleteOwned(
+                            ownerUserId: accountId,
+                            relativePath: imported.localRelativePath
+                        )
+                        throw error
+                    }
+                    return imported
+                }
+                guard let fileURL = mediaStore.resolveOwned(
+                    ownerUserId: accountId,
+                    relativePath: photo.localRelativePath
+                ) else { return false }
+                let sanitized = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+                appendDurablePhoto(photo, fileURL: fileURL, thumbnailData: try? VisitMediaPreparation.makeThumbnail(data: sanitized))
+                Task { await uploadItem(id: id) }
+                return true
+            } catch {
+                return false
+            }
+        }
+
+        do {
+            let prepared = try await Task.detached(priority: .userInitiated) {
+                try VisitMediaPreparation.prepare(data: data, itemID: id)
+            }.value
+            var item = VisitMediaItem(id: id, phase: .readyForIntent)
+            item.thumbnailData = prepared.thumbnailData
+            item.uploadBytes = prepared.byteSize
+            item.contentType = prepared.contentType
+            item.width = prepared.width
+            item.height = prepared.height
+            item.localTempURL = prepared.tempFileURL
+            items.append(item)
+            Task { await uploadItem(id: id) }
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -97,10 +194,44 @@ final class VisitMediaUploadCoordinator {
         items.append(item)
     }
 
+    /// Restores only media owned by this account and place. Invalid, missing, or
+    /// cross-account rows are ignored instead of leaking into the composer.
+    func restoreDurablePhotos(_ photos: [DurableDraftPhoto]) async {
+        guard let placeId, let mediaStore else { return }
+        var restored: [VisitMediaItem] = []
+        for photo in photos.sorted(by: { $0.position < $1.position })
+        where photo.ownerUserId == accountId && photo.placeId == placeId {
+            guard let fileURL = mediaStore.resolveOwned(
+                ownerUserId: accountId,
+                relativePath: photo.localRelativePath
+            ), FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+
+            let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe)
+            var item = VisitMediaItem(
+                id: photo.clientMediaId,
+                phase: photo.remoteMediaId == nil ? .readyForIntent : .confirmed
+            )
+            item.thumbnailData = data.flatMap { try? VisitMediaPreparation.makeThumbnail(data: $0) }
+            item.uploadBytes = photo.byteSize
+            item.contentType = photo.contentType
+            item.width = photo.width
+            item.height = photo.height
+            item.canonicalMediaId = photo.remoteMediaId
+            item.localTempURL = fileURL
+            item.localRelativePath = photo.localRelativePath
+            restored.append(item)
+        }
+        items = restored
+        for item in restored where item.phase == .readyForIntent {
+            Task { await uploadItem(id: item.id) }
+        }
+    }
+
     // MARK: - Reorder
 
     func move(fromOffsets: IndexSet, toOffset: Int) {
         items.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        persistDurableOrdering()
     }
 
     // MARK: - Remove
@@ -108,8 +239,12 @@ final class VisitMediaUploadCoordinator {
     func removeItem(id: UUID) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         let item = items[index]
-        VisitMediaPreparation.cleanupTempFile(at: item.localTempURL)
         items.remove(at: index)
+        if item.localRelativePath != nil {
+            persistDurableOrdering(deleting: item)
+        } else {
+            VisitMediaPreparation.cleanupTempFile(at: item.localTempURL)
+        }
     }
 
     // MARK: - Retry
@@ -138,14 +273,122 @@ final class VisitMediaUploadCoordinator {
 
     // MARK: - Clear
 
-    /// Cancel all work, clean temp files, reset state.
-    func clear() {
+    /// Cancel all work and reset state. Durable files can be retained when their
+    /// ownership has just moved atomically to a pending mutation.
+    func clear(keepingDurableFiles: Bool = false) async {
         uploadTask?.cancel()
         uploadTask = nil
-        for item in items {
-            VisitMediaPreparation.cleanupTempFile(at: item.localTempURL)
+        selectionTasks.values.forEach { $0.cancel() }
+        await flushPersistence()
+
+        if !keepingDurableFiles, placeId != nil, draftRepository != nil, mediaStore != nil {
+            await discardDurableDraft()
+            return
+        }
+        if !keepingDurableFiles {
+            for item in items where item.localRelativePath == nil {
+                VisitMediaPreparation.cleanupTempFile(at: item.localTempURL)
+            }
         }
         items.removeAll()
+    }
+
+    /// Deletes exactly this account/place draft and its owned files.
+    func discardDurableDraft() async {
+        uploadTask?.cancel()
+        uploadTask = nil
+        selectionTasks.values.forEach { $0.cancel() }
+        await flushPersistence()
+        guard let placeId, let draftRepository, let mediaStore else {
+            for item in items { VisitMediaPreparation.cleanupTempFile(at: item.localTempURL) }
+            items.removeAll()
+            return
+        }
+        try? await mediaLock.withLock {
+            let photos = try await draftRepository.getPhotos(placeId: placeId, userId: accountId)
+            try await draftRepository.deleteDraft(placeId: placeId, userId: accountId)
+            for photo in photos {
+                await mediaStore.deleteOwned(ownerUserId: accountId, relativePath: photo.localRelativePath)
+            }
+        }
+        items.removeAll()
+    }
+
+    func flushPersistence() async {
+        let selections = Array(selectionTasks.values)
+        for task in selections { await task.value }
+        await persistenceTask?.value
+    }
+
+    private func appendDurablePhoto(_ photo: DurableDraftPhoto, fileURL: URL, thumbnailData: Data?) {
+        var item = VisitMediaItem(
+            id: photo.clientMediaId,
+            phase: photo.remoteMediaId == nil ? .readyForIntent : .confirmed
+        )
+        item.thumbnailData = thumbnailData
+        item.uploadBytes = photo.byteSize
+        item.contentType = photo.contentType
+        item.width = photo.width
+        item.height = photo.height
+        item.canonicalMediaId = photo.remoteMediaId
+        item.localTempURL = fileURL
+        item.localRelativePath = photo.localRelativePath
+        items.append(item)
+    }
+
+    private func durablePhotoSnapshot() -> [DurableDraftPhoto] {
+        guard let placeId else { return [] }
+        return items.enumerated().compactMap { index, item in
+            guard let path = item.localRelativePath,
+                  let contentType = item.contentType,
+                  let byteSize = item.uploadBytes else { return nil }
+            return DurableDraftPhoto(
+                ownerUserId: accountId,
+                placeId: placeId,
+                position: index,
+                clientMediaId: item.id,
+                localRelativePath: path,
+                contentType: contentType,
+                byteSize: byteSize,
+                width: item.width,
+                height: item.height,
+                remoteMediaId: item.canonicalMediaId,
+                uploadState: item.canonicalMediaId == nil ? .localOnly : .readyRemote,
+                failureCategory: nil
+            )
+        }
+    }
+
+    private func persistDurableOrdering(deleting removed: VisitMediaItem? = nil) {
+        guard let placeId, let draftRepository, let mediaStore else { return }
+        let snapshot = durablePhotoSnapshot()
+        let previous = persistenceTask
+        persistenceTask = Task {
+            await previous?.value
+            try? await mediaLock.withLock {
+                try await draftRepository.replacePhotos(
+                    placeId: placeId,
+                    photos: snapshot,
+                    userId: accountId
+                )
+                if let path = removed?.localRelativePath {
+                    await mediaStore.deleteOwned(ownerUserId: accountId, relativePath: path)
+                }
+            }
+        }
+    }
+
+    private func persistRemoteState(clientMediaId: UUID, remoteMediaId: UUID) async {
+        guard let placeId, let draftRepository else { return }
+        try? await mediaLock.withLock {
+            try await draftRepository.updatePhotoRemoteState(
+                placeId: placeId,
+                clientMediaId: clientMediaId,
+                remoteMediaId: remoteMediaId,
+                uploadState: .readyRemote,
+                userId: accountId
+            )
+        }
     }
 
     // MARK: - Pipeline
@@ -268,6 +511,7 @@ final class VisitMediaUploadCoordinator {
             guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
             items[idx].canonicalMediaId = intentResponse.mediaId
             items[idx].phase = .confirmed
+            await persistRemoteState(clientMediaId: id, remoteMediaId: intentResponse.mediaId)
             return
         }
 
@@ -315,6 +559,7 @@ final class VisitMediaUploadCoordinator {
             items[idx4].canonicalMediaId = confirmResponse.mediaId
             if confirmResponse.status == .ready || confirmResponse.status == .attached {
                 items[idx4].phase = .confirmed
+                await persistRemoteState(clientMediaId: id, remoteMediaId: confirmResponse.mediaId)
             } else {
                 items[idx4].phase = .failedRetryable(
                     String(localized: "visit.media.confirm_failed")

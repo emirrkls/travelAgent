@@ -10,6 +10,13 @@ protocol VisitDraftRepository: Sendable {
     func upsertPhotos(placeId: UUID, photos: [DurableDraftPhoto], userId: UUID) async throws
     func removePhoto(placeId: UUID, relativePath: String, userId: UUID) async throws
     func replacePhotos(placeId: UUID, photos: [DurableDraftPhoto], userId: UUID) async throws
+    func updatePhotoRemoteState(
+        placeId: UUID,
+        clientMediaId: UUID,
+        remoteMediaId: UUID,
+        uploadState: MediaUploadState,
+        userId: UUID
+    ) async throws
     func getPhotos(placeId: UUID, userId: UUID) async throws -> [DurableDraftPhoto]
     func getAllPhotos() async throws -> [DurableDraftPhoto]
 }
@@ -271,6 +278,32 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     ]
                 )
             }
+        }
+    }
+
+    public func updatePhotoRemoteState(
+        placeId: UUID,
+        clientMediaId: UUID,
+        remoteMediaId: UUID,
+        uploadState: MediaUploadState,
+        userId: UUID
+    ) async throws {
+        let changed = try await database.execute(
+            """
+            UPDATE visit_draft_photos
+            SET remoteMediaId = ?, uploadState = ?, failureCategory = NULL
+            WHERE ownerUserId = ? AND placeId = ? AND clientMediaId = ?;
+            """,
+            params: [
+                remoteMediaId.uuidString,
+                uploadState.rawValue,
+                userId.uuidString,
+                placeId.uuidString,
+                clientMediaId.uuidString
+            ]
+        )
+        if changed != 1 {
+            throw PersistenceError.recordNotFound
         }
     }
 

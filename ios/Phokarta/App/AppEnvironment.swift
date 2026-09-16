@@ -87,7 +87,7 @@ struct AppEnvironment {
         let draftRepository = SQLiteVisitDraftRepository(database: database)
         let mutationRepository = SQLiteOfflineMutationRepository(database: database)
         let mediaStore = DurableMediaStore()
-        let mediaLock = MediaFileMutationLock()
+        let mediaLock = MediaFileMutationLock.shared
         let mediaReconciler = MediaFileReconciler(
             mediaStore: mediaStore,
             draftRepository: draftRepository,
@@ -104,7 +104,11 @@ struct AppEnvironment {
             visitStore: visits,
             sessionProvider: sessionOwner
         )
-        let purger = SQLiteLocalAccountPurger(database: database, mediaStore: mediaStore)
+        let purger = SQLiteLocalAccountPurger(
+            database: database,
+            mediaStore: mediaStore,
+            mediaLock: mediaLock
+        )
         let networkMonitor = SystemNetworkMonitor()
 
         let socialService = SocialService(client: client)
@@ -191,7 +195,7 @@ struct AppEnvironment {
         let draftRepository = SQLiteVisitDraftRepository(database: database)
         let mutationRepository = SQLiteOfflineMutationRepository(database: database)
         let mediaStore = customMediaStore ?? DurableMediaStore(customRootDirectory: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString))
-        let mediaLock = MediaFileMutationLock()
+        let mediaLock = MediaFileMutationLock.shared
         let mediaReconciler = MediaFileReconciler(
             mediaStore: mediaStore,
             draftRepository: draftRepository,
@@ -208,7 +212,11 @@ struct AppEnvironment {
             visitStore: visits,
             sessionProvider: sessionOwner
         )
-        let purger = SQLiteLocalAccountPurger(database: database, mediaStore: mediaStore)
+        let purger = SQLiteLocalAccountPurger(
+            database: database,
+            mediaStore: mediaStore,
+            mediaLock: mediaLock
+        )
         let networkMonitor = customNetworkMonitor ?? TestNetworkMonitor()
 
         let blockSvc = BlockService(client: client)

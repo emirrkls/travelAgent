@@ -8,7 +8,19 @@ public final class ExperienceTaxonomy {
     public static final int VERSION = 1;
 
     public enum OverallFeelingCode {
-        BAYILDIM, GUZELDI, EH_ISTE, BEKLENTIMI_KARSILAMADI, BIR_DAHA_TERCIH_ETMEM;
+        BAYILDIM(10.0),
+        GUZELDI(8.0),
+        EH_ISTE(6.0),
+        BEKLENTIMI_KARSILAMADI(4.0),
+        BIR_DAHA_TERCIH_ETMEM(2.0);
+
+        private final double compatibilityScore;
+
+        OverallFeelingCode(double compatibilityScore) {
+            this.compatibilityScore = compatibilityScore;
+        }
+
+        public double compatibilityScore() { return compatibilityScore; }
 
         public static OverallFeelingCode fromLegacyRating(double rating) {
             if (rating >= 9.0) return BAYILDIM;

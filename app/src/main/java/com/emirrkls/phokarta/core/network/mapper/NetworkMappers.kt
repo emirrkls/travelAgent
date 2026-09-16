@@ -5,11 +5,28 @@ import com.emirrkls.phokarta.core.model.ActivityEvent
 import com.emirrkls.phokarta.core.model.ActivityPlaceSummary
 import com.emirrkls.phokarta.core.model.BlockedUser
 import com.emirrkls.phokarta.core.model.Collection
+import com.emirrkls.phokarta.core.model.CompanionCode
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.Experience
+import com.emirrkls.phokarta.core.model.ExperienceAuthor
+import com.emirrkls.phokarta.core.model.ExperienceClassification
+import com.emirrkls.phokarta.core.model.ExperienceDimension
+import com.emirrkls.phokarta.core.model.ExperienceFamily
+import com.emirrkls.phokarta.core.model.ExperienceFeeling
+import com.emirrkls.phokarta.core.model.ExperienceMedia
+import com.emirrkls.phokarta.core.model.ExperienceMediaKind
+import com.emirrkls.phokarta.core.model.ExperiencePlace
+import com.emirrkls.phokarta.core.model.ExperiencePrimary
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
+import com.emirrkls.phokarta.core.model.ExperienceVisibility
+import com.emirrkls.phokarta.core.model.FeelingProvenance
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.FriendPlaceUser
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PolicyStatus
+import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewAuthor
 import com.emirrkls.phokarta.core.model.PublicReviewMedia
@@ -20,15 +37,18 @@ import com.emirrkls.phokarta.core.model.ReportReason
 import com.emirrkls.phokarta.core.model.ReportTargetType
 import com.emirrkls.phokarta.core.model.SavedFriendMetrics
 import com.emirrkls.phokarta.core.model.SubmittedReport
+import com.emirrkls.phokarta.core.model.TimeOfDayCode
 import com.emirrkls.phokarta.core.model.UserSummary
 import com.emirrkls.phokarta.core.model.VerificationStatus
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.VisitMedia
+import com.emirrkls.phokarta.core.model.VibeCode
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
@@ -136,6 +156,66 @@ fun VisitOwnerDto.toDomain(userId: String): Visit = Visit(
     },
     visibility = visibility.toDomain(),
     verificationStatus = VerificationStatus.valueOf(verificationStatus.name),
+)
+
+fun ExperienceV2Dto.toDomain(): Experience = Experience(
+    id = id.toCanonicalUuid(),
+    classification = ExperienceClassification.fromWire(classification),
+    author = ExperienceAuthor(
+        id = author.id.toCanonicalUuid(),
+        username = author.username,
+        displayName = author.displayName,
+        avatarUrl = author.avatarUrl,
+    ),
+    place = ExperiencePlace(
+        id = place.id.toCanonicalUuid(),
+        name = place.name,
+        categoryCode = place.category,
+        city = place.city,
+        region = place.region,
+        country = place.country,
+        coverImage = place.coverImage,
+    ),
+    experiencedAt = experiencedAt.toLocalDateSafely(),
+    title = title,
+    titleSource = titleSource?.let(ExperienceTitleSource::fromWire),
+    titlePersisted = titlePersisted,
+    story = story,
+    tip = tip,
+    feeling = ExperienceFeeling(
+        code = com.emirrkls.phokarta.core.model.OverallFeelingCode.fromWire(feeling.code),
+        provenance = FeelingProvenance.fromWire(feeling.source),
+        compatibilityNumericRating = feeling.compatibilityNumericRating,
+    ),
+    primaryExperience = ExperiencePrimary(
+        code = PrimaryExperienceCode.fromWire(primaryExperience.code),
+        canonical = primaryExperience.canonical,
+        family = primaryExperience.family?.let(ExperienceFamily::fromWire),
+        rawLabel = primaryExperience.rawLabel,
+    ),
+    companion = companion?.let(CompanionCode::fromWire),
+    timeOfDay = timeOfDay?.let(TimeOfDayCode::fromWire),
+    vibes = vibes.map(VibeCode::fromWire),
+    practicalSignals = practicalSignals.map(PracticalSignalCode::fromWire),
+    dimensions = dimensions.map {
+        ExperienceDimension(
+            key = it.key,
+            numericScore = it.numericScore,
+            semanticState = it.semanticState?.let(DimensionStateCode::fromWire),
+            templateVersion = it.templateVersion,
+        )
+    },
+    media = media.sortedBy { it.position }.map {
+        ExperienceMedia(
+            kind = ExperienceMediaKind.fromWire(it.kind),
+            position = it.position,
+            id = it.id?.toCanonicalUuid(),
+            url = it.url,
+            accessExpiresAt = it.accessExpiresAt,
+        )
+    },
+    visibility = ExperienceVisibility.fromWire(visibility),
+    taxonomyVersion = taxonomyVersion,
 )
 
 fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(

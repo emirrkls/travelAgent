@@ -184,6 +184,72 @@ data class VisitMediaDto(
 )
 
 @Serializable
+data class ExperienceV2Dto(
+    val id: String,
+    val classification: String,
+    val author: ExperienceAuthorDto,
+    val place: ExperiencePlaceDto,
+    val experiencedAt: String,
+    val title: String,
+    val titleSource: String? = null,
+    val titlePersisted: Boolean,
+    val story: String,
+    val tip: String? = null,
+    val feeling: ExperienceFeelingDto,
+    val primaryExperience: ExperiencePrimaryDto,
+    val companion: String? = null,
+    val timeOfDay: String? = null,
+    val vibes: List<String> = emptyList(),
+    val practicalSignals: List<String> = emptyList(),
+    val dimensions: List<ExperienceDimensionDto> = emptyList(),
+    val media: List<ExperienceMediaDto> = emptyList(),
+    val visibility: String,
+    val taxonomyVersion: Int? = null,
+)
+
+@Serializable
+data class ExperienceAuthorDto(val id: String, val username: String, val displayName: String, val avatarUrl: String?)
+
+@Serializable
+data class ExperiencePlaceDto(
+    val id: String,
+    val name: String,
+    val category: String,
+    val city: String,
+    val region: String,
+    val country: String,
+    val coverImage: String,
+)
+
+@Serializable
+data class ExperienceFeelingDto(val code: String, val source: String, val compatibilityNumericRating: Double)
+
+@Serializable
+data class ExperiencePrimaryDto(
+    val code: String,
+    val canonical: Boolean,
+    val family: String? = null,
+    val rawLabel: String? = null,
+)
+
+@Serializable
+data class ExperienceDimensionDto(
+    val key: String,
+    val numericScore: Double,
+    val semanticState: String? = null,
+    val templateVersion: Int? = null,
+)
+
+@Serializable
+data class ExperienceMediaDto(
+    val kind: String,
+    val position: Int,
+    val id: String? = null,
+    val url: String,
+    val accessExpiresAt: String? = null,
+)
+
+@Serializable
 data class MediaUploadIntentRequestDto(
     val clientMediaId: String,
     val contentType: String,

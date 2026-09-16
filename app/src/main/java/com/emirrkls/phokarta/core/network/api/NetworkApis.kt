@@ -11,6 +11,7 @@ import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
+import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
@@ -164,6 +165,9 @@ interface PlaceApi {
 }
 
 interface VisitApi {
+    @GET("api/v2/experiences/{id}")
+    suspend fun experience(@Path("id") id: String): Response<ExperienceV2Dto>
+
     @POST("api/v1/visits")
     suspend fun create(@Body request: CreateVisitDto): Response<VisitOwnerDto>
 

@@ -2710,4 +2710,49 @@ They supersede corresponding ambiguities identified during the first Technical M
 
 Future implementation agents must treat these rules as part of the authoritative Product Contract.
 
+---
+
+# 131. NATIVE OVERALL FEELING → NUMERIC COMPATIBILITY
+
+Native V2 Experience publication uses an explicit Overall Feeling.
+
+The canonical backend-owned numeric compatibility mapping is:
+
+- BAYILDIM → 10.0
+- GUZELDI → 8.0
+- EH_ISTE → 6.0
+- BEKLENTIMI_KARSILAMADI → 4.0
+- BIR_DAHA_TERCIH_ETMEM → 2.0
+
+These numeric values exist only to preserve compatibility with the existing required `visits.overall_rating` field, V1 readers, legacy numeric aggregates, and transitional infrastructure.
+
+They are NOT the primary V2 user-facing rating model.
+
+A native V2 client must not independently choose or submit an arbitrary numeric overall rating.
+
+For native V2 publication:
+
+1. The client submits the explicit Overall Feeling.
+2. The backend validates the Feeling.
+3. The backend derives the numeric compatibility value using the canonical mapping above.
+4. The backend persists:
+   - the explicit Feeling,
+   - `feeling_source = EXPLICIT`,
+   - the derived compatibility numeric rating.
+5. The derived numeric compatibility value participates in canonical persistence while the explicit Feeling remains the semantic user input.
+
+The reverse legacy interpretation remains:
+
+- 9.0–10.0 → BAYILDIM
+- 7.0–8.9 → GUZELDI
+- 5.0–6.9 → EH_ISTE
+- 3.0–4.9 → BEKLENTIMI_KARSILAMADI
+- 0.0–2.9 → BIR_DAHA_TERCIH_ETMEM
+
+Legacy numeric ratings remain unchanged.
+
+The existence of these compatibility values must not cause the V2 UI to reintroduce an overall numeric 0–10 rating control.
+
+This mapping is a locked compatibility decision for the initial Phokarta V2 migration.
+
 END OF PHOKARTA V2 PRODUCT CONTRACT

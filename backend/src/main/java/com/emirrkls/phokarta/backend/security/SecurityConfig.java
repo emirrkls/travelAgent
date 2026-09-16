@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.backend.security;
 
 import com.emirrkls.phokarta.backend.api.error.ApiError;
 import com.emirrkls.phokarta.backend.config.ApplicationProperties;
+import com.emirrkls.phokarta.backend.config.ProfilePrivacyProperties;
 import com.emirrkls.phokarta.backend.web.RequestIdFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,7 +35,8 @@ import java.util.Map;
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties({
-        JwtProperties.class, CorsProperties.class, ApplicationProperties.class
+        JwtProperties.class, CorsProperties.class, ApplicationProperties.class,
+        ProfilePrivacyProperties.class
 })
 public class SecurityConfig {
 
@@ -72,6 +74,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/visits/{visitId}")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v2/experiences/{experienceId}")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v2/places/{placeId}")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v2/users/search")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v2/users/{userId}")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v2/capabilities")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/media/{mediaId}/access")
                         .permitAll()

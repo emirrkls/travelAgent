@@ -1,7 +1,10 @@
 package com.emirrkls.phokarta.backend.domain.entity;
 
+import com.emirrkls.phokarta.backend.domain.model.ProfileVisibility;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -52,6 +55,10 @@ public class User {
     @Column(name = "following_count", nullable = false)
     private int followingCount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "profile_visibility", nullable = false, length = 20)
+    private ProfileVisibility profileVisibility = ProfileVisibility.PUBLIC;
+
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "travel_taste", nullable = false, columnDefinition = "text[]")
     private List<String> travelTaste = new ArrayList<>();
@@ -77,6 +84,7 @@ public class User {
         this.countryCount = 0;
         this.followersCount = 0;
         this.followingCount = 0;
+        this.profileVisibility = ProfileVisibility.PUBLIC;
         this.travelTaste = new ArrayList<>();
         this.createdAt = now;
         this.updatedAt = now;
@@ -94,7 +102,13 @@ public class User {
     public int getCountryCount() { return countryCount; }
     public int getFollowersCount() { return followersCount; }
     public int getFollowingCount() { return followingCount; }
+    public ProfileVisibility getProfileVisibility() { return profileVisibility; }
     public List<String> getTravelTaste() { return List.copyOf(travelTaste); }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
+
+    public void changeProfileVisibility(ProfileVisibility visibility, OffsetDateTime now) {
+        this.profileVisibility = visibility;
+        this.updatedAt = now;
+    }
 }

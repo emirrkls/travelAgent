@@ -70,6 +70,10 @@ phokarta:
     # Technical beta User Policy version. Not final legal Terms.
     # Override with PHOKARTA_POLICY_REQUIRED_VERSION when Terms are reissued.
     required-version: ${PHOKARTA_POLICY_REQUIRED_VERSION:2026-08-beta}
+  features:
+    profile-privacy-v2:
+      # Activation stays off until both mobile clients support pending requests.
+      enabled: ${PHOKARTA_PROFILE_PRIVACY_V2_ENABLED:false}
 
 springdoc:
   api-docs:

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
@@ -29,11 +30,86 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     Page<Visit> findByUserIdOrderByVisitedAtDescCreatedAtDescIdDesc(
             UUID userId, Pageable pageable);
 
+    long countByUserId(UUID userId);
+    long countByUserIdAndVisibility(UUID userId, Visibility visibility);
+    long countByUserIdAndVisibilityIn(UUID userId, Collection<Visibility> visibilities);
+
+    @Query(value = """
+            select count(*)
+            from visits v
+            join users author on author.id = v.user_id
+            where v.place_id = :placeId
+              and v.visibility = 'PUBLIC'
+              and author.profile_visibility = 'PUBLIC'
+            """, nativeQuery = true)
+    long countVisibleAtPlaceAnonymous(@Param("placeId") UUID placeId);
+
+    @Query(value = """
+            select count(*)
+            from visits v
+            join users author on author.id = v.user_id
+            where v.place_id = :placeId
+              and (
+                  v.user_id = :viewerId
+                  or (
+                      not exists (
+                          select 1 from user_blocks block
+                          where (block.blocker_user_id = :viewerId and block.blocked_user_id = v.user_id)
+                             or (block.blocker_user_id = v.user_id and block.blocked_user_id = :viewerId)
+                      )
+                      and (
+                          (v.visibility = 'PUBLIC' and (
+                              author.profile_visibility = 'PUBLIC'
+                              or exists (
+                                  select 1 from user_follows approved
+                                  where approved.follower_user_id = :viewerId
+                                    and approved.followed_user_id = v.user_id
+                              )
+                          ))
+                          or (v.visibility = 'FRIENDS'
+                              and exists (
+                                  select 1 from user_follows outbound
+                                  where outbound.follower_user_id = :viewerId
+                                    and outbound.followed_user_id = v.user_id
+                              )
+                              and exists (
+                                  select 1 from user_follows inbound
+                                  where inbound.follower_user_id = v.user_id
+                                    and inbound.followed_user_id = :viewerId
+                              )
+                          )
+                      )
+                  )
+              )
+            """, nativeQuery = true)
+    long countVisibleAtPlace(@Param("placeId") UUID placeId,
+                             @Param("viewerId") UUID viewerId);
+
+    @Query(value = """
+            select count(*) from visits v
+            where v.place_id = :placeId
+              and v.visibility in ('PUBLIC', 'FRIENDS')
+            """, nativeQuery = true)
+    long countCommunityContributions(@Param("placeId") UUID placeId);
+
     @EntityGraph(attributePaths = {"user", "place"})
+    @Query("""
+            select v from Visit v
+            where v.place.id = :placeId
+              and v.visibility = :visibility
+              and v.user.profileVisibility = com.emirrkls.phokarta.backend.domain.model.ProfileVisibility.PUBLIC
+            order by v.visitedAt desc, v.createdAt desc, v.id desc
+            """)
     Page<Visit> findByPlaceIdAndVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
             UUID placeId, Visibility visibility, Pageable pageable);
 
     @EntityGraph(attributePaths = {"user", "place"})
+    @Query("""
+            select v from Visit v
+            where v.visibility = :visibility
+              and v.user.profileVisibility = com.emirrkls.phokarta.backend.domain.model.ProfileVisibility.PUBLIC
+            order by v.visitedAt desc, v.createdAt desc, v.id desc
+            """)
     Page<Visit> findByVisibilityOrderByVisitedAtDescCreatedAtDescIdDesc(
             Visibility visibility, Pageable pageable);
 
@@ -51,6 +127,13 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                   where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
                      or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
               ))
+              and (v.user.id = :viewerId
+                   or v.user.profileVisibility = com.emirrkls.phokarta.backend.domain.model.ProfileVisibility.PUBLIC
+                   or exists (
+                       select 1 from UserFollow approved
+                       where approved.id.followerUserId = :viewerId
+                         and approved.id.followedUserId = v.user.id
+                   ))
             order by v.visitedAt desc, v.createdAt desc, v.id desc
             """)
     Page<Visit> findPublicReviewsVisibleTo(
@@ -70,6 +153,13 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
                   where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = v.user.id)
                      or (block.id.blockerUserId = v.user.id and block.id.blockedUserId = :viewerId)
               ))
+              and (v.user.id = :viewerId
+                   or v.user.profileVisibility = com.emirrkls.phokarta.backend.domain.model.ProfileVisibility.PUBLIC
+                   or exists (
+                       select 1 from UserFollow approved
+                       where approved.id.followerUserId = :viewerId
+                         and approved.id.followedUserId = v.user.id
+                   ))
             order by v.visitedAt desc, v.createdAt desc, v.id desc
             """)
     Page<Visit> findPublicActivityVisibleTo(
@@ -144,6 +234,7 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     @Query("""
             select v from Visit v join fetch v.user join fetch v.place
             where v.place.id = :placeId and v.visibility = :visibility
+              and v.user.profileVisibility = com.emirrkls.phokarta.backend.domain.model.ProfileVisibility.PUBLIC
             order by v.visitedAt desc, v.createdAt desc, v.id desc
             """)
     List<Visit> findRecent(@Param("placeId") UUID placeId,

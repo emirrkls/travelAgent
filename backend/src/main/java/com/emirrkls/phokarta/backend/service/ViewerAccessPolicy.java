@@ -1,8 +1,10 @@
 package com.emirrkls.phokarta.backend.service;
 
 import com.emirrkls.phokarta.backend.domain.entity.Collection;
+import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.domain.entity.Visit;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
+import com.emirrkls.phokarta.backend.domain.model.ProfileVisibility;
 import com.emirrkls.phokarta.backend.repository.UserFollowRepository;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +41,10 @@ public class ViewerAccessPolicy {
         if (viewerId != null && blocks.isBlockedEitherDirection(viewerId, ownerId)) {
             return false;
         }
+        if (visit.getUser().getProfileVisibility() == ProfileVisibility.PRIVATE
+                && (viewerId == null || !follows.existsFollow(viewerId, ownerId))) {
+            return false;
+        }
         return switch (visit.getVisibility()) {
             case PUBLIC -> true;
             case FRIENDS -> viewerId != null && follows.areFriends(viewerId, ownerId);
@@ -53,12 +59,30 @@ public class ViewerAccessPolicy {
         return !blocks.isBlockedEitherDirection(viewerId, targetId);
     }
 
+    public boolean canViewFullProfile(User target, UUID viewerId) {
+        UUID targetId = target.getId();
+        if (viewerId != null && viewerId.equals(targetId)) {
+            return true;
+        }
+        if (viewerId != null && blocks.isBlockedEitherDirection(viewerId, targetId)) {
+            return false;
+        }
+        if (target.getProfileVisibility() == ProfileVisibility.PUBLIC) {
+            return true;
+        }
+        return viewerId != null && follows.existsFollow(viewerId, targetId);
+    }
+
     public boolean canViewCollection(Collection collection, UUID viewerId) {
         UUID ownerId = collection.getUser().getId();
         if (viewerId != null && ownerId.equals(viewerId)) {
             return true;
         }
         if (viewerId != null && blocks.isBlockedEitherDirection(viewerId, ownerId)) {
+            return false;
+        }
+        if (collection.getUser().getProfileVisibility() == ProfileVisibility.PRIVATE
+                && (viewerId == null || !follows.existsFollow(viewerId, ownerId))) {
             return false;
         }
         return switch (collection.getVisibility()) {

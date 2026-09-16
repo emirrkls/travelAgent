@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.backend.api.dto.RelationshipStateResponse;
 import com.emirrkls.phokarta.backend.api.dto.UserSummaryResponse;
 import com.emirrkls.phokarta.backend.api.error.ApiException;
 import com.emirrkls.phokarta.backend.domain.entity.User;
+import com.emirrkls.phokarta.backend.domain.model.ProfileVisibility;
 import com.emirrkls.phokarta.backend.domain.entity.UserFollowId;
 import com.emirrkls.phokarta.backend.repository.UserFollowRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
@@ -41,9 +42,14 @@ public class SocialService {
         if (followerId.equals(targetId)) {
             throw ApiException.validation("Cannot follow yourself");
         }
-        requireUser(targetId);
+        User target = users.findById(targetId)
+                .orElseThrow(() -> ApiException.notFound("User", targetId));
         if (!access.canFollow(followerId, targetId)) {
             throw ApiException.conflict("BLOCKED_RELATIONSHIP", "This action isn't available.");
+        }
+        if (target.getProfileVisibility() == ProfileVisibility.PRIVATE) {
+            throw ApiException.conflict("FOLLOW_APPROVAL_REQUIRED",
+                    "Use a supported client to request approval.");
         }
         follows.insertIfAbsent(followerId, targetId, OffsetDateTime.now(ZoneOffset.UTC));
     }
@@ -64,6 +70,9 @@ public class SocialService {
         }
         User user = users.findById(targetId)
                 .orElseThrow(() -> ApiException.notFound("User", targetId));
+        if (!access.canViewFullProfile(user, viewerId)) {
+            throw ApiException.notFound("User", targetId);
+        }
         RelationshipStateResponse relationship = null;
         if (viewerId != null && !viewerId.equals(targetId)) {
             relationship = relationship(viewerId, targetId);

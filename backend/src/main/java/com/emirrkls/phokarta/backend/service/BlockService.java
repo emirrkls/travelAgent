@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.backend.domain.entity.UserBlock;
 import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import com.emirrkls.phokarta.backend.repository.UserBlockRepository;
 import com.emirrkls.phokarta.backend.repository.UserFollowRepository;
+import com.emirrkls.phokarta.backend.repository.FollowRequestRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,13 +24,16 @@ public class BlockService {
     private final UserRepository users;
     private final UserBlockRepository blocks;
     private final UserFollowRepository follows;
+    private final FollowRequestRepository followRequests;
     private final ApplicationMetrics metrics;
 
     public BlockService(UserRepository users, UserBlockRepository blocks,
-                        UserFollowRepository follows, ApplicationMetrics metrics) {
+                        UserFollowRepository follows, FollowRequestRepository followRequests,
+                        ApplicationMetrics metrics) {
         this.users = users;
         this.blocks = blocks;
         this.follows = follows;
+        this.followRequests = followRequests;
         this.metrics = metrics;
     }
 
@@ -49,8 +53,10 @@ public class BlockService {
         if (!users.existsById(targetId)) {
             throw ApiException.notFound("User", targetId);
         }
+        lockRelationship(blockerId, targetId);
         int inserted = blocks.insertIfAbsent(blockerId, targetId, OffsetDateTime.now(ZoneOffset.UTC));
         follows.deleteEdgesBetween(blockerId, targetId);
+        followRequests.cancelPendingBetween(blockerId, targetId, OffsetDateTime.now(ZoneOffset.UTC));
         metrics.blockOperation("block", inserted > 0 ? "created" : "idempotent");
     }
 
@@ -78,5 +84,13 @@ public class BlockService {
                     blocked.getAvatarUrl(),
                     row.getCreatedAt());
         });
+    }
+
+    private void lockRelationship(UUID a, UUID b) {
+        if (a.toString().compareTo(b.toString()) < 0) {
+            followRequests.lockRelationship(a, b);
+        } else {
+            followRequests.lockRelationship(b, a);
+        }
     }
 }

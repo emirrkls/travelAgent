@@ -15,7 +15,6 @@ import com.emirrkls.phokarta.backend.domain.model.MediaStatus;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import com.emirrkls.phokarta.backend.repository.MediaAssetRepository;
-import com.emirrkls.phokarta.backend.repository.UserFollowRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitMediaRepository;
 import com.emirrkls.phokarta.backend.storage.ObjectStorageException;
@@ -43,8 +42,7 @@ public class MediaService {
     private final MediaAssetRepository assets;
     private final VisitMediaRepository visitMedia;
     private final UserRepository users;
-    private final UserFollowRepository follows;
-    private final BlockService blocks;
+    private final ViewerAccessPolicy accessPolicy;
     private final ObjectStorageService storage;
     private final MediaProperties properties;
     private final ApplicationMetrics metrics;
@@ -52,15 +50,14 @@ public class MediaService {
     private final UgcPolicyService ugcPolicy;
 
     public MediaService(MediaAssetRepository assets, VisitMediaRepository visitMedia,
-                        UserRepository users, UserFollowRepository follows,
-                        BlockService blocks, ObjectStorageService storage,
+                        UserRepository users, ViewerAccessPolicy accessPolicy,
+                        ObjectStorageService storage,
                         MediaProperties properties, ApplicationMetrics metrics,
                         MediaCleanupClaims cleanupClaims, UgcPolicyService ugcPolicy) {
         this.assets = assets;
         this.visitMedia = visitMedia;
         this.users = users;
-        this.follows = follows;
-        this.blocks = blocks;
+        this.accessPolicy = accessPolicy;
         this.storage = storage;
         this.properties = properties;
         this.metrics = metrics;
@@ -243,16 +240,8 @@ public class MediaService {
     }
 
     private void authorizeAttached(VisitMedia relation, UUID viewerId) {
-        UUID ownerId = relation.getMedia().getOwner().getId();
-        Visibility visibility = relation.getVisit().getVisibility();
-        if (ownerId.equals(viewerId)) return;
-        if (viewerId != null && blocks.isBlockedEitherDirection(viewerId, ownerId)) {
-            throw ApiException.notFound("Media", relation.getMedia().getId());
-        }
-        if (visibility == Visibility.PUBLIC) return;
-        if (visibility == Visibility.FRIENDS && viewerId != null
-                && follows.areFriends(viewerId, ownerId)) return;
-        throw ApiException.forbidden("Media is not accessible");
+        if (accessPolicy.canViewVisit(relation.getVisit(), viewerId)) return;
+        throw ApiException.notFound("Media", relation.getMedia().getId());
     }
 
     private List<VisitMediaResponse> signRelations(List<VisitMedia> relations) {

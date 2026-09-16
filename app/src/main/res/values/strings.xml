@@ -638,7 +638,7 @@
     <string name="experience_context">Context</string>
     <string name="experience_failed_to_load">This experience couldn’t be loaded.</string>
     <string name="plan_title">My Plan</string>
-    <string name="plan_want_to_go">Want to Go</string>
+    <string name="plan_want_to_go">Places I Want to Go</string>
     <string name="plan_collections">Collections</string>
     <string name="nav_plan">My Plan</string>
     <string name="place_experiences_title">What did people experience here?</string>

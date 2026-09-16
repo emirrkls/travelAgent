@@ -18,18 +18,19 @@ enum PhokartaRadius {
 
 enum PhokartaColor {
     // Brand reference: Android ui/theme/Theme.kt
-    static let coral = Color(red: 232 / 255, green: 111 / 255, blue: 81 / 255)
-    static let coralDark = Color(red: 185 / 255, green: 67 / 255, blue: 46 / 255)
-    static let ink = Color(red: 32 / 255, green: 35 / 255, blue: 31 / 255)
-    static let sand = Color(red: 1, green: 248 / 255, blue: 241 / 255)
-    static let sage = Color(red: 66 / 255, green: 107 / 255, blue: 91 / 255)
-    static let mist = Color(red: 233 / 255, green: 240 / 255, blue: 236 / 255)
-    static let muted = Color(red: 114 / 255, green: 119 / 255, blue: 112 / 255)
+    // Source-compatible names for the shared blue/mist semantic palette.
+    static let coral = Color(red: 37 / 255, green: 99 / 255, blue: 235 / 255)
+    static let coralDark = Color(red: 29 / 255, green: 78 / 255, blue: 216 / 255)
+    static let ink = Color(red: 23 / 255, green: 32 / 255, blue: 51 / 255)
+    static let sand = Color(red: 247 / 255, green: 250 / 255, blue: 1)
+    static let sage = Color(red: 15 / 255, green: 107 / 255, blue: 120 / 255)
+    static let mist = Color(red: 229 / 255, green: 241 / 255, blue: 248 / 255)
+    static let muted = Color(red: 102 / 255, green: 112 / 255, blue: 133 / 255)
     static let surfaceLight = Color.white
-    static let backgroundDark = Color(red: 24 / 255, green: 26 / 255, blue: 24 / 255)
-    static let surfaceDark = Color(red: 32 / 255, green: 35 / 255, blue: 31 / 255)
-    static let onDark = Color(red: 228 / 255, green: 227 / 255, blue: 223 / 255)
-    static let coralDarkMode = Color(red: 1, green: 181 / 255, blue: 159 / 255)
+    static let backgroundDark = Color(red: 16 / 255, green: 23 / 255, blue: 34 / 255)
+    static let surfaceDark = Color(red: 23 / 255, green: 32 / 255, blue: 51 / 255)
+    static let onDark = Color(red: 230 / 255, green: 237 / 255, blue: 247 / 255)
+    static let coralDarkMode = Color(red: 158 / 255, green: 193 / 255, blue: 1)
 
     static func background(for scheme: ColorScheme) -> Color {
         scheme == .dark ? backgroundDark : sand

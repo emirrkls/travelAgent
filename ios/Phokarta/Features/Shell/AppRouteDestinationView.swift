@@ -34,7 +34,18 @@ struct AppRouteDestinationView: View {
                 mutationRepository: environment.mutationRepository,
                 mediaStore: environment.mediaStore,
                 syncEngine: environment.syncEngine,
-                onSelectUser: { onNavigate(.userProfile($0)) }
+                onSelectUser: { onNavigate(.userProfile($0)) },
+                experienceService: environment.experiences,
+                privacyService: environment.privacy,
+                onSelectExperience: { onNavigate(.experienceDetail($0)) }
+            )
+        case .experienceDetail(let id):
+            ExperienceDetailScreen(
+                id: id,
+                service: environment.experiences,
+                privacy: environment.privacy,
+                onAuthor: { onNavigate(.userProfile($0)) },
+                onPlace: { onNavigate(.placeDetail($0)) }
             )
         case .userProfile(let id):
             UserProfileScreen(
@@ -50,6 +61,8 @@ struct AppRouteDestinationView: View {
                 onFollowing: { onNavigate(.socialList(.following)) },
                 onFriends: { onNavigate(.socialList(.friends)) },
                 onUserSearch: { onNavigate(.userSearch) },
+                experienceService: environment.experiences,
+                onSelectExperience: { onNavigate(.experienceDetail($0)) },
                 onSettings: id == currentUserId ? { onNavigate(.settings) } : nil,
                 onLogout: id == currentUserId ? onLogout : nil
             )

@@ -303,6 +303,7 @@ struct PlaceAggregateV2: Decodable, Equatable, Sendable {
     let place: PlaceIdentity
     let visibleExperienceCount: Int64
     let communityContributionCount: Int64
+    let primaryExperiences: [PrimaryExperienceAggregate]?
     let feelings: [FeelingAggregate]
     let dimensions: [DimensionAggregate]
     let practicalSignals: [PracticalSignalAggregate]
@@ -320,6 +321,11 @@ struct PlaceAggregateV2: Decodable, Equatable, Sendable {
     struct FeelingAggregate: Decodable, Equatable, Sendable {
         let code: OverallFeelingCode
         let contributionCount: Int64
+    }
+
+    struct PrimaryExperienceAggregate: Decodable, Equatable, Sendable {
+        let code: PrimaryExperienceCode
+        let visibleExperienceCount: Int64
     }
 
     struct DimensionAggregate: Decodable, Equatable, Sendable {

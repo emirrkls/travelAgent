@@ -387,6 +387,7 @@ struct ExperienceV2: Decodable, Equatable, Sendable, Identifiable {
         let username: String
         let displayName: String
         let avatarUrl: String?
+        let relationship: RelationshipV2?
     }
 
     struct Place: Decodable, Equatable, Sendable {
@@ -397,6 +398,7 @@ struct ExperienceV2: Decodable, Equatable, Sendable, Identifiable {
         let region: String
         let country: String
         let coverImage: String
+        let distanceMeters: Double?
     }
 
     struct Feeling: Decodable, Equatable, Sendable {
@@ -422,6 +424,77 @@ struct ExperienceV2: Decodable, Equatable, Sendable, Identifiable {
     struct Media: Decodable, Equatable, Sendable {
         let kind: ExperienceMediaKind
         let position: Int
+        let id: UUID?
+        let url: String
+        let accessExpiresAt: String?
+    }
+}
+
+enum ExperienceFeedLens: String, CaseIterable, Sendable {
+    case forYou = "FOR_YOU"
+    case following = "FOLLOWING"
+    case nearby = "NEARBY"
+    case popular = "POPULAR"
+
+    var localizationKey: String {
+        switch self {
+        case .forYou: "experience.lens.for_you"
+        case .following: "experience.lens.following"
+        case .nearby: "experience.lens.nearby"
+        case .popular: "experience.lens.popular"
+        }
+    }
+}
+
+enum ExperienceDiscoveryFilter: String, CaseIterable, Sendable {
+    case calm
+    case sunset
+    case food
+    case sea
+    case nature
+
+    var primary: PrimaryExperienceCode? {
+        switch self {
+        case .sunset: .gunBatimi
+        case .food: .kahvalti
+        case .sea: .denizYuzme
+        case .nature: .dogaYuruyusu
+        case .calm: nil
+        }
+    }
+
+    var vibe: VibeCode? { self == .calm ? .calm : nil }
+    var localizationKey: String { "experience.filter.\(rawValue)" }
+}
+
+struct CursorPageDTO<Item: Decodable & Sendable>: Decodable, Sendable {
+    let items: [Item]
+    let nextCursor: String?
+    let hasMore: Bool
+}
+
+struct ExperienceSummaryV2: Decodable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let classification: ExperienceClassification
+    let author: ExperienceV2.Author
+    let place: ExperienceV2.Place
+    let experiencedAt: String
+    let title: String
+    let titleSource: ExperienceTitleSource?
+    let primaryExperience: ExperienceV2.Primary
+    let feeling: OverallFeelingCode
+    let storyPreview: String?
+    let tipPreview: String?
+    let companion: CompanionCode?
+    let timeOfDay: TimeOfDayCode?
+    let vibes: [VibeCode]
+    let practicalSignals: [PracticalSignalCode]
+    let mediaPreview: MediaPreview?
+    let mediaCount: Int
+    let visibility: VisitVisibility
+
+    struct MediaPreview: Decodable, Equatable, Sendable {
+        let kind: ExperienceMediaKind
         let id: UUID?
         let url: String
         let accessExpiresAt: String?

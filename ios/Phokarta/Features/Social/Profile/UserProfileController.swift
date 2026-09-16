@@ -18,9 +18,16 @@ final class UserProfileController {
     private(set) var phase: UserProfilePhase = .idle
     private(set) var profile: PublicUserProfile?
     private(set) var ownerProfile: OwnerUserProfile?
+    private(set) var experiences: [ExperienceSummaryV2] = []
+    private(set) var experiencesLoading = false
+    private(set) var experiencesError: AppError?
+    private(set) var experiencesHasMore = false
+    private var experiencesCursor: String?
+    private var experiencesGeneration: UInt64 = 0
 
     private let service: any SocialServing
     private let store: SocialStateStore
+    private let experienceService: (any ExperienceDiscoveryServing)?
     private var generation: UInt64 = 0
     private var didStart = false
 
@@ -28,12 +35,14 @@ final class UserProfileController {
         userId: UUID,
         isOwnProfile: Bool,
         service: any SocialServing,
-        store: SocialStateStore
+        store: SocialStateStore,
+        experienceService: (any ExperienceDiscoveryServing)? = nil
     ) {
         self.userId = userId
         self.isOwnProfile = isOwnProfile
         self.service = service
         self.store = store
+        self.experienceService = experienceService
     }
 
     var effectiveRelationship: RelationshipState? {
@@ -64,7 +73,10 @@ final class UserProfileController {
     func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
-        Task { await load() }
+        Task {
+            await load()
+            await loadExperiences(reset: true)
+        }
     }
 
     func load() async {
@@ -107,6 +119,46 @@ final class UserProfileController {
 
     func refresh() async {
         await load()
+        await loadExperiences(reset: true)
+    }
+
+    func loadMoreExperiences() {
+        guard experiencesHasMore, !experiencesLoading else { return }
+        Task { await loadExperiences(reset: false) }
+    }
+
+    func retryExperiences() {
+        Task { await loadExperiences(reset: true) }
+    }
+
+    private func loadExperiences(reset: Bool) async {
+        guard let experienceService else { return }
+        experiencesGeneration &+= 1
+        let requestGeneration = experiencesGeneration
+        experiencesLoading = true
+        experiencesError = nil
+        do {
+            let page = try await experienceService.profileExperiences(
+                userId: userId,
+                cursor: reset ? nil : experiencesCursor
+            )
+            guard requestGeneration == experiencesGeneration else { return }
+            experiences = reset ? page.items : Self.deduplicated(experiences + page.items)
+            experiencesCursor = page.nextCursor
+            experiencesHasMore = page.hasMore
+        } catch let appError as AppError {
+            guard requestGeneration == experiencesGeneration else { return }
+            experiencesError = appError
+        } catch {
+            guard requestGeneration == experiencesGeneration else { return }
+            experiencesError = .server
+        }
+        if requestGeneration == experiencesGeneration { experiencesLoading = false }
+    }
+
+    private static func deduplicated(_ values: [ExperienceSummaryV2]) -> [ExperienceSummaryV2] {
+        var seen = Set<UUID>()
+        return values.filter { seen.insert($0.id).inserted }
     }
 
     func toggleFollow() {

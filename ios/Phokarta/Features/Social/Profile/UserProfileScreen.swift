@@ -10,6 +10,7 @@ struct UserProfileScreen: View {
     let onFollowing: () -> Void
     let onFriends: () -> Void
     let onUserSearch: () -> Void
+    let onSelectExperience: (UUID) -> Void
     let onLogout: (() -> Void)?
 
     private let store: SocialStateStore
@@ -35,6 +36,8 @@ struct UserProfileScreen: View {
         onFollowing: @escaping () -> Void,
         onFriends: @escaping () -> Void,
         onUserSearch: @escaping () -> Void,
+        experienceService: (any ExperienceDiscoveryServing)? = nil,
+        onSelectExperience: @escaping (UUID) -> Void = { _ in },
         onSettings: (() -> Void)? = nil,
         onLogout: (() -> Void)? = nil
     ) {
@@ -49,13 +52,15 @@ struct UserProfileScreen: View {
         self.onFollowing = onFollowing
         self.onFriends = onFriends
         self.onUserSearch = onUserSearch
+        self.onSelectExperience = onSelectExperience
         self.onSettings = onSettings
         self.onLogout = onLogout
         _controller = State(initialValue: UserProfileController(
             userId: userId,
             isOwnProfile: isOwnProfile,
             service: service,
-            store: store
+            store: store,
+            experienceService: experienceService
         ))
     }
 
@@ -243,6 +248,38 @@ struct UserProfileScreen: View {
                             .foregroundStyle(PhokartaColor.muted(for: colorScheme))
                     }
                     .padding(.top, PhokartaSpacing.xs)
+                }
+
+                VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
+                    Text(String(localized: String.LocalizationValue(
+                        controller.isOwnProfile ? "profile.my_experiences" : "profile.experiences"
+                    )))
+                        .font(.title2.bold())
+                    if controller.experiencesLoading && controller.experiences.isEmpty {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else if controller.experiences.isEmpty {
+                        Text("experience.empty")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(controller.experiences) { experience in
+                            ExperienceCardView(
+                                experience: experience,
+                                relationshipBusy: controller.isMutatingFollow,
+                                onOpen: { onSelectExperience(experience.id) },
+                                onAuthor: { onSelectUser(experience.author.id) },
+                                onPlace: { onSelectPlace(experience.place.id) },
+                                onRelationship: controller.toggleFollow
+                            )
+                        }
+                        if controller.experiencesHasMore {
+                            Button("experience.load_more", action: controller.loadMoreExperiences)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    if let error = controller.experiencesError {
+                        Text(error.localizedMessage).font(.footnote).foregroundStyle(.red)
+                        Button("action.try_again", action: controller.retryExperiences)
+                    }
                 }
 
                 // Own Profile Actions: Find People, Logout

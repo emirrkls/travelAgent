@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		200000000000000000000053 /* ExperienceDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000053 /* ExperienceDiscoveryService.swift */; };
+		200000000000000000000054 /* ExperienceExploreController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000054 /* ExperienceExploreController.swift */; };
+		200000000000000000000055 /* ExperienceDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000055 /* ExperienceDetailScreen.swift */; };
+		200000000000000000000056 /* AddExperienceTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000056 /* AddExperienceTab.swift */; };
+		200000000000000000000057 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 300000000000000000000019 /* InfoPlist.strings */; };
+		200000000000000000000059 /* ExperienceDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000059 /* ExperienceDiscoveryTests.swift */; };
 		200000000000000000000038 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000038 /* SettingsScreen.swift */; };
 		200000000000000000000039 /* AccountDeletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000039 /* AccountDeletionService.swift */; };
 		20000000000000000000003A /* DeleteAccountController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000003A /* DeleteAccountController.swift */; };
@@ -159,6 +165,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		100000000000000000000053 /* ExperienceDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperienceDiscoveryService.swift; sourceTree = "<group>"; };
+		100000000000000000000054 /* ExperienceExploreController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperienceExploreController.swift; sourceTree = "<group>"; };
+		100000000000000000000055 /* ExperienceDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperienceDetailScreen.swift; sourceTree = "<group>"; };
+		100000000000000000000056 /* AddExperienceTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExperienceTab.swift; sourceTree = "<group>"; };
+		100000000000000000000057 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		100000000000000000000058 /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		100000000000000000000059 /* ExperienceDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperienceDiscoveryTests.swift; sourceTree = "<group>"; };
 		100000000000000000000038 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
 		100000000000000000000039 /* AccountDeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionService.swift; sourceTree = "<group>"; };
 		10000000000000000000003A /* DeleteAccountController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountController.swift; sourceTree = "<group>"; };
@@ -305,6 +318,16 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		300000000000000000000018 /* Experience */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000053 /* ExperienceDiscoveryService.swift */,
+				100000000000000000000054 /* ExperienceExploreController.swift */,
+				100000000000000000000055 /* ExperienceDetailScreen.swift */,
+			);
+			path = Experience;
+			sourceTree = "<group>";
+		};
 		300000000000000000000011 /* Safety */ = {
 			isa = PBXGroup;
 			children = (
@@ -515,6 +538,7 @@
 		36BCB926FAF7A714271E5228 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				300000000000000000000018 /* Experience */,
 				300000000000000000000011 /* Safety */,
 				300000000000000000000007 /* Social */,
 				300000000000000000000016 /* Map */,
@@ -587,6 +611,7 @@
 			isa = PBXGroup;
 			children = (
 				0600377D52460F51182B7EB0 /* Assets.xcassets */,
+				300000000000000000000019 /* InfoPlist.strings */,
 				43A2F0348F08FD3BBDAE7250 /* Localizable.xcstrings */,
 				E1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy */,
 			);
@@ -596,6 +621,7 @@
 		5E99B1F9C4226732A7EB80D5 /* Shell */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000056 /* AddExperienceTab.swift */,
 				100000000000000000000031 /* AppRouteDestinationView.swift */,
 				82133562FCBEDA645BD22488 /* MainTabView.swift */,
 			);
@@ -617,6 +643,7 @@
 		97D9E3BED038DC84A3D43FE5 /* PhokartaTests */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000059 /* ExperienceDiscoveryTests.swift */,
 				100000000000000000000045 /* BlockServiceTests.swift */,
 				100000000000000000000046 /* BlockSocialIntegrationTests.swift */,
 				100000000000000000000047 /* ReportFeatureTests.swift */,
@@ -824,6 +851,18 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXVariantGroup section */
+		300000000000000000000019 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				100000000000000000000057 /* en */,
+				100000000000000000000058 /* tr */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
 /* Begin PBXNativeTarget section */
 		1B9F4DD90439D6DE9B3E217C /* Phokarta */ = {
 			isa = PBXNativeTarget;
@@ -902,6 +941,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000057 /* InfoPlist.strings in Resources */,
 				34215BEAC51D24E816173346 /* Assets.xcassets in Resources */,
 				29E5DEA3ADF03D391F730BA6 /* Localizable.xcstrings in Resources */,
 				D1F2A3B4C5D6E7F8091A2B3C /* PrivacyInfo.xcprivacy in Resources */,
@@ -951,6 +991,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000059 /* ExperienceDiscoveryTests.swift in Sources */,
+				200000000000000000000053 /* ExperienceDiscoveryService.swift in Sources */,
+				200000000000000000000054 /* ExperienceExploreController.swift in Sources */,
+				200000000000000000000055 /* ExperienceDetailScreen.swift in Sources */,
+				200000000000000000000056 /* AddExperienceTab.swift in Sources */,
 				200000000000000000000038 /* SettingsScreen.swift in Sources */,
 				200000000000000000000039 /* AccountDeletionService.swift in Sources */,
 				20000000000000000000003A /* DeleteAccountController.swift in Sources */,

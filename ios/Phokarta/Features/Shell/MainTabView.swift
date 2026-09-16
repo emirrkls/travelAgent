@@ -5,21 +5,16 @@ struct MainTabView: View {
     let environment: AppEnvironment
     let user: CurrentUser
     @Environment(\.colorScheme) private var colorScheme
+    @State private var selection = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $selection) {
             ExploreScreen(
-                places: environment.places,
-                saved: environment.saved,
-                collections: environment.collections,
-                visits: environment.visits,
-                draftRepository: environment.draftRepository,
-                mutationRepository: environment.mutationRepository,
-                mediaStore: environment.mediaStore,
-                syncEngine: environment.syncEngine,
                 environment: environment,
-                currentUserId: user.id
+                currentUserId: user.id,
+                onOpenMap: { selection = 1 }
             )
+            .tag(0)
             .tabItem {
                 Label {
                     Text("tab.explore")
@@ -40,6 +35,7 @@ struct MainTabView: View {
                 environment: environment,
                 currentUserId: user.id
             )
+            .tag(1)
             .tabItem {
                 Label {
                     Text("tab.map")
@@ -48,25 +44,24 @@ struct MainTabView: View {
                 }
             }
 
-            ActivityTab(
-                environment: environment,
-                currentUserId: user.id
-            )
+            AddExperienceTab(environment: environment)
             .tabItem {
                 Label {
-                    Text("tab.activity")
+                    Text("tab.add")
                 } icon: {
-                    Image(systemName: "bell")
+                    Image(systemName: "plus.circle.fill")
                 }
             }
+            .tag(2)
 
             SavedTab(
                 environment: environment,
                 user: user
             )
             .tabItem {
-                Label("saved.title", systemImage: "bookmark")
+                Label("tab.plan", systemImage: "bookmark")
             }
+            .tag(3)
 
             ProfileTab(
                 environment: environment,
@@ -75,6 +70,7 @@ struct MainTabView: View {
                     Task { await environment.session.logout() }
                 }
             )
+            .tag(4)
             .tabItem {
                 Label {
                     Text("tab.profile")
@@ -755,6 +751,8 @@ struct ProfileTab: View {
                 onFollowing: { path.append(.socialList(.following)) },
                 onFriends: { path.append(.socialList(.friends)) },
                 onUserSearch: { path.append(.userSearch) },
+                experienceService: environment.experiences,
+                onSelectExperience: { path.append(.experienceDetail($0)) },
                 onSettings: { path.append(.settings) },
                 onLogout: onLogout
             )

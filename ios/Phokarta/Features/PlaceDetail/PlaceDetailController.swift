@@ -9,30 +9,90 @@ final class PlaceDetailController {
     private(set) var content: PlaceDetailContent?
     private(set) var reviewScope: PlaceDetailReviewScope = .community
     private(set) var refreshError: ExploreErrorKind?
+    private(set) var experiences: [ExperienceSummaryV2] = []
+    private(set) var experienceAggregate: PlaceAggregateV2?
+    private(set) var selectedPrimary: PrimaryExperienceCode?
+    private(set) var experiencesLoading = false
+    private(set) var experiencesHasMore = false
+    private(set) var experiencesError: AppError?
+    private(set) var relationshipBusy: Set<UUID> = []
+    private var experiencesCursor: String?
+    private var experiencesGeneration: UInt64 = 0
 
     private let placesService: any PlaceServing
+    private let experienceService: (any ExperienceDiscoveryServing)?
+    private let privacyService: (any PrivacyV2Serving)?
     private var loadTask: Task<Void, Never>?
     private var didStart = false
     private var requestID: UInt64 = 0
 
-    init(placeId: UUID, places: any PlaceServing) {
+    init(
+        placeId: UUID,
+        places: any PlaceServing,
+        experiences: (any ExperienceDiscoveryServing)? = nil,
+        privacy: (any PrivacyV2Serving)? = nil
+    ) {
         self.placeId = placeId
         self.placesService = places
+        self.experienceService = experiences
+        self.privacyService = privacy
     }
 
     func startIfNeeded() {
         guard !didStart else { return }
         didStart = true
         load()
+        Task {
+            await loadExperiences(reset: true)
+            await loadExperienceAggregate()
+        }
     }
 
     func retry() {
         refreshError = nil
         load()
+        Task { await loadExperiences(reset: true) }
     }
 
     func refresh() async {
         await performLoad(isUserRefresh: true)
+        await loadExperiences(reset: true)
+        await loadExperienceAggregate()
+    }
+
+    func selectPrimary(_ primary: PrimaryExperienceCode?) {
+        guard selectedPrimary != primary else { return }
+        selectedPrimary = primary
+        Task { await loadExperiences(reset: true) }
+    }
+
+    func loadMoreExperiences() {
+        guard experiencesHasMore, !experiencesLoading else { return }
+        Task { await loadExperiences(reset: false) }
+    }
+
+    func toggleExperienceRelationship(authorId: UUID) {
+        guard let privacyService,
+              let relationship = experiences.first(where: { $0.author.id == authorId })?.author.relationship,
+              !relationshipBusy.contains(authorId) else { return }
+        relationshipBusy.insert(authorId)
+        Task {
+            defer { relationshipBusy.remove(authorId) }
+            do {
+                let updated: RelationshipV2
+                switch relationship.state {
+                case .none: updated = try await privacyService.follow(userId: authorId)
+                case .requestPending: updated = try await privacyService.cancelFollowRequest(userId: authorId)
+                case .following, .friends: updated = try await privacyService.unfollow(userId: authorId)
+                default: return
+                }
+                experiences = experiences.map { $0.replacingRelationship(for: authorId, with: updated) }
+            } catch let appError as AppError {
+                experiencesError = appError
+            } catch {
+                experiencesError = .server
+            }
+        }
     }
 
     func selectReviewScope(_ scope: PlaceDetailReviewScope) {
@@ -140,5 +200,42 @@ final class PlaceDetailController {
                 refreshError = .server
             }
         }
+    }
+
+    private func loadExperienceAggregate() async {
+        guard let privacyService else { return }
+        experienceAggregate = try? await privacyService.placeAggregate(placeId: placeId)
+    }
+
+    private func loadExperiences(reset: Bool) async {
+        guard let experienceService else { return }
+        experiencesGeneration &+= 1
+        let generation = experiencesGeneration
+        let primary = selectedPrimary
+        experiencesLoading = true
+        experiencesError = nil
+        do {
+            let page = try await experienceService.placeExperiences(
+                placeId: placeId,
+                cursor: reset ? nil : experiencesCursor,
+                primary: primary
+            )
+            guard generation == experiencesGeneration else { return }
+            experiences = reset ? page.items : Self.deduplicated(experiences + page.items)
+            experiencesCursor = page.nextCursor
+            experiencesHasMore = page.hasMore
+        } catch let appError as AppError {
+            guard generation == experiencesGeneration else { return }
+            experiencesError = appError
+        } catch {
+            guard generation == experiencesGeneration else { return }
+            experiencesError = .server
+        }
+        if generation == experiencesGeneration { experiencesLoading = false }
+    }
+
+    private static func deduplicated(_ values: [ExperienceSummaryV2]) -> [ExperienceSummaryV2] {
+        var seen = Set<UUID>()
+        return values.filter { seen.insert($0.id).inserted }
     }
 }

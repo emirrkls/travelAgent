@@ -48,6 +48,8 @@ struct AppEnvironment {
     let purger: any LocalAccountPurger
     let networkMonitor: any NetworkMonitoring
     let social: any SocialServing
+    let privacy: any PrivacyV2Serving
+    let experiences: any ExperienceDiscoveryServing
     let activity: any ActivityServing
     let socialState: SocialStateStore
     let blockService: any BlockServing
@@ -112,6 +114,8 @@ struct AppEnvironment {
         let networkMonitor = SystemNetworkMonitor()
 
         let socialService = SocialService(client: client)
+        let privacyService = PrivacyV2Service(client: client)
+        let experienceService = ExperienceDiscoveryService(client: client)
         let activityService = ActivityService(client: client)
         let socialState = SocialStateStore(service: socialService)
 
@@ -149,6 +153,8 @@ struct AppEnvironment {
             purger: purger,
             networkMonitor: networkMonitor,
             social: socialService,
+            privacy: privacyService,
+            experiences: experienceService,
             activity: activityService,
             socialState: socialState,
             blockService: blockSvc,
@@ -188,6 +194,8 @@ struct AppEnvironment {
         let visitMediaService = VisitMediaService(client: client)
         let visits = VisitStore(service: visitService, mediaService: visitMediaService)
         let socialService = customSocial ?? SocialService(client: client)
+        let privacyService = PrivacyV2Service(client: client)
+        let experienceService = ExperienceDiscoveryService(client: client)
         let activityService = customActivity ?? ActivityService(client: client)
         let socialState = customSocialState ?? SocialStateStore(service: socialService)
 
@@ -253,6 +261,8 @@ struct AppEnvironment {
             purger: purger,
             networkMonitor: networkMonitor,
             social: socialService,
+            privacy: privacyService,
+            experiences: experienceService,
             activity: activityService,
             socialState: socialState,
             blockService: blockSvc,

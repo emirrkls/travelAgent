@@ -16,6 +16,7 @@ struct PlaceDetailScreen: View {
     private let mediaStore: (any DurableMediaStoring)?
     private let syncEngine: MutationSyncEngine?
     private let onSelectUser: ((UUID) -> Void)?
+    private let onSelectExperience: ((UUID) -> Void)?
 
     init(
         placeId: UUID,
@@ -27,7 +28,10 @@ struct PlaceDetailScreen: View {
         mutationRepository: (any OfflineMutationRepository)? = nil,
         mediaStore: (any DurableMediaStoring)? = nil,
         syncEngine: MutationSyncEngine? = nil,
-        onSelectUser: ((UUID) -> Void)? = nil
+        onSelectUser: ((UUID) -> Void)? = nil,
+        experienceService: (any ExperienceDiscoveryServing)? = nil,
+        privacyService: (any PrivacyV2Serving)? = nil,
+        onSelectExperience: ((UUID) -> Void)? = nil
     ) {
         self.saved = saved
         self.collections = collections
@@ -37,7 +41,13 @@ struct PlaceDetailScreen: View {
         self.mediaStore = mediaStore
         self.syncEngine = syncEngine
         self.onSelectUser = onSelectUser
-        _controller = State(initialValue: PlaceDetailController(placeId: placeId, places: places))
+        self.onSelectExperience = onSelectExperience
+        _controller = State(initialValue: PlaceDetailController(
+            placeId: placeId,
+            places: places,
+            experiences: experienceService,
+            privacy: privacyService
+        ))
     }
 
     var body: some View {
@@ -234,6 +244,7 @@ struct PlaceDetailScreen: View {
                     )
                 }
 
+                experienceSection
                 scores(content)
 
                 if !content.place.description.isEmpty {
@@ -262,6 +273,53 @@ struct PlaceDetailScreen: View {
         }
         .refreshable {
             await controller.refresh()
+        }
+    }
+
+    private var experienceSection: some View {
+        VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
+            Text("place.experiences.title").font(.title2.bold())
+            if let aggregate = controller.experienceAggregate {
+                Text("\(aggregate.visibleExperienceCount) \(String(localized: "place.experiences.visible")) · \(aggregate.communityContributionCount) \(String(localized: "place.experiences.community"))")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if let primary = aggregate.primaryExperiences, !primary.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            Button("filter.all") { controller.selectPrimary(nil) }
+                                .buttonStyle(.bordered)
+                            ForEach(primary, id: \.code.rawValue) { item in
+                                Button("\(humanized(item.code.rawValue)) · \(item.visibleExperienceCount)") {
+                                    controller.selectPrimary(item.code)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                }
+            }
+            if controller.experiencesLoading && controller.experiences.isEmpty {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if controller.experiences.isEmpty {
+                Text("experience.empty").foregroundStyle(.secondary)
+            } else {
+                ForEach(controller.experiences) { experience in
+                    ExperienceCardView(
+                        experience: experience,
+                        relationshipBusy: controller.relationshipBusy.contains(experience.author.id),
+                        onOpen: { onSelectExperience?(experience.id) },
+                        onAuthor: { onSelectUser?(experience.author.id) },
+                        onPlace: {},
+                        onRelationship: { controller.toggleExperienceRelationship(authorId: experience.author.id) }
+                    )
+                }
+                if controller.experiencesHasMore {
+                    Button("experience.load_more", action: controller.loadMoreExperiences)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            if let error = controller.experiencesError {
+                Text(error.localizedMessage).font(.footnote).foregroundStyle(.red)
+            }
         }
     }
 

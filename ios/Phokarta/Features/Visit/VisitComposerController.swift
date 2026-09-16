@@ -47,13 +47,14 @@ final class VisitComposerController {
         self.syncEngine = syncEngine
         let activeAccount = store.accountID ?? UUID()
         let resolvedMediaService = mediaService ?? store.mediaService
-        self.state = VisitComposerState(
+        var initialState = VisitComposerState(
             placeId: place.id,
             placeName: place.name,
             category: place.category,
             clientMutationId: uuid()
         )
-        self.state.payloadVersion = mutationRepository == nil ? 1 : 2
+        initialState.payloadVersion = mutationRepository == nil ? 1 : 2
+        self.state = initialState
         self.mediaCoordinator = VisitMediaUploadCoordinator(
             service: resolvedMediaService,
             accountId: activeAccount,

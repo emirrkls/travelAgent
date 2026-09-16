@@ -128,26 +128,9 @@ class VisitVisibilityFlowTest {
     private fun openRatingForSarnicCove() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
-        composeRule.waitForExplore()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
-        }
-        when {
-            composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty() ->
-                composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
-            composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ->
-                composeRule.onAllNodesWithText("Rate another visit").onFirst().performClick()
-            else -> composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        }
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.selectRequiredExperienceFields()
     }
 
     private fun enterReview(text: String) {

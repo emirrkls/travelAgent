@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -115,12 +116,22 @@ class BlockReportFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onNodeWithText("Activity").performClick()
+        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Community reviews").performScrollTo()
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithContentDescription("Report this visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithContentDescription("Report this visit").onFirst().performClick()
-        composeRule.onNodeWithText("Report visit").performClick()
+        composeRule.onAllNodesWithContentDescription("Report this visit").onFirst()
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Report visit", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Report visit", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Spam").performClick()
         composeRule.onNodeWithTag("report_submit").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {

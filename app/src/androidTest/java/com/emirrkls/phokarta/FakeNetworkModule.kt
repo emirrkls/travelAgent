@@ -12,18 +12,33 @@ import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
+import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
+import com.emirrkls.phokarta.core.network.model.CursorPageDto
+import com.emirrkls.phokarta.core.network.model.ExperienceAuthorDto
+import com.emirrkls.phokarta.core.network.model.ExperienceDimensionDto
+import com.emirrkls.phokarta.core.network.model.ExperienceFeelingDto
+import com.emirrkls.phokarta.core.network.model.ExperienceMediaDto
+import com.emirrkls.phokarta.core.network.model.ExperienceMediaPreviewDto
+import com.emirrkls.phokarta.core.network.model.ExperiencePlaceDto
+import com.emirrkls.phokarta.core.network.model.ExperiencePrimaryDto
+import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
+import com.emirrkls.phokarta.core.network.model.FeelingAggregateDto
+import com.emirrkls.phokarta.core.network.model.DimensionAggregateV2Dto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
 import com.emirrkls.phokarta.core.network.model.PlaceCategoryDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
+import com.emirrkls.phokarta.core.network.model.PlaceAggregateIdentityDto
+import com.emirrkls.phokarta.core.network.model.PlaceAggregateV2Dto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityAuthorDto
@@ -32,6 +47,7 @@ import com.emirrkls.phokarta.core.network.model.PublicVisitDto
 import com.emirrkls.phokarta.core.network.model.RefreshRequestDto
 import com.emirrkls.phokarta.core.network.model.RegisterRequestDto
 import com.emirrkls.phokarta.core.network.model.RelationshipStateDto
+import com.emirrkls.phokarta.core.network.model.RelationshipV2Dto
 import com.emirrkls.phokarta.core.network.model.ReportReasonDto
 import com.emirrkls.phokarta.core.network.model.ReportResponseDto
 import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
@@ -55,6 +71,9 @@ import com.emirrkls.phokarta.core.network.model.MediaAccessDto
 import com.emirrkls.phokarta.core.network.model.ApiErrorDto
 import com.emirrkls.phokarta.core.network.model.PolicyAcceptanceRequestDto
 import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
+import com.emirrkls.phokarta.core.network.model.PracticalSignalAggregateDto
+import com.emirrkls.phokarta.core.network.model.PrimaryExperienceAggregateDto
+import com.emirrkls.phokarta.core.network.model.SemanticStateAggregateDto
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
@@ -75,6 +94,7 @@ private const val OTHER_PLACE_ID = "20000000-0000-0000-0000-000000000099"
 private const val FRIEND_ONLY_PLACE_ID = "20000000-0000-0000-0000-000000000088"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 private const val POLICY_VERSION = "2026-08-beta"
+private const val EXPERIENCE_MEDIA_ID = "40000000-0000-0000-0000-000000000501"
 
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkModule::class])
@@ -121,6 +141,159 @@ private val friendOnlySummary = PlaceSummaryDto(
     "Bodrum", "Muğla", "Türkiye", 37.08, 27.52, 2, 8.4, 18,
 )
 
+private fun experiencePlace(
+    place: PlaceSummaryDto,
+    distanceMeters: Double? = null,
+) = ExperiencePlaceDto(
+    id = place.id,
+    name = place.name,
+    category = place.category.name,
+    city = if (place.id == PLACE_ID) "" else place.city,
+    region = place.region,
+    country = place.country,
+    coverImage = place.coverImage,
+    distanceMeters = distanceMeters,
+)
+
+private val experienceSummaries = listOf(
+    ExperienceSummaryV2Dto(
+        id = "30000000-0000-0000-0000-000000000501",
+        classification = "NATIVE_V2",
+        author = ExperienceAuthorDto(
+            OTHER_USER_ID,
+            "ahmetgoes",
+            "Ahmet Deniz",
+            null,
+            RelationshipV2Dto("FRIENDS", followsYou = true, canFollow = false, canCancelRequest = false),
+        ),
+        place = experiencePlace(summary, 240.0),
+        experiencedAt = "2026-09-10",
+        title = "Sunset at Sarnıç Cove",
+        titleSource = "GENERATED",
+        primaryExperience = ExperiencePrimaryDto("GUN_BATIMI", true, "SCENERY_AND_MOMENT"),
+        feeling = "BAYILDIM",
+        storyPreview = "The cove turned gold as the sun slipped behind the hills.",
+        tipPreview = "Arrive a little before sunset.",
+        companion = "PARTNER",
+        timeOfDay = "EVENING",
+        vibes = listOf("CALM", "ROMANTIC"),
+        practicalSignals = listOf("ARRIVE_EARLY"),
+        mediaPreview = ExperienceMediaPreviewDto(
+            "MANAGED",
+            EXPERIENCE_MEDIA_ID,
+            summary.coverImage,
+            "2027-01-01T00:00:00Z",
+        ),
+        mediaCount = 1,
+        visibility = "PUBLIC",
+    ),
+    ExperienceSummaryV2Dto(
+        id = "30000000-0000-0000-0000-000000000502",
+        classification = "NATIVE_V2",
+        author = ExperienceAuthorDto(USER_ID, "emir_demo", "Emir Kaya", null),
+        place = experiencePlace(summary),
+        experiencedAt = "2026-09-09",
+        title = "A quiet swim at Sarnıç Cove",
+        titleSource = "CUSTOM",
+        primaryExperience = ExperiencePrimaryDto("DENIZ_YUZME", true, "SEA_AND_WATER"),
+        feeling = "GUZELDI",
+        storyPreview = "Clear water and a calm morning without a photo.",
+        tipPreview = "The shore is quietest early.",
+        companion = "ALONE",
+        timeOfDay = "MORNING",
+        vibes = listOf("CALM"),
+        practicalSignals = listOf("MORNING_QUIETER"),
+        mediaPreview = null,
+        mediaCount = 0,
+        visibility = "PUBLIC",
+    ),
+    ExperienceSummaryV2Dto(
+        id = "30000000-0000-0000-0000-000000000503",
+        classification = "NATIVE_V2",
+        author = ExperienceAuthorDto(
+            THIRD_USER_ID,
+            "eceeats",
+            "Ece Aksoy",
+            null,
+            RelationshipV2Dto("NONE", followsYou = false, canFollow = true, canCancelRequest = false),
+        ),
+        place = experiencePlace(otherSummary, 850.0),
+        experiencedAt = "2026-09-08",
+        title = "A slow breakfast by Quiet Bay",
+        titleSource = "GENERATED",
+        primaryExperience = ExperiencePrimaryDto("KAHVALTI", true, "FOOD_AND_DRINK"),
+        feeling = "GUZELDI",
+        storyPreview = "A relaxed breakfast with the water just beyond the terrace.",
+        tipPreview = "Reserve a table near the edge.",
+        companion = "FRIENDS",
+        timeOfDay = "MORNING",
+        vibes = listOf("SOCIAL", "SCENIC"),
+        practicalSignals = listOf("RESERVATION_RECOMMENDED", "WALKABLE_WITHOUT_CAR"),
+        mediaPreview = ExperienceMediaPreviewDto("LEGACY_URL", null, otherSummary.coverImage),
+        mediaCount = 3,
+        visibility = "PUBLIC",
+    ),
+    ExperienceSummaryV2Dto(
+        id = "30000000-0000-0000-0000-000000000504",
+        classification = "LEGACY_COMPATIBILITY",
+        author = ExperienceAuthorDto(FOURTH_USER_ID, "denizmaps", "Deniz Community", null),
+        place = experiencePlace(friendOnlySummary),
+        experiencedAt = "2026-08-17",
+        title = "Earlier visit to Friend Cove",
+        titleSource = null,
+        primaryExperience = ExperiencePrimaryDto("UNKNOWN_LEGACY", false),
+        feeling = "GUZELDI",
+        storyPreview = "Community notes from an earlier visit.",
+        mediaPreview = ExperienceMediaPreviewDto("LEGACY_URL", null, friendOnlySummary.coverImage),
+        mediaCount = 1,
+        visibility = "PUBLIC",
+    ),
+)
+
+private fun ExperienceSummaryV2Dto.toDetailDto(): ExperienceV2Dto {
+    val media = when (mediaCount) {
+        0 -> emptyList()
+        1 -> listOf(
+            ExperienceMediaDto(
+                kind = mediaPreview?.kind ?: "LEGACY_URL",
+                position = 0,
+                id = mediaPreview?.id,
+                url = mediaPreview?.url ?: place.coverImage,
+                accessExpiresAt = mediaPreview?.accessExpiresAt,
+            ),
+        )
+        else -> List(mediaCount) { index ->
+            ExperienceMediaDto("LEGACY_URL", index, null, "${place.coverImage}&fixture=$index")
+        }
+    }
+    return ExperienceV2Dto(
+        id = id,
+        classification = classification,
+        author = author,
+        place = place,
+        experiencedAt = experiencedAt,
+        title = title,
+        titleSource = titleSource,
+        titlePersisted = classification == "NATIVE_V2",
+        story = storyPreview.orEmpty(),
+        tip = tipPreview,
+        feeling = ExperienceFeelingDto(
+            feeling,
+            if (classification == "NATIVE_V2") "EXPLICIT" else "LEGACY_NUMERIC",
+            if (feeling == "BAYILDIM") 10.0 else 8.0,
+        ),
+        primaryExperience = primaryExperience,
+        companion = companion,
+        timeOfDay = timeOfDay,
+        vibes = vibes,
+        practicalSignals = practicalSignals,
+        dimensions = listOf(ExperienceDimensionDto("ATMOSPHERE", 8.0, "GOOD", 1)),
+        media = media,
+        visibility = visibility,
+        taxonomyVersion = if (classification == "NATIVE_V2") 1 else null,
+    )
+}
+
 private fun <T> page(values: List<T>) = PageResponseDto(values, 0, 100, values.size.toLong(), 1, false)
 
 private class FakePlaces : PlaceRemoteDataSource {
@@ -139,6 +312,41 @@ private class FakePlaces : PlaceRemoteDataSource {
             },
         )
     override suspend fun detail(id: String) = RemoteResult.Success(detail)
+    override suspend fun aggregateV2(id: String) = RemoteResult.Success(
+        PlaceAggregateV2Dto(
+            place = PlaceAggregateIdentityDto(
+                id = PLACE_ID,
+                name = summary.name,
+                category = summary.category.name,
+                city = summary.city,
+                region = summary.region,
+                country = summary.country,
+                coverImage = summary.coverImage,
+            ),
+            visibleExperienceCount = 2,
+            communityContributionCount = 4,
+            primaryExperiences = listOf(
+                PrimaryExperienceAggregateDto("GUN_BATIMI", 1),
+                PrimaryExperienceAggregateDto("DENIZ_YUZME", 1),
+            ),
+            feelings = listOf(
+                FeelingAggregateDto("BAYILDIM", 1),
+                FeelingAggregateDto("GUZELDI", 1),
+            ),
+            dimensions = listOf(
+                DimensionAggregateV2Dto(
+                    key = "ATMOSPHERE",
+                    contributionCount = 2,
+                    numericAverage = 9.0,
+                    legacyNumericContributionCount = 0,
+                    semanticDistribution = listOf(SemanticStateAggregateDto("GOOD", 2)),
+                ),
+            ),
+            practicalSignals = listOf(
+                PracticalSignalAggregateDto("ARRIVE_EARLY", 1, 4),
+            ),
+        ),
+    )
 }
 
 class FakeVisits(
@@ -295,6 +503,66 @@ class FakeVisits(
         friendReadableReviews.sortByDescending { it.visitedAt }
     }
 
+    override suspend fun experienceFeed(
+        lens: String,
+        cursor: String?,
+        size: Int,
+        search: String?,
+        primary: String?,
+        vibe: String?,
+        latitude: Double?,
+        longitude: Double?,
+        radiusMeters: Double?,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> {
+        val lensItems = when (lens) {
+            "FOLLOWING" -> experienceSummaries.filter { it.author.id == OTHER_USER_ID }
+            "POPULAR" -> experienceSummaries.sortedByDescending { it.mediaCount }
+            else -> experienceSummaries
+        }
+        val query = search?.trim().orEmpty()
+        val filtered = lensItems.filter { item ->
+            (query.isBlank() || listOfNotNull(
+                item.title,
+                item.storyPreview,
+                item.tipPreview,
+                item.place.name,
+                item.place.city,
+            ).any { it.contains(query, ignoreCase = true) }) &&
+                (primary == null || item.primaryExperience.code == primary) &&
+                (vibe == null || vibe in item.vibes)
+        }.take(size)
+        return RemoteResult.Success(CursorPageDto(filtered, nextCursor = null, hasMore = false))
+    }
+
+    override suspend fun experience(id: String): RemoteResult<ExperienceV2Dto> =
+        experienceSummaries.firstOrNull { it.id == id }
+            ?.let { RemoteResult.Success(it.toDetailDto()) }
+            ?: RemoteResult.Failure(NetworkError.NotFound(null))
+
+    override suspend fun placeExperiences(
+        placeId: String,
+        cursor: String?,
+        size: Int,
+        primary: String?,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> {
+        val filtered = experienceSummaries.filter {
+            it.place.id == placeId && (primary == null || it.primaryExperience.code == primary)
+        }.take(size)
+        return RemoteResult.Success(CursorPageDto(filtered, nextCursor = null, hasMore = false))
+    }
+
+    override suspend fun profileExperiences(
+        userId: String,
+        cursor: String?,
+        size: Int,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> = RemoteResult.Success(
+        CursorPageDto(
+            items = experienceSummaries.filter { it.author.id == userId }.take(size),
+            nextCursor = null,
+            hasMore = false,
+        ),
+    )
+
     override suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto> {
         request.clientMutationId?.let { recordedClientMutationIds += it }
         social.policyForbidden()?.let { return it }
@@ -346,6 +614,64 @@ class FakeVisits(
             }
         }
         return RemoteResult.Success(visit)
+    }
+
+    override suspend fun createExperience(request: CreateExperienceV2Dto): RemoteResult<ExperienceV2Dto> {
+        recordedClientMutationIds += request.clientMutationId
+        social.policyForbidden()?.let { return it }
+        failCreatePermanent?.let { return RemoteResult.Failure(it) }
+        if (failCreate) return RemoteResult.Failure(NetworkError.Server(500, null))
+
+        return RemoteResult.Success(
+            ExperienceV2Dto(
+                id = UUID.randomUUID().toString(),
+                classification = "NATIVE_V2",
+                author = ExperienceAuthorDto(
+                    id = USER_ID,
+                    username = "emir_demo",
+                    displayName = "Emir Kaya",
+                    avatarUrl = null,
+                    relationship = RelationshipV2Dto(
+                        state = "SELF",
+                        followsYou = false,
+                        canFollow = false,
+                        canCancelRequest = false,
+                    ),
+                ),
+                place = experiencePlace(summary),
+                experiencedAt = request.visitDate,
+                title = request.title ?: "Experience at ${summary.name}",
+                titleSource = request.titleSource,
+                titlePersisted = true,
+                story = request.story.orEmpty(),
+                tip = request.tip,
+                feeling = ExperienceFeelingDto(
+                    code = request.overallFeelingCode,
+                    source = "EXPLICIT",
+                    compatibilityNumericRating = 8.0,
+                ),
+                primaryExperience = ExperiencePrimaryDto(
+                    code = request.primaryExperienceCode,
+                    canonical = request.rawExperienceLabel == null,
+                    rawLabel = request.rawExperienceLabel,
+                ),
+                companion = request.companionCode,
+                timeOfDay = request.timeOfDayCode,
+                vibes = request.vibeCodes,
+                practicalSignals = request.practicalSignalCodes,
+                dimensions = request.dimensions.map {
+                    ExperienceDimensionDto(
+                        key = it.key,
+                        numericScore = 8.0,
+                        semanticState = it.semanticStateCode,
+                        templateVersion = it.templateVersion,
+                    )
+                },
+                media = emptyList(),
+                visibility = request.visibility,
+                taxonomyVersion = 1,
+            ),
+        )
     }
 
     override suspend fun ownerVisits(page: Int, size: Int) = RemoteResult.Success(page(visits.toList()))

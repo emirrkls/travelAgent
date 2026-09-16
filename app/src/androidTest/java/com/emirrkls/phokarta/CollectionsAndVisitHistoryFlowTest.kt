@@ -96,32 +96,25 @@ class CollectionsAndVisitHistoryFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.completeMinimumExperience("First connected-test Experience.")
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
+        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
 
-        composeRule.onAllNodesWithText("Rate another visit").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.completeMinimumExperience("Second connected-test Experience.")
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
+        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
         composeRule.onAllNodesWithText("Rate another visit").onFirst().assertIsDisplayed()
     }
 }

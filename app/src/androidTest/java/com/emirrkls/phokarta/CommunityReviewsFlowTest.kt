@@ -36,11 +36,9 @@ class CommunityReviewsFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.selectRequiredExperienceFields()
 
         val publicReviewText = "Great atmosphere and very good service."
         val privateMemoryText = "SECRET_PRIVATE_MEMORY_DO_NOT_SHOW"
@@ -62,16 +60,9 @@ class CommunityReviewsFlowTest {
         composeRule.onNodeWithText("Community reviews").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(publicReviewText, substring = true).performScrollTo().assertIsDisplayed()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithContentDescription("Review by Emir Kaya", substring = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            composeRule.onAllNodesWithText("Emir Kaya").fetchSemanticsNodes().isNotEmpty()
         }
-        assertTrue(
-            "Expected community review author semantics for Emir Kaya",
-            composeRule.onAllNodesWithContentDescription("Review by Emir Kaya", substring = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty(),
-        )
+        composeRule.onAllNodesWithText("Emir Kaya").onFirst().performScrollTo().assertIsDisplayed()
         assertTrue(
             "Private memory leaked into Place Detail community UI",
             composeRule.onAllNodesWithText(privateMemoryText).fetchSemanticsNodes().isEmpty(),
@@ -84,11 +75,13 @@ class CommunityReviewsFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.openSarnicPlaceFromExplore()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithContentDescription("Community score", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithContentDescription("Community score", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Community score", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }

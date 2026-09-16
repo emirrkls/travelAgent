@@ -102,6 +102,7 @@ class MapFriendsVisitedFlowTest {
         }
         composeRule.onAllNodesWithContentDescription("Friends score 9.1", substring = true)
             .onFirst()
+            .performScrollTo()
             .assertIsDisplayed()
     }
 

@@ -37,29 +37,24 @@ class FriendsDiscoveryFlowTest {
     }
 
     @Test
-    fun friendsActivityShowsMutualFriendAndOpensPlace() {
-        openActivityFeed()
+    fun followingShowsMutualFriendExperienceAndOpensPlace() {
+        openFollowingFeed()
 
-        composeRule.onNodeWithContentDescription("Friends scope").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Ahmet Deniz visited", substring = true)
+            composeRule.onAllNodesWithText("Sunset at Sarnıç Cove")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithContentDescription("Ahmet Deniz visited", substring = true)
-            .onFirst()
-            .assertIsDisplayed()
+        composeRule.onNodeWithText("Ahmet Deniz").assertIsDisplayed()
         assertTrue(
-            composeRule.onAllNodesWithContentDescription("Ece Aksoy visited", substring = true)
+            composeRule.onAllNodesWithText("Ece Aksoy")
                 .fetchSemanticsNodes().isEmpty(),
         )
         assertTrue(
-            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+            composeRule.onAllNodesWithText("Deniz Community")
                 .fetchSemanticsNodes().isEmpty(),
         )
 
-        composeRule.onAllNodesWithContentDescription("Ahmet Deniz visited", substring = true)
-            .onFirst()
-            .performClick()
+        composeRule.onNodeWithText("Sarnıç Cove").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
         }
@@ -67,56 +62,49 @@ class FriendsDiscoveryFlowTest {
     }
 
     @Test
-    fun activityScopeSwitchPreservesCommunityItems() {
-        openActivityFeed()
+    fun lensSwitchingReplacesAndRestoresExperienceItems() {
+        composeRule.skipOnboardingIfNeeded()
+        composeRule.signInIfNeeded()
+        composeRule.waitForExplore()
 
+        composeRule.onNodeWithText("Popular").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+            composeRule.onAllNodesWithText("A slow breakfast by Quiet Bay")
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithContentDescription("Friends scope").performClick()
+        composeRule.onNodeWithText("Following").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Ahmet Deniz visited", substring = true)
+            composeRule.onAllNodesWithText("Sunset at Sarnıç Cove")
                 .fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(
-            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+            composeRule.onAllNodesWithText("A slow breakfast by Quiet Bay")
                 .fetchSemanticsNodes().isEmpty(),
         )
 
-        composeRule.onNodeWithContentDescription("Community scope").performClick()
+        composeRule.onNodeWithText("Popular").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+            composeRule.onAllNodesWithText("A slow breakfast by Quiet Bay")
                 .fetchSemanticsNodes().isNotEmpty()
         }
     }
 
     @Test
-    fun placeScoreLensesShowCommunityFriendsAndYou() {
+    fun placeShowsExperienceFirstAggregateAndFeed() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Publish visit").performClick()
-        composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Community score", substring = true)
+            composeRule.onAllNodesWithText("What did people experience here?")
                 .fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithContentDescription("Friends score", substring = true)
-                    .fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithText("You").fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodesWithText("2 visible to you · 4 community contributions")
+                    .fetchSemanticsNodes().isNotEmpty()
         }
-
-        composeRule.onNodeWithContentDescription("Community score 8.7", substring = true)
-            .assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Friends score 9.1", substring = true)
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("You").assertIsDisplayed()
+        composeRule.onNodeWithText("What did people experience here?").assertIsDisplayed()
+        composeRule.onNodeWithText("Sunset at Sarnıç Cove").assertIsDisplayed()
     }
 
     @Test
@@ -181,34 +169,33 @@ class FriendsDiscoveryFlowTest {
     }
 
     @Test
-    fun friendsActivityIncludesFriendsOnlyVisitAndExcludesFromCommunity() {
-        openActivityFeed()
+    fun followingExcludesOneWayAndUnrelatedAuthors() {
+        openFollowingFeed()
 
-        composeRule.onNodeWithContentDescription("Friends scope").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Friends-only cove notes.", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-
-        composeRule.onNodeWithContentDescription("Community scope").performClick()
-        composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("Deniz Community visited", substring = true)
+            composeRule.onAllNodesWithText("Sunset at Sarnıç Cove")
                 .fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(
-            "FRIENDS-only activity must stay out of community",
-            composeRule.onAllNodesWithText("Friends-only cove notes.", substring = true)
+            "Following must exclude an unrelated author",
+            composeRule.onAllNodesWithText("Deniz Community")
                 .fetchSemanticsNodes().isEmpty(),
         )
+        assertTrue(
+            "Following must exclude a one-way non-followed author",
+            composeRule.onAllNodesWithText("Ece Aksoy")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+        composeRule.onNodeWithText("Friends").assertIsDisplayed()
     }
 
-    private fun openActivityFeed() {
+    private fun openFollowingFeed() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
-        composeRule.onNodeWithText("Activity").performClick()
+        composeRule.onNodeWithText("Following").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Community activity").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Sunset at Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

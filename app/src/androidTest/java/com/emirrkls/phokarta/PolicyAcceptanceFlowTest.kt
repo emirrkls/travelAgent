@@ -6,9 +6,12 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -46,12 +49,22 @@ class PolicyAcceptanceFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onNodeWithText("Activity").performClick()
+        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Community reviews").performScrollTo()
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithContentDescription("Report this visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithContentDescription("Report this visit").onFirst().performClick()
-        composeRule.onNodeWithText("Report visit").performClick()
+        composeRule.onAllNodesWithContentDescription("Report this visit").onFirst()
+            .performScrollTo()
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Report visit", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Report visit", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Spam").performClick()
         composeRule.onNodeWithTag("report_submit").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
@@ -59,13 +72,20 @@ class PolicyAcceptanceFlowTest {
         }
         composeRule.onNodeWithText("Close").performClick()
 
-        composeRule.onNodeWithText("Explore").performClick()
-        composeRule.waitForExplore()
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithContentDescription("Been here. Rate this place")
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Been here. Rate this place").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onNodeWithText("Kahvalti").performClick()
+        composeRule.onNodeWithText("Guzeldi").performClick()
+        composeRule.onNodeWithContentDescription("Review input")
+            .performScrollTo()
+            .performTextInput("A calm breakfast by the water.")
         composeRule.onNodeWithText("Publish visit").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("policy_acceptance_sheet").fetchSemanticsNodes().isNotEmpty()

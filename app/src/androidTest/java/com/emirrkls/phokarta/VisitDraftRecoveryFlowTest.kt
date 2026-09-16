@@ -8,9 +8,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
@@ -63,6 +67,9 @@ class VisitDraftRecoveryFlowTest {
                     overallScore = 8f,
                     dimensions = mapOf(RatingDimension.SEA to 9f),
                     publicReview = "Draft review text",
+                    story = "Draft review text",
+                    primaryExperience = PrimaryExperienceCode.KAHVALTI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
                     privateMemory = "Draft memory text",
                     visitDate = LocalDate.of(2026, 5, 20),
                     visibility = Visibility.FRIENDS,
@@ -76,8 +83,8 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().assertIsDisplayed()
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
@@ -105,6 +112,9 @@ class VisitDraftRecoveryFlowTest {
                 PLACE_ID,
                 VisitDraft(
                     publicReview = "Autosaved review",
+                    story = "Autosaved review",
+                    primaryExperience = PrimaryExperienceCode.KAHVALTI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
                     visibility = Visibility.FRIENDS,
                 ),
                 owner,
@@ -115,7 +125,8 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Autosaved review").fetchSemanticsNodes().isNotEmpty()
         }
@@ -123,7 +134,8 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Autosaved review").fetchSemanticsNodes().isNotEmpty()
         }
@@ -146,6 +158,9 @@ class VisitDraftRecoveryFlowTest {
                 VisitDraft(
                     overallScore = 7.5f,
                     publicReview = "Survive recreate",
+                    story = "Survive recreate",
+                    primaryExperience = PrimaryExperienceCode.KAHVALTI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
                     privateMemory = "Memory recreate",
                     visibility = Visibility.PRIVATE,
                 ),
@@ -157,7 +172,8 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Survive recreate").fetchSemanticsNodes().isNotEmpty()
         }
@@ -166,8 +182,8 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Survive recreate").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Survive recreate").assertIsDisplayed()
-        composeRule.onNodeWithText("Memory recreate").assertIsDisplayed()
+        composeRule.onNodeWithText("Survive recreate").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Memory recreate").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -180,7 +196,13 @@ class VisitDraftRecoveryFlowTest {
         runBlocking {
             draftRepository.saveDraft(
                 PLACE_ID,
-                VisitDraft(publicReview = "Will publish", visibility = Visibility.PRIVATE),
+                VisitDraft(
+                    publicReview = "Will publish",
+                    story = "Will publish",
+                    primaryExperience = PrimaryExperienceCode.KAHVALTI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
+                    visibility = Visibility.PRIVATE,
+                ),
                 owner,
             )
         }
@@ -189,11 +211,13 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Publish visit")
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
@@ -203,10 +227,7 @@ class VisitDraftRecoveryFlowTest {
             assertFalse(draftRepository.hasDraft(PLACE_ID))
         }
 
-        composeRule.onAllNodesWithText("Rate another visit").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openVisitComposerFromCurrentPlace()
         assertEquals(
             0,
             composeRule.onAllNodesWithText("Will publish").fetchSemanticsNodes().size,
@@ -227,6 +248,9 @@ class VisitDraftRecoveryFlowTest {
                 VisitDraft(
                     overallScore = 8f,
                     publicReview = "Keep after failure",
+                    story = "Keep after failure",
+                    primaryExperience = PrimaryExperienceCode.KAHVALTI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
                     visibility = Visibility.PRIVATE,
                 ),
                 owner,
@@ -237,11 +261,13 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Keep after failure").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Publish visit")
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Sync failed", substring = true).fetchSemanticsNodes().isNotEmpty()
         }

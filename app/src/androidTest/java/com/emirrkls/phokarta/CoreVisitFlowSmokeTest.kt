@@ -32,11 +32,9 @@ class CoreVisitFlowSmokeTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.completeMinimumExperience("Core connected smoke Experience.")
         composeRule.onNodeWithText("Publish visit").assertIsDisplayed()
         composeRule.onNodeWithText("Publish visit").performClick()
 
@@ -52,10 +50,10 @@ class CoreVisitFlowSmokeTest {
         composeRule.waitForExplore()
         composeRule.onNodeWithText("Profile").performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("My Experiences").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
+        composeRule.onNodeWithText("My Experiences").assertIsDisplayed()
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().assertIsDisplayed()
-        composeRule.onNodeWithText("1 total").assertTextContains("1 total")
+        composeRule.onNodeWithText("A quiet swim at Sarnıç Cove").assertIsDisplayed()
     }
 }

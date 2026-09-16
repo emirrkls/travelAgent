@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -34,42 +35,32 @@ class SavedDiscoveryFlowTest {
     }
 
     @Test
-    fun exploreSave_showsWantToGoShelf_openAndUnsaveUpdates() {
+    fun exploreSave_showsMyPlanAndUnsaveUpdates() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
-        composeRule.waitForExplore()
-
-        composeRule.onAllNodesWithContentDescription("Want to go").onFirst().performClick()
+        saveSarnicFromExplore()
+        openMyPlan()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Want to Go").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onAllNodesWithText("Want to Go").onFirst().assertIsDisplayed()
-
-        composeRule.onAllNodesWithText("See all").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithText("saved", substring = true, ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithContentDescription("Remove from Want to Go").fetchSemanticsNodes().isNotEmpty()
         }
-        when {
-            composeRule.onAllNodesWithContentDescription("Remove from Want to Go").fetchSemanticsNodes().isNotEmpty() ->
-                composeRule.onAllNodesWithContentDescription("Remove from Want to Go").onFirst().performClick()
-            else -> composeRule.onAllNodesWithText("Saved").onFirst().performClick()
+        composeRule.onAllNodesWithContentDescription("Saved").onFirst().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Want to go").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithContentDescription("Remove from Want to Go")
+                    .fetchSemanticsNodes().isEmpty()
         }
 
         composeRule.runOnUiThread {
             composeRule.activity.onBackPressedDispatcher.onBackPressed()
         }
-        composeRule.runOnUiThread {
-            composeRule.activity.onBackPressedDispatcher.onBackPressed()
-        }
-        composeRule.waitForExplore()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Want to Go").fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isEmpty() ||
+                composeRule.onAllNodesWithText("Nothing saved yet").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -77,18 +68,9 @@ class SavedDiscoveryFlowTest {
     fun searchSavedFilter_showsMatchingPlace() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
-        composeRule.waitForExplore()
-
-        composeRule.onAllNodesWithContentDescription("Want to go").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithContentDescription("Remove from Want to Go").fetchSemanticsNodes().isNotEmpty()
-        }
-
-        composeRule.onNodeWithText("Search places, cities or categories").performClick()
-        composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Discover").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Want to Go", substring = false).performClick()
+        saveSarnicFromExplore()
+        openMyPlan()
+        composeRule.onNodeWithText("Search saved places").performTextInput("Sarnıç")
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Sarnıç Cove").fetchSemanticsNodes().isNotEmpty()
         }
@@ -99,13 +81,8 @@ class SavedDiscoveryFlowTest {
     fun wantToGo_showsFriendSignalMatchingPlaceDetail() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
-        composeRule.waitForExplore()
-
-        composeRule.onAllNodesWithContentDescription("Want to go").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithContentDescription("Remove from Want to Go").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onAllNodesWithText("See all").onFirst().performClick()
+        saveSarnicFromExplore()
+        openMyPlan()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Friends 9.1", substring = true).fetchSemanticsNodes().isNotEmpty() &&
                 composeRule.onAllNodesWithText("1 friend visited").fetchSemanticsNodes().isNotEmpty()
@@ -118,6 +95,34 @@ class SavedDiscoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithContentDescription("Friends score 9.1", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun saveSarnicFromExplore() {
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Want to go").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithContentDescription("Saved").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (composeRule.onAllNodesWithContentDescription("Want to go").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onAllNodesWithContentDescription("Want to go").onFirst().performClick()
+        }
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithContentDescription("Saved").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithContentDescription("Remove from Want to Go")
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.runOnUiThread {
+            composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        }
+        composeRule.waitForExplore()
+    }
+
+    private fun openMyPlan() {
+        composeRule.onNodeWithText("My Plan").performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Places I Want to Go").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Search saved places").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

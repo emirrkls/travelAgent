@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
@@ -33,18 +34,16 @@ class VisitPublishingFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openSarnicPlaceFromExplore()
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.completeMinimumExperience("First connected publishing Experience.")
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
+        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -53,7 +52,7 @@ class VisitPublishingFlowTest {
         composeRule.signInIfNeeded()
         composeRule.waitForExplore()
 
-        composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().performClick()
+        composeRule.openSarnicPlaceFromExplore()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithContentDescription("Want to go").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithContentDescription("Saved").fetchSemanticsNodes().isNotEmpty()
@@ -64,10 +63,8 @@ class VisitPublishingFlowTest {
             else -> composeRule.onAllNodesWithContentDescription("Saved").onFirst().performClick()
         }
 
-        composeRule.onAllNodesWithText("Been here").onFirst().performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
-        }
+        composeRule.openVisitComposerFromCurrentPlace()
+        composeRule.completeMinimumExperience("Saved and visited remain independent.")
         composeRule.onNodeWithText("Publish visit").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
@@ -82,7 +79,7 @@ class VisitPublishingFlowTest {
             }
         }
 
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
-        composeRule.onNodeWithText("Rate another visit").assertIsDisplayed()
+        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("Rate another visit").onFirst().assertIsDisplayed()
     }
 }

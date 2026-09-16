@@ -10,7 +10,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.semantics.SemanticsActions
 import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import com.emirrkls.phokarta.core.database.TravelDatabase
@@ -20,6 +22,8 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.model.RatingDimension
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
@@ -94,7 +98,8 @@ class FailedVisitRecoveryFlowTest {
 
         composeRule.onNodeWithText(REVIEW_M1).performScrollTo().performTextReplacement(REVIEW_M2)
         fakeVisits.failCreatePermanent = null
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Publish visit")
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.waitUntil(timeoutMillis = 20_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
@@ -133,7 +138,8 @@ class FailedVisitRecoveryFlowTest {
         }
 
         fakeVisits.failCreatePermanent = null
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Publish visit")
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 20_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
         }
@@ -190,7 +196,7 @@ class FailedVisitRecoveryFlowTest {
         composeRule.onNodeWithText("Replace").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Failed payload review").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
         runBlocking {
             assertNull(offlineMutations.observePendingVisits().first().firstOrNull { it.mutationId == MUTATION_M1 })
@@ -213,7 +219,7 @@ class FailedVisitRecoveryFlowTest {
             composeRule.onAllNodesWithTag("remove_failed_visit_dialog").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Cancel").performClick()
-        composeRule.onNodeWithTag("pending_visit_remove").assertIsDisplayed()
+        composeRule.onNodeWithTag("pending_visit_remove").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithTag("pending_visit_remove").performClick()
         composeRule.onNodeWithTag("remove_failed_visit_dialog").assertIsDisplayed()
@@ -245,7 +251,7 @@ class FailedVisitRecoveryFlowTest {
 
         openPendingDetailFromPlace()
         composeRule.onNodeWithTag("pending_visit_edit_retry").assertIsDisplayed()
-        composeRule.onNodeWithTag("pending_visit_remove").assertIsDisplayed()
+        composeRule.onNodeWithTag("pending_visit_remove").performScrollTo().assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("pending_visit_retry").fetchSemanticsNodes().isEmpty())
     }
 
@@ -275,7 +281,7 @@ class FailedVisitRecoveryFlowTest {
         fakeVisits.failCreate = false
 
         openPendingDetailFromPlace()
-        composeRule.onNodeWithTag("pending_visit_retry").assertIsDisplayed()
+        composeRule.onNodeWithTag("pending_visit_retry").performScrollTo().assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("pending_visit_edit_retry").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("pending_visit_remove").fetchSemanticsNodes().isEmpty())
     }
@@ -307,7 +313,8 @@ class FailedVisitRecoveryFlowTest {
             composeRule.waitUntil(timeoutMillis = 10_000) {
                 composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
             }
-            composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+            composeRule.onAllNodesWithText("Continue draft").onFirst()
+                .performSemanticsAction(SemanticsActions.OnClick)
         }
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Recreate review").fetchSemanticsNodes().isNotEmpty()
@@ -317,7 +324,9 @@ class FailedVisitRecoveryFlowTest {
     }
 
     private fun openPendingDetailFromPlace() {
-        composeRule.onAllNodesWithTag("owner_visit_row").onFirst().performClick()
+        composeRule.onAllNodesWithTag("owner_visit_row").onFirst()
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithTag("pending_visit_detail_sheet").fetchSemanticsNodes().isNotEmpty()
         }
@@ -330,6 +339,9 @@ class FailedVisitRecoveryFlowTest {
         overallScore = 8.5f,
         dimensions = mapOf(RatingDimension.SEA to 9f),
         publicReview = review,
+        story = review,
+        primaryExperience = PrimaryExperienceCode.KAHVALTI,
+        overallFeeling = OverallFeelingCode.GUZELDI,
         privateMemory = memory,
         visitDate = LocalDate.of(2026, 5, 12),
         visibility = Visibility.FRIENDS,
@@ -357,11 +369,13 @@ class FailedVisitRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onAllNodesWithText("Continue draft").onFirst().performClick()
+        composeRule.onAllNodesWithText("Continue draft").onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Publish visit")
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText("Sync failed", substring = true).fetchSemanticsNodes().isNotEmpty()

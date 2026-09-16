@@ -214,7 +214,7 @@ private actor DelayedExperienceService: ExperienceDiscoveryServing {
         radiusMeters: Double?
     ) async throws -> CursorPageDTO<ExperienceSummaryV2> {
         if lens == .forYou { try await Task.sleep(for: .milliseconds(200)) }
-        return try ExperienceDiscoveryTests.page(
+        return try await ExperienceDiscoveryTests.page(
             id: lens == .popular ? ExperienceDiscoveryTests.secondID : ExperienceDiscoveryTests.firstID,
             cursor: nil,
             hasMore: false

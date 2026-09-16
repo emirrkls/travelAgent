@@ -222,7 +222,7 @@ enum ExperienceDimensionCatalog {
             ["ATMOSPHERE", "COMFORT", "CLEANLINESS", "VALUE"]
         case .otel, .butikOtel, .hostel, .kampKonaklamasi, .kiralikEvBungalov:
             ["CLEANLINESS", "COMFORT", "LOCATION", "SERVICE"]
-        default: []
+        default: [String]()
         }
     }
 }

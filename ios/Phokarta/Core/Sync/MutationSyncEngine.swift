@@ -74,7 +74,7 @@ actor MutationSyncEngine {
                 break
             }
 
-            if pauseVisitPublishes && mutation.type == .publishVisit {
+            if pauseVisitPublishes && (mutation.type == .publishVisit || mutation.type == .publishExperienceV2) {
                 continue
             }
 
@@ -91,6 +91,8 @@ actor MutationSyncEngine {
             switch claimedMutation.type {
             case .publishVisit:
                 outcome = await syncVisit(mutation: claimedMutation, userId: userId)
+            case .publishExperienceV2:
+                outcome = await syncExperienceV2(mutation: claimedMutation, userId: userId)
             case .setSavedState:
                 outcome = .failure(retryable: false, category: "UNSUPPORTED_TYPE")
             }
@@ -110,7 +112,8 @@ actor MutationSyncEngine {
                     category: category,
                     now: Date(timeIntervalSince1970: Double(clock.nowMillis()) / 1000.0)
                 )
-                if category == "POLICY_ACCEPTANCE_REQUIRED" && claimedMutation.type == .publishVisit {
+                if category == "POLICY_ACCEPTANCE_REQUIRED" &&
+                    (claimedMutation.type == .publishVisit || claimedMutation.type == .publishExperienceV2) {
                     pauseVisitPublishes = true
                 }
             }
@@ -188,6 +191,147 @@ actor MutationSyncEngine {
                 }
             }
 
+            return .success
+        } catch let appError as AppError {
+            return classifyAppError(appError)
+        } catch is CancellationError {
+            return .failure(retryable: true, category: "CANCELLED")
+        } catch {
+            return .failure(retryable: true, category: "UNKNOWN_ERROR")
+        }
+    }
+
+    private func syncExperienceV2(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {
+        guard mutation.payloadVersion == 2,
+              let bundle = try? await mutationRepository.getExperienceV2Bundle(mutationId: mutation.mutationId) else {
+            return .failure(retryable: false, category: "MISSING_PAYLOAD")
+        }
+        let orderedPhotos = bundle.photos.sorted { $0.position < $1.position }
+        guard orderedPhotos.count <= 6 else {
+            return .failure(retryable: false, category: "V2_MEDIA_LIMIT")
+        }
+        var mediaIds: [UUID] = []
+        for photo in orderedPhotos {
+            switch await prepareAndUploadPhoto(mutation: mutation, photo: photo, userId: userId) {
+            case .photoPrepared(let mediaId): mediaIds.append(mediaId)
+            case .photoFailed(let failure): return failure
+            }
+        }
+        guard let primary = PrimaryExperienceCode(rawValue: bundle.payload.primaryExperienceCode),
+              primary != .unknown, primary != .unknownLegacy,
+              let feeling = OverallFeelingCode(rawValue: bundle.payload.overallFeelingCode),
+              feeling != .unknown,
+              let titleSource = ExperienceTitleSource(rawValue: bundle.payload.titleSource),
+              titleSource != .unknown else {
+            return .failure(retryable: false, category: "INVALID_PAYLOAD")
+        }
+        let companion = bundle.payload.companionCode.flatMap(CompanionCode.init(rawValue:))
+        let timeOfDay = bundle.payload.timeOfDayCode.flatMap(TimeOfDayCode.init(rawValue:))
+        let vibes = bundle.payload.vibeCodes.compactMap(VibeCode.init(rawValue:))
+        let practicalSignals = bundle.payload.practicalSignalCodes.compactMap(PracticalSignalCode.init(rawValue:))
+        guard (bundle.payload.companionCode == nil || companion.map { $0 != .unknown } == true),
+              (bundle.payload.timeOfDayCode == nil || timeOfDay.map { $0 != .unknown } == true),
+              vibes.count == bundle.payload.vibeCodes.count,
+              !vibes.contains(.unknown),
+              vibes.count <= 2,
+              Set(vibes).count == vibes.count,
+              practicalSignals.count == bundle.payload.practicalSignalCodes.count,
+              !practicalSignals.contains(.unknown),
+              Set(practicalSignals).count == practicalSignals.count else {
+            return .failure(retryable: false, category: "INVALID_PAYLOAD")
+        }
+        let dimensions: [ExperienceV2CreateDimension] = bundle.dimensions.compactMap { row in
+            guard let state = DimensionStateCode(rawValue: row.semanticStateCode), state != .unknown else {
+                return nil
+            }
+            return ExperienceV2CreateDimension(
+                key: row.dimensionKey,
+                semanticStateCode: state,
+                templateVersion: row.templateVersion
+            )
+        }
+        let dimensionKeys = dimensions.map(\.key)
+        let allowedDimensionKeys = Set(ExperienceDimensionCatalog.keys(for: primary))
+        guard dimensions.count == bundle.dimensions.count,
+              Set(dimensionKeys).count == dimensionKeys.count,
+              Set(dimensionKeys).isSubset(of: allowedDimensionKeys) else {
+            return .failure(retryable: false, category: "INVALID_PAYLOAD")
+        }
+        let visitedDate = Date(timeIntervalSince1970: Double(bundle.payload.visitedAtEpochDay) * 86400)
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        let request = ExperienceV2CreateRequest(
+            clientMutationId: mutation.mutationId,
+            placeId: bundle.payload.placeId,
+            visitDate: formatter.string(from: visitedDate),
+            primaryExperienceCode: primary,
+            rawExperienceLabel: bundle.payload.rawExperienceLabel,
+            overallFeelingCode: feeling,
+            companionCode: companion,
+            timeOfDayCode: timeOfDay,
+            vibeCodes: vibes,
+            practicalSignalCodes: practicalSignals,
+            dimensions: dimensions,
+            title: bundle.payload.title,
+            titleSource: titleSource,
+            story: VisitValidation.trimmedOptional(bundle.payload.story),
+            tip: VisitValidation.trimmedOptional(bundle.payload.tip),
+            privateMemory: VisitValidation.trimmedOptional(bundle.payload.privateMemory),
+            visibility: VisitVisibility(rawValue: bundle.payload.visibility) ?? .publicAccess,
+            mediaIds: mediaIds
+        )
+        do {
+            let experience = try await visitService.createExperience(request)
+            let canonical = OwnerVisit(
+                id: experience.id,
+                place: PlaceSummary(
+                    id: experience.place.id,
+                    name: experience.place.name,
+                    category: experience.place.category,
+                    coverImage: experience.place.coverImage,
+                    city: experience.place.city,
+                    region: experience.place.region,
+                    country: experience.place.country,
+                    latitude: 0,
+                    longitude: 0,
+                    priceLevel: 0,
+                    communityScore: nil,
+                    ratingCount: 0
+                ),
+                visitedAt: experience.experiencedAt,
+                overallRating: experience.feeling.compatibilityNumericRating,
+                dimensions: experience.dimensions.map {
+                    VisitDimensionScore(key: $0.key, score: $0.numericScore)
+                },
+                publicReview: experience.story,
+                privateMemory: bundle.payload.privateMemory,
+                media: experience.media.compactMap { media in
+                    guard let id = media.id else { return nil }
+                    return VisitMediaDTO(
+                        id: id,
+                        sortOrder: media.position,
+                        accessUrl: URL(string: media.url),
+                        accessExpiresAt: media.accessExpiresAt
+                    )
+                },
+                visibility: experience.visibility
+            )
+            guard try await mutationRepository.deleteIfGeneration(
+                mutationId: mutation.mutationId,
+                generation: mutation.generation
+            ) else {
+                return .failure(retryable: true, category: "RECONCILIATION_RACE")
+            }
+            for photo in orderedPhotos {
+                await mediaStore.deleteOwned(ownerUserId: userId, relativePath: photo.localRelativePath)
+            }
+            try? await draftRepository.deleteDraft(placeId: bundle.payload.placeId, userId: userId)
+            if let store = visitStore {
+                await MainActor.run { store.reconcileCanonicalVisit(canonical) }
+            }
             return .success
         } catch let appError as AppError {
             return classifyAppError(appError)

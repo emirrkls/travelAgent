@@ -10,6 +10,15 @@ struct CreateVisitEndpoint: APIEndpoint {
     var requiresAuthentication: Bool { true }
 }
 
+struct CreateExperienceV2Endpoint: APIEndpoint {
+    typealias Response = ExperienceV2
+    typealias Body = ExperienceV2CreateRequest
+    let body: ExperienceV2CreateRequest?
+    var method: HTTPMethod { .post }
+    var path: String { "api/v2/experiences" }
+    var requiresAuthentication: Bool { true }
+}
+
 struct MyVisitsEndpoint: APIEndpoint {
     typealias Response = PageDTO<OwnerVisit>
     let page: Int
@@ -44,7 +53,14 @@ struct ExperienceV2Service: ExperienceV2Serving {
 
 protocol VisitServing: Sendable {
     func create(_ request: VisitCreateRequest) async throws -> OwnerVisit
+    func createExperience(_ request: ExperienceV2CreateRequest) async throws -> ExperienceV2
     func ownerVisits() async throws -> [OwnerVisit]
+}
+
+extension VisitServing {
+    func createExperience(_ request: ExperienceV2CreateRequest) async throws -> ExperienceV2 {
+        throw AppError.server
+    }
 }
 
 struct VisitService: VisitServing {
@@ -52,6 +68,10 @@ struct VisitService: VisitServing {
 
     func create(_ request: VisitCreateRequest) async throws -> OwnerVisit {
         try await client.send(CreateVisitEndpoint(body: request))
+    }
+
+    func createExperience(_ request: ExperienceV2CreateRequest) async throws -> ExperienceV2 {
+        try await client.send(CreateExperienceV2Endpoint(body: request))
     }
 
     func ownerVisits() async throws -> [OwnerVisit] {

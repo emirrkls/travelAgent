@@ -62,7 +62,7 @@ struct VisitMediaStrip: View {
         String.localizedStringWithFormat(
             String(localized: "visit.media.photos_count"),
             coordinator.items.count,
-            MediaContract.maxPerVisit
+            coordinator.maximumItems
         )
     }
 }

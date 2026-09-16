@@ -53,12 +53,14 @@ final class VisitComposerController {
             category: place.category,
             clientMutationId: uuid()
         )
+        self.state.payloadVersion = mutationRepository == nil ? 1 : 2
         self.mediaCoordinator = VisitMediaUploadCoordinator(
             service: resolvedMediaService,
             accountId: activeAccount,
             placeId: place.id,
             draftRepository: draftRepository,
-            mediaStore: mediaStore
+            mediaStore: mediaStore,
+            maximumItems: mutationRepository == nil ? MediaContract.maxPerVisit : 6
         )
         self.mediaCoordinator.configureDraftProvider { [weak self] in
             guard let self else {
@@ -94,9 +96,26 @@ final class VisitComposerController {
         state.overallScore = draft.overallScore
         state.publicReview = draft.publicReview
         state.privateMemory = draft.privateMemory
-        state.visitedAt = Date(timeIntervalSince1970: Double(draft.visitedAtEpochDay) * 86400)
+        state.visitedAt = Self.localDate(forEpochDay: draft.visitedAtEpochDay)
         state.visibility = VisitVisibility(rawValue: draft.visibility) ?? .publicAccess
-        state.dimensionScores = Dictionary(uniqueKeysWithValues: draft.dimensions.map { ($0.dimensionKey, $0.score) })
+        state.payloadVersion = draft.payloadVersion
+        state.dimensionScores = Dictionary(uniqueKeysWithValues: draft.dimensions.filter {
+            $0.semanticStateCode == nil
+        }.map { ($0.dimensionKey, $0.score) })
+        state.semanticDimensions = Dictionary(uniqueKeysWithValues: draft.dimensions.compactMap { row in
+            row.semanticStateCode.flatMap(DimensionStateCode.init(rawValue:)).map { (row.dimensionKey, $0) }
+        })
+        state.primaryExperience = draft.primaryExperienceCode.flatMap(PrimaryExperienceCode.init(rawValue:))
+        state.rawExperienceLabel = draft.rawExperienceLabel ?? ""
+        state.overallFeeling = draft.overallFeelingCode.flatMap(OverallFeelingCode.init(rawValue:))
+        state.companion = draft.companionCode.flatMap(CompanionCode.init(rawValue:))
+        state.timeOfDay = draft.timeOfDayCode.flatMap(TimeOfDayCode.init(rawValue:))
+        state.vibes = Set(draft.vibeCodes.compactMap(VibeCode.init(rawValue:)))
+        state.practicalSignals = Set(draft.practicalSignalCodes.compactMap(PracticalSignalCode.init(rawValue:)))
+        state.title = draft.title ?? ""
+        state.titleSource = ExperienceTitleSource(rawValue: draft.titleSource) ?? .generated
+        state.story = draft.story
+        state.tip = draft.tip
         await mediaCoordinator.restoreDurablePhotos(draft.photos)
         syncMediaState()
     }
@@ -106,7 +125,49 @@ final class VisitComposerController {
     }
 
     func setOverall(_ value: Double) { edit { $0.overallScore = rounded(value) } }
-    func setReview(_ value: String) { edit { $0.publicReview = String(value.prefix(VisitValidation.textLimit)) } }
+    func setReview(_ value: String) {
+        edit {
+            let trimmed = String(value.prefix(VisitValidation.textLimit))
+            $0.publicReview = trimmed
+            if $0.payloadVersion == 2 { $0.story = trimmed }
+        }
+    }
+    func setPrimaryExperience(_ value: PrimaryExperienceCode) {
+        edit {
+            $0.primaryExperience = value
+            if value != .other { $0.rawExperienceLabel = "" }
+            let allowed = Set(ExperienceDimensionCatalog.keys(for: value))
+            $0.semanticDimensions = $0.semanticDimensions.filter { allowed.contains($0.key) }
+        }
+    }
+    func setRawExperienceLabel(_ value: String) { edit { $0.rawExperienceLabel = String(value.prefix(120)) } }
+    func setOverallFeeling(_ value: OverallFeelingCode) { edit { $0.overallFeeling = value } }
+    func setCompanion(_ value: CompanionCode?) { edit { $0.companion = value } }
+    func setTimeOfDay(_ value: TimeOfDayCode?) { edit { $0.timeOfDay = value } }
+    func toggleVibe(_ value: VibeCode) {
+        edit {
+            if $0.vibes.contains(value) { $0.vibes.remove(value) }
+            else if $0.vibes.count < 2 { $0.vibes.insert(value) }
+        }
+    }
+    func togglePracticalSignal(_ value: PracticalSignalCode) {
+        edit {
+            if $0.practicalSignals.contains(value) { $0.practicalSignals.remove(value) }
+            else { $0.practicalSignals.insert(value) }
+        }
+    }
+    func setSemanticDimension(_ key: String, value: DimensionStateCode?) {
+        guard ExperienceDimensionCatalog.keys(for: state.primaryExperience).contains(key) else { return }
+        edit { $0.semanticDimensions[key] = value }
+    }
+    func setTitle(_ value: String) {
+        edit {
+            $0.title = String(value.prefix(240))
+            $0.titleSource = $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .generated : .custom
+        }
+    }
+    func useGeneratedTitle() { edit { $0.title = ""; $0.titleSource = .generated } }
+    func setTip(_ value: String) { edit { $0.tip = String(value.prefix(1_000)) } }
     func setPrivateMemory(_ value: String) { edit { $0.privateMemory = String(value.prefix(VisitValidation.textLimit)) } }
     func setDate(_ value: Date) { edit { $0.visitedAt = value } }
     func setVisibility(_ value: VisitVisibility) { edit { $0.visibility = value } }
@@ -172,11 +233,16 @@ final class VisitComposerController {
     }
 
     private func makeDurableDraft(userId: UUID) -> DurableVisitDraft {
-        let calendar = Calendar(identifier: .iso8601)
-        let epochDay = Int64(calendar.startOfDay(for: state.visitedAt).timeIntervalSince1970 / 86400)
+        let epochDay = Self.epochDay(for: state.visitedAt)
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         let dims = state.dimensionScores.map {
             DurableDraftDimensionScore(userId: userId, placeId: state.placeId, dimensionKey: $0.key, score: rounded($0.value))
+        } + state.semanticDimensions.compactMap { key, semantic -> DurableDraftDimensionScore? in
+            guard let score = semantic.compatibilityScore else { return nil }
+            return DurableDraftDimensionScore(
+                userId: userId, placeId: state.placeId, dimensionKey: key,
+                score: Double(score), semanticStateCode: semantic.rawValue, templateVersion: 1
+            )
         }
         return DurableVisitDraft(
             userId: userId,
@@ -190,7 +256,19 @@ final class VisitComposerController {
             createdAtEpochMillis: now,
             updatedAtEpochMillis: now,
             dimensions: dims,
-            photos: []
+            photos: [],
+            payloadVersion: state.payloadVersion,
+            primaryExperienceCode: state.primaryExperience?.rawValue,
+            rawExperienceLabel: VisitValidation.trimmedOptional(state.rawExperienceLabel),
+            overallFeelingCode: state.overallFeeling?.rawValue,
+            companionCode: state.companion?.rawValue,
+            timeOfDayCode: state.timeOfDay?.rawValue,
+            vibeCodes: state.vibes.map(\.rawValue).sorted(),
+            practicalSignalCodes: state.practicalSignals.map(\.rawValue).sorted(),
+            title: VisitValidation.trimmedOptional(state.title),
+            titleSource: state.titleSource.rawValue,
+            story: state.story,
+            tip: state.tip
         )
     }
 
@@ -215,21 +293,7 @@ final class VisitComposerController {
         if let mutationRepo = mutationRepository, let accountID = composerAccountID {
             autosaveTask?.cancel()
             await mediaCoordinator.flushPersistence()
-            let calendar = Calendar(identifier: .iso8601)
-            let epochDay = Int64(calendar.startOfDay(for: state.visitedAt).timeIntervalSince1970 / 86400)
-
-            let payload = DurablePendingVisitPayload(
-                mutationId: state.clientMutationId,
-                placeId: state.placeId,
-                visitedAtEpochDay: epochDay,
-                overallRating: rounded(state.overallScore),
-                publicReview: state.publicReview,
-                privateMemory: state.privateMemory,
-                visibility: state.visibility.rawValue
-            )
-            let dims = state.dimensionScores.map {
-                DurablePendingDimensionScore(mutationId: state.clientMutationId, dimensionKey: $0.key, score: rounded($0.value))
-            }
+            let epochDay = Self.epochDay(for: state.visitedAt)
 
             var photos: [DurablePendingPhoto] = []
             for (index, item) in mediaCoordinator.items.enumerated() {
@@ -252,12 +316,57 @@ final class VisitComposerController {
             }
 
             do {
-                _ = try await mutationRepo.commitVisit(
-                    payload: payload,
-                    dimensions: dims,
-                    photos: photos,
-                    userId: accountID
-                )
+                if state.payloadVersion == 2 {
+                    let payload = DurablePendingExperienceV2Payload(
+                        mutationId: state.clientMutationId,
+                        placeId: state.placeId,
+                        visitedAtEpochDay: epochDay,
+                        primaryExperienceCode: state.primaryExperience!.rawValue,
+                        rawExperienceLabel: VisitValidation.trimmedOptional(state.rawExperienceLabel),
+                        overallFeelingCode: state.overallFeeling!.rawValue,
+                        companionCode: state.companion?.rawValue,
+                        timeOfDayCode: state.timeOfDay?.rawValue,
+                        vibeCodes: state.vibes.map(\.rawValue).sorted(),
+                        practicalSignalCodes: state.practicalSignals.map(\.rawValue).sorted(),
+                        title: VisitValidation.trimmedOptional(state.title),
+                        titleSource: state.titleSource.rawValue,
+                        story: state.story.trimmingCharacters(in: .whitespacesAndNewlines),
+                        tip: state.tip.trimmingCharacters(in: .whitespacesAndNewlines),
+                        privateMemory: state.privateMemory.trimmingCharacters(in: .whitespacesAndNewlines),
+                        visibility: state.visibility.rawValue
+                    )
+                    let dimensions = state.semanticDimensions.map {
+                        DurablePendingExperienceV2Dimension(
+                            mutationId: state.clientMutationId,
+                            dimensionKey: $0.key,
+                            semanticStateCode: $0.value.rawValue,
+                            templateVersion: 1
+                        )
+                    }
+                    _ = try await mutationRepo.commitExperienceV2(
+                        payload: payload, dimensions: dimensions, photos: photos, userId: accountID
+                    )
+                } else {
+                    let payload = DurablePendingVisitPayload(
+                        mutationId: state.clientMutationId,
+                        placeId: state.placeId,
+                        visitedAtEpochDay: epochDay,
+                        overallRating: rounded(state.overallScore),
+                        publicReview: state.publicReview,
+                        privateMemory: state.privateMemory,
+                        visibility: state.visibility.rawValue
+                    )
+                    let dimensions = state.dimensionScores.map {
+                        DurablePendingDimensionScore(
+                            mutationId: state.clientMutationId,
+                            dimensionKey: $0.key,
+                            score: rounded($0.value)
+                        )
+                    }
+                    _ = try await mutationRepo.commitVisit(
+                        payload: payload, dimensions: dimensions, photos: photos, userId: accountID
+                    )
+                }
                 state.publishState = .success
                 await mediaCoordinator.clear(keepingDurableFiles: true)
                 syncMediaState()
@@ -335,6 +444,22 @@ final class VisitComposerController {
             mediaIds: confirmedIds.isEmpty ? nil : confirmedIds,
             visibility: state.visibility
         )
+    }
+
+    private static func epochDay(for date: Date) -> Int64 {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        var utc = Calendar(identifier: .iso8601)
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let midnightUTC = utc.date(from: components) else { return 0 }
+        return Int64(midnightUTC.timeIntervalSince1970 / 86_400)
+    }
+
+    private static func localDate(forEpochDay epochDay: Int64) -> Date {
+        var utc = Calendar(identifier: .iso8601)
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        let instant = Date(timeIntervalSince1970: Double(epochDay) * 86_400)
+        let components = utc.dateComponents([.year, .month, .day], from: instant)
+        return Calendar.current.date(from: components) ?? instant
     }
 
     private func rounded(_ value: Double) -> Double { (value * 10).rounded() / 10 }

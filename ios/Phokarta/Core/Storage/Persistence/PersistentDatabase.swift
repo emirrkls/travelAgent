@@ -276,6 +276,57 @@ actor PersistentDatabase {
 
             try executeRaw(handle, "PRAGMA user_version = 1;")
         }
+        if version < 2 {
+            // Existing V1 rows keep their exact meaning. Defaults only version them explicitly.
+            try executeRaw(handle, "ALTER TABLE pending_mutations ADD COLUMN payloadVersion INTEGER NOT NULL DEFAULT 1;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN payloadVersion INTEGER NOT NULL DEFAULT 1;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN primaryExperienceCode TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN rawExperienceLabel TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN overallFeelingCode TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN companionCode TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN timeOfDayCode TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN vibeCodes TEXT NOT NULL DEFAULT '';")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN practicalSignalCodes TEXT NOT NULL DEFAULT '';")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN title TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN titleSource TEXT NOT NULL DEFAULT 'GENERATED';")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN story TEXT NOT NULL DEFAULT '';")
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN tip TEXT NOT NULL DEFAULT '';")
+            try executeRaw(handle, "ALTER TABLE visit_draft_dimension_scores ADD COLUMN semanticStateCode TEXT;")
+            try executeRaw(handle, "ALTER TABLE visit_draft_dimension_scores ADD COLUMN templateVersion INTEGER;")
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS pending_experience_v2_payloads (
+                mutationId TEXT PRIMARY KEY,
+                placeId TEXT NOT NULL,
+                visitedAtEpochDay INTEGER NOT NULL,
+                primaryExperienceCode TEXT NOT NULL,
+                rawExperienceLabel TEXT,
+                overallFeelingCode TEXT NOT NULL,
+                companionCode TEXT,
+                timeOfDayCode TEXT,
+                vibeCodes TEXT NOT NULL,
+                practicalSignalCodes TEXT NOT NULL,
+                title TEXT,
+                titleSource TEXT NOT NULL,
+                story TEXT NOT NULL,
+                tip TEXT NOT NULL,
+                privateMemory TEXT NOT NULL,
+                visibility TEXT NOT NULL,
+                FOREIGN KEY (mutationId) REFERENCES pending_mutations(mutationId) ON DELETE CASCADE
+            );
+            """)
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS pending_experience_v2_dimensions (
+                mutationId TEXT NOT NULL,
+                dimensionKey TEXT NOT NULL,
+                semanticStateCode TEXT NOT NULL,
+                templateVersion INTEGER NOT NULL,
+                PRIMARY KEY (mutationId, dimensionKey),
+                FOREIGN KEY (mutationId) REFERENCES pending_mutations(mutationId) ON DELETE CASCADE
+            );
+            """)
+            try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_pending_experience_v2_dimensions_mutation ON pending_experience_v2_dimensions(mutationId);")
+            try executeRaw(handle, "PRAGMA user_version = 2;")
+        }
     }
 
     private static func userVersion(_ handle: OpaquePointer?) throws -> Int {

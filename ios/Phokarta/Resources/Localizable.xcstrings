@@ -5473,6 +5473,26 @@
         }
       }
     },
+    "experience.primary": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "What did you experience?" } }, "tr": { "stringUnit": { "state": "translated", "value": "Ne yaşadın?" } } } },
+    "experience.feeling": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "How did it feel?" } }, "tr": { "stringUnit": { "state": "translated", "value": "Nasıl hissettin?" } } } },
+    "experience.select": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Select" } }, "tr": { "stringUnit": { "state": "translated", "value": "Seç" } } } },
+    "experience.other": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Describe the experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimi açıkla" } } } },
+    "experience.context": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Context (optional)" } }, "tr": { "stringUnit": { "state": "translated", "value": "Bağlam (isteğe bağlı)" } } } },
+    "experience.none": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "None" } }, "tr": { "stringUnit": { "state": "translated", "value": "Yok" } } } },
+    "experience.companion": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "With whom" } }, "tr": { "stringUnit": { "state": "translated", "value": "Kiminle" } } } },
+    "experience.time": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Time of day" } }, "tr": { "stringUnit": { "state": "translated", "value": "Günün zamanı" } } } },
+    "experience.dimensions": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Experience details" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyim detayları" } } } },
+    "experience.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Card title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Kart başlığı" } } } },
+    "experience.title.generated": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Use generated title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Otomatik başlık kullan" } } } },
+    "experience.title.generated.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Phokarta will generate and persist the title." } }, "tr": { "stringUnit": { "state": "translated", "value": "Phokarta başlığı oluşturup kalıcı olarak kaydeder." } } } },
+    "experience.story": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Story" } }, "tr": { "stringUnit": { "state": "translated", "value": "Hikâye" } } } },
+    "experience.tip": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Tip" } }, "tr": { "stringUnit": { "state": "translated", "value": "İpucu" } } } },
+    "experience.error.primary": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Choose a primary experience." } }, "tr": { "stringUnit": { "state": "translated", "value": "Bir ana deneyim seç." } } } },
+    "experience.error.feeling": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Choose how the experience felt." } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimin nasıl hissettirdiğini seç." } } } },
+    "experience.error.content": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Add media, a story, or a tip." } }, "tr": { "stringUnit": { "state": "translated", "value": "Medya, hikâye veya ipucu ekle." } } } },
+    "experience.error.vibes": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Choose at most two vibes." } }, "tr": { "stringUnit": { "state": "translated", "value": "En fazla iki atmosfer seç." } } } },
+    "experience.error.media": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "An Experience can contain at most six images." } }, "tr": { "stringUnit": { "state": "translated", "value": "Bir Deneyim en fazla altı görsel içerebilir." } } } },
+    "experience.error.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Enter a custom title or use the generated title." } }, "tr": { "stringUnit": { "state": "translated", "value": "Özel bir başlık gir veya otomatik başlığı kullan." } } } },
     "saved.collections_tab": {
       "localizations": {
         "en": {

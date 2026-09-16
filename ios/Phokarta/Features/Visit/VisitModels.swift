@@ -89,6 +89,33 @@ struct VisitCreateRequest: Encodable, Equatable, Sendable {
     }
 }
 
+struct ExperienceV2CreateRequest: Encodable, Equatable, Sendable {
+    let clientMutationId: UUID
+    let placeId: UUID
+    let visitDate: String
+    let primaryExperienceCode: PrimaryExperienceCode
+    let rawExperienceLabel: String?
+    let overallFeelingCode: OverallFeelingCode
+    let companionCode: CompanionCode?
+    let timeOfDayCode: TimeOfDayCode?
+    let vibeCodes: [VibeCode]
+    let practicalSignalCodes: [PracticalSignalCode]
+    let dimensions: [ExperienceV2CreateDimension]
+    let title: String?
+    let titleSource: ExperienceTitleSource
+    let story: String?
+    let tip: String?
+    let privateMemory: String?
+    let visibility: VisitVisibility
+    let mediaIds: [UUID]
+}
+
+struct ExperienceV2CreateDimension: Encodable, Equatable, Sendable {
+    let key: String
+    let semanticStateCode: DimensionStateCode
+    let templateVersion: Int
+}
+
 /// Owner-only Visit response. This is the only iOS model that decodes `privateMemory`.
 struct OwnerVisit: Decodable, Equatable, Sendable, Identifiable {
     let id: UUID
@@ -168,6 +195,35 @@ enum VisitDimensionCatalog {
 
     static func title(for key: String) -> String {
         localizedName(for: key)
+    }
+}
+
+enum ExperienceDimensionCatalog {
+    static func keys(for primary: PrimaryExperienceCode?) -> [String] {
+        guard let primary else { return [] }
+        switch primary {
+        case .kahvalti, .ogunYemek, .kahve, .tatli, .sokakLezzeti, .yerelLezzet:
+            ["FOOD", "SERVICE", "ATMOSPHERE", "VALUE"]
+        case .gunBatimi, .gunDogumu, .manzara, .geceManzarasi, .fotografNoktasi:
+            ["SCENERY", "ATMOSPHERE", "TRANQUILITY", "ACCESS"]
+        case .denizYuzme, .plaj, .tekne, .dalisSnorkel, .suAktivitesi:
+            ["SEA", "CLEANLINESS", "COMFORT", "ACCESS"]
+        case .dogaYuruyusu, .piknik, .kamp, .orman, .golSelale, .seyirNoktasi:
+            ["SCENERY", "ROUTE", "TRANQUILITY", "ACCESS"]
+        case .sokakKesfi, .mahalleSehirGezisi, .sahilYuruyusu, .gizliKose, .rotaGezi:
+            ["ATMOSPHERE", "WALKABILITY", "LOCALITY", "DISCOVERY_VALUE"]
+        case .muze, .tarihiYer, .mimari, .yerelPazar, .yerelYasam, .sergiSanat:
+            ["CONTENT_INTEREST", "ATMOSPHERE", "ACCESS", "VALUE"]
+        case .canliMuzik, .barPub, .geceHayati, .konserGosteri, .sosyalEtkinlik:
+            ["ATMOSPHERE", "MUSIC_ENTERTAINMENT", "SERVICE", "VALUE"]
+        case .bisiklet, .tirmanis, .kayak, .suSporu, .workshop, .acikHavaAktivitesi:
+            ["FUN", "ORGANIZATION", "COMFORT_DIFFICULTY", "VALUE"]
+        case .sakinZaman, .spaHamam, .termal, .yogaMeditasyon, .dinlenme:
+            ["ATMOSPHERE", "COMFORT", "CLEANLINESS", "VALUE"]
+        case .otel, .butikOtel, .hostel, .kampKonaklamasi, .kiralikEvBungalov:
+            ["CLEANLINESS", "COMFORT", "LOCATION", "SERVICE"]
+        default: []
+        }
     }
 }
 
@@ -268,23 +324,23 @@ enum PrimaryExperienceCode: String, ExperienceWireCode, Equatable, CaseIterable 
     case other = "OTHER", unknownLegacy = "UNKNOWN_LEGACY", unknown = "UNKNOWN"
 }
 
-enum CompanionCode: String, ExperienceWireCode, Equatable {
+enum CompanionCode: String, ExperienceWireCode, Equatable, CaseIterable {
     case alone = "ALONE", partner = "PARTNER", friends = "FRIENDS", family = "FAMILY"
     case children = "CHILDREN", unknown = "UNKNOWN"
 }
 
-enum TimeOfDayCode: String, ExperienceWireCode, Equatable {
+enum TimeOfDayCode: String, ExperienceWireCode, Equatable, CaseIterable {
     case morning = "MORNING", daytime = "DAYTIME", evening = "EVENING", night = "NIGHT"
     case unknown = "UNKNOWN"
 }
 
-enum VibeCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum VibeCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case calm = "CALM", lively = "LIVELY", romantic = "ROMANTIC", social = "SOCIAL"
     case intimate = "INTIMATE", localAuthentic = "LOCAL_AUTHENTIC", scenic = "SCENIC"
     case adventurous = "ADVENTUROUS", unknown = "UNKNOWN"
 }
 
-enum PracticalSignalCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum PracticalSignalCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case accessibleWithoutCar = "ACCESSIBLE_WITHOUT_CAR", carRecommended = "CAR_RECOMMENDED"
     case parkingDifficult = "PARKING_DIFFICULT", reservationRecommended = "RESERVATION_RECOMMENDED"
     case noReservationNeeded = "NO_RESERVATION_NEEDED", weekendsCrowded = "WEEKENDS_CROWDED"
@@ -295,7 +351,7 @@ enum PracticalSignalCode: String, ExperienceWireCode, Equatable, CaseIterable {
     case free = "FREE", quietAreaAvailable = "QUIET_AREA_AVAILABLE", unknown = "UNKNOWN"
 }
 
-enum ExperienceTitleSource: String, ExperienceWireCode, Equatable {
+enum ExperienceTitleSource: String, ExperienceWireCode, Equatable, CaseIterable {
     case generated = "GENERATED", custom = "CUSTOM", unknown = "UNKNOWN"
 }
 

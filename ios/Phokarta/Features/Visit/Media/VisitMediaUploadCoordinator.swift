@@ -27,6 +27,7 @@ final class VisitMediaUploadCoordinator {
     private let draftRepository: (any VisitDraftRepository)?
     private let mediaStore: (any DurableMediaStoring)?
     private let mediaLock: MediaFileMutationLock
+    let maximumItems: Int
     private var draftProvider: (@MainActor () -> DurableVisitDraft)?
     private var uploadTask: Task<Void, Never>?
     private var selectionTasks: [UUID: Task<Void, Never>] = [:]
@@ -67,7 +68,7 @@ final class VisitMediaUploadCoordinator {
     }
 
     var remainingSlots: Int {
-        max(0, MediaContract.maxPerVisit - items.count - selectionTasks.count)
+        max(0, maximumItems - items.count - selectionTasks.count)
     }
 
     var isEmpty: Bool { items.isEmpty }
@@ -80,7 +81,8 @@ final class VisitMediaUploadCoordinator {
         placeId: UUID? = nil,
         draftRepository: (any VisitDraftRepository)? = nil,
         mediaStore: (any DurableMediaStoring)? = nil,
-        mediaLock: MediaFileMutationLock = .shared
+        mediaLock: MediaFileMutationLock = .shared,
+        maximumItems: Int = MediaContract.maxPerVisit
     ) {
         self.service = service
         self.accountId = accountId
@@ -88,6 +90,7 @@ final class VisitMediaUploadCoordinator {
         self.draftRepository = draftRepository
         self.mediaStore = mediaStore
         self.mediaLock = mediaLock
+        self.maximumItems = maximumItems
     }
 
     func configureDraftProvider(_ provider: @escaping @MainActor () -> DurableVisitDraft) {

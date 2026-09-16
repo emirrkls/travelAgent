@@ -2,6 +2,7 @@ import Foundation
 
 enum MutationType: String, Sendable, Codable, CaseIterable {
     case publishVisit = "PUBLISH_VISIT"
+    case publishExperienceV2 = "PUBLISH_EXPERIENCE_V2"
     case setSavedState = "SET_SAVED_STATE"
 }
 
@@ -155,6 +156,18 @@ struct DurableVisitDraft: Sendable, Equatable {
     public var updatedAtEpochMillis: Int64
     public var dimensions: [DurableDraftDimensionScore]
     public var photos: [DurableDraftPhoto]
+    public var payloadVersion: Int
+    public var primaryExperienceCode: String?
+    public var rawExperienceLabel: String?
+    public var overallFeelingCode: String?
+    public var companionCode: String?
+    public var timeOfDayCode: String?
+    public var vibeCodes: [String]
+    public var practicalSignalCodes: [String]
+    public var title: String?
+    public var titleSource: String
+    public var story: String
+    public var tip: String
 
     public init(
         userId: UUID,
@@ -168,7 +181,19 @@ struct DurableVisitDraft: Sendable, Equatable {
         createdAtEpochMillis: Int64,
         updatedAtEpochMillis: Int64,
         dimensions: [DurableDraftDimensionScore] = [],
-        photos: [DurableDraftPhoto] = []
+        photos: [DurableDraftPhoto] = [],
+        payloadVersion: Int = 1,
+        primaryExperienceCode: String? = nil,
+        rawExperienceLabel: String? = nil,
+        overallFeelingCode: String? = nil,
+        companionCode: String? = nil,
+        timeOfDayCode: String? = nil,
+        vibeCodes: [String] = [],
+        practicalSignalCodes: [String] = [],
+        title: String? = nil,
+        titleSource: String = "GENERATED",
+        story: String = "",
+        tip: String = ""
     ) {
         self.userId = userId
         self.placeId = placeId
@@ -182,6 +207,18 @@ struct DurableVisitDraft: Sendable, Equatable {
         self.updatedAtEpochMillis = updatedAtEpochMillis
         self.dimensions = dimensions
         self.photos = photos
+        self.payloadVersion = payloadVersion
+        self.primaryExperienceCode = primaryExperienceCode
+        self.rawExperienceLabel = rawExperienceLabel
+        self.overallFeelingCode = overallFeelingCode
+        self.companionCode = companionCode
+        self.timeOfDayCode = timeOfDayCode
+        self.vibeCodes = vibeCodes
+        self.practicalSignalCodes = practicalSignalCodes
+        self.title = title
+        self.titleSource = titleSource
+        self.story = story
+        self.tip = tip
     }
 
     public var isExpired: Bool {
@@ -195,12 +232,23 @@ struct DurableDraftDimensionScore: Sendable, Equatable {
     public let placeId: UUID
     public let dimensionKey: String
     public let score: Double
+    public let semanticStateCode: String?
+    public let templateVersion: Int?
 
-    public init(userId: UUID, placeId: UUID, dimensionKey: String, score: Double) {
+    public init(
+        userId: UUID,
+        placeId: UUID,
+        dimensionKey: String,
+        score: Double,
+        semanticStateCode: String? = nil,
+        templateVersion: Int? = nil
+    ) {
         self.userId = userId
         self.placeId = placeId
         self.dimensionKey = dimensionKey
         self.score = score
+        self.semanticStateCode = semanticStateCode
+        self.templateVersion = templateVersion
     }
 }
 
@@ -258,6 +306,7 @@ struct DurablePendingMutation: Sendable, Equatable {
     public let createdAtEpochMillis: Int64
     public var updatedAtEpochMillis: Int64
     public var lastErrorCategory: String?
+    public let payloadVersion: Int
 
     public init(
         mutationId: UUID,
@@ -269,7 +318,8 @@ struct DurablePendingMutation: Sendable, Equatable {
         attemptCount: Int,
         createdAtEpochMillis: Int64,
         updatedAtEpochMillis: Int64,
-        lastErrorCategory: String? = nil
+        lastErrorCategory: String? = nil,
+        payloadVersion: Int = 1
     ) {
         self.mutationId = mutationId
         self.userId = userId
@@ -281,7 +331,34 @@ struct DurablePendingMutation: Sendable, Equatable {
         self.createdAtEpochMillis = createdAtEpochMillis
         self.updatedAtEpochMillis = updatedAtEpochMillis
         self.lastErrorCategory = lastErrorCategory
+        self.payloadVersion = payloadVersion
     }
+}
+
+struct DurablePendingExperienceV2Payload: Sendable, Equatable {
+    let mutationId: UUID
+    let placeId: UUID
+    let visitedAtEpochDay: Int64
+    let primaryExperienceCode: String
+    let rawExperienceLabel: String?
+    let overallFeelingCode: String
+    let companionCode: String?
+    let timeOfDayCode: String?
+    let vibeCodes: [String]
+    let practicalSignalCodes: [String]
+    let title: String?
+    let titleSource: String
+    let story: String
+    let tip: String
+    let privateMemory: String
+    let visibility: String
+}
+
+struct DurablePendingExperienceV2Dimension: Sendable, Equatable {
+    let mutationId: UUID
+    let dimensionKey: String
+    let semanticStateCode: String
+    let templateVersion: Int
 }
 
 struct DurablePendingVisitPayload: Sendable, Equatable {
@@ -384,6 +461,13 @@ struct PendingVisitMutationBundle: Sendable {
         self.dimensions = dimensions
         self.photos = photos
     }
+}
+
+struct PendingExperienceV2MutationBundle: Sendable {
+    let mutation: DurablePendingMutation
+    let payload: DurablePendingExperienceV2Payload
+    let dimensions: [DurablePendingExperienceV2Dimension]
+    let photos: [DurablePendingPhoto]
 }
 
 struct PendingVisit: Sendable, Identifiable, Equatable {

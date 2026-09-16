@@ -41,35 +41,111 @@ struct VisitComposerScreen: View {
                     )
                 }
 
-                Section("visit.overall") {
-                    OverallRatingControl(value: controller.state.overallScore) { controller.setOverall($0) }
-                }
-
-                let keys = VisitDimensionCatalog.keys(for: controller.state.category)
-                if !keys.isEmpty {
-                    Section {
-                        ForEach(keys, id: \.self) { key in
-                            DimensionRatingRow(
-                                key: key,
-                                value: controller.state.dimensionScores[key],
-                                onEnable: { controller.enableDimension(key) },
-                                onChange: { controller.setDimension(key, value: $0) },
-                                onRemove: { controller.removeDimension(key) }
-                            )
+                Section("experience.primary") {
+                    Picker("experience.primary", selection: Binding(
+                        get: { controller.state.primaryExperience },
+                        set: { if let value = $0 { controller.setPrimaryExperience(value) } }
+                    )) {
+                        Text("experience.select").tag(PrimaryExperienceCode?.none)
+                        ForEach(PrimaryExperienceCode.allCases.filter { $0 != .unknown && $0 != .unknownLegacy }, id: \.rawValue) {
+                            Text(displayName($0.rawValue)).tag(Optional($0))
                         }
-                    } header: {
-                        Text("visit.dimensions")
-                    } footer: {
-                        Text("visit.dimensions.help")
+                    }
+                    if controller.state.primaryExperience == .other {
+                        TextField("experience.other", text: Binding(
+                            get: { controller.state.rawExperienceLabel },
+                            set: { controller.setRawExperienceLabel($0) }
+                        ))
                     }
                 }
 
-                Section {
-                    ReviewEditor(text: controller.state.publicReview) { controller.setReview($0) }
-                } header: {
-                    Text("visit.review")
-                } footer: {
+                Section("experience.feeling") {
+                    Picker("experience.feeling", selection: Binding(
+                        get: { controller.state.overallFeeling },
+                        set: { if let value = $0 { controller.setOverallFeeling(value) } }
+                    )) {
+                        Text("experience.select").tag(OverallFeelingCode?.none)
+                        ForEach(OverallFeelingCode.allCases.filter { $0 != .unknown }, id: \.rawValue) {
+                            Text(displayName($0.rawValue)).tag(Optional($0))
+                        }
+                    }
+                }
+
+                Section("experience.context") {
+                    Menu {
+                        Button("experience.none") { controller.setCompanion(nil) }
+                        ForEach(CompanionCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                            Button(displayName(value.rawValue)) { controller.setCompanion(value) }
+                        }
+                    } label: {
+                        LabeledContent("experience.companion", value: controller.state.companion.map { displayName($0.rawValue) } ?? String(localized: "experience.none"))
+                    }
+                    Menu {
+                        Button("experience.none") { controller.setTimeOfDay(nil) }
+                        ForEach(TimeOfDayCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                            Button(displayName(value.rawValue)) { controller.setTimeOfDay(value) }
+                        }
+                    } label: {
+                        LabeledContent("experience.time", value: controller.state.timeOfDay.map { displayName($0.rawValue) } ?? String(localized: "experience.none"))
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(VibeCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                                Button(displayName(value.rawValue)) { controller.toggleVibe(value) }
+                                    .buttonStyle(.bordered)
+                                    .tint(controller.state.vibes.contains(value) ? .accentColor : .secondary)
+                                    .disabled(!controller.state.vibes.contains(value) && controller.state.vibes.count >= 2)
+                            }
+                        }
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(PracticalSignalCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                                Button(displayName(value.rawValue)) { controller.togglePracticalSignal(value) }
+                                    .buttonStyle(.bordered)
+                                    .tint(controller.state.practicalSignals.contains(value) ? .accentColor : .secondary)
+                            }
+                        }
+                    }
+                }
+
+                let keys = ExperienceDimensionCatalog.keys(for: controller.state.primaryExperience)
+                if !keys.isEmpty {
+                    Section("experience.dimensions") {
+                        ForEach(keys, id: \.self) { key in
+                            Picker(VisitDimensionCatalog.localizedName(for: key), selection: Binding(
+                                get: { controller.state.semanticDimensions[key] },
+                                set: { controller.setSemanticDimension(key, value: $0) }
+                            )) {
+                                Text("experience.none").tag(DimensionStateCode?.none)
+                                ForEach(DimensionStateCode.allCases.filter { $0 != .unknown }, id: \.rawValue) {
+                                    Text(displayName($0.rawValue)).tag(Optional($0))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section("experience.title") {
+                    TextField("experience.title", text: Binding(
+                        get: { controller.state.title },
+                        set: { controller.setTitle($0) }
+                    ))
+                    if controller.state.titleSource == .custom {
+                        Button("experience.title.generated") { controller.useGeneratedTitle() }
+                    } else {
+                        Text("experience.title.generated.help").foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("experience.story") {
+                    ReviewEditor(text: controller.state.story) { controller.setReview($0) }
+                    TextField("experience.tip", text: Binding(
+                        get: { controller.state.tip },
+                        set: { controller.setTip($0) }
+                    ), axis: .vertical)
                     Text(String(localized: String.LocalizationValue(controller.state.visibility.helperLocalizationKey)))
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
 
                 Section {
@@ -147,5 +223,9 @@ struct VisitComposerScreen: View {
         case .validationFailure(let message): message
         case .policyRequired: String(localized: "visit.error.policy")
         }
+    }
+
+    private func displayName(_ code: String) -> String {
+        code.replacingOccurrences(of: "_", with: " ").capitalized
     }
 }

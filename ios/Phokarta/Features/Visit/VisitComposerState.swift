@@ -24,13 +24,30 @@ struct VisitComposerState: Equatable, Sendable {
     var mediaCount: Int = 0
     var mediaReadyForPublish: Bool = true
     var mediaHasActiveWork: Bool = false
+    var payloadVersion = 1
+    var primaryExperience: PrimaryExperienceCode?
+    var rawExperienceLabel = ""
+    var overallFeeling: OverallFeelingCode?
+    var semanticDimensions: [String: DimensionStateCode] = [:]
+    var companion: CompanionCode?
+    var timeOfDay: TimeOfDayCode?
+    var vibes: Set<VibeCode> = []
+    var practicalSignals: Set<PracticalSignalCode> = []
+    var title = ""
+    var titleSource: ExperienceTitleSource = .generated
+    var story = ""
+    var tip = ""
 
     var isDirty: Bool {
         overallScore != 8.0 || !dimensionScores.isEmpty ||
             !publicReview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !privateMemory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !Calendar.current.isDateInToday(visitedAt) || visibility != .publicAccess ||
-            mediaCount > 0
+            mediaCount > 0 || primaryExperience != nil || overallFeeling != nil ||
+            !semanticDimensions.isEmpty || companion != nil || timeOfDay != nil ||
+            !vibes.isEmpty || !practicalSignals.isEmpty || !title.isEmpty ||
+            !story.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !tip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var canPublish: Bool {

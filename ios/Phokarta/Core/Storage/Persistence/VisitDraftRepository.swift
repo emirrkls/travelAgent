@@ -35,7 +35,10 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
             """
             SELECT userId, placeId, overallScore, publicReview, privateMemory,
                    visitedAtEpochDay, visibility, dimensionsExpanded,
-                   createdAtEpochMillis, updatedAtEpochMillis
+                   createdAtEpochMillis, updatedAtEpochMillis, payloadVersion,
+                   primaryExperienceCode, rawExperienceLabel, overallFeelingCode,
+                   companionCode, timeOfDayCode, vibeCodes, practicalSignalCodes,
+                   title, titleSource, story, tip
             FROM visit_drafts
             WHERE userId = ? AND placeId = ?;
             """,
@@ -51,7 +54,19 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                 visibility: String(cString: sqlite3_column_text(stmt, 6)),
                 dimensionsExpanded: sqlite3_column_int(stmt, 7) != 0,
                 createdAtEpochMillis: sqlite3_column_int64(stmt, 8),
-                updatedAtEpochMillis: sqlite3_column_int64(stmt, 9)
+                updatedAtEpochMillis: sqlite3_column_int64(stmt, 9),
+                payloadVersion: Int(sqlite3_column_int(stmt, 10)),
+                primaryExperienceCode: sqlite3_column_text(stmt, 11).map { String(cString: $0) },
+                rawExperienceLabel: sqlite3_column_text(stmt, 12).map { String(cString: $0) },
+                overallFeelingCode: sqlite3_column_text(stmt, 13).map { String(cString: $0) },
+                companionCode: sqlite3_column_text(stmt, 14).map { String(cString: $0) },
+                timeOfDayCode: sqlite3_column_text(stmt, 15).map { String(cString: $0) },
+                vibeCodes: String(cString: sqlite3_column_text(stmt, 16)).split(separator: ",").map(String.init),
+                practicalSignalCodes: String(cString: sqlite3_column_text(stmt, 17)).split(separator: ",").map(String.init),
+                title: sqlite3_column_text(stmt, 18).map { String(cString: $0) },
+                titleSource: String(cString: sqlite3_column_text(stmt, 19)),
+                story: String(cString: sqlite3_column_text(stmt, 20)),
+                tip: String(cString: sqlite3_column_text(stmt, 21))
             )
         }
 
@@ -67,7 +82,7 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
         // Fetch dimension scores
         let dimensions = try await database.query(
             """
-            SELECT userId, placeId, dimensionKey, score
+            SELECT userId, placeId, dimensionKey, score, semanticStateCode, templateVersion
             FROM visit_draft_dimension_scores
             WHERE userId = ? AND placeId = ?;
             """,
@@ -77,7 +92,10 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                 userId: UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? userId,
                 placeId: UUID(uuidString: String(cString: sqlite3_column_text(stmt, 1))) ?? placeId,
                 dimensionKey: String(cString: sqlite3_column_text(stmt, 2)),
-                score: sqlite3_column_double(stmt, 3)
+                score: sqlite3_column_double(stmt, 3),
+                semanticStateCode: sqlite3_column_text(stmt, 4).map { String(cString: $0) },
+                templateVersion: sqlite3_column_type(stmt, 5) == SQLITE_NULL
+                    ? nil : Int(sqlite3_column_int(stmt, 5))
             )
         }
         draft.dimensions = dimensions
@@ -102,8 +120,11 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                 INSERT INTO visit_drafts (
                     userId, placeId, overallScore, publicReview, privateMemory,
                     visitedAtEpochDay, visibility, dimensionsExpanded,
-                    createdAtEpochMillis, updatedAtEpochMillis
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    createdAtEpochMillis, updatedAtEpochMillis, payloadVersion,
+                    primaryExperienceCode, rawExperienceLabel, overallFeelingCode,
+                    companionCode, timeOfDayCode, vibeCodes, practicalSignalCodes,
+                    title, titleSource, story, tip
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(userId, placeId) DO UPDATE SET
                     overallScore = excluded.overallScore,
                     publicReview = excluded.publicReview,
@@ -111,6 +132,18 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     visitedAtEpochDay = excluded.visitedAtEpochDay,
                     visibility = excluded.visibility,
                     dimensionsExpanded = excluded.dimensionsExpanded,
+                    payloadVersion = excluded.payloadVersion,
+                    primaryExperienceCode = excluded.primaryExperienceCode,
+                    rawExperienceLabel = excluded.rawExperienceLabel,
+                    overallFeelingCode = excluded.overallFeelingCode,
+                    companionCode = excluded.companionCode,
+                    timeOfDayCode = excluded.timeOfDayCode,
+                    vibeCodes = excluded.vibeCodes,
+                    practicalSignalCodes = excluded.practicalSignalCodes,
+                    title = excluded.title,
+                    titleSource = excluded.titleSource,
+                    story = excluded.story,
+                    tip = excluded.tip,
                     updatedAtEpochMillis = excluded.updatedAtEpochMillis;
                 """,
                 params: [
@@ -123,7 +156,19 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     draft.visibility,
                     draft.dimensionsExpanded,
                     draft.createdAtEpochMillis > 0 ? draft.createdAtEpochMillis : now,
-                    now
+                    now,
+                    draft.payloadVersion,
+                    draft.primaryExperienceCode,
+                    draft.rawExperienceLabel,
+                    draft.overallFeelingCode,
+                    draft.companionCode,
+                    draft.timeOfDayCode,
+                    draft.vibeCodes.sorted().joined(separator: ","),
+                    draft.practicalSignalCodes.sorted().joined(separator: ","),
+                    draft.title,
+                    draft.titleSource,
+                    draft.story,
+                    draft.tip
                 ]
             )
 
@@ -136,10 +181,14 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
             for score in draft.dimensions {
                 try db.execute(
                     """
-                    INSERT INTO visit_draft_dimension_scores (userId, placeId, dimensionKey, score)
-                    VALUES (?, ?, ?, ?);
+                    INSERT INTO visit_draft_dimension_scores
+                        (userId, placeId, dimensionKey, score, semanticStateCode, templateVersion)
+                    VALUES (?, ?, ?, ?, ?, ?);
                     """,
-                    params: [userId.uuidString, placeId.uuidString, score.dimensionKey, score.score]
+                    params: [
+                        userId.uuidString, placeId.uuidString, score.dimensionKey, score.score,
+                        score.semanticStateCode, score.templateVersion
+                    ]
                 )
             }
         }

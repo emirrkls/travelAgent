@@ -8,9 +8,16 @@ protocol OfflineMutationRepository: Sendable {
         photos: [DurablePendingPhoto],
         userId: UUID
     ) async throws -> UUID
+    func commitExperienceV2(
+        payload: DurablePendingExperienceV2Payload,
+        dimensions: [DurablePendingExperienceV2Dimension],
+        photos: [DurablePendingPhoto],
+        userId: UUID
+    ) async throws -> UUID
 
     func getEligibleMutations(userId: UUID, limit: Int) async throws -> [DurablePendingMutation]
     func getVisitBundle(mutationId: UUID) async throws -> PendingVisitMutationBundle?
+    func getExperienceV2Bundle(mutationId: UUID) async throws -> PendingExperienceV2MutationBundle?
     func claim(mutationId: UUID, now: Date) async throws -> Bool
     func recoverStaleSyncing(now: Date) async throws
     func markFailure(mutationId: UUID, generation: Int64, state: MutationState, category: String, now: Date) async throws
@@ -24,6 +31,21 @@ protocol OfflineMutationRepository: Sendable {
     func getPendingVisits(placeId: UUID, userId: UUID) async throws -> [PendingVisit]
     func getAllVisitPhotos() async throws -> [DurablePendingPhoto]
     func getVisitPhotos(mutationId: UUID) async throws -> [DurablePendingPhoto]
+}
+
+extension OfflineMutationRepository {
+    func commitExperienceV2(
+        payload: DurablePendingExperienceV2Payload,
+        dimensions: [DurablePendingExperienceV2Dimension],
+        photos: [DurablePendingPhoto],
+        userId: UUID
+    ) async throws -> UUID {
+        throw PersistenceError.executionFailed("V2 publication is unavailable")
+    }
+
+    func getExperienceV2Bundle(mutationId: UUID) async throws -> PendingExperienceV2MutationBundle? {
+        nil
+    }
 }
 
 final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable {
@@ -136,12 +158,81 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         return mutationId
     }
 
+    public func commitExperienceV2(
+        payload: DurablePendingExperienceV2Payload,
+        dimensions: [DurablePendingExperienceV2Dimension],
+        photos: [DurablePendingPhoto],
+        userId: UUID
+    ) async throws -> UUID {
+        guard photos.count <= 6 else { throw PersistenceError.conflict("V2 media limit exceeded") }
+        let now = clock.nowMillis()
+        let mutationId = payload.mutationId
+        try await database.withTransaction { db in
+            try db.execute(
+                """INSERT INTO pending_mutations (
+                    mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?);""",
+                params: [
+                    mutationId.uuidString, userId.uuidString, MutationType.publishExperienceV2.rawValue,
+                    mutationId.uuidString, MutationState.pending.rawValue, 1, 0, now, now, nil, 2
+                ]
+            )
+            try db.execute(
+                """INSERT INTO pending_experience_v2_payloads (
+                    mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
+                    overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
+                    title,titleSource,story,tip,privateMemory,visibility
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);""",
+                params: [
+                    mutationId.uuidString, payload.placeId.uuidString, payload.visitedAtEpochDay,
+                    payload.primaryExperienceCode, payload.rawExperienceLabel,
+                    payload.overallFeelingCode, payload.companionCode, payload.timeOfDayCode,
+                    payload.vibeCodes.sorted().joined(separator: ","),
+                    payload.practicalSignalCodes.sorted().joined(separator: ","),
+                    payload.title, payload.titleSource, payload.story, payload.tip,
+                    payload.privateMemory, payload.visibility
+                ]
+            )
+            for dimension in dimensions.sorted(by: { $0.dimensionKey < $1.dimensionKey }) {
+                try db.execute(
+                    """INSERT INTO pending_experience_v2_dimensions
+                        (mutationId,dimensionKey,semanticStateCode,templateVersion)
+                       VALUES (?,?,?,?);""",
+                    params: [
+                        mutationId.uuidString, dimension.dimensionKey,
+                        dimension.semanticStateCode, dimension.templateVersion
+                    ]
+                )
+            }
+            for photo in photos.sorted(by: { $0.position < $1.position }) {
+                try db.execute(
+                    """INSERT INTO pending_visit_photos (
+                        mutationId,position,ownerUserId,clientMediaId,localRelativePath,contentType,
+                        byteSize,width,height,remoteMediaId,uploadState,failureCategory
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);""",
+                    params: [
+                        mutationId.uuidString, photo.position, userId.uuidString,
+                        photo.clientMediaId.uuidString, photo.localRelativePath, photo.contentType,
+                        photo.byteSize, photo.width, photo.height, photo.remoteMediaId?.uuidString,
+                        photo.uploadState.rawValue, photo.failureCategory
+                    ]
+                )
+            }
+            try db.execute(
+                "DELETE FROM visit_drafts WHERE userId = ? AND placeId = ?;",
+                params: [userId.uuidString, payload.placeId.uuidString]
+            )
+        }
+        return mutationId
+    }
+
     public func getEligibleMutations(userId: UUID, limit: Int) async throws -> [DurablePendingMutation] {
         try await database.query(
             """
             SELECT mutationId, userId, type, resourceKey, state,
                    generation, attemptCount, createdAtEpochMillis,
-                   updatedAtEpochMillis, lastErrorCategory
+                   updatedAtEpochMillis, lastErrorCategory, payloadVersion
             FROM pending_mutations
             WHERE userId = ? AND state IN ('PENDING', 'FAILED_RETRYABLE')
             ORDER BY createdAtEpochMillis ASC
@@ -159,7 +250,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 attemptCount: Int(sqlite3_column_int(stmt, 6)),
                 createdAtEpochMillis: sqlite3_column_int64(stmt, 7),
                 updatedAtEpochMillis: sqlite3_column_int64(stmt, 8),
-                lastErrorCategory: sqlite3_column_text(stmt, 9).flatMap { String(cString: $0) }
+                lastErrorCategory: sqlite3_column_text(stmt, 9).flatMap { String(cString: $0) },
+                payloadVersion: Int(sqlite3_column_int(stmt, 10))
             )
         }
     }
@@ -169,7 +261,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             """
             SELECT mutationId, userId, type, resourceKey, state,
                    generation, attemptCount, createdAtEpochMillis,
-                   updatedAtEpochMillis, lastErrorCategory
+                   updatedAtEpochMillis, lastErrorCategory, payloadVersion
             FROM pending_mutations
             WHERE mutationId = ?;
             """,
@@ -185,7 +277,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 attemptCount: Int(sqlite3_column_int(stmt, 6)),
                 createdAtEpochMillis: sqlite3_column_int64(stmt, 7),
                 updatedAtEpochMillis: sqlite3_column_int64(stmt, 8),
-                lastErrorCategory: sqlite3_column_text(stmt, 9).flatMap { String(cString: $0) }
+                lastErrorCategory: sqlite3_column_text(stmt, 9).flatMap { String(cString: $0) },
+                payloadVersion: Int(sqlite3_column_int(stmt, 10))
             )
         }
         guard let mutation = mutations.first else { return nil }
@@ -233,6 +326,75 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             payload: payload,
             dimensions: dimensions,
             photos: photos
+        )
+    }
+
+    public func getExperienceV2Bundle(mutationId: UUID) async throws -> PendingExperienceV2MutationBundle? {
+        let mutations = try await database.query(
+            """SELECT mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                      createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
+               FROM pending_mutations WHERE mutationId = ? AND type = 'PUBLISH_EXPERIENCE_V2';""",
+            params: [mutationId.uuidString]
+        ) { stmt in
+            DurablePendingMutation(
+                mutationId: UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? mutationId,
+                userId: UUID(uuidString: String(cString: sqlite3_column_text(stmt, 1))) ?? UUID(),
+                type: .publishExperienceV2,
+                resourceKey: String(cString: sqlite3_column_text(stmt, 3)),
+                state: MutationState(rawValue: String(cString: sqlite3_column_text(stmt, 4))) ?? .pending,
+                generation: sqlite3_column_int64(stmt, 5),
+                attemptCount: Int(sqlite3_column_int(stmt, 6)),
+                createdAtEpochMillis: sqlite3_column_int64(stmt, 7),
+                updatedAtEpochMillis: sqlite3_column_int64(stmt, 8),
+                lastErrorCategory: sqlite3_column_text(stmt, 9).map { String(cString: $0) },
+                payloadVersion: Int(sqlite3_column_int(stmt, 10))
+            )
+        }
+        guard let mutation = mutations.first else { return nil }
+        let payloads = try await database.query(
+            """SELECT mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
+                      overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
+                      title,titleSource,story,tip,privateMemory,visibility
+               FROM pending_experience_v2_payloads WHERE mutationId = ?;""",
+            params: [mutationId.uuidString]
+        ) { stmt in
+            DurablePendingExperienceV2Payload(
+                mutationId: mutationId,
+                placeId: UUID(uuidString: String(cString: sqlite3_column_text(stmt, 1))) ?? UUID(),
+                visitedAtEpochDay: sqlite3_column_int64(stmt, 2),
+                primaryExperienceCode: String(cString: sqlite3_column_text(stmt, 3)),
+                rawExperienceLabel: sqlite3_column_text(stmt, 4).map { String(cString: $0) },
+                overallFeelingCode: String(cString: sqlite3_column_text(stmt, 5)),
+                companionCode: sqlite3_column_text(stmt, 6).map { String(cString: $0) },
+                timeOfDayCode: sqlite3_column_text(stmt, 7).map { String(cString: $0) },
+                vibeCodes: String(cString: sqlite3_column_text(stmt, 8)).split(separator: ",").map(String.init),
+                practicalSignalCodes: String(cString: sqlite3_column_text(stmt, 9)).split(separator: ",").map(String.init),
+                title: sqlite3_column_text(stmt, 10).map { String(cString: $0) },
+                titleSource: String(cString: sqlite3_column_text(stmt, 11)),
+                story: String(cString: sqlite3_column_text(stmt, 12)),
+                tip: String(cString: sqlite3_column_text(stmt, 13)),
+                privateMemory: String(cString: sqlite3_column_text(stmt, 14)),
+                visibility: String(cString: sqlite3_column_text(stmt, 15))
+            )
+        }
+        guard let payload = payloads.first else { return nil }
+        let dimensions = try await database.query(
+            """SELECT mutationId,dimensionKey,semanticStateCode,templateVersion
+               FROM pending_experience_v2_dimensions WHERE mutationId = ? ORDER BY dimensionKey;""",
+            params: [mutationId.uuidString]
+        ) { stmt in
+            DurablePendingExperienceV2Dimension(
+                mutationId: mutationId,
+                dimensionKey: String(cString: sqlite3_column_text(stmt, 1)),
+                semanticStateCode: String(cString: sqlite3_column_text(stmt, 2)),
+                templateVersion: Int(sqlite3_column_int(stmt, 3))
+            )
+        }
+        return PendingExperienceV2MutationBundle(
+            mutation: mutation,
+            payload: payload,
+            dimensions: dimensions,
+            photos: try await getVisitPhotos(mutationId: mutationId)
         )
     }
 
@@ -332,6 +494,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         userId: UUID,
         replaceExisting: Bool
     ) async throws -> RecoverFailedVisitResult {
+        if let native = try await getExperienceV2Bundle(mutationId: mutationId) {
+            return try await recoverFailedExperienceV2(
+                native, mutationId: mutationId, userId: userId, replaceExisting: replaceExisting
+            )
+        }
         guard let bundle = try await getVisitBundle(mutationId: mutationId) else {
             return .notFound
         }
@@ -458,6 +625,100 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         }
     }
 
+    private func recoverFailedExperienceV2(
+        _ bundle: PendingExperienceV2MutationBundle,
+        mutationId: UUID,
+        userId: UUID,
+        replaceExisting: Bool
+    ) async throws -> RecoverFailedVisitResult {
+        guard bundle.mutation.userId == userId else { return .notOwner }
+        guard bundle.mutation.state == .failedPermanent else { return .invalidState }
+        let placeId = bundle.payload.placeId
+        let existingCount = try await database.query(
+                """SELECT COUNT(*) FROM visit_drafts
+                   WHERE userId = ? AND placeId = ? AND
+                     (primaryExperienceCode IS NOT NULL OR overallFeelingCode IS NOT NULL OR
+                      story <> '' OR tip <> '' OR privateMemory <> '' OR title IS NOT NULL);""",
+                params: [userId.uuidString, placeId.uuidString],
+                mapRow: { Int(sqlite3_column_int($0, 0)) }
+           ).first ?? 0
+        if !replaceExisting && existingCount > 0 {
+            return .existingDraftConflict
+        }
+        let now = clock.nowMillis()
+        return try await database.withTransaction { db in
+            let p = bundle.payload
+            try db.execute(
+                """INSERT INTO visit_drafts (
+                    userId,placeId,overallScore,publicReview,privateMemory,visitedAtEpochDay,
+                    visibility,dimensionsExpanded,createdAtEpochMillis,updatedAtEpochMillis,
+                    payloadVersion,primaryExperienceCode,rawExperienceLabel,overallFeelingCode,
+                    companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,title,titleSource,story,tip
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(userId,placeId) DO UPDATE SET
+                    privateMemory=excluded.privateMemory,visitedAtEpochDay=excluded.visitedAtEpochDay,
+                    visibility=excluded.visibility,dimensionsExpanded=excluded.dimensionsExpanded,
+                    updatedAtEpochMillis=excluded.updatedAtEpochMillis,payloadVersion=2,
+                    primaryExperienceCode=excluded.primaryExperienceCode,
+                    rawExperienceLabel=excluded.rawExperienceLabel,
+                    overallFeelingCode=excluded.overallFeelingCode,companionCode=excluded.companionCode,
+                    timeOfDayCode=excluded.timeOfDayCode,vibeCodes=excluded.vibeCodes,
+                    practicalSignalCodes=excluded.practicalSignalCodes,title=excluded.title,
+                    titleSource=excluded.titleSource,story=excluded.story,tip=excluded.tip;""",
+                params: [
+                    userId.uuidString, placeId.uuidString, 8.0, p.story, p.privateMemory,
+                    p.visitedAtEpochDay, p.visibility, !bundle.dimensions.isEmpty, now, now, 2,
+                    p.primaryExperienceCode, p.rawExperienceLabel, p.overallFeelingCode,
+                    p.companionCode, p.timeOfDayCode, p.vibeCodes.sorted().joined(separator: ","),
+                    p.practicalSignalCodes.sorted().joined(separator: ","), p.title,
+                    p.titleSource, p.story, p.tip
+                ]
+            )
+            try db.execute(
+                "DELETE FROM visit_draft_dimension_scores WHERE userId = ? AND placeId = ?;",
+                params: [userId.uuidString, placeId.uuidString]
+            )
+            for dimension in bundle.dimensions {
+                let score = DimensionStateCode(rawValue: dimension.semanticStateCode)?.compatibilityScore ?? 0
+                try db.execute(
+                    """INSERT INTO visit_draft_dimension_scores
+                        (userId,placeId,dimensionKey,score,semanticStateCode,templateVersion)
+                       VALUES (?,?,?,?,?,?);""",
+                    params: [
+                        userId.uuidString, placeId.uuidString, dimension.dimensionKey,
+                        Double(score), dimension.semanticStateCode, dimension.templateVersion
+                    ]
+                )
+            }
+            try db.execute(
+                "DELETE FROM visit_draft_photos WHERE ownerUserId = ? AND placeId = ?;",
+                params: [userId.uuidString, placeId.uuidString]
+            )
+            for photo in bundle.photos.sorted(by: { $0.position < $1.position }) {
+                try db.execute(
+                    """INSERT INTO visit_draft_photos (
+                        ownerUserId,placeId,position,clientMediaId,localRelativePath,contentType,
+                        byteSize,width,height,remoteMediaId,uploadState,failureCategory
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);""",
+                    params: [
+                        userId.uuidString, placeId.uuidString, photo.position,
+                        photo.clientMediaId.uuidString, photo.localRelativePath ?? "",
+                        photo.contentType ?? "image/jpeg", photo.byteSize ?? 0,
+                        photo.width, photo.height, photo.remoteMediaId?.uuidString,
+                        photo.uploadState.rawValue, photo.failureCategory
+                    ]
+                )
+            }
+            guard try db.execute(
+                "DELETE FROM pending_mutations WHERE mutationId = ? AND userId = ? AND state = 'FAILED_PERMANENT';",
+                params: [mutationId.uuidString, userId.uuidString]
+            ) == 1 else {
+                throw PersistenceError.executionFailed("Failed mutation state changed during recovery")
+            }
+            return .success
+        }
+    }
+
     public func removeFailedVisit(mutationId: UUID, userId: UUID) async throws -> RemoveFailedVisitResult {
         let rows = try await database.query(
             "SELECT userId, state FROM pending_mutations WHERE mutationId = ?;",
@@ -549,6 +810,40 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     lastErrorCategory: errorCategory
                 )
             )
+        }
+        let nativeMutationIds = try await database.query(
+            "SELECT mutationId FROM pending_mutations WHERE userId = ? AND type = 'PUBLISH_EXPERIENCE_V2' ORDER BY createdAtEpochMillis DESC;",
+            params: [userId.uuidString],
+            mapRow: { UUID(uuidString: String(cString: sqlite3_column_text($0, 0))) }
+        ).compactMap { $0 }
+        for mutationId in nativeMutationIds {
+            guard let bundle = try await getExperienceV2Bundle(mutationId: mutationId) else { continue }
+            let rating: Double
+            switch bundle.payload.overallFeelingCode {
+            case "BAYILDIM": rating = 10
+            case "GUZELDI": rating = 8
+            case "EH_ISTE": rating = 6
+            case "BEKLENTIMI_KARSILAMADI": rating = 4
+            case "BIR_DAHA_TERCIH_ETMEM": rating = 2
+            default: rating = 0
+            }
+            let dimensionScores = Dictionary(uniqueKeysWithValues: bundle.dimensions.map { row in
+                (row.dimensionKey, Double(DimensionStateCode(rawValue: row.semanticStateCode)?.compatibilityScore ?? 0))
+            })
+            results.append(PendingVisit(
+                mutationId: mutationId,
+                placeId: bundle.payload.placeId,
+                userId: bundle.mutation.userId,
+                visitedAt: Date(timeIntervalSince1970: Double(bundle.payload.visitedAtEpochDay) * 86400),
+                overallRating: rating,
+                ratingDimensions: dimensionScores,
+                review: bundle.payload.story,
+                personalNote: bundle.payload.privateMemory,
+                photos: bundle.photos.sorted(by: { $0.position < $1.position }).compactMap(\.localRelativePath),
+                visibility: VisitVisibility(rawValue: bundle.payload.visibility) ?? .publicAccess,
+                state: bundle.mutation.state,
+                lastErrorCategory: bundle.mutation.lastErrorCategory
+            ))
         }
         return results
     }

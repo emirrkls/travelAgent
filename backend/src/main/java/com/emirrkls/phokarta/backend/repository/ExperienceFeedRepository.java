@@ -66,7 +66,7 @@ public class ExperienceFeedRepository {
                     + "or lower(coalesce(detail.raw_experience_label, '')) like :search escape '!' "
                     + "or replace(lower(coalesce(detail.primary_experience_code, '')), '_', ' ') like :search escape '!' "
                     + (query.searchPrimaryCode() == null
-                    ? "false)"
+                    ? ")"
                     : "or detail.primary_experience_code = :searchPrimaryCode)"));
             parameters.addValue("search", query.searchPattern());
             if (query.searchPrimaryCode() != null) {

@@ -495,3 +495,153 @@ final class ExperienceV2FoundationTests: XCTestCase {
     }
     """
 }
+
+@MainActor
+final class PrivacyAggregateV2FoundationTests: XCTestCase {
+    func testRelationshipAndPendingRequestDecodeWithoutApprovedFollowGuessing() throws {
+        let profile = try decodeProfile(Self.identityOnlyProfile)
+        let request = try APIJSON.decoder.decode(FollowRequestV2.self, from: Data(Self.requestFixture.utf8))
+        XCTAssertEqual(profile.relationship?.state, .requestPending)
+        XCTAssertTrue(profile.relationship?.isPending == true)
+        XCTAssertFalse(profile.relationship?.isFriend == true)
+        XCTAssertEqual(request.status, .pending)
+        XCTAssertNil(request.resolvedAt)
+    }
+
+    func testPrivateIdentityOnlyAndOwnerFullPresentationStates() throws {
+        let identityOnly = try decodeProfile(Self.identityOnlyProfile)
+        let owner = try decodeProfile(Self.fullProfile)
+        XCTAssertEqual(identityOnly.profileVisibility, .privateAccess)
+        XCTAssertTrue(identityOnly.isIdentityOnly)
+        XCTAssertNil(identityOnly.cityCount)
+        XCTAssertNil(identityOnly.followerCount)
+        XCTAssertNil(identityOnly.visibleExperienceCount)
+        XCTAssertTrue(owner.fullProfile)
+        XCTAssertEqual(owner.visibleExperienceCount, 8)
+    }
+
+    func testMutualFriendIsDistinctFromOneWayFollowing() throws {
+        let friend = try decodeProfile(Self.fullProfile)
+        let following = try decodeProfile(Self.fullProfile.replacingOccurrences(of: "FRIENDS", with: "FOLLOWING"))
+        XCTAssertTrue(friend.relationship?.isFriend == true)
+        XCTAssertFalse(following.relationship?.isFriend == true)
+    }
+
+    func testBlockInvalidationHidesRelationshipDirection() throws {
+        let relationship = try XCTUnwrap(decodeProfile(Self.fullProfile).relationship)
+            .invalidatedByBlock()
+        XCTAssertEqual(relationship.state, .unavailable)
+        XCTAssertFalse(relationship.followsYou)
+        XCTAssertFalse(relationship.canFollow)
+        XCTAssertFalse(relationship.canCancelRequest)
+    }
+
+    func testAggregateDecodesSeparateCountsAndCompatibilityDetails() throws {
+        let aggregate = try APIJSON.decoder.decode(PlaceAggregateV2.self, from: Data(Self.aggregateFixture.utf8))
+        XCTAssertEqual(aggregate.visibleExperienceCount, 1)
+        XCTAssertEqual(aggregate.communityContributionCount, 4)
+        XCTAssertEqual(aggregate.feelings.first?.code, .bayildim)
+        XCTAssertEqual(aggregate.dimensions.first?.legacyNumericContributionCount, 1)
+        XCTAssertEqual(aggregate.dimensions.first?.semanticDistribution.first?.state, .veryGood)
+        XCTAssertEqual(aggregate.practicalSignals.first?.code, .arriveEarly)
+        XCTAssertEqual(aggregate.practicalSignals.first?.eligibleContributionDenominator, 4)
+    }
+
+    func testUnknownFuturePrivacyAndAggregateCodesUseFallbacks() throws {
+        let profile = try decodeProfile(Self.identityOnlyProfile
+            .replacingOccurrences(of: "PRIVATE", with: "FUTURE_PRIVACY")
+            .replacingOccurrences(of: "REQUEST_PENDING", with: "FUTURE_RELATIONSHIP"))
+        let aggregate = try APIJSON.decoder.decode(PlaceAggregateV2.self, from: Data(Self.aggregateFixture
+            .replacingOccurrences(of: "BAYILDIM", with: "FUTURE_FEELING")
+            .replacingOccurrences(of: "VERY_GOOD", with: "FUTURE_STATE")
+            .replacingOccurrences(of: "ARRIVE_EARLY", with: "FUTURE_SIGNAL").utf8))
+        XCTAssertEqual(profile.profileVisibility, .unknown)
+        XCTAssertEqual(profile.relationship?.state, .unknown)
+        XCTAssertEqual(aggregate.feelings.first?.code, .unknown)
+        XCTAssertEqual(aggregate.dimensions.first?.semanticDistribution.first?.state, .unknown)
+        XCTAssertEqual(aggregate.practicalSignals.first?.code, .unknown)
+    }
+
+    func testAccountSwitchClearsPrivacyAndRequestState() throws {
+        let store = PrivacySocialStateStore()
+        let first = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let second = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+        store.activate(accountID: first)
+        store.replace(
+            profile: try decodeProfile(Self.fullProfile),
+            incomingRequests: [try APIJSON.decoder.decode(
+                FollowRequestV2.self, from: Data(Self.requestFixture.utf8)
+            )]
+        )
+        store.activate(accountID: second)
+        XCTAssertNil(store.profile)
+        XCTAssertTrue(store.incomingRequests.isEmpty)
+        XCTAssertEqual(store.accountID, second)
+    }
+
+    func testV2FollowAndPlaceRoutesAreVersionedWithoutV1Mutation() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let user = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let place = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
+        let follow = try client.makeRequest(FollowV2Endpoint(userId: user))
+        let aggregate = try client.makeRequest(PlaceAggregateV2Endpoint(placeId: place))
+        XCTAssertEqual(follow.httpMethod, "POST")
+        XCTAssertEqual(follow.url?.path, "/api/v2/users/\(user.uuidString.lowercased())/follow")
+        XCTAssertEqual(aggregate.httpMethod, "GET")
+        XCTAssertEqual(aggregate.url?.path, "/api/v2/places/\(place.uuidString.lowercased())")
+    }
+
+    private func decodeProfile(_ fixture: String) throws -> ProfileV2 {
+        try APIJSON.decoder.decode(ProfileV2.self, from: Data(fixture.utf8))
+    }
+
+    private static let identityOnlyProfile = """
+    {
+      "id":"22222222-2222-2222-2222-222222222222",
+      "username":"private_user",
+      "displayName":"Private User",
+      "avatarUrl":null,
+      "bio":"Short bio",
+      "profileVisibility":"PRIVATE",
+      "fullProfile":false,
+      "relationship":{"state":"REQUEST_PENDING","followsYou":false,"canFollow":false,"canCancelRequest":true},
+      "cityCount":null,
+      "countryCount":null,
+      "followerCount":null,
+      "followingCount":null,
+      "friendCount":null,
+      "visibleExperienceCount":null
+    }
+    """
+
+    private static let fullProfile = identityOnlyProfile
+        .replacingOccurrences(of: "\"fullProfile\":false", with: "\"fullProfile\":true")
+        .replacingOccurrences(of: "REQUEST_PENDING", with: "FRIENDS")
+        .replacingOccurrences(of: "\"cityCount\":null", with: "\"cityCount\":5")
+        .replacingOccurrences(of: "\"countryCount\":null", with: "\"countryCount\":2")
+        .replacingOccurrences(of: "\"followerCount\":null", with: "\"followerCount\":10")
+        .replacingOccurrences(of: "\"followingCount\":null", with: "\"followingCount\":4")
+        .replacingOccurrences(of: "\"friendCount\":null", with: "\"friendCount\":3")
+        .replacingOccurrences(of: "\"visibleExperienceCount\":null", with: "\"visibleExperienceCount\":8")
+
+    private static let requestFixture = """
+    {
+      "id":"33333333-3333-3333-3333-333333333333",
+      "requester":{"id":"11111111-1111-1111-1111-111111111111","username":"requester","displayName":"Requester","avatarUrl":null},
+      "status":"PENDING",
+      "createdAt":"2026-09-16T10:00:00Z",
+      "resolvedAt":null
+    }
+    """
+
+    private static let aggregateFixture = """
+    {
+      "place":{"id":"20000000-0000-0000-0000-000000000001","name":"Foça","category":"BEACH","city":"İzmir","region":"Aegean","country":"Türkiye","coverImage":""},
+      "visibleExperienceCount":1,
+      "communityContributionCount":4,
+      "feelings":[{"code":"BAYILDIM","contributionCount":2}],
+      "dimensions":[{"key":"SCENERY","contributionCount":2,"numericAverage":8.0,"legacyNumericContributionCount":1,"semanticDistribution":[{"state":"VERY_GOOD","contributionCount":1}]}],
+      "practicalSignals":[{"code":"ARRIVE_EARLY","contributionCount":1,"eligibleContributionDenominator":4}]
+    }
+    """
+}

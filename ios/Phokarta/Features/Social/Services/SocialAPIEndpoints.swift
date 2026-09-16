@@ -172,3 +172,86 @@ struct ActivityEndpoint: APIEndpoint {
         ]
     }
 }
+
+// MARK: - Additive V2 privacy endpoints
+
+struct CapabilitiesV2Endpoint: APIEndpoint {
+    typealias Response = CapabilitiesV2
+    var method: HTTPMethod { .get }
+    var path: String { "api/v2/capabilities" }
+    var requiresAuthentication: Bool { false }
+}
+
+struct ProfileV2Endpoint: APIEndpoint {
+    typealias Response = ProfileV2
+    let userId: UUID
+    var method: HTTPMethod { .get }
+    var path: String { "api/v2/users/\(userId.uuidString.lowercased())" }
+    var requiresAuthentication: Bool { false }
+}
+
+struct FollowV2Endpoint: APIEndpoint {
+    typealias Response = RelationshipV2
+    let userId: UUID
+    var method: HTTPMethod { .post }
+    var path: String { "api/v2/users/\(userId.uuidString.lowercased())/follow" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct UnfollowV2Endpoint: APIEndpoint {
+    typealias Response = RelationshipV2
+    let userId: UUID
+    var method: HTTPMethod { .delete }
+    var path: String { "api/v2/users/\(userId.uuidString.lowercased())/follow" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct CancelFollowRequestV2Endpoint: APIEndpoint {
+    typealias Response = RelationshipV2
+    let userId: UUID
+    var method: HTTPMethod { .delete }
+    var path: String { "api/v2/users/\(userId.uuidString.lowercased())/follow-request" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct UpdateProfileVisibilityV2Endpoint: APIEndpoint {
+    typealias Response = ProfileV2
+    typealias Body = ProfileVisibilityUpdateBody
+    let body: ProfileVisibilityUpdateBody?
+    var method: HTTPMethod { .put }
+    var path: String { "api/v2/me/profile-visibility" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct FollowRequestsV2Endpoint: APIEndpoint {
+    typealias Response = SocialPageResponse<FollowRequestV2>
+    let page: Int
+    let size: Int
+    var method: HTTPMethod { .get }
+    var path: String { "api/v2/me/follow-requests" }
+    var requiresAuthentication: Bool { true }
+    var queryItems: [URLQueryItem] {
+        [URLQueryItem(name: "page", value: String(page)),
+         URLQueryItem(name: "size", value: String(size))]
+    }
+}
+
+struct ResolveFollowRequestV2Endpoint: APIEndpoint {
+    typealias Response = RelationshipV2
+    enum Resolution: String, Sendable { case approve, reject }
+    let requestId: UUID
+    let resolution: Resolution
+    var method: HTTPMethod { .post }
+    var path: String {
+        "api/v2/me/follow-requests/\(requestId.uuidString.lowercased())/\(resolution.rawValue)"
+    }
+    var requiresAuthentication: Bool { true }
+}
+
+struct PlaceAggregateV2Endpoint: APIEndpoint {
+    typealias Response = PlaceAggregateV2
+    let placeId: UUID
+    var method: HTTPMethod { .get }
+    var path: String { "api/v2/places/\(placeId.uuidString.lowercased())" }
+    var requiresAuthentication: Bool { false }
+}

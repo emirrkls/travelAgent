@@ -59,6 +59,65 @@ struct SocialService: SocialServing {
     }
 }
 
+protocol PrivacyV2Serving: Sendable {
+    func capabilities() async throws -> CapabilitiesV2
+    func profile(userId: UUID) async throws -> ProfileV2
+    func follow(userId: UUID) async throws -> RelationshipV2
+    func unfollow(userId: UUID) async throws -> RelationshipV2
+    func cancelFollowRequest(userId: UUID) async throws -> RelationshipV2
+    func updateProfileVisibility(_ visibility: ProfileVisibilityV2) async throws -> ProfileV2
+    func followRequests(page: Int, size: Int) async throws -> SocialPageResponse<FollowRequestV2>
+    func approve(requestId: UUID) async throws -> RelationshipV2
+    func reject(requestId: UUID) async throws -> RelationshipV2
+    func placeAggregate(placeId: UUID) async throws -> PlaceAggregateV2
+}
+
+struct PrivacyV2Service: PrivacyV2Serving {
+    let client: APIClient
+
+    func capabilities() async throws -> CapabilitiesV2 {
+        try await client.send(CapabilitiesV2Endpoint())
+    }
+
+    func profile(userId: UUID) async throws -> ProfileV2 {
+        try await client.send(ProfileV2Endpoint(userId: userId))
+    }
+
+    func follow(userId: UUID) async throws -> RelationshipV2 {
+        try await client.send(FollowV2Endpoint(userId: userId))
+    }
+
+    func unfollow(userId: UUID) async throws -> RelationshipV2 {
+        try await client.send(UnfollowV2Endpoint(userId: userId))
+    }
+
+    func cancelFollowRequest(userId: UUID) async throws -> RelationshipV2 {
+        try await client.send(CancelFollowRequestV2Endpoint(userId: userId))
+    }
+
+    func updateProfileVisibility(_ visibility: ProfileVisibilityV2) async throws -> ProfileV2 {
+        try await client.send(UpdateProfileVisibilityV2Endpoint(
+            body: ProfileVisibilityUpdateBody(visibility: visibility)
+        ))
+    }
+
+    func followRequests(page: Int = 0, size: Int = 20) async throws -> SocialPageResponse<FollowRequestV2> {
+        try await client.send(FollowRequestsV2Endpoint(page: page, size: size))
+    }
+
+    func approve(requestId: UUID) async throws -> RelationshipV2 {
+        try await client.send(ResolveFollowRequestV2Endpoint(requestId: requestId, resolution: .approve))
+    }
+
+    func reject(requestId: UUID) async throws -> RelationshipV2 {
+        try await client.send(ResolveFollowRequestV2Endpoint(requestId: requestId, resolution: .reject))
+    }
+
+    func placeAggregate(placeId: UUID) async throws -> PlaceAggregateV2 {
+        try await client.send(PlaceAggregateV2Endpoint(placeId: placeId))
+    }
+}
+
 struct ActivityService: ActivityServing {
     private let client: APIClient
 

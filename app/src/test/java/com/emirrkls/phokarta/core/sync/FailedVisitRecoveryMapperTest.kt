@@ -2,12 +2,18 @@ package com.emirrkls.phokarta.core.sync
 
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.database.dao.PendingVisitMutation
+import com.emirrkls.phokarta.core.database.dao.PendingExperienceV2Mutation
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
 import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2DimensionEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2PayloadEntity
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.feature.rating.VisitDraft
@@ -49,6 +55,41 @@ class FailedVisitRecoveryMapperTest {
         assertTrue(FailedVisitRecoveryMapper.hasMeaningfulDraftConflict(meaningful))
         assertFalse(FailedVisitRecoveryMapper.hasMeaningfulDraftConflict(empty))
         assertFalse(FailedVisitRecoveryMapper.hasMeaningfulDraftConflict(null))
+    }
+
+    @Test
+    fun nativeV2FailureRestoresExactSemanticPayloadAndOrderedMedia() {
+        val mutationId = "native-v2"
+        val item = PendingExperienceV2Mutation(
+            mutation = PendingMutationEntity(
+                mutationId, USER, MutationTypeValue.PUBLISH_EXPERIENCE_V2, mutationId,
+                MutationStateValue.FAILED_PERMANENT, 1, null, 1, 10, 10, "VALIDATION", 2,
+            ),
+            payload = PendingExperienceV2PayloadEntity(
+                mutationId, PLACE, LocalDate.of(2026, 9, 16).toEpochDay(),
+                "GUN_BATIMI", null, "BAYILDIM", "PARTNER", "EVENING",
+                "CALM,SCENIC", "ARRIVE_EARLY,FREE", "Golden hour", "CUSTOM",
+                "story", "tip", "owner only", "FRIENDS",
+            ),
+            dimensions = listOf(
+                PendingExperienceV2DimensionEntity(mutationId, "SCENERY", "VERY_GOOD", 1),
+            ),
+            photos = listOf(
+                PendingVisitPhotoEntity(mutationId, 0, "owned/first.jpg"),
+                PendingVisitPhotoEntity(mutationId, 1, "owned/second.jpg"),
+            ),
+        )
+
+        val draft = FailedVisitRecoveryMapper.toDraft(item)
+
+        assertEquals(2, draft.payloadVersion)
+        assertEquals(PrimaryExperienceCode.GUN_BATIMI, draft.primaryExperience)
+        assertEquals(OverallFeelingCode.BAYILDIM, draft.overallFeeling)
+        assertEquals(mapOf("SCENERY" to DimensionStateCode.VERY_GOOD), draft.semanticDimensions)
+        assertEquals("story", draft.story)
+        assertEquals("tip", draft.tip)
+        assertEquals("owner only", draft.privateMemory)
+        assertEquals(listOf("owned/first.jpg", "owned/second.jpg"), draft.photos)
     }
 
     @Test

@@ -14,6 +14,15 @@ import com.emirrkls.phokarta.core.database.entity.VisitDraftEntity
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.CompanionCode
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.TimeOfDayCode
+import com.emirrkls.phokarta.core.model.VibeCode
+import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.core.time.EpochClock
 import com.emirrkls.phokarta.core.media.MediaFileMutationLock
 import com.emirrkls.phokarta.core.media.VisitMediaStore
@@ -89,6 +98,37 @@ class OfflineMutationRepositoryInstrumentedTest {
         assertEquals(true, rows.single().desiredSaved)
         assertEquals(3, rows.single().generation)
         assertTrue(database.savedPlaceDao().getSavedPlace(USER_A, PLACE) != null)
+    }
+
+    @Test fun nativeV2DraftCommitsToExplicitVersionedPayloadWithStableCodes() = runTest {
+        val draft = VisitDraft(
+            visitDate = LocalDate.of(2026, 9, 16),
+            visibility = Visibility.FRIENDS,
+            primaryExperience = PrimaryExperienceCode.GUN_BATIMI,
+            overallFeeling = OverallFeelingCode.BAYILDIM,
+            semanticDimensions = mapOf("SCENERY" to DimensionStateCode.VERY_GOOD),
+            companion = CompanionCode.PARTNER,
+            timeOfDay = TimeOfDayCode.EVENING,
+            vibes = setOf(VibeCode.SCENIC, VibeCode.CALM),
+            practicalSignals = setOf(PracticalSignalCode.FREE, PracticalSignalCode.ARRIVE_EARLY),
+            title = "Golden hour",
+            titleSource = ExperienceTitleSource.CUSTOM,
+            story = "story",
+            tip = "arrive early",
+            privateMemory = "owner only",
+        )
+
+        val mutationId = repository.commitExperienceV2(PLACE, draft)
+        val pending = database.pendingMutationDao().getExperienceV2(mutationId)!!
+
+        assertEquals(2, pending.mutation.payloadVersion)
+        assertEquals(MutationTypeValue.PUBLISH_EXPERIENCE_V2, pending.mutation.type)
+        assertEquals("GUN_BATIMI", pending.payload.primaryExperienceCode)
+        assertEquals("BAYILDIM", pending.payload.overallFeelingCode)
+        assertEquals("CALM,SCENIC", pending.payload.vibeCodes)
+        assertEquals("ARRIVE_EARLY,FREE", pending.payload.practicalSignalCodes)
+        assertEquals("VERY_GOOD", pending.dimensions.single().semanticStateCode)
+        assertEquals(mutationId, repository.observePendingVisits().first().single().mutationId)
     }
 
     @Test fun multiplePendingVisitsForSamePlaceRemainDistinct() = runTest {

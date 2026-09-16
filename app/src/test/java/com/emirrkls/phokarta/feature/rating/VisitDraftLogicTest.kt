@@ -3,6 +3,10 @@ package com.emirrkls.phokarta.feature.rating
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.VibeCode
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
 import com.emirrkls.phokarta.core.network.mapper.toCreateDto
 import com.emirrkls.phokarta.ui.localization.ScoreBand
 import com.emirrkls.phokarta.ui.localization.labelRes
@@ -37,7 +41,7 @@ class VisitDraftLogicTest {
 
     @Test
     fun canPublishRequiresValidDateAndScore() {
-        val valid = VisitDraft(overallScore = 8f, visitDate = today)
+        val valid = VisitDraft(payloadVersion = 1, overallScore = 8f, visitDate = today)
         assertTrue(VisitDraftLogic.canPublish(valid, today))
 
         val future = valid.copy(visitDate = today.plusDays(1))
@@ -48,6 +52,7 @@ class VisitDraftLogicTest {
     @Test
     fun optionalReviewAndMemoryAreNotRequired() {
         val draft = VisitDraft(
+            payloadVersion = 1,
             overallScore = 7.5f,
             publicReview = "",
             privateMemory = "",
@@ -59,6 +64,7 @@ class VisitDraftLogicTest {
     @Test
     fun toVisitMapsFieldsAndTrimsText() {
         val draft = VisitDraft(
+            payloadVersion = 1,
             overallScore = 8.24f,
             dimensions = mapOf(RatingDimension.FOOD to 9.15f),
             publicReview = "  Great cove  ",
@@ -86,7 +92,7 @@ class VisitDraftLogicTest {
             Visibility.PRIVATE to "PRIVATE",
         ).forEach { (visibility, expected) ->
             val visit = VisitDraftLogic.toVisit(
-                VisitDraft(visibility = visibility, visitDate = today),
+                VisitDraft(payloadVersion = 1, visibility = visibility, visitDate = today),
                 placeId = "20000000-0000-0000-0000-000000000001",
                 userId = "11111111-1111-1111-1111-111111111111",
             )
@@ -97,7 +103,7 @@ class VisitDraftLogicTest {
 
     @Test
     fun historicalDateIsAllowed() {
-        val draft = VisitDraft(visitDate = today.minusYears(1))
+        val draft = VisitDraft(payloadVersion = 1, visitDate = today.minusYears(1))
         assertNull(VisitDraftLogic.validateDateRes(draft.visitDate, today))
         assertTrue(VisitDraftLogic.canPublish(draft, today))
     }
@@ -111,6 +117,49 @@ class VisitDraftLogicTest {
                 today,
             ),
         )
+    }
+
+    @Test
+    fun nativeV2RequiresPrimaryFeelingAndContentWithoutNumericInput() {
+        val base = VisitDraft(
+            visitDate = today,
+            primaryExperience = PrimaryExperienceCode.GUN_BATIMI,
+            overallFeeling = OverallFeelingCode.BAYILDIM,
+        )
+        assertFalse(VisitDraftLogic.canPublish(base, today))
+        assertTrue(VisitDraftLogic.canPublish(base.copy(story = "Golden hour"), today))
+        assertTrue(VisitDraftLogic.canPublish(base.copy(tip = "Arrive early"), today))
+        assertTrue(VisitDraftLogic.canPublish(base.copy(photos = listOf("owned/photo.jpg")), today))
+        assertFalse(VisitDraftLogic.canPublish(base.copy(
+            story = "story",
+            vibes = setOf(VibeCode.CALM, VibeCode.SCENIC, VibeCode.ROMANTIC),
+        ), today))
+        assertFalse(VisitDraftLogic.canPublish(base.copy(
+            story = "story",
+            photos = List(7) { "owned/$it.jpg" },
+        ), today))
+    }
+
+    @Test
+    fun nativeV2OtherAndTitleSourceValidationIsStrict() {
+        val base = VisitDraft(
+            visitDate = today,
+            primaryExperience = PrimaryExperienceCode.OTHER,
+            overallFeeling = OverallFeelingCode.GUZELDI,
+            story = "story",
+        )
+        assertFalse(VisitDraftLogic.canPublish(base, today))
+        assertTrue(VisitDraftLogic.canPublish(base.copy(rawExperienceLabel = "Bird watching"), today))
+        assertFalse(VisitDraftLogic.canPublish(base.copy(
+            rawExperienceLabel = "Bird watching",
+            titleSource = ExperienceTitleSource.CUSTOM,
+            title = " ",
+        ), today))
+        assertTrue(VisitDraftLogic.canPublish(base.copy(
+            rawExperienceLabel = "Bird watching",
+            titleSource = ExperienceTitleSource.CUSTOM,
+            title = "Quiet morning",
+        ), today))
     }
 
     @Test

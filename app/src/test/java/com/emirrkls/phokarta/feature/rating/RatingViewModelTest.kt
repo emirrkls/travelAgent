@@ -12,6 +12,8 @@ import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -110,6 +112,7 @@ class RatingViewModelTest {
                 userId,
                 placeId,
                 VisitDraft(
+                    payloadVersion = 1,
                     overallScore = 8f,
                     dimensions = mapOf(RatingDimension.SEA to 9f),
                     publicReview = "Seeded review",
@@ -177,6 +180,7 @@ class RatingViewModelTest {
         val drafts = FakeVisitDraftRepository(activeUserId = userId)
         val viewModel = createViewModel(placeId, repository, drafts)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.publish()
         advanceUntilIdle()
@@ -194,6 +198,7 @@ class RatingViewModelTest {
         val viewModel = createViewModel(placeId, drafts = drafts)
         advanceUntilIdle()
         viewModel.setReview("Will publish")
+        viewModel.makePublishable()
         advanceTimeBy(VisitDraftRepository.AUTOSAVE_DEBOUNCE_MS + 50)
         advanceUntilIdle()
         assertTrue(drafts.hasDraft(placeId))
@@ -214,6 +219,7 @@ class RatingViewModelTest {
         advanceUntilIdle()
 
         viewModel.setReview("Keep this note")
+        viewModel.makePublishable()
         viewModel.setVisibility(Visibility.PRIVATE)
         advanceTimeBy(VisitDraftRepository.AUTOSAVE_DEBOUNCE_MS + 50)
         advanceUntilIdle()
@@ -235,6 +241,7 @@ class RatingViewModelTest {
         advanceUntilIdle()
 
         viewModel.setReview("Race")
+        viewModel.makePublishable()
         // Publish before debounce fires.
         viewModel.publish()
         advanceUntilIdle()
@@ -325,6 +332,7 @@ class RatingViewModelTest {
         advanceUntilIdle()
 
         viewModel.setVisibility(Visibility.PRIVATE)
+        viewModel.makePublishable()
         viewModel.publish()
         advanceUntilIdle()
 
@@ -343,6 +351,7 @@ class RatingViewModelTest {
         val repository = TestTravelRepository()
         val viewModel = createViewModel(placeId, repository)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.setVisitedAt(LocalDate.now().plusDays(2))
         advanceUntilIdle()
@@ -360,6 +369,7 @@ class RatingViewModelTest {
         }
         val viewModel = createViewModel(seedPlaceId(), repository)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.publish()
         advanceUntilIdle()
@@ -378,6 +388,7 @@ class RatingViewModelTest {
         }
         val viewModel = createViewModel(seedPlaceId(), repository)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.publish()
         advanceUntilIdle()
@@ -396,6 +407,7 @@ class RatingViewModelTest {
         val repository = StaleThenOkRepository()
         val viewModel = createViewModel(seedPlaceId(), repository)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.publish()
         advanceUntilIdle()
@@ -420,6 +432,7 @@ class RatingViewModelTest {
         }
         val viewModel = createViewModel(seedPlaceId(), repository)
         advanceUntilIdle()
+        viewModel.makePublishable()
 
         viewModel.publish()
         advanceUntilIdle()
@@ -434,6 +447,12 @@ class RatingViewModelTest {
     private class FailingRepository : TestTravelRepository() {
         override suspend fun publishVisit(visit: Visit): RepositoryResult<Visit> =
             RepositoryResult.Failure(TravelError.Offline())
+    }
+
+    private fun RatingViewModel.makePublishable() {
+        setPrimaryExperience(PrimaryExperienceCode.GUN_BATIMI)
+        setOverallFeeling(OverallFeelingCode.GUZELDI)
+        if (uiState.value.review.isBlank()) setReview("Native V2 story")
     }
 
     private class StaleThenOkRepository : TestTravelRepository() {

@@ -227,6 +227,69 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration7To8PreservesV1RowsAndAddsVersionedV2Publication() {
+        val userId = "20000000-0000-4000-8000-000000000002"
+        val placeId = "30000000-0000-4000-8000-000000000003"
+        helper.createDatabase(TEST_DATABASE, 7).apply {
+            execSQL(
+                """INSERT INTO visit_drafts
+                    (userId,placeId,overallScore,publicReview,privateMemory,visitedAtEpochDay,
+                     visibility,dimensionsExpanded,createdAtEpochMillis,updatedAtEpochMillis)
+                   VALUES (?,?,8.0,'legacy story','memory',21000,'PUBLIC',0,1,1)""",
+                arrayOf<Any>(userId, placeId),
+            )
+            execSQL(
+                """INSERT INTO pending_mutations
+                    (mutationId,userId,type,resourceKey,state,generation,desiredSaved,attemptCount,
+                     createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory)
+                   VALUES ('legacy-v1',?,'PUBLISH_VISIT','legacy-v1','PENDING',1,NULL,0,1,1,NULL)""",
+                arrayOf<Any>(userId),
+            )
+            execSQL(
+                """INSERT INTO pending_visit_payloads
+                    (mutationId,placeId,visitedAtEpochDay,overallRating,publicReview,privateMemory,visibility)
+                   VALUES ('legacy-v1',?,21000,8.0,'legacy story','memory','PUBLIC')""",
+                arrayOf<Any>(placeId),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 8, true, MIGRATION_7_8).apply {
+            query("SELECT payloadVersion,type FROM pending_mutations WHERE mutationId='legacy-v1'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+                assertEquals("PUBLISH_VISIT", cursor.getString(1))
+            }
+            query("SELECT payloadVersion,story,titleSource FROM visit_drafts WHERE userId=? AND placeId=?", arrayOf(userId, placeId)).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+                assertEquals("", cursor.getString(1))
+                assertEquals("GENERATED", cursor.getString(2))
+            }
+            assertEquals(0, rowCount("pending_experience_v2_payloads"))
+            assertEquals(0, rowCount("pending_experience_v2_dimensions"))
+            execSQL(
+                """INSERT INTO pending_mutations
+                    (mutationId,userId,type,resourceKey,state,generation,desiredSaved,attemptCount,
+                     createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                   VALUES ('native-v2',?,'PUBLISH_EXPERIENCE_V2','native-v2','PENDING',1,NULL,0,2,2,NULL,2)""",
+                arrayOf<Any>(userId),
+            )
+            execSQL(
+                """INSERT INTO pending_experience_v2_payloads
+                    (mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
+                     overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
+                     title,titleSource,story,tip,privateMemory,visibility)
+                   VALUES ('native-v2',?,21000,'GUN_BATIMI',NULL,'BAYILDIM',NULL,'EVENING',
+                           'CALM,SCENIC','ARRIVE_EARLY',NULL,'GENERATED','story','','memory','PUBLIC')""",
+                arrayOf<Any>(placeId),
+            )
+            assertEquals(1, rowCount("pending_experience_v2_payloads"))
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits

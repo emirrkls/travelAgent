@@ -70,7 +70,7 @@ final class ExperienceDetailController {
                 kind: item.kind,
                 position: item.position,
                 id: item.id,
-                url: response.url,
+                url: response.url.absoluteString,
                 accessExpiresAt: response.expiresAt
             )
         }

@@ -438,6 +438,98 @@ data class PublicUserProfileDto(
 )
 
 @Serializable
+data class RelationshipV2Dto(
+    val state: String,
+    val followsYou: Boolean,
+    val canFollow: Boolean,
+    val canCancelRequest: Boolean,
+)
+
+@Serializable
+data class ProfileV2Dto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val bio: String? = null,
+    val profileVisibility: String,
+    val fullProfile: Boolean,
+    val relationship: RelationshipV2Dto? = null,
+    val cityCount: Int? = null,
+    val countryCount: Int? = null,
+    val followerCount: Long? = null,
+    val followingCount: Long? = null,
+    val friendCount: Long? = null,
+    val visibleExperienceCount: Long? = null,
+)
+
+@Serializable
+data class ProfileVisibilityUpdateDto(val visibility: String)
+
+@Serializable
+data class FollowRequestIdentityDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+)
+
+@Serializable
+data class FollowRequestV2Dto(
+    val id: String,
+    val requester: FollowRequestIdentityDto,
+    val status: String,
+    val createdAt: String,
+    val resolvedAt: String? = null,
+)
+
+@Serializable
+data class CapabilitiesV2Dto(val profilePrivacyV2Enabled: Boolean)
+
+@Serializable
+data class PlaceAggregateV2Dto(
+    val place: PlaceAggregateIdentityDto,
+    val visibleExperienceCount: Long,
+    val communityContributionCount: Long,
+    val feelings: List<FeelingAggregateDto> = emptyList(),
+    val dimensions: List<DimensionAggregateV2Dto> = emptyList(),
+    val practicalSignals: List<PracticalSignalAggregateDto> = emptyList(),
+)
+
+@Serializable
+data class PlaceAggregateIdentityDto(
+    val id: String,
+    val name: String,
+    val category: String,
+    val city: String,
+    val region: String,
+    val country: String,
+    val coverImage: String,
+)
+
+@Serializable
+data class FeelingAggregateDto(val code: String, val contributionCount: Long)
+
+@Serializable
+data class DimensionAggregateV2Dto(
+    val key: String,
+    val contributionCount: Long,
+    val numericAverage: Double? = null,
+    val legacyNumericContributionCount: Long,
+    val semanticDistribution: List<SemanticStateAggregateDto> = emptyList(),
+)
+
+@Serializable
+data class SemanticStateAggregateDto(val state: String, val contributionCount: Long)
+
+@Serializable
+data class PracticalSignalAggregateDto(
+    val code: String,
+    val contributionCount: Long,
+    val eligibleContributionDenominator: Long,
+)
+
+@Serializable
 data class UserSummaryDto(
     val id: String,
     val username: String,

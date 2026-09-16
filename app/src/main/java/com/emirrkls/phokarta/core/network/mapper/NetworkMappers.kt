@@ -23,9 +23,21 @@ import com.emirrkls.phokarta.core.model.FeelingProvenance
 import com.emirrkls.phokarta.core.model.FriendPlaceSummary
 import com.emirrkls.phokarta.core.model.FriendPlaceUser
 import com.emirrkls.phokarta.core.model.Place
+import com.emirrkls.phokarta.core.model.DimensionAggregateV2
+import com.emirrkls.phokarta.core.model.FeelingAggregate
+import com.emirrkls.phokarta.core.model.FollowRequestV2
+import com.emirrkls.phokarta.core.model.PlaceAggregateIdentity
+import com.emirrkls.phokarta.core.model.PlaceAggregateV2
+import com.emirrkls.phokarta.core.model.PracticalSignalAggregate
+import com.emirrkls.phokarta.core.model.ProfileV2
+import com.emirrkls.phokarta.core.model.ProfileVisibilityV2
+import com.emirrkls.phokarta.core.model.RelationshipActionState
+import com.emirrkls.phokarta.core.model.RelationshipV2
+import com.emirrkls.phokarta.core.model.SemanticStateAggregate
 import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.PolicyStatus
 import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
 import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.PublicReviewAuthor
@@ -53,6 +65,10 @@ import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
 import com.emirrkls.phokarta.core.network.model.PlaceDetailDto
+import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
+import com.emirrkls.phokarta.core.network.model.PlaceAggregateV2Dto
+import com.emirrkls.phokarta.core.network.model.ProfileV2Dto
+import com.emirrkls.phokarta.core.network.model.RelationshipV2Dto
 import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.PlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.PublicActivityDto
@@ -354,6 +370,81 @@ fun PublicUserProfileDto.toDomain(): PublicUserProfile = PublicUserProfile(
     followingCount = followingCount,
     friendCount = friendCount,
     relationship = relationship?.toDomain(),
+)
+
+fun RelationshipV2Dto.toDomain(): RelationshipV2 = RelationshipV2(
+    state = RelationshipActionState.fromWire(state),
+    followsYou = followsYou,
+    canFollow = canFollow,
+    canCancelRequest = canCancelRequest,
+)
+
+fun ProfileV2Dto.toDomain(): ProfileV2 = ProfileV2(
+    id = id.toCanonicalUuid(),
+    username = username,
+    displayName = displayName.ifBlank { username.ifBlank { "Traveler" } },
+    avatarUrl = avatarUrl.orEmpty(),
+    bio = bio.orEmpty(),
+    visibility = ProfileVisibilityV2.fromWire(profileVisibility),
+    fullProfile = fullProfile,
+    relationship = relationship?.toDomain(),
+    cityCount = cityCount,
+    countryCount = countryCount,
+    followerCount = followerCount,
+    followingCount = followingCount,
+    friendCount = friendCount,
+    visibleExperienceCount = visibleExperienceCount,
+)
+
+fun FollowRequestV2Dto.toDomain(): FollowRequestV2 = FollowRequestV2(
+    id = id.toCanonicalUuid(),
+    requester = UserSummary(
+        id = requester.id.toCanonicalUuid(),
+        username = requester.username,
+        displayName = requester.displayName.ifBlank { requester.username },
+        avatarUrl = requester.avatarUrl.orEmpty(),
+    ),
+    status = status,
+    createdAt = createdAt,
+    resolvedAt = resolvedAt,
+)
+
+fun PlaceAggregateV2Dto.toDomain(): PlaceAggregateV2 = PlaceAggregateV2(
+    place = PlaceAggregateIdentity(
+        id = place.id.toCanonicalUuid(),
+        name = place.name,
+        categoryCode = place.category,
+        city = place.city,
+        region = place.region,
+        country = place.country,
+        coverImage = place.coverImage,
+    ),
+    visibleExperienceCount = visibleExperienceCount,
+    communityContributionCount = communityContributionCount,
+    feelings = feelings.map {
+        FeelingAggregate(OverallFeelingCode.fromWire(it.code), it.contributionCount)
+    },
+    dimensions = dimensions.map { dimension ->
+        DimensionAggregateV2(
+            key = dimension.key,
+            contributionCount = dimension.contributionCount,
+            numericAverage = dimension.numericAverage,
+            legacyNumericContributionCount = dimension.legacyNumericContributionCount,
+            semanticDistribution = dimension.semanticDistribution.map {
+                SemanticStateAggregate(
+                    state = DimensionStateCode.fromWire(it.state),
+                    contributionCount = it.contributionCount,
+                )
+            },
+        )
+    },
+    practicalSignals = practicalSignals.map {
+        PracticalSignalAggregate(
+            code = PracticalSignalCode.fromWire(it.code),
+            contributionCount = it.contributionCount,
+            eligibleContributionDenominator = it.eligibleContributionDenominator,
+        )
+    },
 )
 
 fun BlockedUserDto.toDomain(): BlockedUser = BlockedUser(

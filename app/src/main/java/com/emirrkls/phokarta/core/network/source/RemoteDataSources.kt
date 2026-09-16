@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.api.CollectionApi
 import com.emirrkls.phokarta.core.network.api.MeApi
 import com.emirrkls.phokarta.core.network.api.PlaceApi
+import com.emirrkls.phokarta.core.network.api.PrivacyV2Api
 import com.emirrkls.phokarta.core.network.api.ReportApi
 import com.emirrkls.phokarta.core.network.api.SavedPlaceApi
 import com.emirrkls.phokarta.core.network.api.UserApi
@@ -15,6 +16,12 @@ import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
+import com.emirrkls.phokarta.core.network.model.CapabilitiesV2Dto
+import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
+import com.emirrkls.phokarta.core.network.model.PlaceAggregateV2Dto
+import com.emirrkls.phokarta.core.network.model.ProfileV2Dto
+import com.emirrkls.phokarta.core.network.model.ProfileVisibilityUpdateDto
+import com.emirrkls.phokarta.core.network.model.RelationshipV2Dto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
 import com.emirrkls.phokarta.core.network.model.PageResponseDto
@@ -70,10 +77,13 @@ interface PlaceRemoteDataSource {
     ): RemoteResult<List<PlaceSummaryDto>>
 
     suspend fun detail(id: String): RemoteResult<PlaceDetailDto>
+    suspend fun aggregateV2(id: String): RemoteResult<PlaceAggregateV2Dto> =
+        throw UnsupportedOperationException("V2 aggregate source is not configured")
 }
 
 class RetrofitPlaceRemoteDataSource @Inject constructor(
     private val api: PlaceApi,
+    private val privacyV2Api: PrivacyV2Api,
     private val json: Json,
 ) : PlaceRemoteDataSource {
     override suspend fun list(
@@ -110,6 +120,7 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
     }
 
     override suspend fun detail(id: String) = safeApiCall(json) { api.detail(id) }
+    override suspend fun aggregateV2(id: String) = safeApiCall(json) { privacyV2Api.placeAggregate(id) }
 }
 
 interface VisitRemoteDataSource {
@@ -247,12 +258,34 @@ interface SocialRemoteDataSource {
     ): RemoteResult<ReportResponseDto>
     suspend fun policyStatus(): RemoteResult<PolicyStatusDto>
     suspend fun acceptPolicy(policyVersion: String): RemoteResult<PolicyStatusDto>
+    suspend fun capabilitiesV2(): RemoteResult<CapabilitiesV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun profileV2(userId: String): RemoteResult<ProfileV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun followV2(userId: String): RemoteResult<RelationshipV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun unfollowV2(userId: String): RemoteResult<RelationshipV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun cancelFollowRequest(userId: String): RemoteResult<RelationshipV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun followRequests(
+        page: Int = 0,
+        size: Int = 20,
+    ): RemoteResult<PageResponseDto<FollowRequestV2Dto>> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun approveFollowRequest(requestId: String): RemoteResult<RelationshipV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun rejectFollowRequest(requestId: String): RemoteResult<RelationshipV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
+    suspend fun updateProfileVisibility(visibility: String): RemoteResult<ProfileV2Dto> =
+        throw UnsupportedOperationException("V2 privacy source is not configured")
 }
 
 class RetrofitSocialRemoteDataSource @Inject constructor(
     private val userApi: UserApi,
     private val meApi: MeApi,
     private val reportApi: ReportApi,
+    private val privacyV2Api: PrivacyV2Api,
     private val json: Json,
 ) : SocialRemoteDataSource {
     override suspend fun search(query: String, page: Int, size: Int) =
@@ -305,4 +338,31 @@ class RetrofitSocialRemoteDataSource @Inject constructor(
 
     override suspend fun acceptPolicy(policyVersion: String) =
         safeApiCall(json) { meApi.acceptPolicy(PolicyAcceptanceRequestDto(policyVersion)) }
+
+    override suspend fun capabilitiesV2() =
+        safeApiCall(json) { privacyV2Api.capabilities() }
+
+    override suspend fun profileV2(userId: String) =
+        safeApiCall(json) { privacyV2Api.profile(userId) }
+
+    override suspend fun followV2(userId: String) =
+        safeApiCall(json) { privacyV2Api.follow(userId) }
+
+    override suspend fun unfollowV2(userId: String) =
+        safeApiCall(json) { privacyV2Api.unfollow(userId) }
+
+    override suspend fun cancelFollowRequest(userId: String) =
+        safeApiCall(json) { privacyV2Api.cancelFollowRequest(userId) }
+
+    override suspend fun followRequests(page: Int, size: Int) =
+        safeApiCall(json) { privacyV2Api.followRequests(page, size) }
+
+    override suspend fun approveFollowRequest(requestId: String) =
+        safeApiCall(json) { privacyV2Api.approveFollowRequest(requestId) }
+
+    override suspend fun rejectFollowRequest(requestId: String) =
+        safeApiCall(json) { privacyV2Api.rejectFollowRequest(requestId) }
+
+    override suspend fun updateProfileVisibility(visibility: String) =
+        safeApiCall(json) { privacyV2Api.updateProfileVisibility(ProfileVisibilityUpdateDto(visibility)) }
 }

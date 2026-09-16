@@ -12,6 +12,12 @@ import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.CapabilitiesV2Dto
+import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
+import com.emirrkls.phokarta.core.network.model.PlaceAggregateV2Dto
+import com.emirrkls.phokarta.core.network.model.ProfileV2Dto
+import com.emirrkls.phokarta.core.network.model.ProfileVisibilityUpdateDto
+import com.emirrkls.phokarta.core.network.model.RelationshipV2Dto
 import com.emirrkls.phokarta.core.network.model.LoginRequestDto
 import com.emirrkls.phokarta.core.network.model.LogoutRequestDto
 import com.emirrkls.phokarta.core.network.model.NearbyPlaceDto
@@ -107,6 +113,7 @@ interface MeApi {
 
     @POST("api/v1/me/policy-acceptance")
     suspend fun acceptPolicy(@Body request: PolicyAcceptanceRequestDto): Response<PolicyStatusDto>
+
 }
 
 interface UserApi {
@@ -125,6 +132,7 @@ interface UserApi {
 
     @DELETE("api/v1/users/{userId}/follow")
     suspend fun unfollow(@Path("userId") userId: String): Response<Unit>
+
 }
 
 interface PlaceApi {
@@ -162,6 +170,49 @@ interface PlaceApi {
 
     @GET("api/v1/places/{id}")
     suspend fun detail(@Path("id") id: String): Response<PlaceDetailDto>
+
+}
+
+/** Additive V2 privacy boundary kept separate from shipped V1 Retrofit contracts. */
+interface PrivacyV2Api {
+    @GET("api/v2/capabilities")
+    suspend fun capabilities(): Response<CapabilitiesV2Dto>
+
+    @GET("api/v2/users/{userId}")
+    suspend fun profile(@Path("userId") userId: String): Response<ProfileV2Dto>
+
+    @POST("api/v2/users/{userId}/follow")
+    suspend fun follow(@Path("userId") userId: String): Response<RelationshipV2Dto>
+
+    @DELETE("api/v2/users/{userId}/follow")
+    suspend fun unfollow(@Path("userId") userId: String): Response<RelationshipV2Dto>
+
+    @DELETE("api/v2/users/{userId}/follow-request")
+    suspend fun cancelFollowRequest(@Path("userId") userId: String): Response<RelationshipV2Dto>
+
+    @PUT("api/v2/me/profile-visibility")
+    suspend fun updateProfileVisibility(
+        @Body request: ProfileVisibilityUpdateDto,
+    ): Response<ProfileV2Dto>
+
+    @GET("api/v2/me/follow-requests")
+    suspend fun followRequests(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): Response<PageResponseDto<FollowRequestV2Dto>>
+
+    @POST("api/v2/me/follow-requests/{requestId}/approve")
+    suspend fun approveFollowRequest(
+        @Path("requestId") requestId: String,
+    ): Response<RelationshipV2Dto>
+
+    @POST("api/v2/me/follow-requests/{requestId}/reject")
+    suspend fun rejectFollowRequest(
+        @Path("requestId") requestId: String,
+    ): Response<RelationshipV2Dto>
+
+    @GET("api/v2/places/{id}")
+    suspend fun placeAggregate(@Path("id") id: String): Response<PlaceAggregateV2Dto>
 }
 
 interface VisitApi {

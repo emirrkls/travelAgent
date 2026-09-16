@@ -179,3 +179,68 @@ During implementation on Windows:
 - Xcode/Swift/XCTest is unavailable on Windows, so the appended iOS tests require pushed Xcode Cloud Build and Test validation.
 
 Freshness/recency weighting and minimum-sample privacy suppression remain intentionally deferred. V2 publication and all Milestone 2 product work remain disabled.
+
+## Milestone 2: V2 Publication
+
+Milestone 2 enables authenticated native Experience publication while retaining `Visit` as the single aggregate root and content identity. It does not introduce an Experience table, replace V1 publication, change root navigation, or begin Experience-first read surfaces.
+
+### V2 create API and transaction
+
+`POST /api/v2/experiences` accepts the native semantic contract and returns the canonical `ExperienceV2Response` with HTTP 201. The request contains a client mutation UUID, Place, visit date, Primary Experience and optional `OTHER` label, explicit Overall Feeling, optional Companion and Time, distinct Vibes and Practical Signals, semantic dimensions, title intent, Story, Tip, owner-only private memory, visibility, and ordered confirmed media IDs. It contains no client-authored numeric overall rating or dimension score.
+
+The backend transaction locks the account and mutation identity, enforces policy acceptance, resolves the authenticated owner and Place, canonicalizes the complete payload, creates one `Visit`, writes its native sidecar and semantic dimensions, attaches media through the existing ownership/confirmation path, and maps the canonical response. Any failure rolls back the entire publication. Account deletion continues to cascade from the existing owner and Visit foreign keys through sidecar, dimensions, and media.
+
+### Compatibility values and canonical identity
+
+The backend alone derives the native Overall Feeling compatibility value:
+
+| Overall Feeling | Visit numeric compatibility |
+|---|---:|
+| `BAYILDIM` | 10.0 |
+| `GUZELDI` | 8.0 |
+| `EH_ISTE` | 6.0 |
+| `BEKLENTIMI_KARSILAMADI` | 4.0 |
+| `BIR_DAHA_TERCIH_ETMEM` | 2.0 |
+
+Semantic dimension states remain dual-written with their locked 10 / 8 / 6 / 4 / 2 compatibility scores. Clients persist stable semantic codes and never submit authoritative numeric V2 values. Legacy numeric-to-Feeling read thresholds are unchanged.
+
+The V2 fingerprint is independent of the V1 fingerprint format. It covers the Place, date, Primary Experience, normalized `OTHER` label, Feeling and derived compatibility value, Companion, Time, canonical Vibe and Practical Signal sets, canonical dimension keys/states/template versions and derived values, Story, Tip, private memory, resolved persisted title and source, visibility, and ordered media IDs. Set-like fields are sorted; ordered media is not. The same user and mutation UUID with the same canonical payload returns the original canonical Experience after a lost acknowledgement. Any semantic change conflicts rather than creating a duplicate.
+
+### Taxonomy, title, content, and media
+
+Backend taxonomy and dimension-family catalogs remain authoritative. `OTHER` requires a nonblank raw label and every non-`OTHER` Primary rejects one. Vibes are at most two distinct canonical values; the optional Companion and Time accept at most one; invalid write codes, duplicate set values, invalid family dimensions, and unsupported dimension template versions are rejected. Mobile read models retain safe unknown-code fallbacks.
+
+Generated titles have one canonical owner: the backend deterministically resolves and persists the accepted title with source `GENERATED`. A nonblank user-edited title is persisted with source `CUSTOM`. Reads use the persisted resolved text and never regenerate historical titles.
+
+A native Experience requires at least one of Story, Tip, or media. Private memory remains stored only in the existing owner-only Visit field and is absent from all V2 responses. Native publication accepts zero through six ordered managed images. The global/V1 media capacity and legacy Experiences with more than six images remain unchanged and readable. Upload intent, upload, and confirmation still occur before create; attachment reuses existing owner, readiness, order, and transaction checks.
+
+### Versioned mobile persistence and offline publication
+
+V1 and V2 pending payloads are separate. Existing queue and draft rows migrate with `payloadVersion = 1`; new native composers use version 2 and mutation type `PUBLISH_EXPERIENCE_V2`. Sync routes version 1 only to `/api/v1/visits` and version 2 only to `/api/v2/experiences`. The same mutation UUID, exact semantic payload, and media order survive retries, process death, and Edit & Retry. A policy-acceptance failure pauses later Visit/V2 publishes in that drain; accepting policy and retrying resumes the unchanged queued payload. Local media is removed only after canonical acknowledgement.
+
+Android Room schema 8 adds explicit payload versions and stable V2 draft columns, semantic dimension state/template columns, and separate V2 pending payload/dimension tables. The Room 7→8 migration is additive and preserves V1 rows and their legacy meaning. The Android composer removes numeric V2 overall input and captures Primary Experience, Feeling, Context, up to two Vibes, Practical Signals, semantic dimensions, generated/custom title state, Story, Tip, private memory, visibility, and up to six ordered images.
+
+iOS SQLite schema 2 makes the equivalent additive changes: explicit version columns, V2 draft semantics, semantic dimension metadata, and separate V2 pending payload/dimension tables. Schema-1 rows retain version 1. The SwiftUI composer and durable mutation engine use the same V2 contract, six-image cap, ordered durable media, account isolation, retry recovery, and backend-owned numeric compatibility.
+
+### Compatibility, privacy, and security
+
+- V1 create, fingerprinting, queue routing, media limit, and response behavior are unchanged.
+- Existing queued V1 rows remain version 1 and are never coerced into V2.
+- Existing visibility, private-profile upper bound, symmetric blocking, direct-read, attached-media, and anonymous aggregate rules remain authoritative.
+- V2 publication does not change Community aggregate eligibility or mutate legacy Visits.
+- Account purge/deletion continues to remove owned drafts, pending payloads, durable media, Visits, sidecars, dimensions, and attachments without crossing account boundaries.
+- No infrastructure/storage/database/JWT/signing secret, TLS bypass, release cleartext, presigned-URL logging, exact user-location persistence, or cross-account data path is introduced.
+
+### Validation record and limitations
+
+During implementation on Windows:
+
+- the pre-change Android gate (`testDebugUnitTest`, `lintDebug`, `assembleDebug`, `compileReleaseKotlin`) passed;
+- the focused backend `ExperienceWriteServiceTest` suite passed 8 tests with no failures or errors;
+- Android `testDebugUnitTest` passed after the native composer and queue changes;
+- Android V2 instrumentation sources, including Room 7→8 migration and pending-payload coverage, compiled successfully;
+- local backend `mvn verify` compiled and ran non-container tests, but its 25 Testcontainers-dependent errors were solely caused by the unavailable local Docker daemon;
+- Localizable string-catalog JSON parsing passed;
+- Xcode and XCTest are unavailable on Windows, so authoritative Swift compilation and XCTest execution require the pushed Xcode Cloud Build and Test workflow.
+
+Connected Android execution, authoritative PostgreSQL/Testcontainers coverage, and iOS Build/Test results are reported only when actually run. Milestone 3 Experience-first read surfaces and navigation remain intentionally deferred.

@@ -22,4 +22,6 @@ data class VisitDraftDimensionScoreEntity(
     val placeId: String,
     val dimensionKey: String,
     val score: Float,
+    val semanticStateCode: String? = null,
+    val templateVersion: Int? = null,
 )

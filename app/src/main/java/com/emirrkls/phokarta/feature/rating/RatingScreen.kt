@@ -40,6 +40,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +85,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 import com.emirrkls.phokarta.R
+import com.emirrkls.phokarta.core.model.CompanionCode
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.TimeOfDayCode
+import com.emirrkls.phokarta.core.model.VibeCode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,7 +106,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     var menuExpanded by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val photoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(20),
+        ActivityResultContracts.PickMultipleVisualMedia(VisitDraftLogic.V2_MAX_MEDIA),
     ) { uris -> viewModel.addPhotos(uris) }
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments(),
@@ -290,40 +299,96 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             }
             val reviewInputA11y = stringResource(R.string.a11y_review_input)
             val privateMemoryInputA11y = stringResource(R.string.a11y_private_memory_input)
-            Text(stringResource(R.string.how_was_place, place.name), style = MaterialTheme.typography.headlineLarge)
+            Text(stringResource(R.string.experience_at_place, place.name), style = MaterialTheme.typography.headlineLarge)
             Text(
-                stringResource(R.string.rating_intro_hint),
+                stringResource(R.string.experience_intro_hint),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(26.dp))
-            Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(26.dp)) {
-                Column(Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val animatedScore by animateFloatAsState(state.overall, label = "overallScore")
-                    val overallScoreA11y = stringResource(R.string.overall_score_a11y, formatScoreLocalized(animatedScore))
-                    Text(
-                        formatScoreLocalized(animatedScore),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.semantics { contentDescription = overallScoreA11y },
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.primary_experience_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(
+                    PrimaryExperienceCode.entries.filterNot {
+                        it == PrimaryExperienceCode.UNKNOWN || it == PrimaryExperienceCode.UNKNOWN_LEGACY
+                    },
+                    key = { it.name },
+                ) { code ->
+                    FilterChip(
+                        selected = state.draft.primaryExperience == code,
+                        onClick = { if (draftEditsEnabled) viewModel.setPrimaryExperience(code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled,
                     )
-                    AnimatedContent(stringResource(VisitDraftLogic.scoreBand(state.overall).labelRes()), label = "scoreLabel") { label ->
-                        Text(label, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    RatingControl(
-                        value = state.overall,
-                        onValueChange = { if (draftEditsEnabled) viewModel.setOverall(it) },
-                        onValueChangeFinished = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-                        onThresholdCrossed = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(stringResource(R.string.score_terrible), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text(stringResource(R.string.score_exceptional), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            if (state.draft.primaryExperience == PrimaryExperienceCode.OTHER) {
+                OutlinedTextField(
+                    value = state.draft.rawExperienceLabel.orEmpty(),
+                    onValueChange = viewModel::setRawExperienceLabel,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = draftEditsEnabled,
+                    label = { Text(stringResource(R.string.other_experience_label)) },
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(stringResource(R.string.overall_feeling_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(OverallFeelingCode.entries.filterNot { it == OverallFeelingCode.UNKNOWN }, key = { it.name }) { code ->
+                    FilterChip(
+                        selected = state.draft.overallFeeling == code,
+                        onClick = { if (draftEditsEnabled) viewModel.setOverallFeeling(code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled,
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(stringResource(R.string.experience_context_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.companion_title), style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(CompanionCode.entries.filterNot { it == CompanionCode.UNKNOWN }, key = { it.name }) { code ->
+                    FilterChip(
+                        selected = state.draft.companion == code,
+                        onClick = { viewModel.setCompanion(if (state.draft.companion == code) null else code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled,
+                    )
+                }
+            }
+            Text(stringResource(R.string.time_of_day_title), style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(TimeOfDayCode.entries.filterNot { it == TimeOfDayCode.UNKNOWN }, key = { it.name }) { code ->
+                    FilterChip(
+                        selected = state.draft.timeOfDay == code,
+                        onClick = { viewModel.setTimeOfDay(if (state.draft.timeOfDay == code) null else code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled,
+                    )
+                }
+            }
+            Text(stringResource(R.string.vibes_title), style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(VibeCode.entries.filterNot { it == VibeCode.UNKNOWN }, key = { it.name }) { code ->
+                    FilterChip(
+                        selected = code in state.draft.vibes,
+                        onClick = { viewModel.toggleVibe(code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled && (code in state.draft.vibes || state.draft.vibes.size < 2),
+                    )
+                }
+            }
+            Text(stringResource(R.string.practical_signals_title), style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PracticalSignalCode.entries.filterNot { it == PracticalSignalCode.UNKNOWN }, key = { it.name }) { code ->
+                    FilterChip(
+                        selected = code in state.draft.practicalSignals,
+                        onClick = { viewModel.togglePracticalSignal(code) },
+                        label = { Text(code.displayLabel()) },
+                        enabled = draftEditsEnabled,
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
             Surface(
                 Modifier.fillMaxWidth().clickable(enabled = draftEditsEnabled, onClick = viewModel::toggleDimensionsExpanded),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -331,7 +396,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.rate_the_details), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.experience_dimensions_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(stringResource(R.string.optional), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(
@@ -347,50 +412,48 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             AnimatedVisibility(state.dimensionsExpanded) {
                 Column {
                     Spacer(Modifier.height(10.dp))
-                    place.category.ratingDimensions.forEach { dimension ->
-                        val value = state.dimensions[dimension]
-                        if (value == null) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = draftEditsEnabled) { viewModel.enableDimension(dimension) },
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                shape = RoundedCornerShape(16.dp),
-                            ) {
-                                Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(stringResource(dimension.labelRes()), Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                                    Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text(stringResource(R.string.add_score), Modifier.padding(start = 5.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                                }
-                            }
-                        } else {
-                            Surface(Modifier.fillMaxWidth().padding(vertical = 4.dp), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(18.dp)) {
-                                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(stringResource(dimension.labelRes()), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                                        Text(formatScoreLocalized(value), fontWeight = FontWeight.Bold)
-                                        IconButton(
-                                            onClick = { viewModel.removeDimension(dimension) },
-                                            enabled = draftEditsEnabled,
-                                        ) {
-                                            Icon(
-                                                Icons.Rounded.Close,
-                                                stringResource(R.string.remove_dimension_score, stringResource(dimension.labelRes())),
-                                            )
-                                        }
-                                    }
-                                    RatingControl(
-                                        value = value,
-                                        onValueChange = { if (draftEditsEnabled) viewModel.setDimension(dimension, it) },
-                                        compact = true,
-                                        onValueChangeFinished = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-                                    )
-                                }
+                    ExperienceDimensionCatalog.keysFor(state.draft.primaryExperience).forEach { dimensionKey ->
+                        Text(dimensionKey.displayLabel(), fontWeight = FontWeight.SemiBold)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(DimensionStateCode.entries.filterNot { it == DimensionStateCode.UNKNOWN }, key = { it.name }) { code ->
+                                FilterChip(
+                                    selected = state.draft.semanticDimensions[dimensionKey] == code,
+                                    onClick = {
+                                        viewModel.setSemanticDimension(
+                                            dimensionKey,
+                                            if (state.draft.semanticDimensions[dimensionKey] == code) null else code,
+                                        )
+                                    },
+                                    label = { Text(code.displayLabel()) },
+                                    enabled = draftEditsEnabled,
+                                )
                             }
                         }
                     }
                 }
             }
             Spacer(Modifier.height(22.dp))
-            Text(stringResource(R.string.review), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = state.draft.title.orEmpty(),
+                onValueChange = viewModel::setTitle,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = draftEditsEnabled,
+                label = { Text(stringResource(R.string.experience_title_label)) },
+                supportingText = {
+                    Text(if (state.draft.titleSource == ExperienceTitleSource.GENERATED) {
+                        stringResource(R.string.experience_title_generated)
+                    } else {
+                        stringResource(R.string.experience_title_custom)
+                    })
+                },
+            )
+            if (state.draft.titleSource == ExperienceTitleSource.CUSTOM) {
+                TextButton(onClick = viewModel::useGeneratedTitle, enabled = draftEditsEnabled) {
+                    Text(stringResource(R.string.use_generated_title))
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(stringResource(R.string.experience_story_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
                 stringResource(VisitVisibilityCopy.reviewHelperRes(state.visibility)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -404,9 +467,19 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     .fillMaxWidth()
                     .semantics { contentDescription = reviewInputA11y },
                 enabled = draftEditsEnabled,
-                label = { Text(stringResource(R.string.review)) },
+                label = { Text(stringResource(R.string.experience_story_title)) },
                 placeholder = { Text(stringResource(R.string.review_placeholder)) },
                 minLines = 3,
+                shape = RoundedCornerShape(18.dp),
+            )
+            Spacer(Modifier.height(18.dp))
+            OutlinedTextField(
+                state.tip,
+                { if (draftEditsEnabled) viewModel.setTip(it) },
+                Modifier.fillMaxWidth(),
+                enabled = draftEditsEnabled,
+                label = { Text(stringResource(R.string.experience_tip_title)) },
+                minLines = 2,
                 shape = RoundedCornerShape(18.dp),
             )
             Spacer(Modifier.height(18.dp))
@@ -429,7 +502,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             Spacer(Modifier.height(18.dp))
             Text(stringResource(R.string.visit_photos_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                stringResource(R.string.visit_photos_hint, state.draft.photos.size, 20),
+                stringResource(R.string.visit_photos_hint, state.draft.photos.size, VisitDraftLogic.V2_MAX_MEDIA),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
             )
@@ -468,7 +541,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         documentPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp"))
                     }
                 },
-                enabled = draftEditsEnabled && state.draft.photos.size < 20,
+                enabled = draftEditsEnabled && state.draft.photos.size < VisitDraftLogic.V2_MAX_MEDIA,
             ) {
                 Icon(Icons.Rounded.Add, null)
                 Text(stringResource(R.string.add_photos), Modifier.padding(start = 6.dp))
@@ -506,4 +579,12 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
         }
     }
 }
+
+private fun Enum<*>.displayLabel(): String = name.lowercase()
+    .split('_')
+    .joinToString(" ") { word -> word.replaceFirstChar(Char::uppercase) }
+
+private fun String.displayLabel(): String = lowercase()
+    .split('_')
+    .joinToString(" ") { word -> word.replaceFirstChar(Char::uppercase) }
 

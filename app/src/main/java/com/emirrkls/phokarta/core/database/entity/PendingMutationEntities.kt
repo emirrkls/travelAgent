@@ -6,6 +6,7 @@ import androidx.room.Index
 
 object MutationTypeValue {
     const val PUBLISH_VISIT = "PUBLISH_VISIT"
+    const val PUBLISH_EXPERIENCE_V2 = "PUBLISH_EXPERIENCE_V2"
     const val SET_SAVED_STATE = "SET_SAVED_STATE"
 }
 
@@ -36,6 +37,56 @@ data class PendingMutationEntity(
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val lastErrorCategory: String?,
+    /** Explicit wire contract. Rows created before V2 migrate to version 1 unchanged. */
+    val payloadVersion: Int = 1,
+)
+
+@Entity(
+    tableName = "pending_experience_v2_payloads",
+    foreignKeys = [ForeignKey(
+        entity = PendingMutationEntity::class,
+        parentColumns = ["mutationId"],
+        childColumns = ["mutationId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+)
+data class PendingExperienceV2PayloadEntity(
+    @androidx.room.PrimaryKey val mutationId: String,
+    val placeId: String,
+    val visitedAtEpochDay: Long,
+    val primaryExperienceCode: String,
+    val rawExperienceLabel: String?,
+    val overallFeelingCode: String,
+    val companionCode: String?,
+    val timeOfDayCode: String?,
+    /** Sorted stable codes joined with a comma. Empty means no values. */
+    val vibeCodes: String,
+    /** Sorted stable codes joined with a comma. Empty means no values. */
+    val practicalSignalCodes: String,
+    val title: String?,
+    val titleSource: String,
+    val story: String,
+    val tip: String,
+    val privateMemory: String,
+    val visibility: String,
+)
+
+@Entity(
+    tableName = "pending_experience_v2_dimensions",
+    primaryKeys = ["mutationId", "dimensionKey"],
+    foreignKeys = [ForeignKey(
+        entity = PendingMutationEntity::class,
+        parentColumns = ["mutationId"],
+        childColumns = ["mutationId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+    indices = [Index("mutationId")],
+)
+data class PendingExperienceV2DimensionEntity(
+    val mutationId: String,
+    val dimensionKey: String,
+    val semanticStateCode: String,
+    val templateVersion: Int,
 )
 
 @Entity(

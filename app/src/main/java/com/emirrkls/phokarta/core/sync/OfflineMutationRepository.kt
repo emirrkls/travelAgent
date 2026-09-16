@@ -13,6 +13,8 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2DimensionEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2PayloadEntity
 import com.emirrkls.phokarta.core.database.entity.VisitDraftPhotoEntity
 import com.emirrkls.phokarta.core.database.entity.MediaUploadState
 import com.emirrkls.phokarta.core.model.RatingDimension
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import com.emirrkls.phokarta.core.auth.AuthState
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
 import com.emirrkls.phokarta.core.data.toDraftDimensionEntities
@@ -33,6 +36,8 @@ import com.emirrkls.phokarta.core.data.toDomain
 import com.emirrkls.phokarta.core.model.Visibility
 import java.time.LocalDate
 import com.emirrkls.phokarta.core.media.VisitMediaStore
+import com.emirrkls.phokarta.feature.rating.VisitDraft
+import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
 
 data class PendingVisit(
     val mutationId: String,
@@ -58,6 +63,7 @@ data class PendingVisit(
 
 interface OfflineMutationRepository {
     suspend fun commitVisit(visit: Visit): String
+    suspend fun commitExperienceV2(placeId: String, draft: VisitDraft): String
     suspend fun toggleSaved(placeId: String): Boolean
     suspend fun retry(mutationId: String)
     suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean = false): RecoverFailedVisitResult
@@ -71,6 +77,8 @@ interface OfflineMutationRepository {
 /** Marker used only by plain JVM repository tests that exercise the legacy remote fakes. */
 object NoOpOfflineMutationRepository : OfflineMutationRepository {
     override suspend fun commitVisit(visit: Visit) = error("Offline mutation repository unavailable")
+    override suspend fun commitExperienceV2(placeId: String, draft: VisitDraft) =
+        error("Offline mutation repository unavailable")
     override suspend fun toggleSaved(placeId: String) = error("Offline mutation repository unavailable")
     override suspend fun retry(mutationId: String) = Unit
     override suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean) =
@@ -143,6 +151,80 @@ class RoomOfflineMutationRepository @Inject constructor(
         return mutationId
     }
 
+    override suspend fun commitExperienceV2(placeId: String, draft: VisitDraft): String {
+        val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
+        require(draft.payloadVersion == 2 && VisitDraftLogic.canPublish(draft)) {
+            "Valid native V2 Experience draft required"
+        }
+        val mutationId = UUID.randomUUID().toString()
+        val now = clock.nowMillis()
+        database.withTransaction {
+            val draftPhotos = drafts.getPhotos(userId, placeId).sortedBy { it.position }
+            require(draftPhotos.size <= VisitDraftLogic.V2_MAX_MEDIA) { "V2 media limit exceeded" }
+            mutations.insertMutation(PendingMutationEntity(
+                mutationId = mutationId,
+                userId = userId,
+                type = MutationTypeValue.PUBLISH_EXPERIENCE_V2,
+                resourceKey = mutationId,
+                state = MutationStateValue.PENDING,
+                generation = 1,
+                desiredSaved = null,
+                attemptCount = 0,
+                createdAtEpochMillis = now,
+                updatedAtEpochMillis = now,
+                lastErrorCategory = null,
+                payloadVersion = 2,
+            ))
+            mutations.insertExperienceV2Payload(PendingExperienceV2PayloadEntity(
+                mutationId = mutationId,
+                placeId = placeId,
+                visitedAtEpochDay = draft.visitDate.toEpochDay(),
+                primaryExperienceCode = requireNotNull(draft.primaryExperience).name,
+                rawExperienceLabel = draft.rawExperienceLabel?.trim()?.takeIf(String::isNotEmpty),
+                overallFeelingCode = requireNotNull(draft.overallFeeling).name,
+                companionCode = draft.companion?.name,
+                timeOfDayCode = draft.timeOfDay?.name,
+                vibeCodes = draft.vibes.map { it.name }.sorted().joinToString(","),
+                practicalSignalCodes = draft.practicalSignals.map { it.name }.sorted().joinToString(","),
+                title = draft.title?.trim()?.takeIf(String::isNotEmpty),
+                titleSource = draft.titleSource.name,
+                story = draft.story.trim(),
+                tip = draft.tip.trim(),
+                privateMemory = draft.privateMemory.trim(),
+                visibility = draft.visibility.name,
+            ))
+            if (draft.semanticDimensions.isNotEmpty()) {
+                mutations.insertExperienceV2Dimensions(
+                    draft.semanticDimensions.toSortedMap().map { (key, state) ->
+                        PendingExperienceV2DimensionEntity(mutationId, key, state.name, 1)
+                    },
+                )
+            }
+            if (draftPhotos.isNotEmpty()) {
+                mutations.insertVisitPhotos(draftPhotos.map { photo ->
+                    PendingVisitPhotoEntity(
+                        mutationId = mutationId,
+                        position = photo.position,
+                        ownerUserId = userId,
+                        clientMediaId = photo.clientMediaId,
+                        localRelativePath = photo.localRelativePath,
+                        contentType = photo.contentType,
+                        byteSize = photo.byteSize,
+                        width = photo.width,
+                        height = photo.height,
+                        remoteMediaId = photo.remoteMediaId,
+                        uploadState = photo.uploadState,
+                        failureCategory = photo.failureCategory,
+                        legacyUrl = photo.legacyUrl,
+                    )
+                })
+            }
+            drafts.deleteDraft(userId, placeId)
+        }
+        scheduler.schedule()
+        return mutationId
+    }
+
     override suspend fun toggleSaved(placeId: String): Boolean {
         val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
         val now = clock.nowMillis()
@@ -180,12 +262,19 @@ class RoomOfflineMutationRepository @Inject constructor(
         replaceExisting: Boolean,
     ): RecoverFailedVisitResult {
         val userId = session.currentUserId() ?: return RecoverFailedVisitResult.NOT_OWNER
-        val item = mutations.getVisit(mutationId) ?: return RecoverFailedVisitResult.NOT_FOUND
-        if (item.mutation.userId != userId) return RecoverFailedVisitResult.NOT_OWNER
-        if (item.mutation.state != MutationStateValue.FAILED_PERMANENT) {
+        val row = mutations.get(mutationId) ?: return RecoverFailedVisitResult.NOT_FOUND
+        if (row.userId != userId) return RecoverFailedVisitResult.NOT_OWNER
+        if (row.state != MutationStateValue.FAILED_PERMANENT) {
             return RecoverFailedVisitResult.INVALID_STATE
         }
-        val placeId = item.payload.placeId
+        val legacy = if (row.type == MutationTypeValue.PUBLISH_VISIT) mutations.getVisit(mutationId) else null
+        val native = if (row.type == MutationTypeValue.PUBLISH_EXPERIENCE_V2) mutations.getExperienceV2(mutationId) else null
+        val placeId = legacy?.payload?.placeId ?: native?.payload?.placeId
+            ?: return RecoverFailedVisitResult.NOT_FOUND
+        val recovered = legacy?.let(FailedVisitRecoveryMapper::toDraft)
+            ?: native?.let(FailedVisitRecoveryMapper::toDraft)
+            ?: return RecoverFailedVisitResult.NOT_FOUND
+        val photos = legacy?.photos ?: native?.photos.orEmpty()
         if (!replaceExisting) {
             val existing = drafts.getDraftWithDimensions(userId, placeId)
             val existingDraft = existing?.let { (entity, dimensions) -> entity.toDomain(dimensions) }
@@ -193,7 +282,6 @@ class RoomOfflineMutationRepository @Inject constructor(
                 return RecoverFailedVisitResult.EXISTING_DRAFT_CONFLICT
             }
         }
-        val recovered = FailedVisitRecoveryMapper.toDraft(item)
         val now = clock.nowMillis()
         val displacedPhotos = drafts.getPhotos(userId, placeId)
         return try {
@@ -207,7 +295,7 @@ class RoomOfflineMutationRepository @Inject constructor(
                 drafts.replacePhotos(
                     userId,
                     placeId,
-                    item.photos.map { photo ->
+                    photos.map { photo ->
                         VisitDraftPhotoEntity(
                             ownerUserId = userId,
                             placeId = placeId,
@@ -232,7 +320,7 @@ class RoomOfflineMutationRepository @Inject constructor(
                     throw IllegalStateException("Failed mutation state changed during recovery")
                 }
             }
-            val retained = item.photos.mapNotNull { it.localRelativePath }.toSet()
+            val retained = photos.mapNotNull { it.localRelativePath }.toSet()
             displacedPhotos.filterNot { it.localRelativePath in retained }.forEach {
                 mediaStore.deleteOwned(userId, it.localRelativePath)
             }
@@ -268,8 +356,15 @@ class RoomOfflineMutationRepository @Inject constructor(
     override fun observePendingVisits(): Flow<List<PendingVisit>> =
         session.state.flatMapLatest { auth ->
             val userId = (auth as? AuthState.Authenticated)?.user?.id
-            if (userId == null) flowOf(emptyList()) else mutations.observeVisitMutations(userId).map { items ->
-                items.map { item ->
+            if (userId == null) flowOf(emptyList()) else combine(
+                mutations.observeVisitMutations(userId),
+                mutations.observeExperienceV2Mutations(userId),
+            ) { legacyItems, nativeItems ->
+                val createdAtByMutation = (
+                    legacyItems.map { it.mutation.mutationId to it.mutation.createdAtEpochMillis } +
+                        nativeItems.map { it.mutation.mutationId to it.mutation.createdAtEpochMillis }
+                    ).toMap()
+                val legacyPending = legacyItems.map { item ->
                     val row = item.mutation
                     PendingVisit(
                         mutationId = row.mutationId,
@@ -290,6 +385,51 @@ class RoomOfflineMutationRepository @Inject constructor(
                             visibility = Visibility.valueOf(item.payload.visibility),
                         ),
                     )
+                }
+                val nativePending = nativeItems.map { item ->
+                    val row = item.mutation
+                    val feelingScore = when (item.payload.overallFeelingCode) {
+                        "BAYILDIM" -> 10.0
+                        "GUZELDI" -> 8.0
+                        "EH_ISTE" -> 6.0
+                        "BEKLENTIMI_KARSILAMADI" -> 4.0
+                        "BIR_DAHA_TERCIH_ETMEM" -> 2.0
+                        else -> 0.0
+                    }
+                    PendingVisit(
+                        mutationId = row.mutationId,
+                        state = row.state,
+                        lastErrorCategory = row.lastErrorCategory,
+                        visit = Visit(
+                            id = row.mutationId,
+                            userId = row.userId,
+                            placeId = item.payload.placeId,
+                            visitedAt = LocalDate.ofEpochDay(item.payload.visitedAtEpochDay),
+                            overallRating = feelingScore,
+                            ratingDimensions = item.dimensions.mapNotNull { dimension ->
+                                RatingDimension.fromStoredKey(dimension.dimensionKey)?.let { key ->
+                                    val score = when (dimension.semanticStateCode) {
+                                        "VERY_GOOD" -> 10.0
+                                        "GOOD" -> 8.0
+                                        "MEDIUM" -> 6.0
+                                        "WEAK" -> 4.0
+                                        "VERY_WEAK" -> 2.0
+                                        else -> return@mapNotNull null
+                                    }
+                                    key to score
+                                }
+                            }.toMap(),
+                            review = item.payload.story,
+                            personalNote = item.payload.privateMemory,
+                            photos = item.photos.sortedBy { it.position }.mapNotNull {
+                                it.localRelativePath ?: it.legacyUrl
+                            },
+                            visibility = Visibility.valueOf(item.payload.visibility),
+                        ),
+                    )
+                }
+                (legacyPending + nativePending).sortedBy { pending ->
+                    createdAtByMutation[pending.mutationId] ?: Long.MAX_VALUE
                 }
             }
         }

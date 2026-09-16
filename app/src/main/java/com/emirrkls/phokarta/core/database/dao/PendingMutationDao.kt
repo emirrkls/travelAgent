@@ -12,6 +12,8 @@ import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitDimensionScoreEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPayloadEntity
 import com.emirrkls.phokarta.core.database.entity.PendingVisitPhotoEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2DimensionEntity
+import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2PayloadEntity
 import kotlinx.coroutines.flow.Flow
 
 data class PendingVisitMutation(
@@ -20,6 +22,16 @@ data class PendingVisitMutation(
     val payload: PendingVisitPayloadEntity,
     @androidx.room.Relation(parentColumn = "mutationId", entityColumn = "mutationId")
     val dimensions: List<PendingVisitDimensionScoreEntity>,
+    @androidx.room.Relation(parentColumn = "mutationId", entityColumn = "mutationId")
+    val photos: List<PendingVisitPhotoEntity>,
+)
+
+data class PendingExperienceV2Mutation(
+    @androidx.room.Embedded val mutation: PendingMutationEntity,
+    @androidx.room.Relation(parentColumn = "mutationId", entityColumn = "mutationId")
+    val payload: PendingExperienceV2PayloadEntity,
+    @androidx.room.Relation(parentColumn = "mutationId", entityColumn = "mutationId")
+    val dimensions: List<PendingExperienceV2DimensionEntity>,
     @androidx.room.Relation(parentColumn = "mutationId", entityColumn = "mutationId")
     val photos: List<PendingVisitPhotoEntity>,
 )
@@ -37,6 +49,12 @@ interface PendingMutationDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertVisitPhotos(values: List<PendingVisitPhotoEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertExperienceV2Payload(value: PendingExperienceV2PayloadEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertExperienceV2Dimensions(values: List<PendingExperienceV2DimensionEntity>)
 
     @Query("SELECT * FROM pending_visit_photos WHERE mutationId = :mutationId ORDER BY position")
     suspend fun getVisitPhotos(mutationId: String): List<PendingVisitPhotoEntity>
@@ -87,8 +105,16 @@ interface PendingMutationDao {
     suspend fun getVisit(mutationId: String): PendingVisitMutation?
 
     @Transaction
+    @Query("SELECT * FROM pending_mutations WHERE mutationId = :mutationId AND type = 'PUBLISH_EXPERIENCE_V2'")
+    suspend fun getExperienceV2(mutationId: String): PendingExperienceV2Mutation?
+
+    @Transaction
     @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND type = 'PUBLISH_VISIT' ORDER BY createdAtEpochMillis")
     fun observeVisitMutations(userId: String): Flow<List<PendingVisitMutation>>
+
+    @Transaction
+    @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND type = 'PUBLISH_EXPERIENCE_V2' ORDER BY createdAtEpochMillis")
+    fun observeExperienceV2Mutations(userId: String): Flow<List<PendingExperienceV2Mutation>>
 
     @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND state IN ('PENDING','FAILED_RETRYABLE') ORDER BY createdAtEpochMillis LIMIT :limit")
     suspend fun eligible(userId: String, limit: Int): List<PendingMutationEntity>
@@ -111,7 +137,7 @@ interface PendingMutationDao {
         WHERE mutationId = :mutationId
           AND userId = :userId
           AND state = :expectedState
-          AND type = 'PUBLISH_VISIT'
+          AND type IN ('PUBLISH_VISIT','PUBLISH_EXPERIENCE_V2')
         """,
     )
     suspend fun deleteIfState(mutationId: String, userId: String, expectedState: String): Int

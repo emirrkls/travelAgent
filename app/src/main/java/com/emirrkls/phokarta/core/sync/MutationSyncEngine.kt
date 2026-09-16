@@ -17,6 +17,8 @@ import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
 import com.emirrkls.phokarta.core.network.mapper.toDomain
 import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.CreateExperienceV2DimensionDto
 import com.emirrkls.phokarta.core.network.model.DimensionScoreDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
@@ -68,10 +70,11 @@ class MutationSyncEngine @Inject constructor(
         var pauseVisitPublishes = false
         mutations.eligible(userId, batchSize).forEach { mutation ->
             if (session.currentUserId() != mutation.userId) return@forEach
-            if (pauseVisitPublishes && mutation.type == MutationTypeValue.PUBLISH_VISIT) return@forEach
+            if (pauseVisitPublishes && mutation.type in PUBLISH_TYPES) return@forEach
             if (mutations.claim(mutation.mutationId, clock.nowMillis()) == 0) return@forEach
             val outcome = when (mutation.type) {
                 MutationTypeValue.PUBLISH_VISIT -> syncVisit(mutation)
+                MutationTypeValue.PUBLISH_EXPERIENCE_V2 -> syncExperienceV2(mutation)
                 MutationTypeValue.SET_SAVED_STATE -> syncSaved(mutation)
                 else -> Failure(false, "UNKNOWN_TYPE")
             }
@@ -84,7 +87,7 @@ class MutationSyncEngine @Inject constructor(
                     outcome.category, clock.nowMillis(),
                 )
                 if (outcome.category == POLICY_ACCEPTANCE_REQUIRED_CODE &&
-                    mutation.type == MutationTypeValue.PUBLISH_VISIT
+                    mutation.type in PUBLISH_TYPES
                 ) {
                     pauseVisitPublishes = true
                 }
@@ -131,6 +134,98 @@ class MutationSyncEngine @Inject constructor(
                         VisitMedia(id, index)
                     })
                 }
+                try {
+                    database.withTransaction {
+                        local.upsertVisit(canonical)
+                        check(mutations.deleteIfGeneration(mutation.mutationId, mutation.generation) == 1) {
+                            "Mutation generation changed before reconciliation"
+                        }
+                    }
+                } catch (_: IllegalStateException) {
+                    return Failure(true, "RECONCILIATION_RACE")
+                }
+                orderedPhotos.forEach {
+                    mediaStore.deleteOwned(mutation.userId, it.localRelativePath)
+                }
+                if (canonical.visibility.name == "PUBLIC") activityInvalidator.markDirty()
+                Success
+            }
+        }
+    }
+
+    private suspend fun syncExperienceV2(mutation: PendingMutationEntity): Outcome {
+        if (mutation.payloadVersion != 2) return Failure(false, "INVALID_PAYLOAD_VERSION")
+        val item = mutations.getExperienceV2(mutation.mutationId)
+            ?: return Failure(false, "MISSING_PAYLOAD")
+        val orderedPhotos = item.photos.sortedBy { it.position }
+        if (orderedPhotos.size > 6) return Failure(false, "V2_MEDIA_LIMIT")
+        if (orderedPhotos.any { it.legacyUrl != null }) {
+            return Failure(false, MediaFailureCategory.LEGACY_MEDIA_RESELECT_REQUIRED)
+        }
+        val mediaIds = mutableListOf<String>()
+        for (photo in orderedPhotos) {
+            when (val prepared = preparePhoto(mutation, photo)) {
+                is PhotoPrepared -> mediaIds += prepared.mediaId
+                is PhotoFailed -> return prepared.failure
+            }
+        }
+        val payload = item.payload
+        val request = CreateExperienceV2Dto(
+            clientMutationId = mutation.mutationId,
+            placeId = payload.placeId,
+            visitDate = LocalDate.ofEpochDay(payload.visitedAtEpochDay).toString(),
+            primaryExperienceCode = payload.primaryExperienceCode,
+            rawExperienceLabel = payload.rawExperienceLabel,
+            overallFeelingCode = payload.overallFeelingCode,
+            companionCode = payload.companionCode,
+            timeOfDayCode = payload.timeOfDayCode,
+            vibeCodes = payload.vibeCodes.stableCodes(),
+            practicalSignalCodes = payload.practicalSignalCodes.stableCodes(),
+            dimensions = item.dimensions.sortedBy { it.dimensionKey }.map {
+                CreateExperienceV2DimensionDto(
+                    key = it.dimensionKey,
+                    semanticStateCode = it.semanticStateCode,
+                    templateVersion = it.templateVersion,
+                )
+            },
+            title = payload.title,
+            titleSource = payload.titleSource,
+            story = payload.story.takeIf(String::isNotBlank),
+            tip = payload.tip.takeIf(String::isNotBlank),
+            privateMemory = payload.privateMemory.takeIf(String::isNotBlank),
+            visibility = payload.visibility,
+            mediaIds = mediaIds,
+        )
+        return when (val result = visitsRemote.createExperience(request)) {
+            is RemoteResult.Failure -> result.error.toOutcome()
+            is RemoteResult.Success -> {
+                val experience = runCatching { result.value.toDomain() }
+                    .getOrElse { return Failure(false, "INVALID_RESPONSE") }
+                val canonical = com.emirrkls.phokarta.core.model.Visit(
+                    id = experience.id,
+                    userId = mutation.userId,
+                    placeId = experience.place.id,
+                    visitedAt = experience.experiencedAt,
+                    overallRating = experience.feeling.compatibilityNumericRating,
+                    ratingDimensions = experience.dimensions.mapNotNull { dimension ->
+                        com.emirrkls.phokarta.core.model.RatingDimension.fromStoredKey(dimension.key)
+                            ?.let { it to dimension.numericScore }
+                    }.toMap(),
+                    review = experience.story,
+                    personalNote = payload.privateMemory,
+                    photos = emptyList(),
+                    visibility = com.emirrkls.phokarta.core.model.Visibility.valueOf(experience.visibility.name),
+                    media = experience.media.mapNotNull { media ->
+                        media.id?.let {
+                            VisitMedia(
+                                it,
+                                media.position,
+                                media.url,
+                                media.accessExpiresAt?.toEpochMillisSafely(),
+                            )
+                        }
+                    },
+                )
                 try {
                     database.withTransaction {
                         local.upsertVisit(canonical)
@@ -291,6 +386,15 @@ class MutationSyncEngine @Inject constructor(
         }
         is NetworkError.NotFound -> Failure(false, "NOT_FOUND")
         is NetworkError.Conflict -> Failure(false, "CONFLICT")
+    }
+
+    private fun String.stableCodes(): List<String> = split(',').filter(String::isNotBlank)
+
+    companion object {
+        private val PUBLISH_TYPES = setOf(
+            MutationTypeValue.PUBLISH_VISIT,
+            MutationTypeValue.PUBLISH_EXPERIENCE_V2,
+        )
     }
 
 }

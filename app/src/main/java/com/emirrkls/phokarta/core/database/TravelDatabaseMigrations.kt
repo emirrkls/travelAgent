@@ -179,3 +179,47 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_visit_media_ownerUserId_mediaId` ON `visit_media` (`ownerUserId`, `mediaId`)")
     }
 }
+
+/** Additive native Experience publication. Existing Visit drafts/queue rows stay V1. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `pending_mutations` ADD COLUMN `payloadVersion` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `payloadVersion` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `primaryExperienceCode` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `rawExperienceLabel` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `overallFeelingCode` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `companionCode` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `timeOfDayCode` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `vibeCodes` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `practicalSignalCodes` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `title` TEXT")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `titleSource` TEXT NOT NULL DEFAULT 'GENERATED'")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `story` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `tip` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `visit_draft_dimension_scores` ADD COLUMN `semanticStateCode` TEXT")
+        db.execSQL("ALTER TABLE `visit_draft_dimension_scores` ADD COLUMN `templateVersion` INTEGER")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `pending_experience_v2_payloads` (
+                `mutationId` TEXT NOT NULL, `placeId` TEXT NOT NULL,
+                `visitedAtEpochDay` INTEGER NOT NULL, `primaryExperienceCode` TEXT NOT NULL,
+                `rawExperienceLabel` TEXT, `overallFeelingCode` TEXT NOT NULL,
+                `companionCode` TEXT, `timeOfDayCode` TEXT, `vibeCodes` TEXT NOT NULL,
+                `practicalSignalCodes` TEXT NOT NULL, `title` TEXT, `titleSource` TEXT NOT NULL,
+                `story` TEXT NOT NULL, `tip` TEXT NOT NULL, `privateMemory` TEXT NOT NULL,
+                `visibility` TEXT NOT NULL, PRIMARY KEY(`mutationId`),
+                FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )""",
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `pending_experience_v2_dimensions` (
+                `mutationId` TEXT NOT NULL, `dimensionKey` TEXT NOT NULL,
+                `semanticStateCode` TEXT NOT NULL, `templateVersion` INTEGER NOT NULL,
+                PRIMARY KEY(`mutationId`, `dimensionKey`),
+                FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )""",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_experience_v2_dimensions_mutationId` ON `pending_experience_v2_dimensions` (`mutationId`)")
+    }
+}

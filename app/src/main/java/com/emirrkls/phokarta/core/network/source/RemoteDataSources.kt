@@ -15,6 +15,8 @@ import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.CapabilitiesV2Dto
 import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
@@ -125,6 +127,8 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
 
 interface VisitRemoteDataSource {
     suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto>
+    suspend fun createExperience(request: CreateExperienceV2Dto): RemoteResult<ExperienceV2Dto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
     suspend fun ownerVisits(
         page: Int = 0,
         size: Int = 20,
@@ -152,6 +156,9 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
 ) : VisitRemoteDataSource {
     override suspend fun create(request: CreateVisitDto) =
         safeApiCall(json) { api.create(request) }
+
+    override suspend fun createExperience(request: CreateExperienceV2Dto) =
+        safeApiCall(json) { api.createExperience(request) }
 
     override suspend fun ownerVisits(page: Int, size: Int) =
         safeApiCall(json) { api.ownerVisits(page, size) }

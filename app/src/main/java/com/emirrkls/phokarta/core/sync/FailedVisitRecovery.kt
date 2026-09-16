@@ -1,10 +1,19 @@
 package com.emirrkls.phokarta.core.sync
 
 import com.emirrkls.phokarta.core.database.dao.PendingVisitMutation
+import com.emirrkls.phokarta.core.database.dao.PendingExperienceV2Mutation
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
+import com.emirrkls.phokarta.core.model.CompanionCode
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.TimeOfDayCode
+import com.emirrkls.phokarta.core.model.VibeCode
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
 import java.time.LocalDate
@@ -93,8 +102,48 @@ object FailedVisitRecoveryMapper {
         )
     }
 
+    fun toDraft(item: PendingExperienceV2Mutation): VisitDraft {
+        val payload = item.payload
+        return VisitDraft(
+            payloadVersion = 2,
+            publicReview = payload.story,
+            privateMemory = payload.privateMemory,
+            visitDate = LocalDate.ofEpochDay(payload.visitedAtEpochDay),
+            visibility = enumOrDefault(payload.visibility, Visibility.PUBLIC),
+            dimensionsExpanded = item.dimensions.isNotEmpty(),
+            photos = item.photos.sortedBy { it.position }.mapNotNull {
+                it.localRelativePath ?: it.legacyUrl
+            },
+            primaryExperience = enumOrNull<PrimaryExperienceCode>(payload.primaryExperienceCode),
+            rawExperienceLabel = payload.rawExperienceLabel,
+            overallFeeling = enumOrNull<OverallFeelingCode>(payload.overallFeelingCode),
+            semanticDimensions = item.dimensions.associate { row ->
+                row.dimensionKey to enumOrDefault(row.semanticStateCode, DimensionStateCode.UNKNOWN)
+            }.filterValues { it != DimensionStateCode.UNKNOWN },
+            companion = enumOrNull<CompanionCode>(payload.companionCode),
+            timeOfDay = enumOrNull<TimeOfDayCode>(payload.timeOfDayCode),
+            vibes = decodeSet<VibeCode>(payload.vibeCodes),
+            practicalSignals = decodeSet<PracticalSignalCode>(payload.practicalSignalCodes),
+            title = payload.title,
+            titleSource = enumOrDefault(payload.titleSource, ExperienceTitleSource.GENERATED),
+            story = payload.story,
+            tip = payload.tip,
+        )
+    }
+
     fun hasMeaningfulDraftConflict(existing: VisitDraft?): Boolean {
         if (existing == null) return false
         return VisitDraftLogic.hasMeaningfulContent(existing)
     }
+
+    private inline fun <reified T : Enum<T>> enumOrNull(raw: String?): T? =
+        raw?.let { value -> enumValues<T>().firstOrNull { it.name == value } }
+
+    private inline fun <reified T : Enum<T>> enumOrDefault(raw: String, default: T): T =
+        enumValues<T>().firstOrNull { it.name == raw } ?: default
+
+    private inline fun <reified T : Enum<T>> decodeSet(raw: String): Set<T> =
+        raw.split(',').filter(String::isNotBlank).mapNotNull { value ->
+            enumValues<T>().firstOrNull { it.name == value }
+        }.toSet()
 }

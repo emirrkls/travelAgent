@@ -13,6 +13,14 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.VisitStateLogic
+import com.emirrkls.phokarta.core.model.CompanionCode
+import com.emirrkls.phokarta.core.model.DimensionStateCode
+import com.emirrkls.phokarta.core.model.ExperienceTitleSource
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PracticalSignalCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.TimeOfDayCode
+import com.emirrkls.phokarta.core.model.VibeCode
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
 import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
@@ -58,7 +66,8 @@ data class RatingUiState(
 ) {
     val overall: Float get() = draft.overallScore
     val dimensions: Map<RatingDimension, Float> get() = draft.dimensions
-    val review: String get() = draft.publicReview
+    val review: String get() = if (draft.payloadVersion == 2) draft.story else draft.publicReview
+    val tip: String get() = draft.tip
     val note: String get() = draft.privateMemory
     val visitedAt: LocalDate get() = draft.visitDate
     val visibility: Visibility get() = draft.visibility
@@ -182,6 +191,56 @@ class RatingViewModel @Inject constructor(
 
     fun setOverall(value: Float) = updateDraft { it.copy(overallScore = value.roundToTenth()) }
 
+    fun setPrimaryExperience(value: PrimaryExperienceCode) = updateDraft {
+        it.copy(
+            primaryExperience = value,
+            rawExperienceLabel = if (value == PrimaryExperienceCode.OTHER) it.rawExperienceLabel else null,
+            semanticDimensions = it.semanticDimensions.filterKeys {
+                key -> key in ExperienceDimensionCatalog.keysFor(value)
+            },
+        )
+    }
+
+    fun setRawExperienceLabel(value: String) = updateDraft { it.copy(rawExperienceLabel = value) }
+
+    fun setOverallFeeling(value: OverallFeelingCode) = updateDraft { it.copy(overallFeeling = value) }
+
+    fun setCompanion(value: CompanionCode?) = updateDraft { it.copy(companion = value) }
+
+    fun setTimeOfDay(value: TimeOfDayCode?) = updateDraft { it.copy(timeOfDay = value) }
+
+    fun toggleVibe(value: VibeCode) = updateDraft { draft ->
+        val next = if (value in draft.vibes) draft.vibes - value else {
+            if (draft.vibes.size >= 2) draft.vibes else draft.vibes + value
+        }
+        draft.copy(vibes = next)
+    }
+
+    fun togglePracticalSignal(value: PracticalSignalCode) = updateDraft { draft ->
+        draft.copy(practicalSignals = if (value in draft.practicalSignals) {
+            draft.practicalSignals - value
+        } else {
+            draft.practicalSignals + value
+        })
+    }
+
+    fun setSemanticDimension(key: String, value: DimensionStateCode?) = updateDraft { draft ->
+        draft.copy(semanticDimensions = if (value == null) {
+            draft.semanticDimensions - key
+        } else {
+            draft.semanticDimensions + (key to value)
+        })
+    }
+
+    fun setTitle(value: String) = updateDraft {
+        if (value.isBlank()) it.copy(title = null, titleSource = ExperienceTitleSource.GENERATED)
+        else it.copy(title = value, titleSource = ExperienceTitleSource.CUSTOM)
+    }
+
+    fun useGeneratedTitle() = updateDraft {
+        it.copy(title = null, titleSource = ExperienceTitleSource.GENERATED)
+    }
+
     fun toggleDimensionsExpanded() = updateDraft { it.copy(dimensionsExpanded = !it.dimensionsExpanded) }
 
     fun enableDimension(name: RatingDimension) = updateDraft { draft ->
@@ -196,7 +255,12 @@ class RatingViewModel @Inject constructor(
         it.copy(dimensions = it.dimensions - name)
     }
 
-    fun setReview(value: String) = updateDraft { it.copy(publicReview = value) }
+    fun setReview(value: String) = updateDraft {
+        if (it.payloadVersion == 2) it.copy(story = value, publicReview = value)
+        else it.copy(publicReview = value)
+    }
+
+    fun setTip(value: String) = updateDraft { it.copy(tip = value) }
 
     fun setNote(value: String) = updateDraft { it.copy(privateMemory = value) }
 
@@ -331,11 +395,15 @@ class RatingViewModel @Inject constructor(
         _uiState.update { it.copy(isPublishing = true, publishError = null) }
         if (offlineMutations !== NoOpOfflineMutationRepository) {
             try {
-                val mutationId = offlineMutations.commitVisit(VisitDraftLogic.toVisit(
-                    draft = snapshot,
-                    placeId = placeId,
-                    userId = repository.currentUser.id,
-                ))
+                val mutationId = if (snapshot.payloadVersion == 2) {
+                    offlineMutations.commitExperienceV2(placeId, snapshot)
+                } else {
+                    offlineMutations.commitVisit(VisitDraftLogic.toVisit(
+                        draft = snapshot,
+                        placeId = placeId,
+                        userId = repository.currentUser.id,
+                    ))
+                }
                 lastPersistedDraft = null
                 hadPersistedDraft = false
                 withTimeoutOrNull(IMMEDIATE_SYNC_TIMEOUT_MS) {

@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.core.auth.SessionManager
 import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
 import com.emirrkls.phokarta.core.time.EpochClock
 import com.emirrkls.phokarta.feature.rating.VisitDraft
+import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
 import com.emirrkls.phokarta.core.media.MediaFileMutationLock
 import com.emirrkls.phokarta.core.media.MediaImportResult
 import com.emirrkls.phokarta.core.media.VisitMediaStore
@@ -121,7 +122,12 @@ class RoomVisitDraftRepository @Inject constructor(
     ): MediaImportResult = fileMutationLock.withLock {
         if (sessionUserId() != ownerUserId) return@withLock MediaImportResult.Unreadable
         val existing = dao.getPhotos(ownerUserId, placeId)
-        if (existing.size >= VisitMediaStore.MAX_PHOTOS) return@withLock MediaImportResult.MaxCount
+        val maxPhotos = if (dao.getDraft(ownerUserId, placeId)?.payloadVersion == 2) {
+            VisitDraftLogic.V2_MAX_MEDIA
+        } else {
+            VisitMediaStore.MAX_PHOTOS
+        }
+        if (existing.size >= maxPhotos) return@withLock MediaImportResult.MaxCount
         val result = mediaStore.import(ownerUserId, placeId, existing.size, uri)
         if (result is MediaImportResult.Success) dao.upsertPhotos(listOf(result.photo))
         result

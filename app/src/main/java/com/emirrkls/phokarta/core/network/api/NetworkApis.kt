@@ -7,6 +7,7 @@ import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
+import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
@@ -218,6 +219,9 @@ interface PrivacyV2Api {
 interface VisitApi {
     @GET("api/v2/experiences/{id}")
     suspend fun experience(@Path("id") id: String): Response<ExperienceV2Dto>
+
+    @POST("api/v2/experiences")
+    suspend fun createExperience(@Body request: CreateExperienceV2Dto): Response<ExperienceV2Dto>
 
     @POST("api/v1/visits")
     suspend fun create(@Body request: CreateVisitDto): Response<VisitOwnerDto>

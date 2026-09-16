@@ -184,6 +184,35 @@ data class VisitMediaDto(
 )
 
 @Serializable
+data class CreateExperienceV2Dto(
+    val clientMutationId: String,
+    val placeId: String,
+    val visitDate: String,
+    val primaryExperienceCode: String,
+    val rawExperienceLabel: String? = null,
+    val overallFeelingCode: String,
+    val companionCode: String? = null,
+    val timeOfDayCode: String? = null,
+    val vibeCodes: List<String> = emptyList(),
+    val practicalSignalCodes: List<String> = emptyList(),
+    val dimensions: List<CreateExperienceV2DimensionDto> = emptyList(),
+    val title: String? = null,
+    val titleSource: String,
+    val story: String? = null,
+    val tip: String? = null,
+    val privateMemory: String? = null,
+    val visibility: String,
+    val mediaIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class CreateExperienceV2DimensionDto(
+    val key: String,
+    val semanticStateCode: String,
+    val templateVersion: Int,
+)
+
+@Serializable
 data class ExperienceV2Dto(
     val id: String,
     val classification: String,

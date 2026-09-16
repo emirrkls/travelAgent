@@ -226,6 +226,15 @@ class BlockReportIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.publicReview").value("public blocked visit"))
                 .andExpect(jsonPath("$.privateMemory").doesNotExist());
+        mockMvc.perform(get("/api/v2/experiences/{id}", pub.id())
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(pub.id().toString()))
+                .andExpect(jsonPath("$.classification").value("LEGACY_COMPATIBILITY"))
+                .andExpect(jsonPath("$.story").value("public blocked visit"))
+                .andExpect(jsonPath("$.feeling.source").value("DERIVED_LEGACY"))
+                .andExpect(jsonPath("$.primaryExperience.code").value("UNKNOWN_LEGACY"))
+                .andExpect(jsonPath("$.privateMemory").doesNotExist());
         mockMvc.perform(get("/api/v1/places/{id}/reviews", place)
                         .param("scope", "friends")
                         .header("Authorization", "Bearer " + a.access))
@@ -241,7 +250,15 @@ class BlockReportIntegrationTest {
         mockMvc.perform(get("/api/v1/visits/{id}", friends.id())
                         .header("Authorization", "Bearer " + a.access))
                 .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v2/experiences/{id}", pub.id())
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v2/experiences/{id}", friends.id())
+                        .header("Authorization", "Bearer " + a.access))
+                .andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/visits/{id}", pub.id()))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v2/experiences/{id}", pub.id()))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/places/{id}/reviews", place)
                         .param("scope", "friends")

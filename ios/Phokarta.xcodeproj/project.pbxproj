@@ -955,6 +955,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000000000000059 /* ExperienceDiscoveryTests.swift in Sources */,
 				200000000000000000000045 /* BlockServiceTests.swift in Sources */,
 				200000000000000000000046 /* BlockSocialIntegrationTests.swift in Sources */,
 				200000000000000000000047 /* ReportFeatureTests.swift in Sources */,
@@ -991,7 +992,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				200000000000000000000059 /* ExperienceDiscoveryTests.swift in Sources */,
 				200000000000000000000053 /* ExperienceDiscoveryService.swift in Sources */,
 				200000000000000000000054 /* ExperienceExploreController.swift in Sources */,
 				200000000000000000000055 /* ExperienceDetailScreen.swift in Sources */,

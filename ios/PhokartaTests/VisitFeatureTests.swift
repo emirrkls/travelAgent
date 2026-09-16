@@ -394,3 +394,104 @@ private extension String {
         return "{" + String(self[start..<end]) + "}"
     }
 }
+
+final class ExperienceV2FoundationTests: XCTestCase {
+    func testEndpointUsesReadOnlyV2Route() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let id = UUID(uuidString: "30000000-0000-0000-0000-000000000001")!
+        let request = try client.makeRequest(ExperienceV2Endpoint(experienceId: id))
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v2/experiences/\(id.uuidString.uppercased())")
+        XCTAssertNil(request.httpBody)
+    }
+
+    func testNativeExperienceDecodesStableCodesAndOrderedMedia() throws {
+        let experience = try APIJSON.decoder.decode(ExperienceV2.self, from: Data(Self.fixture.utf8))
+
+        XCTAssertEqual(experience.classification, .nativeV2)
+        XCTAssertEqual(experience.title, "Persisted sunset title")
+        XCTAssertEqual(experience.titleSource, .generated)
+        XCTAssertTrue(experience.titlePersisted)
+        XCTAssertEqual(experience.feeling.code, .bayildim)
+        XCTAssertEqual(experience.feeling.source, .explicit)
+        XCTAssertEqual(experience.primaryExperience.code, .gunBatimi)
+        XCTAssertEqual(experience.primaryExperience.family, .sceneryAndMoment)
+        XCTAssertEqual(experience.vibes, [.calm, .romantic])
+        XCTAssertEqual(experience.practicalSignals, [.arriveEarly])
+        XCTAssertEqual(experience.dimensions.first?.semanticState, .veryGood)
+        XCTAssertEqual(experience.dimensions.first?.semanticState?.compatibilityScore, 10)
+        XCTAssertEqual(experience.media.map(\.position), [0, 1])
+        XCTAssertEqual(experience.media.map(\.kind), [.legacyURL, .managed])
+        XCTAssertFalse(Mirror(reflecting: experience).children.compactMap(\.label).contains("privateMemory"))
+    }
+
+    func testUnknownFutureCodesUseSafeFallbacks() throws {
+        let future = Self.fixture
+            .replacingOccurrences(of: "GUN_BATIMI", with: "FUTURE_PRIMARY")
+            .replacingOccurrences(of: "SCENERY_AND_MOMENT", with: "FUTURE_FAMILY")
+            .replacingOccurrences(of: "CALM", with: "FUTURE_VIBE")
+            .replacingOccurrences(of: "ARRIVE_EARLY", with: "FUTURE_SIGNAL")
+            .replacingOccurrences(of: "VERY_GOOD", with: "FUTURE_STATE")
+        let experience = try APIJSON.decoder.decode(ExperienceV2.self, from: Data(future.utf8))
+
+        XCTAssertEqual(experience.primaryExperience.code, .unknown)
+        XCTAssertEqual(experience.primaryExperience.family, .unknown)
+        XCTAssertEqual(experience.vibes.first, .unknown)
+        XCTAssertEqual(experience.practicalSignals.first, .unknown)
+        XCTAssertEqual(experience.dimensions.first?.semanticState, .unknown)
+    }
+
+    func testLegacyCompatibilityDoesNotFabricateCanonicalPrimaryOrPersistedTitle() throws {
+        let legacy = Self.fixture
+            .replacingOccurrences(of: "NATIVE_V2", with: "LEGACY_COMPATIBILITY")
+            .replacingOccurrences(of: "\"titleSource\":\"GENERATED\"", with: "\"titleSource\":null")
+            .replacingOccurrences(of: "\"titlePersisted\":true", with: "\"titlePersisted\":false")
+            .replacingOccurrences(of: "GUN_BATIMI", with: "UNKNOWN_LEGACY")
+            .replacingOccurrences(of: "\"canonical\":true", with: "\"canonical\":false")
+            .replacingOccurrences(of: "\"family\":\"SCENERY_AND_MOMENT\"", with: "\"family\":null")
+        let experience = try APIJSON.decoder.decode(ExperienceV2.self, from: Data(legacy.utf8))
+
+        XCTAssertEqual(experience.classification, .legacyCompatibility)
+        XCTAssertEqual(experience.primaryExperience.code, .unknownLegacy)
+        XCTAssertFalse(experience.primaryExperience.canonical)
+        XCTAssertNil(experience.primaryExperience.family)
+        XCTAssertNil(experience.titleSource)
+        XCTAssertFalse(experience.titlePersisted)
+    }
+
+    func testTaxonomyV1CatalogCountsAndDimensionCompatibility() {
+        XCTAssertEqual(PrimaryExperienceCode.allCases.filter { $0 != .unknown && $0 != .unknownLegacy }.count, 55)
+        XCTAssertEqual(PracticalSignalCode.allCases.filter { $0 != .unknown }.count, 16)
+        XCTAssertEqual(DimensionStateCode.veryGood.compatibilityScore, 10)
+        XCTAssertEqual(DimensionStateCode.veryWeak.compatibilityScore, 2)
+    }
+
+    private static let fixture = """
+    {
+      "id":"30000000-0000-0000-0000-000000000001",
+      "classification":"NATIVE_V2",
+      "author":{"id":"11111111-1111-1111-1111-111111111111","username":"author","displayName":"Author","avatarUrl":null},
+      "place":{"id":"20000000-0000-0000-0000-000000000001","name":"Foça","category":"BEACH","city":"İzmir","region":"Aegean","country":"Türkiye","coverImage":"https://images.test/cover.jpg"},
+      "experiencedAt":"2026-09-01",
+      "title":"Persisted sunset title",
+      "titleSource":"GENERATED",
+      "titlePersisted":true,
+      "story":"Native story",
+      "tip":"Arrive early",
+      "feeling":{"code":"BAYILDIM","source":"EXPLICIT","compatibilityNumericRating":10.0},
+      "primaryExperience":{"code":"GUN_BATIMI","canonical":true,"family":"SCENERY_AND_MOMENT","rawLabel":null},
+      "companion":"PARTNER",
+      "timeOfDay":"EVENING",
+      "vibes":["CALM","ROMANTIC"],
+      "practicalSignals":["ARRIVE_EARLY"],
+      "dimensions":[{"key":"SCENERY","numericScore":10.0,"semanticState":"VERY_GOOD","templateVersion":1}],
+      "media":[
+        {"kind":"LEGACY_URL","position":0,"id":null,"url":"https://legacy.test/0.jpg","accessExpiresAt":null},
+        {"kind":"MANAGED","position":1,"id":"40000000-0000-0000-0000-000000000001","url":"https://media.test/signed","accessExpiresAt":"2026-09-16T12:00:00Z"}
+      ],
+      "visibility":"PUBLIC",
+      "taxonomyVersion":1,
+      "privateMemory":"must-not-decode"
+    }
+    """
+}

@@ -22,6 +22,26 @@ struct MyVisitsEndpoint: APIEndpoint {
     }
 }
 
+struct ExperienceV2Endpoint: APIEndpoint {
+    typealias Response = ExperienceV2
+    let experienceId: UUID
+    var method: HTTPMethod { .get }
+    var path: String { "api/v2/experiences/\(experienceId.uuidString.uppercased())" }
+    var requiresAuthentication: Bool { false }
+}
+
+protocol ExperienceV2Serving: Sendable {
+    func experience(id: UUID) async throws -> ExperienceV2
+}
+
+struct ExperienceV2Service: ExperienceV2Serving {
+    let client: APIClient
+
+    func experience(id: UUID) async throws -> ExperienceV2 {
+        try await client.send(ExperienceV2Endpoint(experienceId: id))
+    }
+}
+
 protocol VisitServing: Sendable {
     func create(_ request: VisitCreateRequest) async throws -> OwnerVisit
     func ownerVisits() async throws -> [OwnerVisit]

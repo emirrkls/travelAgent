@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FlightTakeoff
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.IosShare
@@ -62,6 +63,7 @@ import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.components.OwnerVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.SectionHeader
 import com.emirrkls.phokarta.ui.components.TravelImage
+import com.emirrkls.phokarta.ui.components.ExperienceCard
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.theme.Coral
 import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
@@ -80,6 +82,7 @@ import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
 @Composable
 fun ProfileScreen(
     onPlace: (String) -> Unit,
+    onExperience: (String) -> Unit = {},
     onEditVisit: (String) -> Unit,
     onCollection: (String) -> Unit,
     onWantToGo: () -> Unit,
@@ -91,6 +94,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val experienceState by viewModel.experienceState.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshSocialCounts()
     }
@@ -161,7 +165,13 @@ fun ProfileScreen(
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(4.dp)) {
-                listOf(Icons.Rounded.GridView to stringResource(R.string.places), Icons.Rounded.FolderCopy to stringResource(R.string.lists), Icons.Rounded.Map to stringResource(R.string.map_tab), Icons.Rounded.FlightTakeoff to stringResource(R.string.trips)).forEachIndexed { index, item ->
+                listOf(
+                    Icons.Rounded.Explore to stringResource(R.string.profile_experiences),
+                    Icons.Rounded.GridView to stringResource(R.string.places),
+                    Icons.Rounded.FolderCopy to stringResource(R.string.lists),
+                    Icons.Rounded.Map to stringResource(R.string.map_tab),
+                    Icons.Rounded.FlightTakeoff to stringResource(R.string.trips),
+                ).forEachIndexed { index, item ->
                     Surface(Modifier.weight(1f).clickable { tab = index }, color = if (tab == index) MaterialTheme.colorScheme.surface else Color.Transparent, shape = RoundedCornerShape(13.dp)) {
                         Column(Modifier.padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(item.first, null, Modifier.size(18.dp), tint = if (tab == index) Coral else MaterialTheme.colorScheme.onSurfaceVariant); Text(item.second, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
                     }
@@ -171,6 +181,52 @@ fun ProfileScreen(
         }
         when (tab) {
             0 -> {
+                if (experienceState.isLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                        }
+                    }
+                } else if (experienceState.items.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.experience_empty_title),
+                            Modifier.padding(horizontal = 20.dp, vertical = 28.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    items(experienceState.items, key = { "experience-${it.id}" }) { experience ->
+                        ExperienceCard(
+                            experience = experience,
+                            onOpen = { onExperience(experience.id) },
+                            onAuthor = {},
+                            onPlace = { onPlace(experience.place.id) },
+                            onRelationship = {},
+                            relationshipBusy = false,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                        )
+                    }
+                    if (experienceState.hasMore) {
+                        item {
+                            TextButton(onClick = viewModel::loadMoreExperiences, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.experience_load_more))
+                            }
+                        }
+                    }
+                }
+                experienceState.errorMessage?.let { message ->
+                    item {
+                        Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(stringResource(message), color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = viewModel::retryExperiences) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                }
+            }
+            1 -> {
                 item {
                     Row(
                         Modifier
@@ -337,12 +393,12 @@ fun ProfileScreen(
                     }
                 }
             }
-            1 -> item {
+            2 -> item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(state.collections, key = { it.id }) { collection -> CollectionCard(collection, collection.placeIds.size, { onCollection(collection.id) }) }
                 }
             }
-            2 -> item {
+            3 -> item {
                 Box(Modifier.padding(16.dp).fillMaxWidth().height(280.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Map, null, Modifier.size(58.dp), tint = MaterialTheme.colorScheme.secondary); Text(pluralStringResource(R.plurals.cities_explored, state.user.cityCount, state.user.cityCount), style = MaterialTheme.typography.titleLarge); Text(stringResource(R.string.travel_map_grows), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }

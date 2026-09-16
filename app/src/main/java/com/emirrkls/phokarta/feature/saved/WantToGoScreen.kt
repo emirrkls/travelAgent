@@ -50,6 +50,7 @@ import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 fun WantToGoScreen(
     onBack: () -> Unit,
     onPlace: (String) -> Unit,
+    showBack: Boolean = true,
     viewModel: WantToGoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,8 +60,10 @@ fun WantToGoScreen(
 
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
+            if (showBack) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
+                }
             }
             Column(Modifier.weight(1f)) {
                 Text(stringResource(WantToGoCopy.SURFACE), style = MaterialTheme.typography.titleLarge)

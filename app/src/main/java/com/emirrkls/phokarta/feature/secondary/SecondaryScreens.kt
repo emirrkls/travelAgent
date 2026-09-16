@@ -289,6 +289,7 @@ fun CollectionsScreen(
     onBack: () -> Unit,
     onCollection: (String) -> Unit,
     onCreateCollection: (() -> Unit)? = null,
+    showBack: Boolean = true,
     viewModel: SecondaryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -300,7 +301,9 @@ fun CollectionsScreen(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
+            if (showBack) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
+            }
             Text(stringResource(R.string.curated_collections), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             TextButton(
                 onClick = {

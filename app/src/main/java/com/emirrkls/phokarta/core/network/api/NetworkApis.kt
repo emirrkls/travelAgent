@@ -13,6 +13,8 @@ import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
+import com.emirrkls.phokarta.core.network.model.CursorPageDto
 import com.emirrkls.phokarta.core.network.model.CapabilitiesV2Dto
 import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
 import com.emirrkls.phokarta.core.network.model.PlaceAggregateV2Dto
@@ -217,6 +219,34 @@ interface PrivacyV2Api {
 }
 
 interface VisitApi {
+    @GET("api/v2/experiences/feed")
+    suspend fun experienceFeed(
+        @Query("lens") lens: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("size") size: Int = 20,
+        @Query("q") search: String? = null,
+        @Query("primary") primary: String? = null,
+        @Query("vibe") vibe: String? = null,
+        @Query("lat") latitude: Double? = null,
+        @Query("lon") longitude: Double? = null,
+        @Query("radiusMeters") radiusMeters: Double? = null,
+    ): Response<CursorPageDto<ExperienceSummaryV2Dto>>
+
+    @GET("api/v2/places/{placeId}/experiences")
+    suspend fun placeExperiences(
+        @Path("placeId") placeId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("size") size: Int = 20,
+        @Query("primary") primary: String? = null,
+    ): Response<CursorPageDto<ExperienceSummaryV2Dto>>
+
+    @GET("api/v2/users/{userId}/experiences")
+    suspend fun profileExperiences(
+        @Path("userId") userId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("size") size: Int = 20,
+    ): Response<CursorPageDto<ExperienceSummaryV2Dto>>
+
     @GET("api/v2/experiences/{id}")
     suspend fun experience(@Path("id") id: String): Response<ExperienceV2Dto>
 

@@ -1,9 +1,13 @@
 package com.emirrkls.phokarta.feature.explore
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,161 +16,179 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emirrkls.phokarta.R
-import com.emirrkls.phokarta.core.model.Place
-import com.emirrkls.phokarta.core.model.PlaceCategory
-import com.emirrkls.phokarta.ui.components.CategoryChip
-import com.emirrkls.phokarta.ui.components.FeaturedPlaceCard
-import com.emirrkls.phokarta.ui.components.PlaceCard
-import com.emirrkls.phokarta.ui.components.SectionHeader
-import com.emirrkls.phokarta.ui.components.UserAvatar
-import com.emirrkls.phokarta.ui.components.vectorIcon
-import com.emirrkls.phokarta.ui.localization.labelRes
-import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
-import com.emirrkls.phokarta.ui.theme.TravelSpacing
+import com.emirrkls.phokarta.core.model.ExperienceFeedLens
+import com.emirrkls.phokarta.ui.components.ExperienceCard
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 
 @Composable
 fun ExploreScreen(
-    onSearch: () -> Unit,
+    onExperience: (String) -> Unit,
     onPlace: (String) -> Unit,
-    onCollections: () -> Unit,
-    onWantToGo: () -> Unit,
+    onAuthor: (String) -> Unit,
+    onMap: () -> Unit,
     viewModel: ExploreViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val selectedCategory = state.selectedCategory
-    val firstName = state.currentUser?.displayName?.substringBefore(' ').orEmpty()
-    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 110.dp)) {
+    val context = LocalContext.current
+    val locationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) requestApproximateLocation(context, viewModel::setNearbyLocation)
+        else viewModel.clearNearbyLocation()
+    }
+    val requestLocation = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestApproximateLocation(context, viewModel::setNearbyLocation)
+        } else {
+            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = TravelSpacing.md, vertical = TravelSpacing.md), verticalAlignment = Alignment.CenterVertically) {
-                UserAvatar(state.currentUser?.avatarUrl.orEmpty(), 46)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.explore_greeting), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        stringResource(R.string.explore_where_to_next, firstName),
-                        style = MaterialTheme.typography.titleLarge,
+            Text(
+                stringResource(R.string.experience_discover_title),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(R.string.experience_discover_subtitle),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = viewModel::setQuery,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                placeholder = { Text(stringResource(R.string.experience_search_hint)) },
+            )
+            Spacer(Modifier.height(10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ExperienceFeedLens.entries, key = { it.name }) { lens ->
+                    FilterChip(
+                        selected = state.lens == lens,
+                        onClick = { viewModel.selectLens(lens) },
+                        label = { Text(stringResource(lens.labelRes())) },
                     )
                 }
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Outlined.Notifications, stringResource(R.string.a11y_notifications))
+            }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ExperienceDiscoveryFilter.entries, key = { it.name }) { filter ->
+                    FilterChip(
+                        selected = state.discoveryFilter == filter,
+                        onClick = { viewModel.selectDiscoveryFilter(filter) },
+                        label = { Text(stringResource(filter.labelRes())) },
+                    )
+                }
+            }
+        }
+
+        if (state.needsNearbyLocation) {
+            item {
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 34.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        stringResource(R.string.experience_nearby_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        stringResource(R.string.experience_nearby_body),
+                        Modifier.padding(top = 7.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = requestLocation) {
+                            Text(stringResource(R.string.experience_use_approximate_location))
+                        }
+                        OutlinedButton(onClick = onMap) {
+                            Text(stringResource(R.string.experience_open_map))
+                        }
                     }
                 }
             }
-            SearchEntry(onSearch)
-            Spacer(Modifier.height(18.dp))
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { CategoryChip(stringResource(R.string.filter_all), state.selectedCategory == null) { viewModel.selectCategory(null) } }
-                items(listOf(PlaceCategory.BEACH, PlaceCategory.RESTAURANT, PlaceCategory.CAFE, PlaceCategory.HOTEL, PlaceCategory.NIGHTLIFE, PlaceCategory.NATURE)) { category ->
-                    CategoryChip(stringResource(category.labelRes()), state.selectedCategory == category, category.vectorIcon) { viewModel.selectCategory(category) }
-                }
-            }
-            Spacer(Modifier.height(30.dp))
-        }
-        if (state.isLoading) {
+        } else if (state.isLoading) {
             item {
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
+                Row(Modifier.fillMaxWidth().padding(40.dp), horizontalArrangement = Arrangement.Center) {
                     CircularProgressIndicator()
                 }
             }
-        }
-        state.errorMessage?.let { message ->
-            item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(message), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-                    Button(onClick = viewModel::retry) { Text(stringResource(R.string.action_retry)) }
+        } else {
+            state.errorMessage?.let { message ->
+                item {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(message), color = MaterialTheme.colorScheme.error)
+                        Button(onClick = viewModel::retry, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
                 }
             }
-        }
-        if (selectedCategory == null && state.savedPlaces.isNotEmpty()) {
-            item {
-                PlaceSection(
-                    title = stringResource(WantToGoCopy.SURFACE),
-                    places = state.savedPlaces.take(8),
-                    saved = state.savedPlaceIds,
-                    onPlace = onPlace,
-                    onSave = viewModel::toggleSaved,
-                    onSeeAll = onWantToGo,
-                    visited = state.visitedPlaceIds,
-                )
-                Spacer(Modifier.height(34.dp))
+            if (state.items.isEmpty() && state.errorMessage == null) {
+                item {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.experience_empty_title), style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            stringResource(R.string.experience_empty_body),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
-        }
-        if (selectedCategory != null) {
-            item {
-                PlaceSection(
-                    stringResource(R.string.explore_category_picks, stringResource(selectedCategory.labelRes())),
-                    state.filteredPlaces,
-                    state.savedPlaceIds,
-                    state.visitedPlaceIds,
-                    onPlace,
-                    viewModel::toggleSaved,
+            items(state.items, key = { it.id }) { experience ->
+                ExperienceCard(
+                    experience = experience,
+                    onOpen = { onExperience(experience.id) },
+                    onAuthor = { onAuthor(experience.author.id) },
+                    onPlace = { onPlace(experience.place.id) },
+                    onRelationship = { viewModel.toggleRelationship(experience.author.id) },
+                    relationshipBusy = experience.author.id in state.relationshipInFlight,
                 )
             }
-        } else {
-            item {
-                FeaturedSection(
-                    stringResource(R.string.explore_picked_by_people),
-                    state.places.take(5),
-                    state.savedPlaceIds,
-                    state.visitedPlaceIds,
-                    onPlace,
-                    viewModel::toggleSaved,
-                )
-            }
-            item {
-                Spacer(Modifier.height(34.dp))
-                PlaceSection(
-                    stringResource(R.string.explore_hidden_gems),
-                    state.places.drop(5).take(4),
-                    state.savedPlaceIds,
-                    state.visitedPlaceIds,
-                    onPlace,
-                    viewModel::toggleSaved,
-                )
-            }
-            item {
-                Spacer(Modifier.height(34.dp))
-                PlaceSection(
-                    stringResource(R.string.explore_aegean_summer),
-                    state.places.filter { it.category == PlaceCategory.BEACH },
-                    state.savedPlaceIds,
-                    state.visitedPlaceIds,
-                    onPlace,
-                    viewModel::toggleSaved,
-                )
-            }
-            item {
-                Spacer(Modifier.height(30.dp))
-                Surface(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clickable(onClick = onCollections), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(24.dp)) {
-                    Column(Modifier.padding(22.dp)) {
-                        Text(stringResource(R.string.explore_shortlist_title), style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(6.dp))
-                        Text(stringResource(R.string.explore_shortlist_cta), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.hasMore) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        Button(onClick = viewModel::loadMore, enabled = !state.isLoadingMore) {
+                            if (state.isLoadingMore) CircularProgressIndicator(Modifier.height(20.dp))
+                            else Text(stringResource(R.string.experience_load_more))
+                        }
                     }
                 }
             }
@@ -174,47 +196,26 @@ fun ExploreScreen(
     }
 }
 
-@Composable
-private fun SearchEntry(onClick: () -> Unit) {
-    Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(58.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(10.dp))
-        Text(stringResource(R.string.search_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun ExperienceFeedLens.labelRes(): Int = when (this) {
+    ExperienceFeedLens.FOR_YOU -> R.string.experience_lens_for_you
+    ExperienceFeedLens.FOLLOWING -> R.string.experience_lens_following
+    ExperienceFeedLens.NEARBY -> R.string.experience_lens_nearby
+    ExperienceFeedLens.POPULAR -> R.string.experience_lens_popular
 }
 
-@Composable
-private fun PlaceSection(
-    title: String,
-    places: List<Place>,
-    saved: Set<String>,
-    visited: Set<String>,
-    onPlace: (String) -> Unit,
-    onSave: (String) -> Unit,
-    onSeeAll: (() -> Unit)? = null,
-) {
-    Column {
-        Box(Modifier.padding(horizontal = 16.dp)) {
-            SectionHeader(title, stringResource(R.string.action_see_all), onAction = onSeeAll)
-        }
-        Spacer(Modifier.height(14.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(places, key = { it.id }) { place ->
-                PlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }, place.id in visited)
-            }
-        }
-    }
+private fun ExperienceDiscoveryFilter.labelRes(): Int = when (this) {
+    ExperienceDiscoveryFilter.CALM -> R.string.experience_filter_calm
+    ExperienceDiscoveryFilter.SUNSET -> R.string.experience_filter_sunset
+    ExperienceDiscoveryFilter.FOOD -> R.string.experience_filter_food
+    ExperienceDiscoveryFilter.SEA -> R.string.experience_filter_sea
+    ExperienceDiscoveryFilter.NATURE -> R.string.experience_filter_nature
 }
 
-@Composable
-private fun FeaturedSection(title: String, places: List<Place>, saved: Set<String>, visited: Set<String>, onPlace: (String) -> Unit, onSave: (String) -> Unit) {
-    Column {
-        Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader(title, stringResource(R.string.action_see_all)) }
-        Spacer(Modifier.height(14.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(places, key = { it.id }) { place ->
-                FeaturedPlaceCard(place, place.id in saved, { onPlace(place.id) }, { onSave(place.id) }, place.id in visited)
-            }
+@SuppressLint("MissingPermission")
+private fun requestApproximateLocation(context: Context, onFound: (Double, Double) -> Unit) {
+    LocationServices.getFusedLocationProviderClient(context)
+        .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token)
+        .addOnSuccessListener { location ->
+            if (location != null) onFound(location.latitude, location.longitude)
         }
-    }
 }

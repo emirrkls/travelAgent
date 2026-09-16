@@ -237,7 +237,13 @@ data class ExperienceV2Dto(
 )
 
 @Serializable
-data class ExperienceAuthorDto(val id: String, val username: String, val displayName: String, val avatarUrl: String?)
+data class ExperienceAuthorDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String?,
+    val relationship: RelationshipV2Dto? = null,
+)
 
 @Serializable
 data class ExperiencePlaceDto(
@@ -248,6 +254,44 @@ data class ExperiencePlaceDto(
     val region: String,
     val country: String,
     val coverImage: String,
+    val distanceMeters: Double? = null,
+)
+
+@Serializable
+data class CursorPageDto<T>(
+    val items: List<T>,
+    val nextCursor: String? = null,
+    val hasMore: Boolean,
+)
+
+@Serializable
+data class ExperienceSummaryV2Dto(
+    val id: String,
+    val classification: String,
+    val author: ExperienceAuthorDto,
+    val place: ExperiencePlaceDto,
+    val experiencedAt: String,
+    val title: String,
+    val titleSource: String? = null,
+    val primaryExperience: ExperiencePrimaryDto,
+    val feeling: String,
+    val storyPreview: String? = null,
+    val tipPreview: String? = null,
+    val companion: String? = null,
+    val timeOfDay: String? = null,
+    val vibes: List<String> = emptyList(),
+    val practicalSignals: List<String> = emptyList(),
+    val mediaPreview: ExperienceMediaPreviewDto? = null,
+    val mediaCount: Int,
+    val visibility: String,
+)
+
+@Serializable
+data class ExperienceMediaPreviewDto(
+    val kind: String,
+    val id: String? = null,
+    val url: String,
+    val accessExpiresAt: String? = null,
 )
 
 @Serializable
@@ -520,9 +564,16 @@ data class PlaceAggregateV2Dto(
     val place: PlaceAggregateIdentityDto,
     val visibleExperienceCount: Long,
     val communityContributionCount: Long,
+    val primaryExperiences: List<PrimaryExperienceAggregateDto> = emptyList(),
     val feelings: List<FeelingAggregateDto> = emptyList(),
     val dimensions: List<DimensionAggregateV2Dto> = emptyList(),
     val practicalSignals: List<PracticalSignalAggregateDto> = emptyList(),
+)
+
+@Serializable
+data class PrimaryExperienceAggregateDto(
+    val code: String,
+    val visibleExperienceCount: Long,
 )
 
 @Serializable

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.auth.AuthRepository
 import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.data.ExperienceRepository
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.model.Collection
@@ -11,6 +12,7 @@ import com.emirrkls.phokarta.core.model.OwnerSocialCounts
 import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.ExperienceSummary
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
@@ -25,12 +27,22 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class VisitedPlace(val visit: Visit, val place: Place)
 data class PendingVisitedPlace(val pending: PendingVisit, val place: Place)
+
+data class ProfileExperiencesUiState(
+    val items: List<ExperienceSummary> = emptyList(),
+    val nextCursor: String? = null,
+    val hasMore: Boolean = false,
+    val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val errorMessage: Int? = null,
+)
 
 enum class ProfilePlacesSegment { VISITS, SAVED }
 
@@ -56,6 +68,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val repository: TravelRepository,
     private val authRepository: AuthRepository,
+    private val experienceRepository: ExperienceRepository? = null,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
     private val mediaAccess: MediaAccessRepository? = null,
 ) : ViewModel() {
@@ -66,6 +79,9 @@ class ProfileViewModel @Inject constructor(
     private val socialCounts = MutableStateFlow(OwnerSocialCounts(0, 0, 0))
     private val policy = MutableStateFlow(PolicyAcceptanceUi())
     private var pendingPolicyMutationId: String? = null
+    private val _experienceState = MutableStateFlow(ProfileExperiencesUiState())
+    val experienceState = _experienceState.asStateFlow()
+    private var experienceRequestGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -75,6 +91,7 @@ class ProfileViewModel @Inject constructor(
             repository.refreshCollections()
         }
         refreshSocialCounts()
+        loadExperiences(reset = true)
     }
 
     fun refreshSocialCounts() {
@@ -82,6 +99,47 @@ class ProfileViewModel @Inject constructor(
             when (val result = repository.loadOwnerSocialCounts()) {
                 is RepositoryResult.Success -> socialCounts.value = result.value
                 is RepositoryResult.Failure -> Unit
+            }
+        }
+    }
+
+    fun retryExperiences() = loadExperiences(reset = true)
+
+    fun loadMoreExperiences() {
+        val state = _experienceState.value
+        if (state.hasMore && !state.isLoading && !state.isLoadingMore) loadExperiences(reset = false)
+    }
+
+    private fun loadExperiences(reset: Boolean) {
+        val experienceRepository = experienceRepository ?: run {
+            _experienceState.update { it.copy(isLoading = false) }
+            return
+        }
+        val snapshot = _experienceState.value
+        val generation = ++experienceRequestGeneration
+        _experienceState.update {
+            if (reset) it.copy(isLoading = true, isLoadingMore = false, errorMessage = null)
+            else it.copy(isLoadingMore = true, errorMessage = null)
+        }
+        viewModelScope.launch {
+            val result = experienceRepository.forProfile(
+                userId = repository.currentUser.id,
+                cursor = if (reset) null else snapshot.nextCursor,
+            )
+            if (generation != experienceRequestGeneration) return@launch
+            when (result) {
+                is RepositoryResult.Success -> _experienceState.update { current ->
+                    current.copy(
+                        items = if (reset) result.value.items else (current.items + result.value.items).distinctBy { it.id },
+                        nextCursor = result.value.nextCursor,
+                        hasMore = result.value.hasMore,
+                        isLoading = false,
+                        isLoadingMore = false,
+                    )
+                }
+                is RepositoryResult.Failure -> _experienceState.update {
+                    it.copy(isLoading = false, isLoadingMore = false, errorMessage = result.error.toUserMessageRes())
+                }
             }
         }
     }

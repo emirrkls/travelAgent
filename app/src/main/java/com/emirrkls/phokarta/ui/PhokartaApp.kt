@@ -22,17 +22,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FolderCopy
-import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -71,11 +70,13 @@ import com.emirrkls.phokarta.core.auth.AuthState
 import com.emirrkls.phokarta.feature.auth.LoginScreen
 import com.emirrkls.phokarta.feature.auth.RegisterScreen
 import com.emirrkls.phokarta.feature.explore.ExploreScreen
+import com.emirrkls.phokarta.feature.experience.ExperienceDetailScreen
 import com.emirrkls.phokarta.feature.map.MapScreen
 import com.emirrkls.phokarta.feature.onboarding.OnboardingScreen
 import com.emirrkls.phokarta.feature.onboarding.SplashScreen
 import com.emirrkls.phokarta.feature.place.PlaceDetailScreen
 import com.emirrkls.phokarta.feature.place.PlaceReviewsScreen
+import com.emirrkls.phokarta.feature.plan.PlanScreen
 import com.emirrkls.phokarta.feature.profile.ProfileScreen
 import com.emirrkls.phokarta.feature.rating.RatingScreen
 import com.emirrkls.phokarta.feature.saved.WantToGoScreen
@@ -102,8 +103,10 @@ private object Route {
     const val Register = "register"
     const val Explore = "explore"
     const val Search = "search"
+    const val AddExperienceSearch = "add-experience-search"
     const val Map = "map"
     const val Activity = "activity"
+    const val Plan = "plan"
     const val Profile = "profile"
     const val Collections = "collections"
     const val WantToGo = "want-to-go"
@@ -111,6 +114,7 @@ private object Route {
     const val PublicProfile = "user/{userId}"
     const val SocialList = "social/{kind}"
     const val Place = "place/{placeId}"
+    const val Experience = "experience/{experienceId}"
     const val PlaceReviews = "place/{placeId}/reviews?scope={scope}"
     const val Rating = "rating/{placeId}"
     const val Collection = "collection/{collectionId}"
@@ -123,7 +127,7 @@ private data class BottomDestination(val route: String, val labelRes: Int, val s
 private val bottomDestinations = listOf(
     BottomDestination(Route.Explore, R.string.nav_explore, Icons.Filled.Explore, Icons.Outlined.Explore),
     BottomDestination(Route.Map, R.string.nav_map, Icons.Filled.Map, Icons.Outlined.Map),
-    BottomDestination(Route.Activity, R.string.nav_activity, Icons.Filled.Notifications, Icons.Outlined.Notifications),
+    BottomDestination(Route.Plan, R.string.nav_plan, Icons.Filled.Bookmark, Icons.Outlined.BookmarkBorder),
     BottomDestination(Route.Profile, R.string.nav_profile, Icons.Filled.Person, Icons.Outlined.Person),
 )
 
@@ -219,13 +223,19 @@ fun PhokartaApp() {
                 }
                 composable(Route.Explore) {
                     ExploreScreen(
-                        onSearch = { navController.navigate(Route.Search) },
+                        onExperience = { navController.navigate("experience/$it") },
                         onPlace = { navController.navigate("place/$it") },
-                        onCollections = { navController.navigate(Route.Collections) },
-                        onWantToGo = { navController.navigate(Route.WantToGo) },
+                        onAuthor = { userId -> navController.navigateToUser(userId, authState) },
+                        onMap = { navController.navigate(Route.Map) },
                     )
                 }
                 composable(Route.Search) { SearchScreen({ navController.popBackStack() }, { navController.navigate("place/$it") }) }
+                composable(Route.AddExperienceSearch) {
+                    SearchScreen(
+                        onBack = { navController.popBackStack() },
+                        onPlace = { placeId -> navController.navigate("rating/$placeId") },
+                    )
+                }
                 composable(Route.Map) { MapScreen(onPlace = { navController.navigate("place/$it") }) }
                 composable(Route.Activity) {
                     ActivityScreen(
@@ -233,9 +243,16 @@ fun PhokartaApp() {
                         onAuthor = { userId -> navController.navigateToUser(userId, authState) },
                     )
                 }
+                composable(Route.Plan) {
+                    PlanScreen(
+                        onPlace = { navController.navigate("place/$it") },
+                        onCollection = { navController.navigate("collection/$it") },
+                    )
+                }
                 composable(Route.Profile) {
                     ProfileScreen(
                         onPlace = { navController.navigate("place/$it") },
+                        onExperience = { navController.navigate("experience/$it") },
                         onEditVisit = { placeId ->
                             navController.navigate("rating/$placeId") {
                                 launchSingleTop = true
@@ -295,12 +312,23 @@ fun PhokartaApp() {
                     )
                 }
                 composable(Route.Collections) { CollectionsScreen({ navController.popBackStack() }, { navController.navigate("collection/$it") }) }
+                composable(
+                    Route.Experience,
+                    arguments = listOf(navArgument("experienceId") { type = NavType.StringType }),
+                ) {
+                    ExperienceDetailScreen(
+                        onBack = { navController.popBackStack() },
+                        onPlace = { navController.navigate("place/$it") },
+                        onAuthor = { userId -> navController.navigateToUser(userId, authState) },
+                    )
+                }
                 composable(Route.Place, arguments = listOf(navArgument("placeId") { type = NavType.StringType })) {
                     val backStackEntry = it
                     val placeId = backStackEntry.arguments?.getString("placeId").orEmpty()
                     PlaceDetailScreen(
                         onBack = { navController.popBackStack() },
                         onRate = { navController.navigate("rating/$placeId") },
+                        onExperience = { navController.navigate("experience/$it") },
                         onSeeAllReviews = { scope ->
                             navController.navigate("place/$placeId/reviews?scope=${scope.queryParam}")
                         },
@@ -344,7 +372,7 @@ fun PhokartaApp() {
     if (showAddSheet) {
         AddActionSheet(
             onDismiss = { showAddSheet = false },
-            onRate = { showAddSheet = false; navController.navigate(Route.Search) },
+            onRate = { showAddSheet = false; navController.navigate(Route.AddExperienceSearch) },
             onWantToGo = { showAddSheet = false; navController.navigate(Route.WantToGo) },
             onCreateCollection = { showAddSheet = false; navController.navigate(Route.Collections) },
         )
@@ -414,10 +442,8 @@ private fun AddActionSheet(
             }
             Text(stringResource(R.string.capture_plan_or_memory), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
-            AddAction(Icons.Rounded.AddLocationAlt, stringResource(R.string.rate_a_place), stringResource(R.string.rate_place_subtitle), onRate)
+            AddAction(Icons.Rounded.AddLocationAlt, stringResource(R.string.add_experience), stringResource(R.string.add_experience_subtitle), onRate)
             AddAction(Icons.Rounded.BookmarkAdd, stringResource(R.string.add_to_want_to_go), stringResource(R.string.add_want_to_go_subtitle), onWantToGo)
-            AddAction(Icons.Outlined.Explore, stringResource(R.string.check_in), stringResource(R.string.check_in_subtitle)) {}
-            AddAction(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.add_travel_note), stringResource(R.string.add_travel_note_subtitle)) {}
             AddAction(Icons.Rounded.FolderCopy, stringResource(R.string.create_collection), stringResource(R.string.create_collection_subtitle), onCreateCollection)
         }
     }

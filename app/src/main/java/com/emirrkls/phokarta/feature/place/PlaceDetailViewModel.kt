@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.RepositoryResult
+import com.emirrkls.phokarta.core.data.ExperienceRepository
 import com.emirrkls.phokarta.core.data.TravelError
 import com.emirrkls.phokarta.core.data.TravelRepository
 import com.emirrkls.phokarta.core.data.VisitDraftRepository
@@ -14,6 +15,9 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.PublicReview
 import com.emirrkls.phokarta.core.model.Visibility
 import com.emirrkls.phokarta.core.model.Visit
+import com.emirrkls.phokarta.core.model.ExperienceSummary
+import com.emirrkls.phokarta.core.model.PlaceAggregateV2
+import com.emirrkls.phokarta.core.model.RelationshipActionState
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
@@ -26,6 +30,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -46,6 +51,18 @@ data class FriendSummaryUiState(
     val summary: FriendPlaceSummary? = null,
     val isLoading: Boolean = false,
     val errorMessage: Int? = null,
+)
+
+data class PlaceExperiencesUiState(
+    val aggregate: PlaceAggregateV2? = null,
+    val items: List<ExperienceSummary> = emptyList(),
+    val selectedPrimary: String? = null,
+    val nextCursor: String? = null,
+    val hasMore: Boolean = false,
+    val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val errorMessage: Int? = null,
+    val relationshipInFlight: Set<String> = emptySet(),
 )
 
 data class PlaceDetailUiState(
@@ -81,6 +98,7 @@ class PlaceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: TravelRepository,
     private val draftRepository: VisitDraftRepository,
+    private val experienceRepository: ExperienceRepository? = null,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
     private val mediaAccess: MediaAccessRepository? = null,
 ) : ViewModel() {
@@ -94,6 +112,9 @@ class PlaceDetailViewModel @Inject constructor(
     private val friendSummary = MutableStateFlow(FriendSummaryUiState())
     private val activeReviewScope = MutableStateFlow(ActivityScope.COMMUNITY)
     private var friendReviewsRequested = false
+    private val _experienceState = MutableStateFlow(PlaceExperiencesUiState())
+    val experienceState = _experienceState.asStateFlow()
+    private var experienceRequestGeneration = 0L
 
     val uiState = combine(
         combine(
@@ -157,11 +178,55 @@ class PlaceDetailViewModel @Inject constructor(
         load()
         loadCommunityReviews()
         loadFriendSummary()
+        loadExperiences(reset = true)
+        loadAggregate()
         viewModelScope.launch { repository.refreshCollections() }
         viewModelScope.launch { repository.refreshOwnerVisits() }
     }
 
     fun retry() = load()
+
+    fun selectPrimaryExperience(code: String?) {
+        if (_experienceState.value.selectedPrimary == code) return
+        _experienceState.update { it.copy(selectedPrimary = code) }
+        loadExperiences(reset = true)
+    }
+
+    fun retryExperiences() = loadExperiences(reset = true)
+
+    fun loadMoreExperiences() {
+        val state = _experienceState.value
+        if (state.hasMore && !state.isLoading && !state.isLoadingMore) loadExperiences(reset = false)
+    }
+
+    fun toggleExperienceRelationship(authorId: String) {
+        val experienceRepository = experienceRepository ?: return
+        val relationship = _experienceState.value.items.firstOrNull { it.author.id == authorId }
+            ?.author?.relationship ?: return
+        if (authorId in _experienceState.value.relationshipInFlight) return
+        viewModelScope.launch {
+            _experienceState.update { it.copy(relationshipInFlight = it.relationshipInFlight + authorId) }
+            val result = when (relationship.state) {
+                RelationshipActionState.NONE -> experienceRepository.follow(authorId)
+                RelationshipActionState.REQUEST_PENDING -> experienceRepository.cancelFollowRequest(authorId)
+                RelationshipActionState.FOLLOWING,
+                RelationshipActionState.FRIENDS -> experienceRepository.unfollow(authorId)
+                else -> null
+            }
+            if (result is RepositoryResult.Success) {
+                _experienceState.update { state ->
+                    state.copy(items = state.items.map { item ->
+                        if (item.author.id == authorId) item.copy(
+                            author = item.author.copy(relationship = result.value),
+                        ) else item
+                    })
+                }
+            } else if (result is RepositoryResult.Failure) {
+                _experienceState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+            }
+            _experienceState.update { it.copy(relationshipInFlight = it.relationshipInFlight - authorId) }
+        }
+    }
 
     suspend fun mediaAccessUrl(visitId: String, mediaId: String): String? =
         mediaAccess?.accessUrl(visitId, mediaId)
@@ -463,6 +528,51 @@ class PlaceDetailViewModel @Inject constructor(
                 }
                 is RepositoryResult.Failure -> communityReviews.update {
                     it.copy(isLoading = false, errorMessage = result.error.toUserMessageRes())
+                }
+            }
+        }
+    }
+
+    private fun loadAggregate() {
+        val experienceRepository = experienceRepository ?: return
+        viewModelScope.launch {
+            when (val result = experienceRepository.aggregate(placeId)) {
+                is RepositoryResult.Success -> _experienceState.update { it.copy(aggregate = result.value) }
+                is RepositoryResult.Failure -> Unit
+            }
+        }
+    }
+
+    private fun loadExperiences(reset: Boolean) {
+        val experienceRepository = experienceRepository ?: run {
+            _experienceState.update { it.copy(isLoading = false) }
+            return
+        }
+        val snapshot = _experienceState.value
+        val generation = ++experienceRequestGeneration
+        _experienceState.update {
+            if (reset) it.copy(isLoading = true, isLoadingMore = false, errorMessage = null)
+            else it.copy(isLoadingMore = true, errorMessage = null)
+        }
+        viewModelScope.launch {
+            val result = experienceRepository.forPlace(
+                placeId = placeId,
+                cursor = if (reset) null else snapshot.nextCursor,
+                primary = snapshot.selectedPrimary,
+            )
+            if (generation != experienceRequestGeneration) return@launch
+            when (result) {
+                is RepositoryResult.Success -> _experienceState.update { current ->
+                    current.copy(
+                        items = if (reset) result.value.items else (current.items + result.value.items).distinctBy { it.id },
+                        nextCursor = result.value.nextCursor,
+                        hasMore = result.value.hasMore,
+                        isLoading = false,
+                        isLoadingMore = false,
+                    )
+                }
+                is RepositoryResult.Failure -> _experienceState.update {
+                    it.copy(isLoading = false, isLoadingMore = false, errorMessage = result.error.toUserMessageRes())
                 }
             }
         }

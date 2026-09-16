@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +99,8 @@ import com.emirrkls.phokarta.ui.components.PersonalVisitScoreSection
 import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
+import com.emirrkls.phokarta.ui.components.ExperienceCard
+import com.emirrkls.phokarta.ui.components.humanize
 import com.emirrkls.phokarta.ui.theme.Coral
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.feature.social.SafetyActionHost
@@ -109,6 +112,7 @@ import kotlinx.coroutines.launch
 fun PlaceDetailScreen(
     onBack: () -> Unit,
     onRate: () -> Unit,
+    onExperience: (String) -> Unit = {},
     onSeeAllReviews: (ActivityScope) -> Unit = {},
     onAuthor: (String) -> Unit = {},
     visitPublished: Boolean = false,
@@ -117,6 +121,7 @@ fun PlaceDetailScreen(
     safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val experienceState by viewModel.experienceState.collectAsStateWithLifecycle()
     val place = state.place
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -300,6 +305,76 @@ fun PlaceDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(it), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         Button(onClick = viewModel::toggleSaved) { Text(stringResource(R.string.action_retry)) }
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    stringResource(R.string.place_experiences_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                experienceState.aggregate?.let { aggregate ->
+                    Text(
+                        stringResource(
+                            R.string.place_experiences_subtitle,
+                            aggregate.visibleExperienceCount,
+                            aggregate.communityContributionCount,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val primaryFilters = experienceState.aggregate?.primaryExperiences.orEmpty()
+                if (primaryFilters.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = experienceState.selectedPrimary == null,
+                            onClick = { viewModel.selectPrimaryExperience(null) },
+                            label = { Text(stringResource(R.string.place_experience_filter_all)) },
+                        )
+                        primaryFilters.forEach { aggregate ->
+                            FilterChip(
+                                selected = experienceState.selectedPrimary == aggregate.code.name,
+                                onClick = { viewModel.selectPrimaryExperience(aggregate.code.name) },
+                                label = { Text("${humanize(aggregate.code.name)} · ${aggregate.visibleExperienceCount}") },
+                            )
+                        }
+                    }
+                }
+                if (experienceState.isLoading) {
+                    Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (experienceState.items.isEmpty()) {
+                    Text(
+                        stringResource(R.string.experience_empty_body),
+                        Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    experienceState.items.forEach { experience ->
+                        ExperienceCard(
+                            experience = experience,
+                            onOpen = { onExperience(experience.id) },
+                            onAuthor = { onAuthor(experience.author.id) },
+                            onPlace = {},
+                            onRelationship = { viewModel.toggleExperienceRelationship(experience.author.id) },
+                            relationshipBusy = experience.author.id in experienceState.relationshipInFlight,
+                            modifier = Modifier.padding(vertical = 7.dp),
+                        )
+                    }
+                    if (experienceState.hasMore) {
+                        TextButton(onClick = viewModel::loadMoreExperiences) {
+                            Text(stringResource(R.string.experience_load_more))
+                        }
+                    }
+                }
+                experienceState.errorMessage?.let {
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = viewModel::retryExperiences) {
+                        Text(stringResource(R.string.action_retry))
                     }
                 }
                 Spacer(Modifier.height(22.dp))

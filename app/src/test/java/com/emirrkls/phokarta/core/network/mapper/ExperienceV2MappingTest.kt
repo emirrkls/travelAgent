@@ -11,6 +11,9 @@ import com.emirrkls.phokarta.core.model.PracticalSignalCode
 import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.VibeCode
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.CursorPageDto
+import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
+import com.emirrkls.phokarta.core.model.RelationshipActionState
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -80,6 +83,29 @@ class ExperienceV2MappingTest {
         assertFalse(dto.titlePersisted)
     }
 
+    @Test
+    fun `feed summary maps cursor previews distance and one way following without friendship`() {
+        val page = json.decodeFromString<CursorPageDto<ExperienceSummaryV2Dto>>(feedFixture()).toExperiencePage()
+
+        assertEquals("opaque-next", page.nextCursor)
+        assertEquals(true, page.hasMore)
+        val item = page.items.single()
+        assertEquals("Preview only", item.storyPreview)
+        assertEquals(1250.5, item.place.distanceMeters)
+        assertEquals(2, item.mediaCount)
+        assertEquals(RelationshipActionState.FOLLOWING, item.author.relationship?.state)
+        assertFalse(item.author.relationship?.isFriend == true)
+    }
+
+    @Test
+    fun `feed DTO ignores owner private memory and remains summary only`() {
+        val page = json.decodeFromString<CursorPageDto<ExperienceSummaryV2Dto>>(
+            feedFixture().replace("\"visibility\": \"PUBLIC\"", "\"visibility\": \"PUBLIC\", \"privateMemory\": \"never expose\""),
+        ).toExperiencePage()
+
+        assertEquals("Preview only", page.items.single().storyPreview)
+    }
+
     private fun nativeFixture() = """
         {
           "id": "30000000-0000-0000-0000-000000000001",
@@ -142,6 +168,63 @@ class ExperienceV2MappingTest {
           "visibility": "PUBLIC",
           "taxonomyVersion": 1,
           "privateMemory": "owner-only"
+        }
+    """.trimIndent()
+
+    private fun feedFixture() = """
+        {
+          "items": [{
+            "id": "30000000-0000-0000-0000-000000000001",
+            "classification": "NATIVE_V2",
+            "author": {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "username": "author",
+              "displayName": "Author",
+              "avatarUrl": null,
+              "relationship": {
+                "state": "FOLLOWING",
+                "followsYou": false,
+                "canFollow": false,
+                "canCancelRequest": false
+              }
+            },
+            "place": {
+              "id": "20000000-0000-0000-0000-000000000001",
+              "name": "Foça",
+              "category": "BEACH",
+              "city": "İzmir",
+              "region": "Aegean",
+              "country": "Türkiye",
+              "coverImage": "https://images.test/cover.jpg",
+              "distanceMeters": 1250.5
+            },
+            "experiencedAt": "2026-09-01",
+            "title": "Persisted sunset title",
+            "titleSource": "GENERATED",
+            "primaryExperience": {
+              "code": "GUN_BATIMI",
+              "canonical": true,
+              "family": "SCENERY_AND_MOMENT",
+              "rawLabel": null
+            },
+            "feeling": "BAYILDIM",
+            "storyPreview": "Preview only",
+            "tipPreview": "Arrive early",
+            "companion": "PARTNER",
+            "timeOfDay": "EVENING",
+            "vibes": ["CALM"],
+            "practicalSignals": ["ARRIVE_EARLY"],
+            "mediaPreview": {
+              "kind": "MANAGED",
+              "id": "40000000-0000-0000-0000-000000000001",
+              "url": "https://media.test/signed",
+              "accessExpiresAt": "2026-09-16T12:00:00Z"
+            },
+            "mediaCount": 2,
+            "visibility": "PUBLIC"
+          }],
+          "nextCursor": "opaque-next",
+          "hasMore": true
         }
     """.trimIndent()
 }

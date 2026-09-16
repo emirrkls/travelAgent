@@ -1,6 +1,8 @@
 package com.emirrkls.phokarta.core.di
 
 import com.emirrkls.phokarta.core.data.DefaultTravelRepository
+import com.emirrkls.phokarta.core.data.ExperienceFeedGateway
+import com.emirrkls.phokarta.core.data.ExperienceRepository
 import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.data.PlaceCacheDataSource
 import com.emirrkls.phokarta.core.data.RoomLocalUserStateDataSource
@@ -23,6 +25,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppModule {
+    @Binds
+    @Singleton
+    abstract fun bindExperienceFeedGateway(repository: ExperienceRepository): ExperienceFeedGateway
+
     @Binds
     @Singleton
     abstract fun bindTravelRepository(repository: DefaultTravelRepository): TravelRepository

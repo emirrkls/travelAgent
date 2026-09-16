@@ -17,6 +17,8 @@ import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
+import com.emirrkls.phokarta.core.network.model.CursorPageDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.CapabilitiesV2Dto
 import com.emirrkls.phokarta.core.network.model.FollowRequestV2Dto
@@ -126,6 +128,37 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
 }
 
 interface VisitRemoteDataSource {
+    suspend fun experienceFeed(
+        lens: String,
+        cursor: String? = null,
+        size: Int = 20,
+        search: String? = null,
+        primary: String? = null,
+        vibe: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        radiusMeters: Double? = null,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+
+    suspend fun experience(id: String): RemoteResult<ExperienceV2Dto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+
+    suspend fun placeExperiences(
+        placeId: String,
+        cursor: String? = null,
+        size: Int = 20,
+        primary: String? = null,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+
+    suspend fun profileExperiences(
+        userId: String,
+        cursor: String? = null,
+        size: Int = 20,
+    ): RemoteResult<CursorPageDto<ExperienceSummaryV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+
     suspend fun create(request: CreateVisitDto): RemoteResult<VisitOwnerDto>
     suspend fun createExperience(request: CreateExperienceV2Dto): RemoteResult<ExperienceV2Dto> =
         RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
@@ -154,6 +187,36 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
     private val api: VisitApi,
     private val json: Json,
 ) : VisitRemoteDataSource {
+    override suspend fun experienceFeed(
+        lens: String,
+        cursor: String?,
+        size: Int,
+        search: String?,
+        primary: String?,
+        vibe: String?,
+        latitude: Double?,
+        longitude: Double?,
+        radiusMeters: Double?,
+    ) = safeApiCall(json) {
+        api.experienceFeed(lens, cursor, size, search, primary, vibe,
+            latitude, longitude, radiusMeters)
+    }
+
+    override suspend fun experience(id: String) = safeApiCall(json) { api.experience(id) }
+
+    override suspend fun placeExperiences(
+        placeId: String,
+        cursor: String?,
+        size: Int,
+        primary: String?,
+    ) = safeApiCall(json) { api.placeExperiences(placeId, cursor, size, primary) }
+
+    override suspend fun profileExperiences(
+        userId: String,
+        cursor: String?,
+        size: Int,
+    ) = safeApiCall(json) { api.profileExperiences(userId, cursor, size) }
+
     override suspend fun create(request: CreateVisitDto) =
         safeApiCall(json) { api.create(request) }
 

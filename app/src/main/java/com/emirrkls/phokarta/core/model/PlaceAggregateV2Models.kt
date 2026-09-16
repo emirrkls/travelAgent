@@ -4,9 +4,15 @@ data class PlaceAggregateV2(
     val place: PlaceAggregateIdentity,
     val visibleExperienceCount: Long,
     val communityContributionCount: Long,
+    val primaryExperiences: List<PrimaryExperienceAggregate> = emptyList(),
     val feelings: List<FeelingAggregate>,
     val dimensions: List<DimensionAggregateV2>,
     val practicalSignals: List<PracticalSignalAggregate>,
+)
+
+data class PrimaryExperienceAggregate(
+    val code: PrimaryExperienceCode,
+    val visibleExperienceCount: Long,
 )
 
 data class PlaceAggregateIdentity(

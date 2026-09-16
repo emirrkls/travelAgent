@@ -64,6 +64,35 @@ enum class ExperienceVisibility { PRIVATE, FRIENDS, PUBLIC, UNKNOWN;
     companion object { fun fromWire(raw: String) = decodeCode<ExperienceVisibility>(raw) }
 }
 
+enum class ExperienceFeedLens { FOR_YOU, FOLLOWING, NEARBY, POPULAR }
+
+data class ExperiencePage(
+    val items: List<ExperienceSummary>,
+    val nextCursor: String?,
+    val hasMore: Boolean,
+)
+
+data class ExperienceSummary(
+    val id: String,
+    val classification: ExperienceClassification,
+    val author: ExperienceAuthor,
+    val place: ExperiencePlace,
+    val experiencedAt: LocalDate,
+    val title: String,
+    val titleSource: ExperienceTitleSource?,
+    val primaryExperience: ExperiencePrimary,
+    val feeling: OverallFeelingCode,
+    val storyPreview: String?,
+    val tipPreview: String?,
+    val companion: CompanionCode?,
+    val timeOfDay: TimeOfDayCode?,
+    val vibes: List<VibeCode>,
+    val practicalSignals: List<PracticalSignalCode>,
+    val mediaPreview: ExperienceMedia?,
+    val mediaCount: Int,
+    val visibility: ExperienceVisibility,
+)
+
 data class Experience(
     val id: String,
     val classification: ExperienceClassification,
@@ -87,7 +116,13 @@ data class Experience(
     val taxonomyVersion: Int?,
 )
 
-data class ExperienceAuthor(val id: String, val username: String, val displayName: String, val avatarUrl: String?)
+data class ExperienceAuthor(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String?,
+    val relationship: RelationshipV2? = null,
+)
 data class ExperiencePlace(
     val id: String,
     val name: String,
@@ -96,6 +131,7 @@ data class ExperiencePlace(
     val region: String,
     val country: String,
     val coverImage: String,
+    val distanceMeters: Double? = null,
 )
 data class ExperienceFeeling(
     val code: OverallFeelingCode,

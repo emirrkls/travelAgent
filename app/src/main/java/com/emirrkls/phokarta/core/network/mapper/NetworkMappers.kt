@@ -8,6 +8,8 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.CompanionCode
 import com.emirrkls.phokarta.core.model.DimensionStateCode
 import com.emirrkls.phokarta.core.model.Experience
+import com.emirrkls.phokarta.core.model.ExperiencePage
+import com.emirrkls.phokarta.core.model.ExperienceSummary
 import com.emirrkls.phokarta.core.model.ExperienceAuthor
 import com.emirrkls.phokarta.core.model.ExperienceClassification
 import com.emirrkls.phokarta.core.model.ExperienceDimension
@@ -29,6 +31,7 @@ import com.emirrkls.phokarta.core.model.FollowRequestV2
 import com.emirrkls.phokarta.core.model.PlaceAggregateIdentity
 import com.emirrkls.phokarta.core.model.PlaceAggregateV2
 import com.emirrkls.phokarta.core.model.PracticalSignalAggregate
+import com.emirrkls.phokarta.core.model.PrimaryExperienceAggregate
 import com.emirrkls.phokarta.core.model.ProfileV2
 import com.emirrkls.phokarta.core.model.ProfileVisibilityV2
 import com.emirrkls.phokarta.core.model.RelationshipActionState
@@ -61,6 +64,8 @@ import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
+import com.emirrkls.phokarta.core.network.model.CursorPageDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceSummaryDto
 import com.emirrkls.phokarta.core.network.model.FriendPlaceUserDto
@@ -182,6 +187,7 @@ fun ExperienceV2Dto.toDomain(): Experience = Experience(
         username = author.username,
         displayName = author.displayName,
         avatarUrl = author.avatarUrl,
+        relationship = author.relationship?.toDomain(),
     ),
     place = ExperiencePlace(
         id = place.id.toCanonicalUuid(),
@@ -191,6 +197,7 @@ fun ExperienceV2Dto.toDomain(): Experience = Experience(
         region = place.region,
         country = place.country,
         coverImage = place.coverImage,
+        distanceMeters = place.distanceMeters,
     ),
     experiencedAt = experiencedAt.toLocalDateSafely(),
     title = title,
@@ -232,6 +239,61 @@ fun ExperienceV2Dto.toDomain(): Experience = Experience(
     },
     visibility = ExperienceVisibility.fromWire(visibility),
     taxonomyVersion = taxonomyVersion,
+)
+
+fun CursorPageDto<ExperienceSummaryV2Dto>.toExperiencePage(): ExperiencePage = ExperiencePage(
+    items = items.map { it.toDomain() },
+    nextCursor = nextCursor,
+    hasMore = hasMore,
+)
+
+fun ExperienceSummaryV2Dto.toDomain(): ExperienceSummary = ExperienceSummary(
+    id = id.toCanonicalUuid(),
+    classification = ExperienceClassification.fromWire(classification),
+    author = ExperienceAuthor(
+        id = author.id.toCanonicalUuid(),
+        username = author.username,
+        displayName = author.displayName,
+        avatarUrl = author.avatarUrl,
+        relationship = author.relationship?.toDomain(),
+    ),
+    place = ExperiencePlace(
+        id = place.id.toCanonicalUuid(),
+        name = place.name,
+        categoryCode = place.category,
+        city = place.city,
+        region = place.region,
+        country = place.country,
+        coverImage = place.coverImage,
+        distanceMeters = place.distanceMeters,
+    ),
+    experiencedAt = experiencedAt.toLocalDateSafely(),
+    title = title,
+    titleSource = titleSource?.let(ExperienceTitleSource::fromWire),
+    primaryExperience = ExperiencePrimary(
+        code = PrimaryExperienceCode.fromWire(primaryExperience.code),
+        canonical = primaryExperience.canonical,
+        family = primaryExperience.family?.let(ExperienceFamily::fromWire),
+        rawLabel = primaryExperience.rawLabel,
+    ),
+    feeling = OverallFeelingCode.fromWire(feeling),
+    storyPreview = storyPreview,
+    tipPreview = tipPreview,
+    companion = companion?.let(CompanionCode::fromWire),
+    timeOfDay = timeOfDay?.let(TimeOfDayCode::fromWire),
+    vibes = vibes.map(VibeCode::fromWire),
+    practicalSignals = practicalSignals.map(PracticalSignalCode::fromWire),
+    mediaPreview = mediaPreview?.let {
+        ExperienceMedia(
+            kind = ExperienceMediaKind.fromWire(it.kind),
+            position = 0,
+            id = it.id?.toCanonicalUuid(),
+            url = it.url,
+            accessExpiresAt = it.accessExpiresAt,
+        )
+    },
+    mediaCount = mediaCount,
+    visibility = ExperienceVisibility.fromWire(visibility),
 )
 
 fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(
@@ -421,6 +483,12 @@ fun PlaceAggregateV2Dto.toDomain(): PlaceAggregateV2 = PlaceAggregateV2(
     ),
     visibleExperienceCount = visibleExperienceCount,
     communityContributionCount = communityContributionCount,
+    primaryExperiences = primaryExperiences.map {
+        PrimaryExperienceAggregate(
+            code = PrimaryExperienceCode.fromWire(it.code),
+            visibleExperienceCount = it.visibleExperienceCount,
+        )
+    },
     feelings = feelings.map {
         FeelingAggregate(OverallFeelingCode.fromWire(it.code), it.contributionCount)
     },

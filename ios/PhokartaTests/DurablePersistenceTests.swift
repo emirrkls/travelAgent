@@ -783,7 +783,8 @@ final class DurablePersistenceTests: XCTestCase {
             titleSource: "CUSTOM", story: "story", tip: "arrive early"
         )
         try await draftRepo.saveDraft(placeId: place, draft: draft, userId: user)
-        let restored = try XCTUnwrap(try await draftRepo.getDraft(placeId: place, userId: user))
+        let restoredDraft = try await draftRepo.getDraft(placeId: place, userId: user)
+        let restored = try XCTUnwrap(restoredDraft)
         XCTAssertEqual(restored.payloadVersion, 2)
         XCTAssertEqual(restored.primaryExperienceCode, "GUN_BATIMI")
         XCTAssertEqual(restored.overallFeelingCode, "BAYILDIM")
@@ -799,7 +800,7 @@ final class DurablePersistenceTests: XCTestCase {
             titleSource: "CUSTOM", story: "story", tip: "arrive early",
             privateMemory: "owner only", visibility: "FRIENDS"
         )
-        try await mutationRepo.commitExperienceV2(
+        _ = try await mutationRepo.commitExperienceV2(
             payload: payload,
             dimensions: [DurablePendingExperienceV2Dimension(
                 mutationId: mutation, dimensionKey: "SCENERY",
@@ -807,10 +808,12 @@ final class DurablePersistenceTests: XCTestCase {
             )],
             photos: [], userId: user
         )
-        let bundle = try XCTUnwrap(try await mutationRepo.getExperienceV2Bundle(mutationId: mutation))
+        let pendingBundle = try await mutationRepo.getExperienceV2Bundle(mutationId: mutation)
+        let bundle = try XCTUnwrap(pendingBundle)
         XCTAssertEqual(bundle.mutation.payloadVersion, 2)
         XCTAssertEqual(bundle.payload, payload)
         XCTAssertEqual(bundle.dimensions.first?.semanticStateCode, "VERY_GOOD")
-        XCTAssertNil(try await draftRepo.getDraft(placeId: place, userId: user))
+        let clearedDraft = try await draftRepo.getDraft(placeId: place, userId: user)
+        XCTAssertNil(clearedDraft)
     }
 }

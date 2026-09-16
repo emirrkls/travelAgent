@@ -1,8 +1,11 @@
 package com.emirrkls.phokarta.backend.domain.entity;
 
+import com.emirrkls.phokarta.backend.domain.model.ExperienceTaxonomy.DimensionStateCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -24,6 +27,13 @@ public class VisitDimensionScore {
     @Column(nullable = false)
     private double score;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "semantic_state_code", length = 20)
+    private DimensionStateCode semanticStateCode;
+
+    @Column(name = "template_version")
+    private Integer templateVersion;
+
     protected VisitDimensionScore() {
     }
 
@@ -33,7 +43,17 @@ public class VisitDimensionScore {
         this.score = score;
     }
 
+    public VisitDimensionScore(
+            Visit visit, String dimensionKey, DimensionStateCode semanticStateCode,
+            int templateVersion) {
+        this(visit, dimensionKey, semanticStateCode.compatibilityScore());
+        this.semanticStateCode = semanticStateCode;
+        this.templateVersion = templateVersion;
+    }
+
     public VisitDimensionScoreId getId() { return id; }
     public Visit getVisit() { return visit; }
     public double getScore() { return score; }
+    public DimensionStateCode getSemanticStateCode() { return semanticStateCode; }
+    public Integer getTemplateVersion() { return templateVersion; }
 }

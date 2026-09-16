@@ -203,26 +203,27 @@ enum ExperienceDimensionCatalog {
         guard let primary else { return [] }
         switch primary {
         case .kahvalti, .ogunYemek, .kahve, .tatli, .sokakLezzeti, .yerelLezzet:
-            ["FOOD", "SERVICE", "ATMOSPHERE", "VALUE"]
+            return ["FOOD", "SERVICE", "ATMOSPHERE", "VALUE"]
         case .gunBatimi, .gunDogumu, .manzara, .geceManzarasi, .fotografNoktasi:
-            ["SCENERY", "ATMOSPHERE", "TRANQUILITY", "ACCESS"]
+            return ["SCENERY", "ATMOSPHERE", "TRANQUILITY", "ACCESS"]
         case .denizYuzme, .plaj, .tekne, .dalisSnorkel, .suAktivitesi:
-            ["SEA", "CLEANLINESS", "COMFORT", "ACCESS"]
+            return ["SEA", "CLEANLINESS", "COMFORT", "ACCESS"]
         case .dogaYuruyusu, .piknik, .kamp, .orman, .golSelale, .seyirNoktasi:
-            ["SCENERY", "ROUTE", "TRANQUILITY", "ACCESS"]
+            return ["SCENERY", "ROUTE", "TRANQUILITY", "ACCESS"]
         case .sokakKesfi, .mahalleSehirGezisi, .sahilYuruyusu, .gizliKose, .rotaGezi:
-            ["ATMOSPHERE", "WALKABILITY", "LOCALITY", "DISCOVERY_VALUE"]
+            return ["ATMOSPHERE", "WALKABILITY", "LOCALITY", "DISCOVERY_VALUE"]
         case .muze, .tarihiYer, .mimari, .yerelPazar, .yerelYasam, .sergiSanat:
-            ["CONTENT_INTEREST", "ATMOSPHERE", "ACCESS", "VALUE"]
+            return ["CONTENT_INTEREST", "ATMOSPHERE", "ACCESS", "VALUE"]
         case .canliMuzik, .barPub, .geceHayati, .konserGosteri, .sosyalEtkinlik:
-            ["ATMOSPHERE", "MUSIC_ENTERTAINMENT", "SERVICE", "VALUE"]
+            return ["ATMOSPHERE", "MUSIC_ENTERTAINMENT", "SERVICE", "VALUE"]
         case .bisiklet, .tirmanis, .kayak, .suSporu, .workshop, .acikHavaAktivitesi:
-            ["FUN", "ORGANIZATION", "COMFORT_DIFFICULTY", "VALUE"]
+            return ["FUN", "ORGANIZATION", "COMFORT_DIFFICULTY", "VALUE"]
         case .sakinZaman, .spaHamam, .termal, .yogaMeditasyon, .dinlenme:
-            ["ATMOSPHERE", "COMFORT", "CLEANLINESS", "VALUE"]
+            return ["ATMOSPHERE", "COMFORT", "CLEANLINESS", "VALUE"]
         case .otel, .butikOtel, .hostel, .kampKonaklamasi, .kiralikEvBungalov:
-            ["CLEANLINESS", "COMFORT", "LOCATION", "SERVICE"]
-        default: [String]()
+            return ["CLEANLINESS", "COMFORT", "LOCATION", "SERVICE"]
+        default:
+            return []
         }
     }
 }

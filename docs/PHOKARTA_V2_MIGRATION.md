@@ -97,3 +97,85 @@ Tests must be reported only when actually executed. The final Milestone 0 run re
 ## Remaining phases
 
 Milestone 0 deliberately defers V2 writes and all visible V2 product behavior. The next recommended milestone is Privacy & Aggregate Foundation, including profile privacy and the aggregate rules required before later social/product surfaces. Composer migration, Ben de Yaşadım, threads, Planım, new navigation, and V1 deprecation remain later work.
+
+## Milestone 1: Privacy & Aggregate Foundation
+
+Milestone 1 adds the privacy boundary required by later V2 publication and social surfaces. It does not enable V2 Experience writes, change root navigation, or begin the Experience-first UI.
+
+### Profile privacy and rollout
+
+Flyway V14 adds `users.profile_visibility` with stable `PUBLIC` / `PRIVATE` values, a `NOT NULL` constraint, and a `PUBLIC` default. Existing users therefore remain public without inference or data rewriting.
+
+Private-profile activation is controlled by `phokarta.features.profile-privacy-v2.enabled` / `PHOKARTA_PROFILE_PRIVACY_V2_ENABLED`. The application default and production example are false. Automated backend tests enable it; the staging example enables it for supported-client validation. Production activation requires minimum supported Android and iOS versions that understand `REQUEST_PENDING`. `GET /api/v2/capabilities` exposes the effective capability. Disabling the switch prevents new private activation but does not weaken privacy for an already-private account.
+
+The V1 follow route keeps immediate approval for public targets. It never silently approves a private target: it returns `FOLLOW_APPROVAL_REQUIRED`. The V1 full-profile route fails closed for an unapproved private-profile viewer rather than serializing protected counts into a DTO that cannot express redaction. V1 search remains identity-only and discoverable. V1 numeric Place aggregates are unchanged.
+
+### Follow requests and Friend invariant
+
+V14 adds `follow_requests` separately from `user_follows`. Pending rows have a partial unique requester/target index and cannot be self-directed. Status and resolution constraints cover `PENDING`, `APPROVED`, `REJECTED`, and `CANCELLED`. Both participant foreign keys cascade on account deletion.
+
+- Following a public target creates the existing approved directed `user_follows` edge.
+- Following a private target creates one idempotent pending request and no follow edge.
+- Approval resolves the request and materializes one directed follow edge.
+- Rejection and requester cancellation resolve without a follow edge.
+- Unfollow removes only the approved edge and never recreates a request.
+- Blocking cancels pending requests in both directions and removes approved edges in both directions.
+- Unblocking restores nothing, and stale blocked requests cannot be approved.
+
+Friend remains exactly mutual approved follow. There is no friendship table, and one approved private-profile follower is not a Friend.
+
+### Central viewer policy
+
+`ViewerAccessPolicy` remains the authority for direct Visit/Experience, attached media, Collection, profile, and symmetric-block decisions. Profile privacy is an upper bound:
+
+| Author/profile state | PUBLIC Experience | FRIENDS Experience | PRIVATE Experience |
+|---|---|---|---|
+| Owner | visible | visible | visible |
+| Public profile | visible | mutual Friends | owner only |
+| Private profile | approved followers | mutual Friends | owner only |
+| Blocked either direction | hidden | hidden | hidden |
+
+Anonymous viewers cannot read cards from private profiles. A V2 private-profile read remains discoverable with identity, short bio, privacy, and action state, while city/country, follow/friend, and visible-Experience counts are returned as null rather than populated. Block-separated profile reads use generic not-found/unavailable behavior and never reveal block direction.
+
+The SQL-backed V1 Community list and recent-review paths implement the same profile upper bound so pagination cannot leak private-profile authored cards. Direct V1 and V2 Experience UUID reads and attached-media access use the centralized policy.
+
+### Anonymous Community contributions
+
+`CommunityContributionPolicy` is deliberately separate from viewer authorization:
+
+- `PUBLIC`: eligible;
+- `FRIENDS`: eligible;
+- `PRIVATE`: excluded.
+
+Eligibility is independent of author profile privacy, follower state, friendship, and viewer block state. Aggregates never include contributor identity. Blocking hides attributable profile/content surfaces but does not change a Place's global anonymous population.
+
+`visibleExperienceCount` is viewer-relative and applies ownership, profile privacy, Experience visibility, approved follow, mutual Friend, and symmetric block rules. `communityContributionCount` is global and counts eligible `PUBLIC` plus `FRIENDS` Experiences. Neither is derived from the other.
+
+### V2 aggregate read
+
+`GET /api/v2/places/{id}` returns Place identity plus the two separate counts and identity-free aggregate foundations:
+
+- all five Overall Feeling buckets, using persisted native Feelings or the locked read-time legacy numeric mapping without mutation;
+- dimension key, eligible contribution count, numeric average, numeric-only legacy count, and semantic-state distribution only where actually stored;
+- persisted Practical Signal counts with the eligible Community population as denominator.
+
+No freshness weighting, arbitrary minimum-sample suppression, author identity, user-facing 0–10 primary aggregate, or V1 aggregate replacement is introduced.
+
+### Versioned API and native foundations
+
+V2 adds viewer-aware profile/search, follow/request lifecycle, owner visibility update, capabilities, and Place aggregate routes. Relationship responses represent `NONE`, `REQUEST_PENDING`, `FOLLOWING`, `FRIENDS`, and generic `UNAVAILABLE`.
+
+Android and iOS add separate V2 privacy/follow/aggregate network and domain models, safe unknown-code fallback, Friend/pending helpers, block invalidation, and account-switch clearing for new ephemeral privacy state. Existing V1 UI, navigation, persistence, and the Milestone 0 iOS durable-media flow remain unchanged.
+
+### Validation record and limitations
+
+During implementation on Windows:
+
+- the pre-change Android gate (`testDebugUnitTest`, `lintDebug`, `assembleDebug`, `compileReleaseKotlin`) passed;
+- 39 focused backend privacy/relationship/aggregate unit tests passed (46 changed-area tests including media-policy regression coverage);
+- the expanded backend suite and PostgreSQL privacy/aggregate integration matrix compiled;
+- Android `testDebugUnitTest`, including eight new deterministic V2 privacy/aggregate tests, passed;
+- local Docker/Testcontainers was unavailable, so authoritative PostgreSQL migration, request lifecycle, aggregate SQL, account deletion, and full backend validation require pushed Backend CI;
+- Xcode/Swift/XCTest is unavailable on Windows, so the appended iOS tests require pushed Xcode Cloud Build and Test validation.
+
+Freshness/recency weighting and minimum-sample privacy suppression remain intentionally deferred. V2 publication and all Milestone 2 product work remain disabled.

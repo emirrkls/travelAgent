@@ -244,3 +244,71 @@ During implementation on Windows:
 - Xcode and XCTest are unavailable on Windows, so authoritative Swift compilation and XCTest execution require the pushed Xcode Cloud Build and Test workflow.
 
 Connected Android execution, authoritative PostgreSQL/Testcontainers coverage, and iOS Build/Test results are reported only when actually run. Milestone 3 Experience-first read surfaces and navigation remain intentionally deferred.
+
+## Milestone 3: Experience-First Read Surfaces & Navigation
+
+Milestone 3 makes Experience the primary read unit while preserving `Visit` as the content identity and compatibility root. It adds no schema migration, does not replace V1 APIs, does not add planned-Experience relations, and does not reinterpret legacy rows.
+
+### Feed API and lens definitions
+
+`GET /api/v2/experiences/feed` accepts an opaque cursor, bounded page size, deterministic text query, canonical Primary Experience and Vibe filters, and one of four lenses:
+
+- `FOR_YOU` is the default recency feed. Its first algorithm takes the viewer-authorized keyset page and performs deterministic page-local greedy diversity across adjacent author, Place, and Primary Experience values. It never drops a selected item or fabricates affinity.
+- `FOLLOWING` requires authentication and selects authors with an approved one-way outgoing follow. This does not weaken `FRIENDS` visibility: a FRIENDS card still requires two approved reciprocal edges.
+- `NEARBY` requires validated coordinates and a 100–100,000 meter radius. PostGIS filters and orders by canonical Place geography. Clients request approximate location only after the user selects Nearby; coordinates are request-scoped and are not persisted or logged.
+- `POPULAR` orders by the real Milestone 1 Community contribution population for the Place (`PUBLIC` plus `FRIENDS`, excluding `PRIVATE`), followed by Experience recency and UUID. It introduces no likes or synthetic engagement score.
+
+All lenses apply profile privacy, Experience visibility, ownership, mutual-Friend, and symmetric-block authorization in SQL before `LIMIT`. Anonymous access is restricted to PUBLIC Experiences from public profiles. The URL-safe cursor binds version, query scope, snapshot time, ranking value, creation time, and UUID so pages remain dense, stable, and non-overlapping.
+
+The bounded deterministic search covers Place name, persisted title/Story metadata, raw Experience labels, canonical code text, and explicit EN/TR aliases such as sunset, breakfast, and nature walk. It does not claim semantic or AI search.
+
+### Experience summary DTO and card hierarchy
+
+`ExperienceSummaryV2Response` contains only card-safe data: Experience identity/classification; author identity/avatar and viewer relationship; Place identity/location/category/cover and optional distance; experienced date; persisted/compatibility title and source; Primary Experience; Feeling; bounded Story and Tip previews; Companion and Time; Vibes; at most two Practical Signals; one media preview; total media count; and visibility. It contains no private memory, dimensions, contact metadata, follower totals, or full Place detail.
+
+Cards lead with media (or a typographic no-media treatment), then author/relationship, title, Place, date/distance, Story/Tip preview, Feeling/context, media count, and a graceful legacy marker. `UNKNOWN_LEGACY` is presented generically and never shown as an internal code. The native Android and iOS opening interaction briefly raises and scales the card while navigation begins immediately; Android honors disabled system animators and iOS explicitly honors Reduce Motion. Detail navigation does not wait for animation completion.
+
+The detail surface reads `GET /api/v2/experiences/{id}`, renders the complete authorized Story, Tip, context, practical signals, Place link, and ordered media. Zero images retain a typographic hierarchy, one image is a single hero, two through six are browsable galleries, and legacy media above six remains readable without API/persistence truncation. Existing managed-media authorization and short-lived URL renewal remain in use.
+
+### Place and profile reads
+
+`GET /api/v2/places/{placeId}/experiences` provides viewer-authorized cursor pagination and an optional canonical Primary Experience filter. `GET /api/v2/users/{userId}/experiences` provides the same dense authorization and owner semantics for profile content. The V2 Place aggregate now includes viewer-visible Primary Experience distribution alongside the already separate global Community Feeling, dimension, Practical Signal, visible-count, and contribution-count concepts.
+
+Place screens put Experience count/distribution, Feeling, dimensions, Practical Signals, and the Experience feed ahead of secondary traditional Place details while preserving Save and Map actions. Profile makes `Deneyimlerim` / Experiences the first content section and keeps the existing Places, Lists, Map, Trips, identity, and social behavior. `Ben de Yaşadım` remains deferred and no dead action is displayed.
+
+### Explore, root navigation, and Planım
+
+Explore is now an Experience feed with For You, Following, Nearby, and Popular lenses, debounced deterministic search, compact canonical discovery chips, cursor pagination, retry/empty/loading states, and stale-response generation guards. The root order on both clients is:
+
+`Keşfet | Harita | + | Planım | Profil`
+
+The central `+` continues to the existing working V2 composer; Activity is no longer a root destination, while V1 Activity APIs remain unchanged. Planım is a real transitional root containing the existing Saved Places and Place Collections flows. It does not advertise Experience planning or mixed Experience Collections. Map remains Place-marker based and preserves its existing camera, bounds, nearby, category, Saved, Visited, friend enrichment, and navigation behavior; no unbounded per-marker Experience work or architecture rewrite was introduced.
+
+### Mobile implementation and design system
+
+Android adds shared feed/detail models and mappers, an Experience repository/gateway, StateFlow controllers for Explore/Place/Profile/detail, reusable Compose cards and context/media components, the Planım segmented destination, and native navigation. Cursor append de-duplicates by Experience UUID, lens/search generations reject stale responses, and managed detail URLs renew near expiry.
+
+iOS adds equivalent Codable models, endpoint/service abstractions, `@Observable` controllers, SwiftUI card/detail/gallery surfaces, Place/Profile integration, a composer-backed central Add tab, and native `NavigationStack` routing. The Xcode project explicitly includes the new sources, tests, and localized approximate-location usage text.
+
+Both clients use semantic background, surface, soft-surface, primary, primary-soft, text, border, success, warning, and error roles with the current off-white/white/mist-blue/cool-blue-gray direction in Light and Dark appearances. New static UI and accessibility strings are localized in English and Turkish; taxonomy wire codes remain language-independent.
+
+### Performance and privacy
+
+Feed rows are authorized and keyset-paged in one SQL selection. Page hydration batches Visit/author/Place, sidecar, Vibe, Practical Signal, managed-media descriptor, and relationship reads; clients do not issue per-card author, Place, relationship, or media-access calls and do not preload full details. Mobile lists use lazy containers. Client-side filtering is presentation-only for already-authorized Place Primary Experience selections and never repairs backend privacy.
+
+No new response contains `privateMemory`; no exact location is persisted; no token, signed URL, or coordinates are logged; no TLS or cleartext-release exception is added. Profile privacy remains an upper bound, block checks remain symmetric, Follow remains directed, Friend remains reciprocal, media authorization remains attached to the central viewer policy, and account-scoped persisted state is unchanged.
+
+### Validation record and limitations
+
+During implementation on Windows:
+
+- the pre-change Android gate (`testDebugUnitTest`, `lintDebug`, `assembleDebug`, `compileReleaseKotlin`) passed;
+- 21 focused backend Experience read, relationship, and Place aggregate unit tests passed, and backend packaging including test compilation passed;
+- local `mvn verify` reached 120 tests with zero assertion failures, while 26 Testcontainers-dependent test classes errored solely because Docker was unavailable;
+- Android focused feed/mapping tests and the complete 228-test `testDebugUnitTest` suite passed;
+- the final Android `testDebugUnitTest`, `lintDebug`, `assembleDebug`, and `compileReleaseKotlin` gate passed;
+- the iOS String Catalog parses as valid JSON and the Xcode project has balanced object structure with all new source/test/resource references;
+- Xcode/Swift/XCTest is unavailable on Windows, so authoritative Swift compilation and the four new deterministic Experience discovery tests require Xcode Cloud;
+- connected Android acceptance is attempted only when a configured device/emulator is available and is otherwise reported `NOT RUN`.
+
+Authoritative Backend CI, Android CI, and Xcode Cloud status are never inferred from local execution. Milestone 4 remains deferred: Planım Experiences and `Ben de Yaşadım` are not implemented by this milestone.

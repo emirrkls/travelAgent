@@ -11,48 +11,58 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Kept as source-compatible aliases while the visual language moves to blue/mist.
-val Coral = Color(0xFF2563EB)
-val CoralDark = Color(0xFF1D4ED8)
-val Ink = Color(0xFF172033)
-val Sand = Color(0xFFF7FAFF)
-val Sage = Color(0xFF0F6B78)
-val Mist = Color(0xFFE5F1F8)
-val Muted = Color(0xFF667085)
+// Source-compatible aliases. New UI should consume Material semantic roles.
+val Coral = Color(0xFF5EB6EC)
+val CoralDark = Color(0xFF3B95CC)
+val Ink = Color(0xFF17212B)
+val Sand = Color(0xFFF8FBFD)
+val Sage = Color(0xFF19736F)
+val Mist = Color(0xFFDDF2FF)
+val Muted = Color(0xFF65717D)
 
 private val LightColors = lightColorScheme(
-    primary = Coral,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE8FF),
-    onPrimaryContainer = Color(0xFF102A56),
+    primary = Color(0xFF5EB6EC),
+    onPrimary = Ink,
+    primaryContainer = Color(0xFFDDF2FF),
+    onPrimaryContainer = Ink,
     secondary = Sage,
     onSecondary = Color.White,
-    secondaryContainer = Mist,
+    secondaryContainer = Color(0xFFE7F5FF),
     background = Sand,
     onBackground = Ink,
     surface = Color.White,
     onSurface = Ink,
-    surfaceVariant = Color(0xFFEEF3F8),
+    surfaceVariant = Color(0xFFF1F6F9),
     onSurfaceVariant = Muted,
-    outline = Color(0xFFCBD5E1),
+    outline = Color(0xFFDCE5EB),
+    outlineVariant = Color(0xFFEAF0F4),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF8FBFD),
+    surfaceContainer = Color(0xFFF1F6F9),
+    surfaceContainerHigh = Color(0xFFEAF0F4),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF9EC1FF),
-    onPrimary = Color(0xFF08265A),
-    primaryContainer = Color(0xFF173C75),
-    onPrimaryContainer = Color(0xFFDCE8FF),
+    primary = Color(0xFF8ECDF4),
+    onPrimary = Color(0xFF10202B),
+    primaryContainer = Color(0xFF213A49),
+    onPrimaryContainer = Color(0xFFDDF2FF),
     secondary = Color(0xFF86D3E1),
     onSecondary = Color(0xFF00363E),
     secondaryContainer = Color(0xFF164E59),
     onSecondaryContainer = Color(0xFFCCF5FB),
-    background = Color(0xFF101722),
-    onBackground = Color(0xFFE6EDF7),
-    surface = Color(0xFF172033),
-    onSurface = Color(0xFFE6EDF7),
-    surfaceVariant = Color(0xFF222D40),
-    onSurfaceVariant = Color(0xFFBAC6D6),
-    outline = Color(0xFF8492A6),
+    background = Color(0xFF101820),
+    onBackground = Color(0xFFF4F8FA),
+    surface = Color(0xFF172330),
+    onSurface = Color(0xFFF4F8FA),
+    surfaceVariant = Color(0xFF1D2B38),
+    onSurfaceVariant = Color(0xFFAAB7C0),
+    outline = Color(0xFF30414E),
+    outlineVariant = Color(0xFF253541),
+    surfaceContainerLowest = Color(0xFF121C25),
+    surfaceContainerLow = Color(0xFF172330),
+    surfaceContainer = Color(0xFF1D2B38),
+    surfaceContainerHigh = Color(0xFF243440),
 )
 
 @Composable

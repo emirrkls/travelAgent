@@ -89,7 +89,6 @@ import com.emirrkls.phokarta.feature.social.PublicProfileScreen
 import com.emirrkls.phokarta.feature.social.SocialListScreen
 import com.emirrkls.phokarta.feature.social.UserSearchScreen
 import com.emirrkls.phokarta.feature.splash.AppStartViewModel
-import com.emirrkls.phokarta.ui.theme.Coral
 import androidx.compose.ui.res.stringResource
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.feature.settings.BlockedUsersScreen
@@ -385,7 +384,7 @@ private fun TravelBottomBar(currentRoute: String?, navController: NavHostControl
         bottomDestinations.take(2).forEach { destination -> BottomItem(destination, currentRoute, navController) }
         NavigationBarItem(
             selected = false, onClick = onAdd,
-            icon = { Box(Modifier.size(50.dp).background(Coral, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, stringResource(R.string.nav_add), tint = Color.White, modifier = Modifier.size(28.dp)) } },
+            icon = { Box(Modifier.size(50.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, stringResource(R.string.nav_add), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp)) } },
             label = { Text(stringResource(R.string.nav_add)) }, colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
         )
         bottomDestinations.drop(2).forEach { destination -> BottomItem(destination, currentRoute, navController) }
@@ -415,7 +414,11 @@ private fun androidx.compose.foundation.layout.RowScope.BottomItem(destination: 
         },
         icon = { Icon(if (selected) destination.selected else destination.unselected, stringResource(destination.labelRes)) },
         label = { Text(stringResource(destination.labelRes)) },
-        colors = NavigationBarItemDefaults.colors(selectedIconColor = Coral, selectedTextColor = Coral, indicatorColor = MaterialTheme.colorScheme.primaryContainer),
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
     )
 }
 
@@ -452,7 +455,7 @@ private fun AddActionSheet(
 @Composable
 private fun AddAction(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Coral) }
+        Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
         Column(Modifier.padding(start = 14.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
     }
 }

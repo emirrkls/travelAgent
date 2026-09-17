@@ -74,19 +74,20 @@ class PolicyAcceptanceFlowTest {
 
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithContentDescription("Been here. Rate this place")
+                composeRule.onAllNodesWithContentDescription("Share experience")
                     .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithContentDescription("Been here. Rate this place").performClick()
+        composeRule.onNodeWithContentDescription("Share experience").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Kahvalti").performClick()
-        composeRule.onNodeWithText("Guzeldi").performClick()
+        composeRule.onNodeWithText("Breakfast").performClick()
+        composeRule.onNodeWithText("🙂 Liked it").performClick()
+        composeRule.onNodeWithText("Tell your story").performScrollTo().performClick()
         composeRule.onNodeWithContentDescription("Review input")
             .performScrollTo()
             .performTextInput("A calm breakfast by the water.")
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("policy_acceptance_sheet").fetchSemanticsNodes().isNotEmpty()
         }
@@ -95,9 +96,9 @@ class PolicyAcceptanceFlowTest {
         composeRule.onNodeWithTag("policy_acceptance_accept").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").assertIsDisplayed()
+        composeRule.onNodeWithText("Your experiences").assertIsDisplayed()
     }
 }

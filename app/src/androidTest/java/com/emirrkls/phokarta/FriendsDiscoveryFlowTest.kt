@@ -56,7 +56,7 @@ class FriendsDiscoveryFlowTest {
 
         composeRule.onNodeWithText("Sarnıç Cove").performClick()
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onAllNodesWithText("Sarnıç Cove").onFirst().assertIsDisplayed()
     }
@@ -100,7 +100,9 @@ class FriendsDiscoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("What did people experience here?")
                 .fetchSemanticsNodes().isNotEmpty() &&
-                composeRule.onAllNodesWithText("2 visible to you · 4 community contributions")
+                composeRule.onAllNodesWithText("2 experiences")
+                    .fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Based on 4 community evaluations")
                     .fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("What did people experience here?").assertIsDisplayed()

@@ -39,6 +39,7 @@ class CommunityReviewsFlowTest {
         composeRule.openSarnicPlaceFromExplore()
         composeRule.openVisitComposerFromCurrentPlace()
         composeRule.selectRequiredExperienceFields()
+        composeRule.onNodeWithText("Tell your story").performScrollTo().performClick()
 
         val publicReviewText = "Great atmosphere and very good service."
         val privateMemoryText = "SECRET_PRIVATE_MEMORY_DO_NOT_SHOW"
@@ -51,7 +52,7 @@ class CommunityReviewsFlowTest {
         composeRule.onNodeWithContentDescription("Private memory input")
             .performScrollTo()
             .performTextInput(privateMemoryText)
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty() &&

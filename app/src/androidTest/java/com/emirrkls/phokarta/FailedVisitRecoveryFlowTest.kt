@@ -85,7 +85,7 @@ class FailedVisitRecoveryFlowTest {
         composeRule.onNodeWithTag("pending_visit_edit_retry").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(REVIEW_M1).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(MEMORY_M1).performScrollTo().assertIsDisplayed()
@@ -98,11 +98,11 @@ class FailedVisitRecoveryFlowTest {
 
         composeRule.onNodeWithText(REVIEW_M1).performScrollTo().performTextReplacement(REVIEW_M2)
         fakeVisits.failCreatePermanent = null
-        composeRule.onNodeWithText("Publish visit")
+        composeRule.onNodeWithText("Share experience")
             .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.waitUntil(timeoutMillis = 20_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty()
         }
 
         runBlocking {
@@ -134,14 +134,14 @@ class FailedVisitRecoveryFlowTest {
         openPendingDetailFromPlace()
         composeRule.onNodeWithTag("pending_visit_edit_retry").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
 
         fakeVisits.failCreatePermanent = null
-        composeRule.onNodeWithText("Publish visit")
+        composeRule.onNodeWithText("Share experience")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 20_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty()
         }
 
         runBlocking {
@@ -196,7 +196,7 @@ class FailedVisitRecoveryFlowTest {
         composeRule.onNodeWithText("Replace").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
         runBlocking {
             assertNull(offlineMutations.observePendingVisits().first().firstOrNull { it.mutationId == MUTATION_M1 })
@@ -372,12 +372,12 @@ class FailedVisitRecoveryFlowTest {
         composeRule.onAllNodesWithText("Continue draft").onFirst()
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit")
+        composeRule.onNodeWithText("Share experience")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText("Sync failed", substring = true).fetchSemanticsNodes().isNotEmpty()
         }
     }

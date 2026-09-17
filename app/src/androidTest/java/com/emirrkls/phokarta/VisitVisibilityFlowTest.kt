@@ -37,7 +37,7 @@ class VisitVisibilityFlowTest {
         val marker = "PUBLIC_VIS_FLOW_${System.currentTimeMillis() % 100000}"
         enterReview(marker)
         dismissKeyboard()
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
         waitForYourVisits()
         composeRule.onNodeWithText(marker, substring = true).performScrollTo().assertIsDisplayed()
     }
@@ -54,7 +54,7 @@ class VisitVisibilityFlowTest {
             .performTextInput(memoryText)
         dismissKeyboard()
         selectVisibility("Private")
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
         waitForYourVisits()
         composeRule.onNodeWithText(reviewText, substring = true).performScrollTo().assertIsDisplayed()
         assertTrue(
@@ -76,7 +76,7 @@ class VisitVisibilityFlowTest {
         enterReview(marker)
         dismissKeyboard()
         selectVisibility("Friends")
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
         waitForYourVisits()
         composeRule.onNodeWithText(marker, substring = true).performScrollTo().assertIsDisplayed()
         assertTrue(
@@ -95,14 +95,14 @@ class VisitVisibilityFlowTest {
         enterReview(reviewText)
         dismissKeyboard()
 
-        composeRule.onNodeWithText("Shared with the community").assertIsDisplayed()
+        composeRule.onNodeWithText("Shared with the community").performScrollTo().assertIsDisplayed()
         selectVisibility("Private")
-        composeRule.onNodeWithText("Only visible to you").assertIsDisplayed()
-        composeRule.onNodeWithText(reviewText).assertIsDisplayed()
+        composeRule.onNodeWithText("Only visible to you").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(reviewText).performScrollTo().assertIsDisplayed()
 
         selectVisibility("Public")
-        composeRule.onNodeWithText("Shared with the community").assertIsDisplayed()
-        composeRule.onNodeWithText(reviewText).assertIsDisplayed()
+        composeRule.onNodeWithText("Shared with the community").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(reviewText).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -112,7 +112,7 @@ class VisitVisibilityFlowTest {
             .performScrollTo()
             .performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Who can see this visit?").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Who can see this experience?").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Visible to your friends").assertIsDisplayed()
         composeRule.onNodeWithText("Friends are people you mutually follow.").assertIsDisplayed()
@@ -131,6 +131,7 @@ class VisitVisibilityFlowTest {
         composeRule.openSarnicPlaceFromExplore()
         composeRule.openVisitComposerFromCurrentPlace()
         composeRule.selectRequiredExperienceFields()
+        composeRule.onNodeWithText("Tell your story").performScrollTo().performClick()
     }
 
     private fun enterReview(text: String) {
@@ -143,7 +144,7 @@ class VisitVisibilityFlowTest {
         runCatching {
             composeRule.onNodeWithContentDescription("Review input").performImeAction()
         }
-        composeRule.onNodeWithText("Publish visit").assertIsDisplayed()
+        composeRule.onNodeWithText("Share experience").assertIsDisplayed()
     }
 
     private fun selectVisibility(label: String) {
@@ -151,11 +152,11 @@ class VisitVisibilityFlowTest {
             .performScrollTo()
             .performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Who can see this visit?").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Who can see this experience?").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithContentDescription("$label.", substring = true).performClick()
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Who can see this visit?").fetchSemanticsNodes().isEmpty() &&
+            composeRule.onAllNodesWithText("Who can see this experience?").fetchSemanticsNodes().isEmpty() &&
                 composeRule.onAllNodesWithContentDescription("Visibility, $label")
                     .fetchSemanticsNodes().isNotEmpty()
         }
@@ -163,7 +164,7 @@ class VisitVisibilityFlowTest {
 
     private fun waitForYourVisits() {
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

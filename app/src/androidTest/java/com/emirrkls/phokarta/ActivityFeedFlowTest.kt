@@ -36,7 +36,10 @@ class ActivityFeedFlowTest {
         composeRule.onNodeWithText("Following").assertIsDisplayed()
         composeRule.onNodeWithText("Nearby").assertIsDisplayed()
         composeRule.onNodeWithText("Popular").assertIsDisplayed()
-        composeRule.onNodeWithText("Sunset at Sarnıç Cove").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Sunset at Sarnıç Cove")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
 
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("Experience").fetchSemanticsNodes().isNotEmpty() &&
@@ -45,7 +48,7 @@ class ActivityFeedFlowTest {
                     substring = true,
                 ).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Sarnıç Cove").assertIsDisplayed()
+        composeRule.onNodeWithText("Sarnıç Cove").performScrollTo().assertIsDisplayed()
     }
 
     @Test

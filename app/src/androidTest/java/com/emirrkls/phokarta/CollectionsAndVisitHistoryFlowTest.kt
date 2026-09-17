@@ -99,22 +99,22 @@ class CollectionsAndVisitHistoryFlowTest {
         composeRule.openSarnicPlaceFromExplore()
         composeRule.openVisitComposerFromCurrentPlace()
         composeRule.completeMinimumExperience("First connected-test Experience.")
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Your experiences").performScrollTo().assertIsDisplayed()
 
         composeRule.openVisitComposerFromCurrentPlace()
         composeRule.completeMinimumExperience("Second connected-test Experience.")
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Your visits").performScrollTo().assertIsDisplayed()
-        composeRule.onAllNodesWithText("Rate another visit").onFirst().assertIsDisplayed()
+        composeRule.onNodeWithText("Your experiences").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("Share experience").onFirst().performScrollTo().assertIsDisplayed()
     }
 }

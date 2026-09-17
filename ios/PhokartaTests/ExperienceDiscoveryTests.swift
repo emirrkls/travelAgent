@@ -3,6 +3,37 @@ import XCTest
 
 @MainActor
 final class ExperienceDiscoveryTests: XCTestCase {
+    func testLocalizedExperienceLabelsHideCanonicalCodesInEnglishAndTurkish() {
+        let en = Locale(identifier: "en")
+        let tr = Locale(identifier: "tr")
+        XCTAssertEqual(ExperienceLocalizedLabels.primary(.kahvalti, locale: en), "Breakfast")
+        XCTAssertEqual(ExperienceLocalizedLabels.primary(.kahvalti, locale: tr), "Kahvaltı")
+        XCTAssertEqual(ExperienceLocalizedLabels.primary(.ogunYemek, locale: en), "Meal")
+        XCTAssertEqual(ExperienceLocalizedLabels.primary(.ogunYemek, locale: tr), "Öğün / Yemek")
+        XCTAssertEqual(ExperienceLocalizedLabels.vibe(.localAuthentic, locale: en), "Local / authentic")
+        XCTAssertEqual(ExperienceLocalizedLabels.vibe(.localAuthentic, locale: tr), "Yerel / otantik")
+        XCTAssertNil(ExperienceLocalizedLabels.primary(.unknownLegacy, locale: en))
+        XCTAssertFalse(ExperienceLocalizedLabels.primary(.gunBatimi, locale: en)?.contains("_") ?? true)
+    }
+
+    func testFeelingLegacyAndComposerDisclosurePresentation() {
+        let en = Locale(identifier: "en")
+        let tr = Locale(identifier: "tr")
+        XCTAssertEqual(ExperienceLocalizedLabels.feeling(.bayildim, locale: en), "😍 Loved it")
+        XCTAssertEqual(ExperienceLocalizedLabels.feeling(.bayildim, locale: tr), "😍 Bayıldım")
+        XCTAssertEqual(ExperienceLocalizedLabels.feeling(.ehIste, locale: en), "😐 It was okay")
+        XCTAssertFalse(ExperienceLocalizedLabels.shouldShowTitle("Foça", placeName: " foça ", classification: .legacyCompatibility))
+        XCTAssertTrue(ExperienceLocalizedLabels.shouldShowTitle("Foça", placeName: "Foça", classification: .nativeV2))
+
+        let disclosure = ExperienceComposerDisclosureState()
+        XCTAssertFalse(disclosure.enrichExpanded)
+        XCTAssertFalse(disclosure.storyExpanded)
+        XCTAssertFalse(disclosure.titleExpanded)
+        XCTAssertEqual(DimensionStateCode.allCases.filter { $0 != .unknown }.map { ExperienceLocalizedLabels.dimensionState($0, locale: tr) }, ["Çok iyi", "İyi", "Orta", "Zayıf", "Çok zayıf"])
+        XCTAssertEqual(PhokartaLanguage.en.locale?.identifier, "en")
+        XCTAssertEqual(PhokartaLanguage.tr.locale?.identifier, "tr")
+    }
+
     func testFeedSummaryDecodesCursorMediaDistanceAndOneWayRelationship() throws {
         let page = try APIJSON.decoder.decode(
             CursorPageDTO<ExperienceSummaryV2>.self,

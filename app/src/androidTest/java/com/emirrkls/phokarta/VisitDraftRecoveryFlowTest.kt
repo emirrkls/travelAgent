@@ -87,7 +87,7 @@ class VisitDraftRecoveryFlowTest {
             .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.waitUntil(timeoutMillis = 8_000) {
             composeRule.onAllNodesWithText("Draft review text").fetchSemanticsNodes().isNotEmpty()
@@ -214,13 +214,13 @@ class VisitDraftRecoveryFlowTest {
         composeRule.onAllNodesWithText("Continue draft").onFirst()
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit")
+        composeRule.onNodeWithText("Share experience")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty()
         }
 
         runBlocking {
@@ -266,7 +266,7 @@ class VisitDraftRecoveryFlowTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Keep after failure").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Publish visit")
+        composeRule.onNodeWithText("Share experience")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Sync failed", substring = true).fetchSemanticsNodes().isNotEmpty()

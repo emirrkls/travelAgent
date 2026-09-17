@@ -55,8 +55,7 @@ fun AndroidComposeTestRule<*, *>.openSarnicPlaceFromExplore() {
     waitUntil(timeoutMillis = 15_000) {
         onAllNodesWithText("Community reviews").fetchSemanticsNodes().isNotEmpty() &&
             (
-                onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty() ||
-                    onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
+                onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty() ||
                     onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
                 )
     }
@@ -64,32 +63,32 @@ fun AndroidComposeTestRule<*, *>.openSarnicPlaceFromExplore() {
 
 fun AndroidComposeTestRule<*, *>.openVisitComposerFromCurrentPlace() {
     waitUntil(timeoutMillis = 10_000) {
-        onAllNodesWithText("Been here").fetchSemanticsNodes().isNotEmpty() ||
-            onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ||
+        onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty() ||
             onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty()
     }
     when {
         onAllNodesWithText("Continue draft").fetchSemanticsNodes().isNotEmpty() ->
             onAllNodesWithText("Continue draft").onFirst()
                 .performSemanticsAction(SemanticsActions.OnClick)
-        onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty() ->
-            onAllNodesWithText("Rate another visit").onFirst()
-                .performSemanticsAction(SemanticsActions.OnClick)
-        else -> onAllNodesWithText("Been here").onFirst()
+        else -> onAllNodesWithText("Share experience").onFirst()
             .performSemanticsAction(SemanticsActions.OnClick)
     }
     waitUntil(timeoutMillis = 10_000) {
-        onAllNodesWithText("Publish visit").fetchSemanticsNodes().isNotEmpty()
+        onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
     }
 }
 
 fun AndroidComposeTestRule<*, *>.selectRequiredExperienceFields() {
-    onNodeWithText("Kahvalti").performClick()
-    onNodeWithText("Guzeldi").performClick()
+    onNodeWithText("Breakfast").performClick()
+    onNodeWithText("🙂 Liked it").performClick()
 }
 
 fun AndroidComposeTestRule<*, *>.completeMinimumExperience(story: String) {
     selectRequiredExperienceFields()
+    onNodeWithText("Tell your story").performScrollTo().performClick()
+    waitUntil(timeoutMillis = 10_000) {
+        onAllNodesWithText("Story").fetchSemanticsNodes().isNotEmpty()
+    }
     onNodeWithContentDescription("Review input")
         .performScrollTo()
         .performTextInput(story)

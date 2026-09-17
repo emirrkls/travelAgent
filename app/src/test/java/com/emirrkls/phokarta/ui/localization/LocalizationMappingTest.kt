@@ -6,10 +6,17 @@ import com.emirrkls.phokarta.core.model.PlaceCategory
 import com.emirrkls.phokarta.core.model.RatingDimension
 import com.emirrkls.phokarta.core.model.SocialListKind
 import com.emirrkls.phokarta.core.model.Visibility
+import com.emirrkls.phokarta.core.model.ExperienceClassification
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.VibeCode
 import com.emirrkls.phokarta.feature.search.SearchSort
 import java.util.Locale
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalizationMappingTest {
@@ -87,5 +94,42 @@ class LocalizationMappingTest {
         assertEquals(RatingDimension.SEA, RatingDimension.fromStoredKey("sea"))
         assertEquals("SEA", RatingDimension.SEA.apiKey)
         assertEquals(RatingDimension.SEA, RatingDimension.fromStoredKey(RatingDimension.SEA.apiKey.lowercase(Locale.ROOT)))
+    }
+
+    @Test
+    fun experienceTaxonomyLabels_areLocalizedWithoutWireCodes() {
+        assertEquals("Breakfast", ExperienceLabels.primary(PrimaryExperienceCode.KAHVALTI, DisplayLanguage.EN))
+        assertEquals("Kahvaltı", ExperienceLabels.primary(PrimaryExperienceCode.KAHVALTI, DisplayLanguage.TR))
+        assertEquals("Meal", ExperienceLabels.primary(PrimaryExperienceCode.OGUN_YEMEK, DisplayLanguage.EN))
+        assertEquals("Öğün / Yemek", ExperienceLabels.primary(PrimaryExperienceCode.OGUN_YEMEK, DisplayLanguage.TR))
+        assertEquals("Local / authentic", ExperienceLabels.vibe(VibeCode.LOCAL_AUTHENTIC, DisplayLanguage.EN))
+        assertEquals("Yerel / otantik", ExperienceLabels.vibe(VibeCode.LOCAL_AUTHENTIC, DisplayLanguage.TR))
+        assertNull(ExperienceLabels.primary(PrimaryExperienceCode.UNKNOWN_LEGACY, DisplayLanguage.EN))
+    }
+
+    @Test
+    fun feelingLabels_matchLockedEnglishAndTurkishPresentation() {
+        assertEquals("😍 Loved it", ExperienceLabels.feeling(OverallFeelingCode.BAYILDIM, DisplayLanguage.EN))
+        assertEquals("😍 Bayıldım", ExperienceLabels.feeling(OverallFeelingCode.BAYILDIM, DisplayLanguage.TR))
+        assertEquals("😐 It was okay", ExperienceLabels.feeling(OverallFeelingCode.EH_ISTE, DisplayLanguage.EN))
+        assertEquals("😐 Eh işte", ExperienceLabels.feeling(OverallFeelingCode.EH_ISTE, DisplayLanguage.TR))
+    }
+
+    @Test
+    fun legacyPlaceFallbackTitle_isDeduplicatedOnlyForLegacyCards() {
+        assertFalse(shouldShowExperienceTitle("Foça", " foça ", ExperienceClassification.LEGACY_COMPATIBILITY))
+        assertTrue(shouldShowExperienceTitle("A quiet sunset", "Foça", ExperienceClassification.LEGACY_COMPATIBILITY))
+        assertTrue(shouldShowExperienceTitle("Foça", "Foça", ExperienceClassification.NATIVE_V2))
+    }
+
+    @Test
+    fun composerDisclosureAndDimensionSelection_defaultToCompactOptionalState() {
+        val initial = ComposerDisclosureState()
+        assertFalse(initial.storyExpanded)
+        assertFalse(initial.titleExpanded)
+        assertTrue(initial.toggleStory().storyExpanded)
+        assertTrue(initial.toggleTitle().titleExpanded)
+        assertEquals(listOf("Select", "Very good", "Good", "Medium", "Weak", "Very weak"), ExperienceLabels.dimensionChoices(DisplayLanguage.EN).map { it.second })
+        assertEquals(listOf("Seç", "Çok iyi", "İyi", "Orta", "Zayıf", "Çok zayıf"), ExperienceLabels.dimensionChoices(DisplayLanguage.TR).map { it.second })
     }
 }

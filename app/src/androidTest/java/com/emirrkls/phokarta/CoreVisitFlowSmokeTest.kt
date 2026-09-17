@@ -35,13 +35,13 @@ class CoreVisitFlowSmokeTest {
         composeRule.openSarnicPlaceFromExplore()
         composeRule.openVisitComposerFromCurrentPlace()
         composeRule.completeMinimumExperience("Core connected smoke Experience.")
-        composeRule.onNodeWithText("Publish visit").assertIsDisplayed()
-        composeRule.onNodeWithText("Publish visit").performClick()
+        composeRule.onNodeWithText("Share experience").assertIsDisplayed()
+        composeRule.onNodeWithText("Share experience").performClick()
 
         composeRule.waitUntil(timeoutMillis = 8_000) {
-            composeRule.onAllNodesWithText("Your visits").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Visit added").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Rate another visit").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Your experiences").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Experience shared").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Share experience").fetchSemanticsNodes().isNotEmpty()
         }
 
         composeRule.runOnUiThread {

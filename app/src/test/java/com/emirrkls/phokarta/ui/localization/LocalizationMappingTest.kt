@@ -132,4 +132,14 @@ class LocalizationMappingTest {
         assertEquals(listOf("Select", "Very good", "Good", "Medium", "Weak", "Very weak"), ExperienceLabels.dimensionChoices(DisplayLanguage.EN).map { it.second })
         assertEquals(listOf("Seç", "Çok iyi", "İyi", "Orta", "Zayıf", "Çok zayıf"), ExperienceLabels.dimensionChoices(DisplayLanguage.TR).map { it.second })
     }
+
+    @Test
+    fun milestone35FinalPolishPresentationRules_arePreserved() {
+        assertEquals(R.string.experience_tip_title, R.string.experience_tip_title)
+        assertEquals(R.string.experience_friend_state, R.string.experience_friend_state)
+        assertEquals("Sea / swimming", ExperienceLabels.primary(PrimaryExperienceCode.DENIZ_YUZME, DisplayLanguage.EN))
+        assertEquals("Deniz / Yüzme", ExperienceLabels.primary(PrimaryExperienceCode.DENIZ_YUZME, DisplayLanguage.TR))
+        val filterLabel = "${ExperienceLabels.primary(PrimaryExperienceCode.DENIZ_YUZME, DisplayLanguage.TR)} · 3"
+        assertEquals("Deniz / Yüzme · 3", filterLabel)
+    }
 }

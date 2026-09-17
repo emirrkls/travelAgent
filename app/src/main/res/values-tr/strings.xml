@@ -603,5 +603,8 @@
     <string name="place_experiences_title">Burada insanlar ne yaşadı?</string>
     <string name="place_experiences_subtitle">Sana görünen %1$d · %2$d topluluk katkısı</string>
     <string name="place_experience_filter_all">Tüm deneyimler</string>
+    <string name="place_community_feeling_title">Topluluğun hissi</string>
+    <string name="place_experience_dimensions_title">Deneyim boyutları</string>
+    <string name="place_practical_signals_title">Pratik bilgiler</string>
     <string name="profile_experiences">Deneyimlerim</string>
 </resources>

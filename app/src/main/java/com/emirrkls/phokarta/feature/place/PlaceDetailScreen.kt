@@ -81,6 +81,7 @@ import com.emirrkls.phokarta.core.sync.PendingVisit
 import com.emirrkls.phokarta.core.sync.PendingVisitRecoveryEvent
 import com.emirrkls.phokarta.ui.components.VisitHistoryRow
 import com.emirrkls.phokarta.core.model.ActivityScope
+import com.emirrkls.phokarta.core.model.PlaceAggregateV2
 import com.emirrkls.phokarta.core.share.PhokartaShare
 import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
 import com.emirrkls.phokarta.feature.collections.CollectionPickerSheet
@@ -342,6 +343,9 @@ fun PlaceDetailScreen(
                             )
                         }
                     }
+                }
+                experienceState.aggregate?.let { aggregate ->
+                    PlaceExperienceInsights(aggregate)
                 }
                 if (experienceState.isLoading) {
                     Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.Center) {
@@ -768,6 +772,106 @@ fun PlaceDetailScreen(
             },
         )
     }
+}
+
+@Composable
+private fun PlaceExperienceInsights(aggregate: PlaceAggregateV2) {
+    val feelings = aggregate.feelings.filter { it.contributionCount > 0 }
+    val dimensions = aggregate.dimensions.filter { it.contributionCount > 0 }
+    val practicalSignals = aggregate.practicalSignals.filter { it.contributionCount > 0 }
+    if (feelings.isEmpty() && dimensions.isEmpty() && practicalSignals.isEmpty()) return
+
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (feelings.isNotEmpty()) {
+            PlaceInsightGroup(stringResource(R.string.place_community_feeling_title)) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    feelings.forEach { feeling ->
+                        PlaceInsightChip(
+                            label = "${feelingEmoji(feeling.code.name)} ${humanize(feeling.code.name)}",
+                            value = feeling.contributionCount.toString(),
+                        )
+                    }
+                }
+            }
+        }
+        if (dimensions.isNotEmpty()) {
+            PlaceInsightGroup(stringResource(R.string.place_experience_dimensions_title)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    dimensions.forEach { dimension ->
+                        val semanticState = dimension.semanticDistribution
+                            .maxByOrNull { it.contributionCount }
+                            ?.state
+                            ?.name
+                            ?.let(::humanize)
+                        val value = semanticState
+                            ?: dimension.numericAverage?.let { formatScoreLocalized(it) }
+                            ?: dimension.contributionCount.toString()
+                        PlaceInsightRow(humanize(dimension.key), value)
+                    }
+                }
+            }
+        }
+        if (practicalSignals.isNotEmpty()) {
+            PlaceInsightGroup(stringResource(R.string.place_practical_signals_title)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    practicalSignals.forEach { signal ->
+                        PlaceInsightRow(
+                            humanize(signal.code.name),
+                            "${signal.contributionCount}/${signal.eligibleContributionDenominator}",
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceInsightGroup(title: String, content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun PlaceInsightChip(label: String, value: String) {
+    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface) {
+        Text(
+            "$label · $value",
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+@Composable
+private fun PlaceInsightRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun feelingEmoji(code: String): String = when (code) {
+    "BAYILDIM" -> "😍"
+    "GUZELDI" -> "😊"
+    "EH_ISTE" -> "😐"
+    "BEKLENTIMI_KARSILAMADI" -> "🙁"
+    "BIR_DAHA_TERCIH_ETMEM" -> "😞"
+    else -> "•"
 }
 
 @Composable

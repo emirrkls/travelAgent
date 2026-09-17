@@ -104,7 +104,10 @@ class FriendsDiscoveryFlowTest {
                     .fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("What did people experience here?").assertIsDisplayed()
-        composeRule.onNodeWithText("Sunset at Sarnıç Cove").assertIsDisplayed()
+        composeRule.onNodeWithText("Community feeling").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Experience dimensions").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Practical signals").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Sunset at Sarnıç Cove").performScrollTo().assertIsDisplayed()
     }
 
     @Test

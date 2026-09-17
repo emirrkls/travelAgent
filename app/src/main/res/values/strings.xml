@@ -644,5 +644,8 @@
     <string name="place_experiences_title">What did people experience here?</string>
     <string name="place_experiences_subtitle">%1$d visible to you · %2$d community contributions</string>
     <string name="place_experience_filter_all">All experiences</string>
+    <string name="place_community_feeling_title">Community feeling</string>
+    <string name="place_experience_dimensions_title">Experience dimensions</string>
+    <string name="place_practical_signals_title">Practical signals</string>
     <string name="profile_experiences">My Experiences</string>
 </resources>

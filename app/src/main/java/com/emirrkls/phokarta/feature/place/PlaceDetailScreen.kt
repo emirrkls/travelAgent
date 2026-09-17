@@ -289,11 +289,13 @@ fun PlaceDetailScreen(
                             )
                         }
                     }
-                    Text(
-                        "${"₺".repeat(place.priceLevel)} · ${place.city}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                    if (place.city.isNotBlank()) {
+                        Text(
+                            "· ${place.city}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(place.name, style = MaterialTheme.typography.headlineLarge)

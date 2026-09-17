@@ -328,11 +328,7 @@ struct PlaceDetailScreen: View {
     }
 
     private func locationLine(_ place: PlaceDetail) -> String {
-        let price = String(repeating: "₺", count: max(place.priceLevel, 0))
-        if price.isEmpty {
-            return place.city
-        }
-        return "\(price) · \(place.city)"
+        place.city
     }
 
     private func statusChips(_ content: PlaceDetailContent) -> some View {

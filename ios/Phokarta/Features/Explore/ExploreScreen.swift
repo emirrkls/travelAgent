@@ -291,9 +291,19 @@ struct ExperienceCardView: View {
     @ViewBuilder private var relationshipButton: some View {
         if let relationship = experience.author.relationship,
            relationship.state != .unavailable, relationship.state != .unknown {
-            Button(relationshipTitle(relationship.state), action: onRelationship)
-                .buttonStyle(.bordered)
-                .disabled(relationshipBusy || relationship.state == .friends)
+            if relationship.state == .friends {
+                Text(relationshipTitle(relationship.state))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(colorScheme == .dark ? Color(red: 204 / 255, green: 245 / 255, blue: 251 / 255) : PhokartaColor.ink(for: colorScheme))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                    .overlay(Capsule().stroke(PhokartaColor.accent(for: colorScheme).opacity(0.35), lineWidth: 1))
+            } else {
+                Button(relationshipTitle(relationship.state), action: onRelationship)
+                    .buttonStyle(.bordered)
+                    .disabled(relationshipBusy)
+            }
         }
     }
 

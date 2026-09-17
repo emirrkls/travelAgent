@@ -218,11 +218,21 @@ struct ExperienceDetailScreen: View {
                     Spacer()
                     if let relationship = experience.author.relationship,
                        relationship.state != .unavailable, relationship.state != .unknown {
-                        Button(relationshipTitle(relationship.state)) {
-                            Task { await controller.toggleRelationship() }
+                        if relationship.state == .friends {
+                            Text(relationshipTitle(relationship.state))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(colorScheme == .dark ? Color(red: 204 / 255, green: 245 / 255, blue: 251 / 255) : PhokartaColor.ink(for: colorScheme))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                                .overlay(Capsule().stroke(PhokartaColor.accent(for: colorScheme).opacity(0.35), lineWidth: 1))
+                        } else {
+                            Button(relationshipTitle(relationship.state)) {
+                                Task { await controller.toggleRelationship() }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(controller.relationshipBusy)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(controller.relationshipBusy || relationship.state == .friends)
                     }
                 }
                 if ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification) {
@@ -249,9 +259,18 @@ struct ExperienceDetailScreen: View {
                     Text(experience.story).font(.body)
                 }
                 if let tip = experience.tip, !tip.isEmpty {
-                    Text("\(String(localized: "experience.tip")) · \(tip)")
-                        .padding().frame(maxWidth: .infinity, alignment: .leading)
-                        .background(PhokartaColor.mist, in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("experience.tip")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(PhokartaColor.accent(for: colorScheme))
+                        Text(tip)
+                            .font(.subheadline)
+                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(PhokartaColor.softSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.md))
+                    .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.md).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
                 }
                 if !experience.practicalSignals.isEmpty {
                     Text("experience.practical").font(.headline)

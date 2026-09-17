@@ -2,7 +2,9 @@ package com.emirrkls.phokarta.feature.experience
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -138,17 +140,37 @@ fun ExperienceDetailScreen(
                     }
                     val relation = experience.author.relationship
                     if (relation != null && relation.state != RelationshipActionState.UNAVAILABLE) {
-                        OutlinedButton(
-                            onClick = viewModel::toggleRelationship,
-                            enabled = !state.relationshipBusy && relation.state != RelationshipActionState.FRIENDS,
-                        ) {
-                            Text(when (relation.state) {
-                                RelationshipActionState.NONE -> stringResource(R.string.action_follow)
-                                RelationshipActionState.REQUEST_PENDING -> stringResource(R.string.experience_requested_state)
-                                RelationshipActionState.FOLLOWING -> stringResource(R.string.experience_following_state)
-                                RelationshipActionState.FRIENDS -> stringResource(R.string.experience_friend_state)
-                                else -> ""
-                            })
+                        if (relation.state == RelationshipActionState.FRIENDS) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
+                                modifier = Modifier.height(36.dp),
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(horizontal = 14.dp),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.experience_friend_state),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = viewModel::toggleRelationship,
+                                enabled = !state.relationshipBusy,
+                            ) {
+                                Text(when (relation.state) {
+                                    RelationshipActionState.NONE -> stringResource(R.string.action_follow)
+                                    RelationshipActionState.REQUEST_PENDING -> stringResource(R.string.experience_requested_state)
+                                    RelationshipActionState.FOLLOWING -> stringResource(R.string.experience_following_state)
+                                    else -> ""
+                                })
+                            }
                         }
                     }
                 }
@@ -176,13 +198,27 @@ fun ExperienceDetailScreen(
                     Text(stringResource(R.string.experience_story_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(experience.story, style = MaterialTheme.typography.bodyLarge)
                 }
-                experience.tip?.takeIf(String::isNotBlank)?.let {
+                experience.tip?.takeIf(String::isNotBlank)?.let { tipText ->
                     Surface(
                         Modifier.fillMaxWidth().padding(top = 14.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = MaterialTheme.shapes.medium,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     ) {
-                        Text(stringResource(R.string.experience_tip, it), Modifier.padding(16.dp))
+                        Column(Modifier.padding(14.dp)) {
+                            Text(
+                                stringResource(R.string.experience_tip_title),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                tipText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
                 if (experience.practicalSignals.isNotEmpty()) {

@@ -245,19 +245,39 @@ private fun RelationshipButton(
     busy: Boolean,
     onClick: () -> Unit,
 ) {
-    val label = when (state) {
-        RelationshipActionState.NONE -> stringResource(R.string.action_follow)
-        RelationshipActionState.REQUEST_PENDING -> stringResource(R.string.experience_requested_state)
-        RelationshipActionState.FOLLOWING -> stringResource(R.string.experience_following_state)
-        RelationshipActionState.FRIENDS -> stringResource(R.string.experience_friend_state)
-        else -> null
-    }
-    if (label != null) {
-        OutlinedButton(
-            onClick = onClick,
-            enabled = !busy && state != RelationshipActionState.FRIENDS,
-            contentPadding = ButtonDefaults.TextButtonContentPadding,
-            modifier = Modifier.height(40.dp),
-        ) { Text(label) }
+    if (state == RelationshipActionState.FRIENDS) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
+            modifier = Modifier.height(36.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.padding(horizontal = 14.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.experience_friend_state),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    } else {
+        val label = when (state) {
+            RelationshipActionState.NONE -> stringResource(R.string.action_follow)
+            RelationshipActionState.REQUEST_PENDING -> stringResource(R.string.experience_requested_state)
+            RelationshipActionState.FOLLOWING -> stringResource(R.string.experience_following_state)
+            else -> null
+        }
+        if (label != null) {
+            OutlinedButton(
+                onClick = onClick,
+                enabled = !busy,
+                contentPadding = ButtonDefaults.TextButtonContentPadding,
+                modifier = Modifier.height(40.dp),
+            ) { Text(label) }
+        }
     }
 }

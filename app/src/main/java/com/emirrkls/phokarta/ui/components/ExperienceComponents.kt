@@ -123,16 +123,19 @@ fun ExperienceCard(
                 }
             } else {
                 Box(
-                    Modifier.fillMaxWidth().height(150.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    Modifier.fillMaxWidth().height(130.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                        ),
                 ) {
                     Icon(
                         Icons.Rounded.TravelExplore,
                         contentDescription = null,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(18.dp).size(36.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(30.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = .45f),
                     )
-                    Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
+                    Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                         primaryLabel?.let {
                             Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         }

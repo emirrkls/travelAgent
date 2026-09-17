@@ -287,16 +287,19 @@ struct PlaceDetailScreen: View {
                     .font(.caption).foregroundStyle(.secondary)
                 if let primary = aggregate.primaryExperiences, !primary.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
+                        HStack(spacing: 10) {
                             Button("filter.all") { controller.selectPrimary(nil) }
                                 .buttonStyle(.bordered)
+                                .lineLimit(1)
                             ForEach(primary.filter { $0.code != .unknownLegacy && $0.code != .unknown }, id: \.code.rawValue) { item in
                                 Button("\(ExperienceLocalizedLabels.primary(item.code, locale: locale) ?? phokartaString("experience.unknown", locale: locale)) · \(item.visibleExperienceCount)") {
                                     controller.selectPrimary(item.code)
                                 }
                                 .buttonStyle(.bordered)
+                                .lineLimit(1)
                             }
                         }
+                        .padding(.vertical, 4)
                     }
                 }
                 experienceInsights(aggregate)

@@ -108,13 +108,18 @@ fun ExperienceDetailScreen(
         } else {
             item {
                 Surface(
-                    Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 16.dp),
+                    Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.extraLarge,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                        Icon(Icons.Rounded.TravelExplore, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(38.dp))
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                        Icon(
+                            Icons.Rounded.TravelExplore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = .45f),
+                            modifier = Modifier.size(32.dp).align(Alignment.End),
+                        )
                         Column {
                             ExperienceLabels.primary(experience.primaryExperience.code, language)?.let {
                                 Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)

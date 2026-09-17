@@ -336,19 +336,27 @@ fun PlaceDetailScreen(
                 }
                 if (primaryFilters.isNotEmpty()) {
                     Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         FilterChip(
                             selected = experienceState.selectedPrimary == null,
                             onClick = { viewModel.selectPrimaryExperience(null) },
-                            label = { Text(stringResource(R.string.place_experience_filter_all)) },
+                            label = { Text(stringResource(R.string.place_experience_filter_all), maxLines = 1) },
                         )
                         primaryFilters.forEach { aggregate ->
                             FilterChip(
                                 selected = experienceState.selectedPrimary == aggregate.code.name,
                                 onClick = { viewModel.selectPrimaryExperience(aggregate.code.name) },
-                                label = { Text("${ExperienceLabels.primary(aggregate.code, language)} · ${aggregate.visibleExperienceCount}") },
+                                label = {
+                                    Text(
+                                        "${ExperienceLabels.primary(aggregate.code, language)} · ${aggregate.visibleExperienceCount}",
+                                        maxLines = 1,
+                                    )
+                                },
                             )
                         }
                     }

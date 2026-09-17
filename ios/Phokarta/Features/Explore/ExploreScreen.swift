@@ -195,18 +195,18 @@ struct ExperienceCardView: View {
                     ZStack(alignment: .bottomLeading) {
                         PhokartaColor.softSurface(for: colorScheme)
                         Image(systemName: "safari.fill")
-                            .font(.system(size: 34))
-                            .foregroundStyle(PhokartaColor.accent(for: colorScheme))
+                            .font(.system(size: 30))
+                            .foregroundStyle(PhokartaColor.accent(for: colorScheme).opacity(0.45))
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                            .padding(18)
+                            .padding(16)
                         VStack(alignment: .leading, spacing: 3) {
                             if let primaryLabel { Text(primaryLabel).font(.caption.weight(.semibold)).foregroundStyle(.tint) }
                             if showsTitle { Text(experience.title).font(.title3.bold()) }
                             Text(experience.place.name).font(.subheadline).foregroundStyle(.secondary)
                         }
-                        .padding(18)
+                        .padding(16)
                     }
-                    .frame(height: 150)
+                    .frame(height: 130)
                 }
             }
             .buttonStyle(.plain)

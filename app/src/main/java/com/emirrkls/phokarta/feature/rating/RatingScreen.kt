@@ -325,7 +325,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.primaryExperience == code,
                         onClick = { if (draftEditsEnabled) viewModel.setPrimaryExperience(code) },
-                        label = { Text(ExperienceLabels.primary(code, displayLanguage).orEmpty()) },
+                        label = { Text(ExperienceLabels.primary(code, displayLanguage).orEmpty(), maxLines = 1) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -346,7 +346,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.overallFeeling == code,
                         onClick = { if (draftEditsEnabled) viewModel.setOverallFeeling(code) },
-                        label = { Text(ExperienceLabels.feeling(code, displayLanguage)) },
+                        label = { Text(ExperienceLabels.feeling(code, displayLanguage), maxLines = 1) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -359,7 +359,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.companion == code,
                         onClick = { viewModel.setCompanion(if (state.draft.companion == code) null else code) },
-                        label = { Text(ExperienceLabels.companion(code, displayLanguage)) },
+                        label = { Text(ExperienceLabels.companion(code, displayLanguage), maxLines = 1) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -370,7 +370,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.timeOfDay == code,
                         onClick = { viewModel.setTimeOfDay(if (state.draft.timeOfDay == code) null else code) },
-                        label = { Text(ExperienceLabels.time(code, displayLanguage)) },
+                        label = { Text(ExperienceLabels.time(code, displayLanguage), maxLines = 1) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -406,7 +406,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                             FilterChip(
                                 selected = code in state.draft.vibes,
                                 onClick = { viewModel.toggleVibe(code) },
-                                label = { Text(ExperienceLabels.vibe(code, displayLanguage)) },
+                                label = { Text(ExperienceLabels.vibe(code, displayLanguage), maxLines = 1) },
                                 enabled = draftEditsEnabled && (code in state.draft.vibes || state.draft.vibes.size < 2),
                             )
                         }
@@ -417,7 +417,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                             FilterChip(
                                 selected = code in state.draft.practicalSignals,
                                 onClick = { viewModel.togglePracticalSignal(code) },
-                                label = { Text(ExperienceLabels.practical(code, displayLanguage)) },
+                                label = { Text(ExperienceLabels.practical(code, displayLanguage), maxLines = 1) },
                                 enabled = draftEditsEnabled,
                             )
                         }

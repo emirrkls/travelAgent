@@ -183,10 +183,10 @@ struct ExperienceDetailScreen: View {
                     ZStack(alignment: .bottomLeading) {
                         PhokartaColor.softSurface(for: colorScheme)
                         Image(systemName: "safari.fill")
-                            .font(.system(size: 38))
-                            .foregroundStyle(PhokartaColor.accent(for: colorScheme))
+                            .font(.system(size: 32))
+                            .foregroundStyle(PhokartaColor.accent(for: colorScheme).opacity(0.45))
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                            .padding(20)
+                            .padding(18)
                         VStack(alignment: .leading, spacing: 4) {
                             if let label = ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) {
                                 Text(label).font(.caption.weight(.semibold)).foregroundStyle(.tint)
@@ -196,10 +196,11 @@ struct ExperienceDetailScreen: View {
                             }
                             Text(experience.place.name).foregroundStyle(.secondary)
                         }
-                        .padding(20)
+                        .padding(18)
                     }
-                    .frame(height: 190)
+                    .frame(height: 160)
                     .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.lg).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
                 }
                 HStack {
                     AsyncImage(url: experience.author.avatarUrl.flatMap(URL.init(string:))) { image in

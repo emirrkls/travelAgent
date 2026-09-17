@@ -1,6 +1,7 @@
 package com.emirrkls.phokarta.feature.experience
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,11 +40,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.emirrkls.phokarta.R
-import com.emirrkls.phokarta.core.model.ExperienceClassification
 import com.emirrkls.phokarta.core.model.RelationshipActionState
 import com.emirrkls.phokarta.ui.components.UserAvatar
-import com.emirrkls.phokarta.ui.components.humanize
+import com.emirrkls.phokarta.ui.localization.ExperienceLabels
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
+import com.emirrkls.phokarta.ui.localization.shouldShowExperienceTitle
 
 @Composable
 fun ExperienceDetailScreen(
@@ -52,6 +57,7 @@ fun ExperienceDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val experience = state.experience
+    val language = displayLanguage(appLocale())
     if (state.isLoading) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
@@ -97,6 +103,28 @@ fun ExperienceDetailScreen(
                     }
                 }
             }
+        } else {
+            item {
+                Surface(
+                    Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                        Icon(Icons.Rounded.TravelExplore, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(38.dp))
+                        Column {
+                            ExperienceLabels.primary(experience.primaryExperience.code, language)?.let {
+                                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                            }
+                            if (shouldShowExperienceTitle(experience.title, experience.place.name, experience.classification)) {
+                                Text(experience.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            }
+                            Text(experience.place.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
         }
         item {
             Column(Modifier.padding(horizontal = 18.dp)) {
@@ -125,17 +153,27 @@ fun ExperienceDetailScreen(
                     }
                 }
                 Spacer(Modifier.height(18.dp))
-                Text(experience.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    experience.primaryExperience.rawLabel ?: humanize(experience.primaryExperience.code.name),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleMedium,
+                if (shouldShowExperienceTitle(experience.title, experience.place.name, experience.classification)) {
+                    Text(experience.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                }
+                val primary = experience.primaryExperience.rawLabel?.takeIf(String::isNotBlank)
+                    ?: ExperienceLabels.primary(experience.primaryExperience.code, language)
+                primary?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium) }
+                AssistChip(
+                    onClick = {},
+                    label = { Text(ExperienceLabels.feeling(experience.feeling.code, language)) },
+                    modifier = Modifier.padding(top = 8.dp),
                 )
-                if (experience.classification == ExperienceClassification.LEGACY_COMPATIBILITY) {
-                    Text(stringResource(R.string.experience_legacy_badge), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (experience.companion != null || experience.timeOfDay != null || experience.vibes.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        experience.companion?.let { item { AssistChip(onClick = {}, label = { Text(ExperienceLabels.companion(it, language)) }) } }
+                        experience.timeOfDay?.let { item { AssistChip(onClick = {}, label = { Text(ExperienceLabels.time(it, language)) }) } }
+                        items(experience.vibes, key = { it.name }) { vibe -> AssistChip(onClick = {}, label = { Text(ExperienceLabels.vibe(vibe, language)) }) }
+                    }
                 }
                 if (experience.story.isNotBlank()) {
                     Spacer(Modifier.height(16.dp))
+                    Text(stringResource(R.string.experience_story_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(experience.story, style = MaterialTheme.typography.bodyLarge)
                 }
                 experience.tip?.takeIf(String::isNotBlank)?.let {
@@ -147,21 +185,6 @@ fun ExperienceDetailScreen(
                         Text(stringResource(R.string.experience_tip, it), Modifier.padding(16.dp))
                     }
                 }
-                if (experience.companion != null || experience.timeOfDay != null || experience.vibes.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.experience_context),
-                        Modifier.padding(top = 20.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        experience.companion?.let { item { AssistChip(onClick = {}, label = { Text(humanize(it.name)) }) } }
-                        experience.timeOfDay?.let { item { AssistChip(onClick = {}, label = { Text(humanize(it.name)) }) } }
-                        items(experience.vibes, key = { it.name }) { vibe ->
-                            AssistChip(onClick = {}, label = { Text(humanize(vibe.name)) })
-                        }
-                    }
-                }
                 if (experience.practicalSignals.isNotEmpty()) {
                     Text(
                         stringResource(R.string.experience_practical),
@@ -170,13 +193,32 @@ fun ExperienceDetailScreen(
                         fontWeight = FontWeight.Bold,
                     )
                     experience.practicalSignals.forEach { signal ->
-                        Text("• ${humanize(signal.name)}", Modifier.padding(top = 4.dp))
+                        Text("• ${ExperienceLabels.practical(signal, language)}", Modifier.padding(top = 4.dp))
+                    }
+                }
+                if (experience.dimensions.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.experience_dimensions_title),
+                        Modifier.padding(top = 18.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    experience.dimensions.forEach { dimension ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(ExperienceLabels.dimensionKey(dimension.key, language), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                dimension.semanticState?.let { ExperienceLabels.dimensionState(it, language) }
+                                    ?: stringResource(R.string.past_ratings),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
                 Surface(
                     Modifier.fillMaxWidth().padding(top = 22.dp).clickable { onPlace(experience.place.id) },
                     shape = MaterialTheme.shapes.large,
-                    tonalElevation = 2.dp,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(stringResource(R.string.experience_about_place), style = MaterialTheme.typography.labelMedium)

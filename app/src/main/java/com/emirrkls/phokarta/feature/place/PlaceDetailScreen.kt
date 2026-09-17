@@ -101,7 +101,8 @@ import com.emirrkls.phokarta.ui.components.RatingBadge
 import com.emirrkls.phokarta.ui.components.TravelImage
 import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.components.ExperienceCard
-import com.emirrkls.phokarta.ui.components.humanize
+import com.emirrkls.phokarta.ui.localization.ExperienceLabels
+import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.theme.Coral
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.feature.social.SafetyActionHost
@@ -148,13 +149,11 @@ fun PlaceDetailScreen(
     val inAnyList = state.collections.any { place?.id in it.placeIds }
     val rateLabel = when {
         state.hasUnfinishedDraft -> stringResource(R.string.continue_draft)
-        hasVisited -> stringResource(R.string.rate_another_visit)
-        else -> stringResource(R.string.place_been_here)
+        else -> stringResource(R.string.share_experience_at_place)
     }
     val rateActionA11y = when {
         state.hasUnfinishedDraft -> stringResource(R.string.a11y_continue_draft)
-        hasVisited -> stringResource(R.string.been_here_rate_another)
-        else -> stringResource(R.string.been_here_rate_place)
+        else -> stringResource(R.string.share_experience_at_place)
     }
 
     LaunchedEffect(viewModel) {
@@ -319,12 +318,20 @@ fun PlaceDetailScreen(
                         stringResource(
                             R.string.place_experiences_subtitle,
                             aggregate.visibleExperienceCount,
-                            aggregate.communityContributionCount,
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Text(
+                        stringResource(R.string.place_community_evaluations, aggregate.communityContributionCount),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
-                val primaryFilters = experienceState.aggregate?.primaryExperiences.orEmpty()
+                val language = displayLanguage(appLocale())
+                val primaryFilters = experienceState.aggregate?.primaryExperiences.orEmpty().filter {
+                    it.code != com.emirrkls.phokarta.core.model.PrimaryExperienceCode.UNKNOWN_LEGACY &&
+                        it.code != com.emirrkls.phokarta.core.model.PrimaryExperienceCode.UNKNOWN
+                }
                 if (primaryFilters.isNotEmpty()) {
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp),
@@ -339,7 +346,7 @@ fun PlaceDetailScreen(
                             FilterChip(
                                 selected = experienceState.selectedPrimary == aggregate.code.name,
                                 onClick = { viewModel.selectPrimaryExperience(aggregate.code.name) },
-                                label = { Text("${humanize(aggregate.code.name)} · ${aggregate.visibleExperienceCount}") },
+                                label = { Text("${ExperienceLabels.primary(aggregate.code, language)} · ${aggregate.visibleExperienceCount}") },
                             )
                         }
                     }
@@ -519,7 +526,7 @@ fun PlaceDetailScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(place.description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(28.dp))
-                Text(stringResource(R.string.the_scores), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.past_ratings), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(14.dp))
                 place.ratingBreakdown.forEach { (dimension, score) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -538,12 +545,6 @@ fun PlaceDetailScreen(
                                     .background(MaterialTheme.colorScheme.secondary),
                             )
                         }
-                        Text(
-                            formatScoreLocalized(score),
-                            Modifier.width(42.dp),
-                            textAlign = TextAlign.End,
-                            fontWeight = FontWeight.Bold,
-                        )
                     }
                 }
                 val friendsPreview = state.friendSummary.summary?.friends.orEmpty()
@@ -776,6 +777,7 @@ fun PlaceDetailScreen(
 
 @Composable
 private fun PlaceExperienceInsights(aggregate: PlaceAggregateV2) {
+    val language = displayLanguage(appLocale())
     val feelings = aggregate.feelings.filter { it.contributionCount > 0 }
     val dimensions = aggregate.dimensions.filter { it.contributionCount > 0 }
     val practicalSignals = aggregate.practicalSignals.filter { it.contributionCount > 0 }
@@ -791,10 +793,11 @@ private fun PlaceExperienceInsights(aggregate: PlaceAggregateV2) {
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    val total = feelings.sumOf { it.contributionCount }.coerceAtLeast(1)
                     feelings.forEach { feeling ->
                         PlaceInsightChip(
-                            label = "${feelingEmoji(feeling.code.name)} ${humanize(feeling.code.name)}",
-                            value = feeling.contributionCount.toString(),
+                            label = ExperienceLabels.feeling(feeling.code, language),
+                            value = "${(feeling.contributionCount * 100 / total)}%",
                         )
                     }
                 }
@@ -807,12 +810,17 @@ private fun PlaceExperienceInsights(aggregate: PlaceAggregateV2) {
                         val semanticState = dimension.semanticDistribution
                             .maxByOrNull { it.contributionCount }
                             ?.state
-                            ?.name
-                            ?.let(::humanize)
-                        val value = semanticState
-                            ?: dimension.numericAverage?.let { formatScoreLocalized(it) }
-                            ?: dimension.contributionCount.toString()
-                        PlaceInsightRow(humanize(dimension.key), value)
+                        if (semanticState != null) {
+                            PlaceInsightRow(
+                                ExperienceLabels.dimensionKey(dimension.key, language),
+                                ExperienceLabels.dimensionState(semanticState, language),
+                            )
+                        } else {
+                            LegacyDimensionMeter(
+                                label = ExperienceLabels.dimensionKey(dimension.key, language),
+                                progress = ((dimension.numericAverage ?: 0.0) / 10.0).toFloat().coerceIn(0f, 1f),
+                            )
+                        }
                     }
                 }
             }
@@ -822,12 +830,25 @@ private fun PlaceExperienceInsights(aggregate: PlaceAggregateV2) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     practicalSignals.forEach { signal ->
                         PlaceInsightRow(
-                            humanize(signal.code.name),
+                            ExperienceLabels.practical(signal.code, language),
                             "${signal.contributionCount}/${signal.eligibleContributionDenominator}",
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LegacyDimensionMeter(label: String, progress: Float) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.past_ratings), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant)) {
+            Box(Modifier.fillMaxWidth(progress).height(6.dp).background(MaterialTheme.colorScheme.primary))
         }
     }
 }
@@ -863,15 +884,6 @@ private fun PlaceInsightRow(label: String, value: String) {
         Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, fontWeight = FontWeight.SemiBold)
     }
-}
-
-private fun feelingEmoji(code: String): String = when (code) {
-    "BAYILDIM" -> "😍"
-    "GUZELDI" -> "😊"
-    "EH_ISTE" -> "😐"
-    "BEKLENTIMI_KARSILAMADI" -> "🙁"
-    "BIR_DAHA_TERCIH_ETMEM" -> "😞"
-    else -> "•"
 }
 
 @Composable

@@ -4,9 +4,7 @@ import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -75,11 +75,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
-import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
+import com.emirrkls.phokarta.ui.localization.ExperienceLabels
+import com.emirrkls.phokarta.ui.localization.ComposerDisclosureState
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.labelRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.emirrkls.phokarta.ui.components.RatingControl
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -105,6 +107,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     var showVisibilitySheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
+    var disclosure by remember { mutableStateOf(ComposerDisclosureState()) }
+    var dimensionMenuKey by remember { mutableStateOf<String?>(null) }
+    val displayLanguage = displayLanguage(appLocale())
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(VisitDraftLogic.V2_MAX_MEDIA),
     ) { uris -> viewModel.addPhotos(uris) }
@@ -141,6 +146,10 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             snackbarHostState.showSnackbar(context.getString(it))
             viewModel.consumePhotoError()
         }
+    }
+    LaunchedEffect(state.review, state.tip, state.draft.photos, state.draft.titleSource) {
+        if (state.review.isNotBlank() || state.tip.isNotBlank() || state.draft.photos.isNotEmpty()) disclosure = disclosure.copy(storyExpanded = true)
+        if (state.draft.titleSource == ExperienceTitleSource.CUSTOM) disclosure = disclosure.copy(titleExpanded = true)
     }
 
     val place = state.place
@@ -235,7 +244,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                         if (state.isPublishing) {
                             CircularProgressIndicator(Modifier.height(22.dp), strokeWidth = 2.dp)
                         } else {
-                            Text(stringResource(R.string.publish_visit))
+                            Text(stringResource(R.string.share_experience_action))
                         }
                     }
                     state.publishError?.let { message ->
@@ -258,7 +267,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
                 Text(
-                    if (state.hasExistingVisits) stringResource(R.string.rate_another_visit) else stringResource(R.string.record_a_visit),
+                    stringResource(R.string.share_experience_header),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -316,7 +325,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.primaryExperience == code,
                         onClick = { if (draftEditsEnabled) viewModel.setPrimaryExperience(code) },
-                        label = { Text(code.displayLabel()) },
+                        label = { Text(ExperienceLabels.primary(code, displayLanguage).orEmpty()) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -337,7 +346,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.overallFeeling == code,
                         onClick = { if (draftEditsEnabled) viewModel.setOverallFeeling(code) },
-                        label = { Text(code.displayLabel()) },
+                        label = { Text(ExperienceLabels.feeling(code, displayLanguage)) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -350,7 +359,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.companion == code,
                         onClick = { viewModel.setCompanion(if (state.draft.companion == code) null else code) },
-                        label = { Text(code.displayLabel()) },
+                        label = { Text(ExperienceLabels.companion(code, displayLanguage)) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -361,29 +370,7 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     FilterChip(
                         selected = state.draft.timeOfDay == code,
                         onClick = { viewModel.setTimeOfDay(if (state.draft.timeOfDay == code) null else code) },
-                        label = { Text(code.displayLabel()) },
-                        enabled = draftEditsEnabled,
-                    )
-                }
-            }
-            Text(stringResource(R.string.vibes_title), style = MaterialTheme.typography.labelLarge)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(VibeCode.entries.filterNot { it == VibeCode.UNKNOWN }, key = { it.name }) { code ->
-                    FilterChip(
-                        selected = code in state.draft.vibes,
-                        onClick = { viewModel.toggleVibe(code) },
-                        label = { Text(code.displayLabel()) },
-                        enabled = draftEditsEnabled && (code in state.draft.vibes || state.draft.vibes.size < 2),
-                    )
-                }
-            }
-            Text(stringResource(R.string.practical_signals_title), style = MaterialTheme.typography.labelLarge)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(PracticalSignalCode.entries.filterNot { it == PracticalSignalCode.UNKNOWN }, key = { it.name }) { code ->
-                    FilterChip(
-                        selected = code in state.draft.practicalSignals,
-                        onClick = { viewModel.togglePracticalSignal(code) },
-                        label = { Text(code.displayLabel()) },
+                        label = { Text(ExperienceLabels.time(code, displayLanguage)) },
                         enabled = draftEditsEnabled,
                     )
                 }
@@ -393,11 +380,12 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 Modifier.fillMaxWidth().clickable(enabled = draftEditsEnabled, onClick = viewModel::toggleDimensionsExpanded),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.experience_dimensions_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.optional), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.enrich_experience), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.enrich_experience_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(
                         Icons.Rounded.ExpandMore,
@@ -410,141 +398,191 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                 }
             }
             AnimatedVisibility(state.dimensionsExpanded) {
-                Column {
-                    Spacer(Modifier.height(10.dp))
-                    ExperienceDimensionCatalog.keysFor(state.draft.primaryExperience).forEach { dimensionKey ->
-                        Text(dimensionKey.displayLabel(), fontWeight = FontWeight.SemiBold)
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(DimensionStateCode.entries.filterNot { it == DimensionStateCode.UNKNOWN }, key = { it.name }) { code ->
-                                FilterChip(
-                                    selected = state.draft.semanticDimensions[dimensionKey] == code,
-                                    onClick = {
-                                        viewModel.setSemanticDimension(
-                                            dimensionKey,
-                                            if (state.draft.semanticDimensions[dimensionKey] == code) null else code,
-                                        )
-                                    },
-                                    label = { Text(code.displayLabel()) },
-                                    enabled = draftEditsEnabled,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(22.dp))
-            OutlinedTextField(
-                value = state.draft.title.orEmpty(),
-                onValueChange = viewModel::setTitle,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = draftEditsEnabled,
-                label = { Text(stringResource(R.string.experience_title_label)) },
-                supportingText = {
-                    Text(if (state.draft.titleSource == ExperienceTitleSource.GENERATED) {
-                        stringResource(R.string.experience_title_generated)
-                    } else {
-                        stringResource(R.string.experience_title_custom)
-                    })
-                },
-            )
-            if (state.draft.titleSource == ExperienceTitleSource.CUSTOM) {
-                TextButton(onClick = viewModel::useGeneratedTitle, enabled = draftEditsEnabled) {
-                    Text(stringResource(R.string.use_generated_title))
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            Text(stringResource(R.string.experience_story_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                stringResource(VisitVisibilityCopy.reviewHelperRes(state.visibility)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Spacer(Modifier.height(9.dp))
-            OutlinedTextField(
-                state.review,
-                { if (draftEditsEnabled) viewModel.setReview(it) },
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = reviewInputA11y },
-                enabled = draftEditsEnabled,
-                label = { Text(stringResource(R.string.experience_story_title)) },
-                placeholder = { Text(stringResource(R.string.review_placeholder)) },
-                minLines = 3,
-                shape = RoundedCornerShape(18.dp),
-            )
-            Spacer(Modifier.height(18.dp))
-            OutlinedTextField(
-                state.tip,
-                { if (draftEditsEnabled) viewModel.setTip(it) },
-                Modifier.fillMaxWidth(),
-                enabled = draftEditsEnabled,
-                label = { Text(stringResource(R.string.experience_tip_title)) },
-                minLines = 2,
-                shape = RoundedCornerShape(18.dp),
-            )
-            Spacer(Modifier.height(18.dp))
-            Text(stringResource(R.string.private_memory), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.only_you_can_see_this), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.height(9.dp))
-            OutlinedTextField(
-                state.note,
-                { if (draftEditsEnabled) viewModel.setNote(it) },
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = privateMemoryInputA11y },
-                enabled = draftEditsEnabled,
-                label = { Text(stringResource(R.string.private_memory)) },
-                placeholder = { Text(stringResource(R.string.private_memory_placeholder)) },
-                leadingIcon = { Icon(Icons.Rounded.Lock, null) },
-                minLines = 2,
-                shape = RoundedCornerShape(18.dp),
-            )
-            Spacer(Modifier.height(18.dp))
-            Text(stringResource(R.string.visit_photos_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                stringResource(R.string.visit_photos_hint, state.draft.photos.size, VisitDraftLogic.V2_MAX_MEDIA),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Spacer(Modifier.height(9.dp))
-            if (state.draft.photos.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(state.draft.photos, key = { it }) { relativePath ->
-                        Box(Modifier.size(84.dp)) {
-                            AsyncImage(
-                                model = if (relativePath.startsWith("https://")) {
-                                    relativePath
-                                } else {
-                                    File(context.filesDir, relativePath)
-                                },
-                                contentDescription = stringResource(R.string.visit_photo_preview),
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(stringResource(R.string.vibes_title), style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(VibeCode.entries.filterNot { it == VibeCode.UNKNOWN }, key = { it.name }) { code ->
+                            FilterChip(
+                                selected = code in state.draft.vibes,
+                                onClick = { viewModel.toggleVibe(code) },
+                                label = { Text(ExperienceLabels.vibe(code, displayLanguage)) },
+                                enabled = draftEditsEnabled && (code in state.draft.vibes || state.draft.vibes.size < 2),
                             )
-                            IconButton(
-                                onClick = { viewModel.removePhoto(relativePath) },
+                        }
+                    }
+                    Text(stringResource(R.string.practical_signals_title), style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(PracticalSignalCode.entries.filterNot { it == PracticalSignalCode.UNKNOWN }, key = { it.name }) { code ->
+                            FilterChip(
+                                selected = code in state.draft.practicalSignals,
+                                onClick = { viewModel.togglePracticalSignal(code) },
+                                label = { Text(ExperienceLabels.practical(code, displayLanguage)) },
                                 enabled = draftEditsEnabled,
-                                modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
+                            )
+                        }
+                    }
+                    val dimensionKeys = ExperienceDimensionCatalog.keysFor(state.draft.primaryExperience)
+                    if (dimensionKeys.isNotEmpty()) {
+                        Text(stringResource(R.string.experience_dimensions_title), style = MaterialTheme.typography.labelLarge)
+                        dimensionKeys.forEach { dimensionKey ->
+                            Row(
+                                Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Rounded.Close, stringResource(R.string.remove_photo))
+                                Text(ExperienceLabels.dimensionKey(dimensionKey, displayLanguage), Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                                Box {
+                                    TextButton(onClick = { dimensionMenuKey = dimensionKey }, enabled = draftEditsEnabled) {
+                                        Text(
+                                            state.draft.semanticDimensions[dimensionKey]?.let {
+                                                ExperienceLabels.dimensionState(it, displayLanguage)
+                                            } ?: stringResource(R.string.dimension_select),
+                                        )
+                                        Icon(Icons.Rounded.ExpandMore, contentDescription = null)
+                                    }
+                                    DropdownMenu(
+                                        expanded = dimensionMenuKey == dimensionKey,
+                                        onDismissRequest = { dimensionMenuKey = null },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.dimension_select)) },
+                                            onClick = {
+                                                viewModel.setSemanticDimension(dimensionKey, null)
+                                                dimensionMenuKey = null
+                                            },
+                                        )
+                                        DimensionStateCode.entries.filterNot { it == DimensionStateCode.UNKNOWN }.forEach { code ->
+                                            DropdownMenuItem(
+                                                text = { Text(ExperienceLabels.dimensionState(code, displayLanguage)) },
+                                                onClick = {
+                                                    viewModel.setSemanticDimension(dimensionKey, code)
+                                                    dimensionMenuKey = null
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
             }
-            TextButton(
-                onClick = {
-                    try {
-                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    } catch (_: ActivityNotFoundException) {
-                        documentPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp"))
-                    }
-                },
-                enabled = draftEditsEnabled && state.draft.photos.size < VisitDraftLogic.V2_MAX_MEDIA,
+            Spacer(Modifier.height(18.dp))
+            Surface(
+                Modifier.fillMaxWidth().clickable { disclosure = disclosure.toggleStory() },
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(18.dp),
             ) {
-                Icon(Icons.Rounded.Add, null)
-                Text(stringResource(R.string.add_photos), Modifier.padding(start = 6.dp))
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.tell_your_story), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.tell_your_story_hint), color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Icon(Icons.Rounded.ExpandMore, contentDescription = if (disclosure.storyExpanded) stringResource(R.string.a11y_collapse_details) else stringResource(R.string.a11y_expand_details))
+                }
+            }
+            AnimatedVisibility(disclosure.storyExpanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.visit_photos_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.visit_photos_hint, state.draft.photos.size, VisitDraftLogic.V2_MAX_MEDIA), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    if (state.draft.photos.isNotEmpty()) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(state.draft.photos, key = { it }) { relativePath ->
+                                Box(Modifier.size(84.dp)) {
+                                    AsyncImage(
+                                        model = if (relativePath.startsWith("https://")) relativePath else File(context.filesDir, relativePath),
+                                        contentDescription = stringResource(R.string.visit_photo_preview),
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                    IconButton(onClick = { viewModel.removePhoto(relativePath) }, enabled = draftEditsEnabled, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
+                                        Icon(Icons.Rounded.Close, stringResource(R.string.remove_photo))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            } catch (_: ActivityNotFoundException) {
+                                documentPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp"))
+                            }
+                        },
+                        enabled = draftEditsEnabled && state.draft.photos.size < VisitDraftLogic.V2_MAX_MEDIA,
+                    ) {
+                        Icon(Icons.Rounded.Add, null)
+                        Text(stringResource(R.string.add_photos), Modifier.padding(start = 6.dp))
+                    }
+                    OutlinedTextField(
+                        state.review,
+                        { if (draftEditsEnabled) viewModel.setReview(it) },
+                        Modifier.fillMaxWidth().semantics { contentDescription = reviewInputA11y },
+                        enabled = draftEditsEnabled,
+                        label = { Text(stringResource(R.string.experience_story_title)) },
+                        placeholder = { Text(stringResource(R.string.review_placeholder)) },
+                        minLines = 3,
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                    OutlinedTextField(
+                        state.tip,
+                        { if (draftEditsEnabled) viewModel.setTip(it) },
+                        Modifier.fillMaxWidth(),
+                        enabled = draftEditsEnabled,
+                        label = { Text(stringResource(R.string.experience_tip_title)) },
+                        minLines = 2,
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                    TextButton(onClick = { disclosure = disclosure.toggleTitle() }, enabled = draftEditsEnabled) {
+                        Text(stringResource(R.string.customize_title))
+                    }
+                    AnimatedVisibility(disclosure.titleExpanded) {
+                        Column {
+                            OutlinedTextField(
+                                value = state.draft.title.orEmpty(),
+                                onValueChange = viewModel::setTitle,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = draftEditsEnabled,
+                                label = { Text(stringResource(R.string.customize_title)) },
+                                supportingText = { Text(stringResource(R.string.experience_title_generated)) },
+                            )
+                            if (state.draft.titleSource == ExperienceTitleSource.CUSTOM) {
+                                TextButton(onClick = viewModel::useGeneratedTitle, enabled = draftEditsEnabled) {
+                                    Text(stringResource(R.string.use_generated_title))
+                                }
+                            }
+                        }
+                    }
+                    Text(stringResource(VisitVisibilityCopy.reviewHelperRes(state.visibility)), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.padding(start = 9.dp)) {
+                            Text(stringResource(R.string.private_memory), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.only_you_can_see_this), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    OutlinedTextField(
+                        state.note,
+                        { if (draftEditsEnabled) viewModel.setNote(it) },
+                        Modifier.fillMaxWidth().semantics { contentDescription = privateMemoryInputA11y },
+                        enabled = draftEditsEnabled,
+                        label = { Text(stringResource(R.string.private_memory)) },
+                        placeholder = { Text(stringResource(R.string.private_memory_placeholder)) },
+                        minLines = 2,
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                }
             }
             Spacer(Modifier.height(18.dp))
             Surface(
@@ -579,12 +617,4 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
         }
     }
 }
-
-private fun Enum<*>.displayLabel(): String = name.lowercase()
-    .split('_')
-    .joinToString(" ") { word -> word.replaceFirstChar(Char::uppercase) }
-
-private fun String.displayLabel(): String = lowercase()
-    .split('_')
-    .joinToString(" ") { word -> word.replaceFirstChar(Char::uppercase) }
 

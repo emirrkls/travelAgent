@@ -15,14 +15,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,12 +38,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material3.Icon
 import coil.compose.AsyncImage
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.ExperienceClassification
 import com.emirrkls.phokarta.core.model.ExperienceSummary
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.RelationshipActionState
+import com.emirrkls.phokarta.ui.localization.ExperienceLabels
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
+import com.emirrkls.phokarta.ui.localization.shouldShowExperienceTitle
 
 @Composable
 fun ExperienceCard(
@@ -53,6 +65,10 @@ fun ExperienceCard(
     relationshipBusy: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val language = displayLanguage(appLocale())
+    val showTitle = shouldShowExperienceTitle(experience.title, experience.place.name, experience.classification)
+    val primaryLabel = experience.primaryExperience.rawLabel?.takeIf(String::isNotBlank)
+        ?: ExperienceLabels.primary(experience.primaryExperience.code, language)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val motionEnabled = ValueAnimator.areAnimatorsEnabled()
@@ -80,9 +96,10 @@ fun ExperienceCard(
                 onClickLabel = openLabel,
                 onClick = onOpen,
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = cardElevation,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
             if (experience.mediaPreview != null) {
@@ -106,11 +123,24 @@ fun ExperienceCard(
                 }
             } else {
                 Box(
-                    Modifier.fillMaxWidth().height(92.dp)
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    contentAlignment = Alignment.Center,
+                    Modifier.fillMaxWidth().height(150.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                 ) {
-                    Text(primaryLabel(experience), style = MaterialTheme.typography.titleMedium)
+                    Icon(
+                        Icons.Rounded.TravelExplore,
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(18.dp).size(36.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
+                        primaryLabel?.let {
+                            Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        }
+                        if (showTitle) {
+                            Text(experience.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                        Text(experience.place.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
             Column(Modifier.padding(16.dp)) {
@@ -133,25 +163,9 @@ fun ExperienceCard(
                     }
                     RelationshipButton(experience.author.relationship?.state, relationshipBusy, onRelationship)
                 }
-                Spacer(Modifier.height(13.dp))
-                Text(experience.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    buildString {
-                        append(experience.place.name)
-                        if (experience.place.city.isNotBlank()) append(" · ${experience.place.city}")
-                    },
-                    Modifier.clickable(onClick = onPlace),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                experience.place.distanceMeters?.let { meters ->
-                    Text(
-                        if (meters < 1000) stringResource(R.string.experience_distance_m, meters.toInt())
-                        else stringResource(R.string.experience_distance_km, meters / 1000),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                if (experience.mediaPreview != null && showTitle) {
+                    Spacer(Modifier.height(13.dp))
+                    Text(experience.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 experience.storyPreview?.takeIf(String::isNotBlank)?.let {
                     Spacer(Modifier.height(10.dp))
@@ -172,17 +186,53 @@ fun ExperienceCard(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AssistChip(onClick = {}, label = { Text(feelingLabel(experience.feeling.name)) })
-                    experience.vibes.firstOrNull()?.let { vibe ->
-                        AssistChip(onClick = {}, label = { Text(humanize(vibe.name)) })
+                    AssistChip(onClick = {}, label = { Text(ExperienceLabels.feeling(experience.feeling, language)) })
+                    val contextLabels = buildList {
+                        experience.companion?.let { add(ExperienceLabels.companion(it, language)) }
+                        experience.timeOfDay?.let { add(ExperienceLabels.time(it, language)) }
+                        experience.vibes.forEach { add(ExperienceLabels.vibe(it, language)) }
+                    }.take(2)
+                    contextLabels.forEach { label ->
+                        AssistChip(onClick = {}, label = { Text(label) })
                     }
                 }
-                if (experience.classification == ExperienceClassification.LEGACY_COMPATIBILITY) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable(onClick = onPlace).padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Place, contentDescription = null, modifier = Modifier.size(17.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        stringResource(R.string.experience_legacy_badge),
+                        buildString {
+                            append(experience.place.name)
+                            if (experience.place.city.isNotBlank()) append(" · ${experience.place.city}")
+                        },
+                        Modifier.padding(start = 5.dp).weight(1f),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelLarge,
                     )
+                    experience.place.distanceMeters?.let { meters ->
+                        Text(
+                            if (meters < 1000) stringResource(R.string.experience_distance_m, meters.toInt())
+                            else stringResource(R.string.experience_distance_km, meters / 1000),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+                if (experience.classification == ExperienceClassification.LEGACY_COMPATIBILITY &&
+                    experience.primaryExperience.code != PrimaryExperienceCode.UNKNOWN_LEGACY
+                ) {
+                    Text(stringResource(R.string.experience_legacy_badge), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                }
+                HorizontalDivider(Modifier.padding(top = 11.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 11.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.experience_view_details), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 5.dp).size(17.dp))
                 }
             }
         }
@@ -203,27 +253,11 @@ private fun RelationshipButton(
         else -> null
     }
     if (label != null) {
-        Button(
+        OutlinedButton(
             onClick = onClick,
             enabled = !busy && state != RelationshipActionState.FRIENDS,
-            contentPadding = ButtonDefaults.ContentPadding,
+            contentPadding = ButtonDefaults.TextButtonContentPadding,
+            modifier = Modifier.height(40.dp),
         ) { Text(label) }
     }
-}
-
-private fun primaryLabel(experience: ExperienceSummary): String =
-    experience.primaryExperience.rawLabel?.takeIf(String::isNotBlank)
-        ?: humanize(experience.primaryExperience.code.name)
-
-fun humanize(code: String): String = code.lowercase()
-    .split('_')
-    .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
-
-private fun feelingLabel(code: String): String = when (code) {
-    "BAYILDIM" -> "😍"
-    "GUZELDI" -> "😊"
-    "EH_ISTE" -> "😐"
-    "BEKLENTIMI_KARSILAMADI" -> "🙁"
-    "BIR_DAHA_TERCIH_ETMEM" -> "😞"
-    else -> "•"
 }

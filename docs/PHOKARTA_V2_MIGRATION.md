@@ -312,3 +312,37 @@ During implementation on Windows:
 - connected Android acceptance is attempted only when a configured device/emulator is available and is otherwise reported `NOT RUN`.
 
 Authoritative Backend CI, Android CI, and Xcode Cloud status are never inferred from local execution. Milestone 4 remains deferred: Planım Experiences and `Ben de Yaşadım` are not implemented by this milestone.
+
+## Milestone 3.5: Visual System & Core UX Polish
+
+Milestone 3.5 is a bounded mobile presentation pass over the completed Milestone 3 product. It adds no backend, schema, Flyway, API, identity, privacy, aggregate, media-ownership, offline-publication, or idempotency change and does not begin Milestone 4.
+
+### Semantic visual system and navigation
+
+Android and iOS now share the mist/air/sea light direction and deep-ocean dark direction through centralized semantic tokens: background, surface, soft surface, primary, strong primary, primary-soft/selected surface, primary and secondary text, muted text, border, divider, and the existing semantic status roles. Bottom navigation retains Explore, Map, Add, My Plan, and Profile while replacing dominant cobalt treatment with the softer selected surface and sky-blue action role.
+
+Explore gives the For You, Following, Nearby, and Popular lenses top-level segmented emphasis while smaller discovery chips remain secondary. Search and vertical spacing are compact enough for the feed to lead the viewport. Following has a specific explanatory empty state; Nearby retains its approximate-location fallback. Planım and Map preserve their existing Place behavior while presenting the locked legacy 9+ range as `Loved` / `Bayıldım` rather than a numeric threshold. Profile receives only the shared token/localization treatment and remains intentionally transitional.
+
+### Experience and Place presentation
+
+Experience Cards lead with photo or a deliberate mist no-media composition, followed by author/relationship, strong Experience title, Story, semantic Feeling, at most two compact context indicators, optional Tip, Place, and a restrained `View details` / `Detayı gör` affordance. Follow is smaller and lower contrast while retaining its existing relationship semantics and accessible target. Stable taxonomy, Feeling, context, vibe, practical-signal, and dimension codes use centralized English/Turkish display mappings. `UNKNOWN_LEGACY` is never rendered to users, and read-time titles equal to the Place name are presentation-deduplicated without mutating persisted data.
+
+Experience Detail mirrors the card hierarchy: hero, author, title, Feeling/core context, Story, Tip, secondary details, and a soft `About the place` section. Place Page now says `N experiences` and `Based on N community evaluations`, omits unknown legacy filters, uses semantic Feeling distribution, presents native dimension states semantically, and places legacy numeric-only aggregates under a neutral `Past ratings` meter with raw values de-emphasized. The working creation action is `Share experience` / `Deneyimini paylaş` or `Continue draft` / `Taslağa devam et` when applicable.
+
+### Composer and localization
+
+The default composer now concentrates on Primary Experience, Feeling, and concise companion/time context. `Enrich your experience` / `Deneyimini zenginleştir` progressively reveals vibes, practical signals, and optional dimensions. Each dimension is one compact row with a native menu instead of five repeated horizontal choices, preserving accessibility at 120% font scale. `Tell your story` / `Hikâyeni anlat` owns photos, Story, Tip, and optional title customization. Private Memory is a separate lock-marked owner-only card. All visible creation copy uses Experience terminology and the final action is `Share experience` / `Deneyimi paylaş`.
+
+Android app-locale changes persist through AppCompat and recompose localized resources; connected English and Turkish runs confirm the switch. iOS adds a persisted System/English/Turkish selection, injects the selected locale at the root, and resolves dynamic display mappings against that locale. The String Catalog remains the source for static localized SwiftUI copy.
+
+### Accessibility and validation record
+
+- The final Android local gate passed `testDebugUnitTest`, `lintDebug`, `assembleDebug`, and `compileReleaseKotlin`; 232 unit tests passed with zero failures, errors, or skips.
+- All 102 production connected Android tests passed on the Pixel_7 API 35 AVD across bounded class runs: 53 UI tests and 49 repository/database/migration/media/sync tests. The monolithic runner was not used as the acceptance result because this API 35 x86_64/16K AVD encountered a native Compose/JIT process crash after a long serial run; the affected classes passed when isolated.
+- Deterministic screenshot capture passed for light, dark, 120% font-scale, English, and Turkish scenarios. The external package contains 28 individual PNGs, a manifest, contact sheet, and ZIP.
+- Critical choices do not clip at 120%; dimension selection remains compact; discovery chips remain horizontally scrollable; card-open, Follow, and primary actions retain accessible semantics and targets. Existing motion-aware card behavior continues to honor disabled/reduced system animation.
+- The iOS String Catalog parses as valid JSON with 423 keys; Swift and Xcode project delimiters are balanced, and this milestone adds no source file requiring a project-reference change.
+- Swift/Xcode/XCTest are unavailable on Windows. Authoritative iOS compilation, XCTest, and Xcode Cloud Build/Test remain not run and must be reported as such rather than inferred.
+- Remote Android CI was not run from this Windows workspace; the results above are local Gradle and connected-device results.
+
+The design-review package is stored outside Git under `C:\Users\Emir\Documents\Phokarta_Design_Review\Milestone_3_5\20260917_161036`. Human review of that package is the next gate; Milestone 4 must not start automatically.

@@ -3,7 +3,10 @@ import SwiftUI
 struct VisitComposerScreen: View {
     @State private var controller: VisitComposerController
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showDiscardConfirmation = false
+    @State private var disclosure = ExperienceComposerDisclosureState()
     let onPublished: (OwnerVisit) -> Void
 
     init(
@@ -48,7 +51,7 @@ struct VisitComposerScreen: View {
                     )) {
                         Text("experience.select").tag(PrimaryExperienceCode?.none)
                         ForEach(PrimaryExperienceCode.allCases.filter { $0 != .unknown && $0 != .unknownLegacy }, id: \.rawValue) {
-                            Text(displayName($0.rawValue)).tag(Optional($0))
+                            Text(ExperienceLocalizedLabels.primary($0, locale: locale) ?? String(localized: "experience.unknown")).tag(Optional($0))
                         }
                     }
                     if controller.state.primaryExperience == .other {
@@ -66,7 +69,7 @@ struct VisitComposerScreen: View {
                     )) {
                         Text("experience.select").tag(OverallFeelingCode?.none)
                         ForEach(OverallFeelingCode.allCases.filter { $0 != .unknown }, id: \.rawValue) {
-                            Text(displayName($0.rawValue)).tag(Optional($0))
+                            Text(ExperienceLocalizedLabels.feeling($0, locale: locale)).tag(Optional($0))
                         }
                     }
                 }
@@ -75,84 +78,99 @@ struct VisitComposerScreen: View {
                     Menu {
                         Button("experience.none") { controller.setCompanion(nil) }
                         ForEach(CompanionCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
-                            Button(displayName(value.rawValue)) { controller.setCompanion(value) }
+                            Button(ExperienceLocalizedLabels.companion(value, locale: locale)) { controller.setCompanion(value) }
                         }
                     } label: {
-                        LabeledContent("experience.companion", value: controller.state.companion.map { displayName($0.rawValue) } ?? String(localized: "experience.none"))
+                        LabeledContent("experience.companion", value: controller.state.companion.map { ExperienceLocalizedLabels.companion($0, locale: locale) } ?? String(localized: "experience.none"))
                     }
                     Menu {
                         Button("experience.none") { controller.setTimeOfDay(nil) }
                         ForEach(TimeOfDayCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
-                            Button(displayName(value.rawValue)) { controller.setTimeOfDay(value) }
+                            Button(ExperienceLocalizedLabels.time(value, locale: locale)) { controller.setTimeOfDay(value) }
                         }
                     } label: {
-                        LabeledContent("experience.time", value: controller.state.timeOfDay.map { displayName($0.rawValue) } ?? String(localized: "experience.none"))
-                    }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(VibeCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
-                                Button(displayName(value.rawValue)) { controller.toggleVibe(value) }
-                                    .buttonStyle(.bordered)
-                                    .tint(controller.state.vibes.contains(value) ? .accentColor : .secondary)
-                                    .disabled(!controller.state.vibes.contains(value) && controller.state.vibes.count >= 2)
-                            }
-                        }
-                    }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(PracticalSignalCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
-                                Button(displayName(value.rawValue)) { controller.togglePracticalSignal(value) }
-                                    .buttonStyle(.bordered)
-                                    .tint(controller.state.practicalSignals.contains(value) ? .accentColor : .secondary)
-                            }
-                        }
+                        LabeledContent("experience.time", value: controller.state.timeOfDay.map { ExperienceLocalizedLabels.time($0, locale: locale) } ?? String(localized: "experience.none"))
                     }
                 }
 
                 let keys = ExperienceDimensionCatalog.keys(for: controller.state.primaryExperience)
-                if !keys.isEmpty {
-                    Section("experience.dimensions") {
+                Section {
+                    DisclosureGroup(isExpanded: $disclosure.enrichExpanded) {
+                        Text("experience.vibes").font(.subheadline.weight(.semibold))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(VibeCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                                    Button(ExperienceLocalizedLabels.vibe(value, locale: locale)) { controller.toggleVibe(value) }
+                                        .buttonStyle(.bordered)
+                                        .tint(controller.state.vibes.contains(value) ? PhokartaColor.accent(for: colorScheme) : .secondary)
+                                        .disabled(!controller.state.vibes.contains(value) && controller.state.vibes.count >= 2)
+                                }
+                            }
+                        }
+                        Text("experience.practical").font(.subheadline.weight(.semibold))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(PracticalSignalCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                                    Button(ExperienceLocalizedLabels.practical(value, locale: locale)) { controller.togglePracticalSignal(value) }
+                                        .buttonStyle(.bordered)
+                                        .tint(controller.state.practicalSignals.contains(value) ? PhokartaColor.accent(for: colorScheme) : .secondary)
+                                }
+                            }
+                        }
                         ForEach(keys, id: \.self) { key in
-                            Picker(VisitDimensionCatalog.localizedName(for: key), selection: Binding(
+                            Picker(ExperienceLocalizedLabels.dimensionKey(key, locale: locale), selection: Binding(
                                 get: { controller.state.semanticDimensions[key] },
                                 set: { controller.setSemanticDimension(key, value: $0) }
                             )) {
                                 Text("experience.none").tag(DimensionStateCode?.none)
-                                ForEach(DimensionStateCode.allCases.filter { $0 != .unknown }, id: \.rawValue) {
-                                    Text(displayName($0.rawValue)).tag(Optional($0))
+                                ForEach(DimensionStateCode.allCases.filter { $0 != .unknown }, id: \.rawValue) { value in
+                                    Text(ExperienceLocalizedLabels.dimensionState(value, locale: locale)).tag(Optional(value))
                                 }
                             }
+                            .pickerStyle(.menu)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("experience.enrich").font(.headline)
+                            Text("experience.enrich.help").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                Section("experience.title") {
-                    TextField("experience.title", text: Binding(
-                        get: { controller.state.title },
-                        set: { controller.setTitle($0) }
-                    ))
-                    if controller.state.titleSource == .custom {
-                        Button("experience.title.generated") { controller.useGeneratedTitle() }
-                    } else {
-                        Text("experience.title.generated.help").foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("experience.story") {
-                    ReviewEditor(text: controller.state.story) { controller.setReview($0) }
-                    TextField("experience.tip", text: Binding(
-                        get: { controller.state.tip },
-                        set: { controller.setTip($0) }
-                    ), axis: .vertical)
-                    Text(String(localized: String.LocalizationValue(controller.state.visibility.helperLocalizationKey)))
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-
                 Section {
-                    VisitMediaStrip(
-                        coordinator: controller.mediaCoordinator,
-                        disabled: controller.state.publishState == .publishing
-                    )
+                    DisclosureGroup(isExpanded: $disclosure.storyExpanded) {
+                        Text("experience.photos").font(.subheadline.weight(.semibold))
+                        VisitMediaStrip(
+                            coordinator: controller.mediaCoordinator,
+                            disabled: controller.state.publishState == .publishing
+                        )
+                        Text("experience.story").font(.subheadline.weight(.semibold))
+                        ReviewEditor(text: controller.state.story) { controller.setReview($0) }
+                        TextField("experience.tip", text: Binding(
+                            get: { controller.state.tip },
+                            set: { controller.setTip($0) }
+                        ), axis: .vertical)
+                        DisclosureGroup(isExpanded: $disclosure.titleExpanded) {
+                            TextField("experience.title.customize", text: Binding(
+                                get: { controller.state.title },
+                                set: { controller.setTitle($0) }
+                            ))
+                            if controller.state.titleSource == .custom {
+                                Button("experience.title.generated") { controller.useGeneratedTitle() }
+                            } else {
+                                Text("experience.title.generated.help").foregroundStyle(.secondary)
+                            }
+                        } label: {
+                            Text("experience.title.customize")
+                        }
+                        Text(String(localized: String.LocalizationValue(controller.state.visibility.helperLocalizationKey)))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("experience.tell_story").font(.headline)
+                            Text("experience.tell_story.help").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Section {
@@ -172,7 +190,7 @@ struct VisitComposerScreen: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(String(localized: "visit.record"))
+            .navigationTitle(phokartaString("experience.share", locale: locale))
             .navigationBarTitleDisplayMode(.inline)
             .interactiveDismissDisabled(controller.isDirty)
             .toolbar {
@@ -196,7 +214,7 @@ struct VisitComposerScreen: View {
                         if controller.state.publishState == .publishing {
                             ProgressView().accessibilityLabel(String(localized: "visit.publishing"))
                         } else {
-                            Text("visit.publish")
+                            Text("experience.share.action")
                         }
                     }
                     .disabled(!controller.canPublish)
@@ -225,7 +243,4 @@ struct VisitComposerScreen: View {
         }
     }
 
-    private func displayName(_ code: String) -> String {
-        code.replacingOccurrences(of: "_", with: " ").capitalized
-    }
 }

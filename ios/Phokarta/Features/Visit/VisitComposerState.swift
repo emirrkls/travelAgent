@@ -9,6 +9,12 @@ enum VisitPublishState: Equatable, Sendable {
     case success
 }
 
+struct ExperienceComposerDisclosureState: Equatable, Sendable {
+    var enrichExpanded = false
+    var storyExpanded = false
+    var titleExpanded = false
+}
+
 struct VisitComposerState: Equatable, Sendable {
     let placeId: UUID
     let placeName: String

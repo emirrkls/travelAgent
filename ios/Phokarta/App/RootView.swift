@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     var environment: AppEnvironment
+    @AppStorage("phokarta.language") private var languageRaw = PhokartaLanguage.system.rawValue
 
     private var session: AuthSessionController { environment.session }
 
@@ -16,6 +17,7 @@ struct RootView: View {
                 MainTabView(environment: environment, user: user)
             }
         }
+        .environment(\.locale, PhokartaLanguage(rawValue: languageRaw)?.locale ?? .current)
         .task {
             await session.restore()
         }

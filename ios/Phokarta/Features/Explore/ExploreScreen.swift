@@ -7,6 +7,7 @@ struct ExploreScreen: View {
     let currentUserId: UUID
     let onOpenMap: () -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
 
     init(
         environment: AppEnvironment,
@@ -25,9 +26,9 @@ struct ExploreScreen: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                LazyVStack(spacing: PhokartaSpacing.md) {
+                LazyVStack(spacing: 12) {
                     Text("experience.discover.prompt")
-                        .font(.title2.bold())
+                        .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     lensBar
                     discoveryBar
@@ -37,9 +38,9 @@ struct ExploreScreen: View {
                         ProgressView().padding(.top, 64)
                     } else if controller.items.isEmpty {
                         FeatureEmptyState(
-                            title: controller.error?.localizedMessage ?? String(localized: "experience.empty"),
-                            message: String(localized: "experience.empty.help"),
-                            retryTitle: controller.error == nil ? nil : String(localized: "action.try_again"),
+                            title: controller.error?.localizedMessage ?? phokartaString(controller.lens == .following ? "experience.empty.following" : "experience.empty", locale: locale),
+                            message: phokartaString(controller.lens == .following ? "experience.empty.following.help" : "experience.empty.help", locale: locale),
+                            retryTitle: controller.error == nil ? nil : phokartaString("action.try_again", locale: locale),
                             retry: controller.error == nil ? nil : { controller.reload() }
                         )
                         .padding(.top, 44)
@@ -64,10 +65,10 @@ struct ExploreScreen: View {
                     }
                 }
                 .padding(.horizontal, PhokartaSpacing.md)
-                .padding(.bottom, PhokartaSpacing.xl)
+                .padding(.bottom, PhokartaSpacing.lg)
             }
             .background(PhokartaColor.background(for: colorScheme))
-            .navigationTitle(String(localized: "experience.discover.title"))
+            .navigationTitle(phokartaString("experience.discover.title", locale: locale))
             .searchable(
                 text: Binding(get: { controller.query }, set: { controller.setQuery($0) }),
                 prompt: Text("experience.search")
@@ -94,13 +95,17 @@ struct ExploreScreen: View {
                     } label: {
                         Text(String(localized: String.LocalizationValue(lens.localizationKey)))
                             .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 13)
                             .padding(.vertical, 9)
                             .background(
-                                controller.lens == lens ? PhokartaColor.accent(for: colorScheme) : PhokartaColor.mist,
-                                in: Capsule()
+                                controller.lens == lens ? PhokartaColor.selected(for: colorScheme) : PhokartaColor.surface(for: colorScheme),
+                                in: RoundedRectangle(cornerRadius: 10)
                             )
-                            .foregroundStyle(controller.lens == lens ? Color.white : PhokartaColor.ink)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                                controller.lens == lens ? PhokartaColor.accent(for: colorScheme) : PhokartaColor.border(for: colorScheme),
+                                lineWidth: 1
+                            ))
+                            .foregroundStyle(controller.lens == lens ? PhokartaColor.ink(for: colorScheme) : PhokartaColor.muted(for: colorScheme))
                     }
                     .buttonStyle(.plain)
                 }
@@ -156,6 +161,7 @@ struct ExperienceCardView: View {
     let onPlace: () -> Void
     let onRelationship: () -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isOpening = false
 
@@ -186,11 +192,21 @@ struct ExperienceCardView: View {
                         }
                     }
                 } else {
-                    ZStack {
-                        PhokartaColor.mist
-                        Text(primaryLabel).font(.headline)
+                    ZStack(alignment: .bottomLeading) {
+                        PhokartaColor.softSurface(for: colorScheme)
+                        Image(systemName: "safari.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(PhokartaColor.accent(for: colorScheme))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .padding(18)
+                        VStack(alignment: .leading, spacing: 3) {
+                            if let primaryLabel { Text(primaryLabel).font(.caption.weight(.semibold)).foregroundStyle(.tint) }
+                            if showsTitle { Text(experience.title).font(.title3.bold()) }
+                            Text(experience.place.name).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        .padding(18)
                     }
-                    .frame(height: 92)
+                    .frame(height: 150)
                 }
             }
             .buttonStyle(.plain)
@@ -216,18 +232,15 @@ struct ExperienceCardView: View {
                     Spacer()
                     relationshipButton
                 }
-                Button(action: open) {
-                    Text(experience.title)
-                        .font(.title3.bold())
-                        .foregroundStyle(PhokartaColor.ink(for: colorScheme))
-                        .multilineTextAlignment(.leading)
+                if experience.mediaPreview != nil && showsTitle {
+                    Button(action: open) {
+                        Text(experience.title)
+                            .font(.title3.bold())
+                            .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                            .multilineTextAlignment(.leading)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                Button(action: onPlace) {
-                    Text("\(experience.place.name) · \(experience.place.city)")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
-                }
-                .buttonStyle(.plain)
                 if let story = experience.storyPreview, !story.isEmpty {
                     Text(story).font(.body).lineLimit(4)
                 }
@@ -236,21 +249,36 @@ struct ExperienceCardView: View {
                         .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                 }
                 HStack {
-                    Text(feelingSymbol).accessibilityLabel(humanized(experience.feeling.rawValue))
-                    if let vibe = experience.vibes.first {
-                        Text(humanized(vibe.rawValue)).font(.caption)
+                    Text(ExperienceLocalizedLabels.feeling(experience.feeling, locale: locale))
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                    ForEach(contextLabels.prefix(2), id: \.self) { label in
+                        Text(label).font(.caption)
                             .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(PhokartaColor.mist, in: Capsule())
-                    }
-                    if experience.classification == .legacyCompatibility {
-                        Text("experience.legacy").font(.caption).foregroundStyle(.secondary)
+                            .background(PhokartaColor.softSurface(for: colorScheme), in: Capsule())
                     }
                 }
+                Button(action: onPlace) {
+                    Label("\(experience.place.name) · \(experience.place.city)", systemImage: "mappin.and.ellipse")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                Divider()
+                Button(action: open) {
+                    HStack {
+                        Spacer()
+                        Text("experience.view_details").font(.subheadline.weight(.semibold))
+                        Image(systemName: "arrow.right")
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .padding(PhokartaSpacing.md)
         }
-        .background(PhokartaColor.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.xl))
-        .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.xl))
+        .background(PhokartaColor.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+        .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+        .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.lg).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
         .scaleEffect(isOpening && !reduceMotion ? 1.015 : 1)
         .shadow(
             color: .black.opacity(colorScheme == .dark ? 0 : (isOpening ? 0.16 : 0.08)),
@@ -269,8 +297,20 @@ struct ExperienceCardView: View {
         }
     }
 
-    private var primaryLabel: String {
-        experience.primaryExperience.rawLabel ?? humanized(experience.primaryExperience.code.rawValue)
+    private var primaryLabel: String? {
+        experience.primaryExperience.rawLabel ?? ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale)
+    }
+
+    private var showsTitle: Bool {
+        ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification)
+    }
+
+    private var contextLabels: [String] {
+        var values: [String] = []
+        if let companion = experience.companion { values.append(ExperienceLocalizedLabels.companion(companion, locale: locale)) }
+        if let time = experience.timeOfDay { values.append(ExperienceLocalizedLabels.time(time, locale: locale)) }
+        values.append(contentsOf: experience.vibes.map { ExperienceLocalizedLabels.vibe($0, locale: locale) })
+        return values
     }
 
     private func open() {
@@ -283,17 +323,6 @@ struct ExperienceCardView: View {
         }
     }
 
-    private var feelingSymbol: String {
-        switch experience.feeling {
-        case .bayildim: "😍"
-        case .guzeldi: "😊"
-        case .ehIste: "😐"
-        case .beklentimiKarsilamadi: "🙁"
-        case .birDahaTercihEtmem: "😞"
-        case .unknown: "•"
-        }
-    }
-
     private func relationshipTitle(_ state: RelationshipActionState) -> LocalizedStringKey {
         switch state {
         case .none: "social.follow"
@@ -303,8 +332,4 @@ struct ExperienceCardView: View {
         default: ""
         }
     }
-}
-
-func humanized(_ raw: String) -> String {
-    raw.lowercased().split(separator: "_").map { $0.capitalized }.joined(separator: " ")
 }

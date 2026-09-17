@@ -2246,13 +2246,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Record a visit"
+            "value": "Share an experience"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ziyareti kaydet"
+            "value": "Deneyimini paylaş"
           }
         }
       }
@@ -5142,13 +5142,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "9+"
+            "value": "Loved"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "9+"
+            "value": "Bayıldım"
           }
         }
       }
@@ -5473,6 +5473,10 @@
         }
       }
     },
+    "settings.language": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "App language" } }, "tr": { "stringUnit": { "state": "translated", "value": "Uygulama dili" } } } },
+    "settings.language.system": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "System default" } }, "tr": { "stringUnit": { "state": "translated", "value": "Sistem varsayılanı" } } } },
+    "settings.language.en": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "English" } }, "tr": { "stringUnit": { "state": "translated", "value": "İngilizce" } } } },
+    "settings.language.tr": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Turkish" } }, "tr": { "stringUnit": { "state": "translated", "value": "Türkçe" } } } },
     "experience.filter.calm": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Calm" } }, "tr": { "stringUnit": { "state": "translated", "value": "Sakin" } } } },
     "experience.filter.food": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Food" } }, "tr": { "stringUnit": { "state": "translated", "value": "Yemek" } } } },
     "experience.filter.nature": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Nature" } }, "tr": { "stringUnit": { "state": "translated", "value": "Doğa" } } } },
@@ -5481,6 +5485,7 @@
     "experience.gallery_image": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Photo %lld of %lld" } }, "tr": { "stringUnit": { "state": "translated", "value": "%lld / %lld fotoğraf" } } } },
     "experience.media_count": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "%lld photos" } }, "tr": { "stringUnit": { "state": "translated", "value": "%lld fotoğraf" } } } },
     "experience.open": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Open experience: %@" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimi aç: %@" } } } },
+    "experience.view_details": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "View details" } }, "tr": { "stringUnit": { "state": "translated", "value": "Detayı gör" } } } },
     "experience.primary": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "What did you experience?" } }, "tr": { "stringUnit": { "state": "translated", "value": "Ne yaşadın?" } } } },
     "experience.feeling": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "How did it feel?" } }, "tr": { "stringUnit": { "state": "translated", "value": "Nasıl hissettin?" } } } },
     "experience.select": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Select" } }, "tr": { "stringUnit": { "state": "translated", "value": "Seç" } } } },
@@ -5490,7 +5495,7 @@
     "experience.companion": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "With whom" } }, "tr": { "stringUnit": { "state": "translated", "value": "Kiminle" } } } },
     "experience.time": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Time of day" } }, "tr": { "stringUnit": { "state": "translated", "value": "Günün zamanı" } } } },
     "experience.dimensions": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Experience details" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyim detayları" } } } },
-    "experience.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Card title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Kart başlığı" } } } },
+    "experience.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Customize title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Başlığı özelleştir" } } } },
     "experience.title.generated": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Use generated title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Otomatik başlık kullan" } } } },
     "experience.title.generated.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Phokarta will generate and persist the title." } }, "tr": { "stringUnit": { "state": "translated", "value": "Phokarta başlığı oluşturup kalıcı olarak kaydeder." } } } },
     "experience.story": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Story" } }, "tr": { "stringUnit": { "state": "translated", "value": "Hikâye" } } } },
@@ -5510,6 +5515,8 @@
     "experience.lens.popular": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Popular" } }, "tr": { "stringUnit": { "state": "translated", "value": "Popüler" } } } },
     "experience.empty": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "No experiences here yet" } }, "tr": { "stringUnit": { "state": "translated", "value": "Burada henüz deneyim yok" } } } },
     "experience.empty.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Try another lens or a broader search." } }, "tr": { "stringUnit": { "state": "translated", "value": "Başka bir görünüm veya daha geniş bir arama dene." } } } },
+    "experience.empty.following": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Your Following feed is ready" } }, "tr": { "stringUnit": { "state": "translated", "value": "Takip akışın hazır" } } } },
+    "experience.empty.following.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Follow people whose travel style you enjoy. Their new experiences will appear here." } }, "tr": { "stringUnit": { "state": "translated", "value": "Keşif tarzını sevdiğin kişileri takip et. Yeni deneyimleri burada görünecek." } } } },
     "experience.nearby.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "See experiences near you" } }, "tr": { "stringUnit": { "state": "translated", "value": "Yakınındaki deneyimleri gör" } } } },
     "experience.nearby.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Use approximate location once, or explore the map without sharing it." } }, "tr": { "stringUnit": { "state": "translated", "value": "Yaklaşık konumu bir kez kullan veya paylaşmadan haritayı keşfet." } } } },
     "experience.nearby.use_location": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Use approximate location" } }, "tr": { "stringUnit": { "state": "translated", "value": "Yaklaşık konumu kullan" } } } },
@@ -5522,13 +5529,27 @@
     "experience.detail.error": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "This experience couldn’t be loaded." } }, "tr": { "stringUnit": { "state": "translated", "value": "Bu deneyim yüklenemedi." } } } },
     "experience.context": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Context" } }, "tr": { "stringUnit": { "state": "translated", "value": "Bağlam" } } } },
     "experience.practical": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Good to know" } }, "tr": { "stringUnit": { "state": "translated", "value": "Bilmen iyi olur" } } } },
+    "experience.vibes": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Vibes · choose up to 2" } }, "tr": { "stringUnit": { "state": "translated", "value": "Atmosfer · en fazla 2" } } } },
+    "experience.enrich": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Enrich your experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimini zenginleştir" } } } },
+    "experience.enrich.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Optional vibes, practical details and dimensions" } }, "tr": { "stringUnit": { "state": "translated", "value": "İsteğe bağlı atmosfer, pratik bilgi ve boyutlar" } } } },
+    "experience.tell_story": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Tell your story" } }, "tr": { "stringUnit": { "state": "translated", "value": "Hikâyeni anlat" } } } },
+    "experience.tell_story.help": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Add photos, a story or a useful tip" } }, "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraf, hikâye veya yararlı bir ipucu ekle" } } } },
+    "experience.photos": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Photos" } }, "tr": { "stringUnit": { "state": "translated", "value": "Fotoğraflar" } } } },
+    "experience.title.customize": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Customize title" } }, "tr": { "stringUnit": { "state": "translated", "value": "Başlığı özelleştir" } } } },
+    "experience.share": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Share an experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimini paylaş" } } } },
+    "experience.share.action": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Share experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimi paylaş" } } } },
+    "experience.past_ratings": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Past ratings" } }, "tr": { "stringUnit": { "state": "translated", "value": "Geçmiş değerlendirmeler" } } } },
+    "experience.unknown": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyim" } } } },
     "experience.about_place": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "About the place" } }, "tr": { "stringUnit": { "state": "translated", "value": "Yer hakkında" } } } },
     "experience.load_more": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Load more" } }, "tr": { "stringUnit": { "state": "translated", "value": "Daha fazla yükle" } } } },
-    "experience.add.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Record an experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyim kaydet" } } } },
+    "experience.add.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Share an experience" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimini paylaş" } } } },
     "experience.add.search_place": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Choose a place" } }, "tr": { "stringUnit": { "state": "translated", "value": "Bir yer seç" } } } },
     "place.experiences.title": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "What did people experience here?" } }, "tr": { "stringUnit": { "state": "translated", "value": "Burada insanlar ne yaşadı?" } } } },
     "place.experiences.visible": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "visible to you" } }, "tr": { "stringUnit": { "state": "translated", "value": "sana görünüyor" } } } },
-    "place.experiences.community": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "community contributions" } }, "tr": { "stringUnit": { "state": "translated", "value": "topluluk katkısı" } } } },
+    "place.experiences.community": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "community evaluations" } }, "tr": { "stringUnit": { "state": "translated", "value": "topluluk değerlendirmesi" } } } },
+    "place.experiences.count": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "%lld experiences" } }, "tr": { "stringUnit": { "state": "translated", "value": "%lld deneyim" } } } },
+    "place.experiences.evaluations": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Based on %lld community evaluations" } }, "tr": { "stringUnit": { "state": "translated", "value": "%lld topluluk değerlendirmesine göre" } } } },
+    "place.experiences.feeling": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Community feeling" } }, "tr": { "stringUnit": { "state": "translated", "value": "Topluluğun hissi" } } } },
     "profile.experiences": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Experiences" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimler" } } } },
     "profile.my_experiences": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "My Experiences" } }, "tr": { "stringUnit": { "state": "translated", "value": "Deneyimlerim" } } } },
     "tab.add": { "localizations": { "en": { "stringUnit": { "state": "translated", "value": "Add" } }, "tr": { "stringUnit": { "state": "translated", "value": "Ekle" } } } },

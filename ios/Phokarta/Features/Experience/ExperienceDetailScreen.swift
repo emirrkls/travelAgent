@@ -122,6 +122,7 @@ struct ExperienceDetailScreen: View {
     let onAuthor: (UUID) -> Void
     let onPlace: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
 
     init(
         id: UUID,
@@ -143,15 +144,15 @@ struct ExperienceDetailScreen: View {
                 content(experience)
             } else {
                 FeatureEmptyState(
-                    title: controller.error?.localizedMessage ?? String(localized: "experience.detail.error"),
-                    retryTitle: String(localized: "action.try_again"),
+                    title: controller.error?.localizedMessage ?? phokartaString("experience.detail.error", locale: locale),
+                    retryTitle: phokartaString("action.try_again", locale: locale),
                     retry: { Task { await controller.load() } }
                 )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(PhokartaColor.background(for: colorScheme))
-        .navigationTitle(String(localized: "experience.detail.title"))
+        .navigationTitle(phokartaString("experience.detail.title", locale: locale))
         .navigationBarTitleDisplayMode(.inline)
         .task { if controller.experience == nil { await controller.load() } }
     }
@@ -178,6 +179,27 @@ struct ExperienceDetailScreen: View {
                             }
                         }
                     }
+                } else {
+                    ZStack(alignment: .bottomLeading) {
+                        PhokartaColor.softSurface(for: colorScheme)
+                        Image(systemName: "safari.fill")
+                            .font(.system(size: 38))
+                            .foregroundStyle(PhokartaColor.accent(for: colorScheme))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .padding(20)
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let label = ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) {
+                                Text(label).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                            }
+                            if ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification) {
+                                Text(experience.title).font(.title2.bold())
+                            }
+                            Text(experience.place.name).foregroundStyle(.secondary)
+                        }
+                        .padding(20)
+                    }
+                    .frame(height: 190)
+                    .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.lg))
                 }
                 HStack {
                     AsyncImage(url: experience.author.avatarUrl.flatMap(URL.init(string:))) { image in
@@ -203,34 +225,49 @@ struct ExperienceDetailScreen: View {
                         .disabled(controller.relationshipBusy || relationship.state == .friends)
                     }
                 }
-                Text(experience.title).font(.largeTitle.bold())
-                Text(experience.primaryExperience.rawLabel ?? humanized(experience.primaryExperience.code.rawValue))
-                    .font(.headline).foregroundStyle(.tint)
-                if experience.classification == .legacyCompatibility {
-                    Text("experience.legacy").font(.caption).foregroundStyle(.secondary)
+                if ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification) {
+                    Text(experience.title).font(.largeTitle.bold())
                 }
-                if !experience.story.isEmpty { Text(experience.story).font(.body) }
+                if let primary = experience.primaryExperience.rawLabel ?? ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) {
+                    Text(primary).font(.headline).foregroundStyle(.tint)
+                }
+                Text(ExperienceLocalizedLabels.feeling(experience.feeling.code, locale: locale))
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 11).padding(.vertical, 7)
+                    .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                if experience.companion != nil || experience.timeOfDay != nil || !experience.vibes.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            if let value = experience.companion { chip(ExperienceLocalizedLabels.companion(value, locale: locale)) }
+                            if let value = experience.timeOfDay { chip(ExperienceLocalizedLabels.time(value, locale: locale)) }
+                            ForEach(experience.vibes, id: \.rawValue) { vibe in chip(ExperienceLocalizedLabels.vibe(vibe, locale: locale)) }
+                        }
+                    }
+                }
+                if !experience.story.isEmpty {
+                    Text("experience.story").font(.headline)
+                    Text(experience.story).font(.body)
+                }
                 if let tip = experience.tip, !tip.isEmpty {
                     Text("\(String(localized: "experience.tip")) · \(tip)")
                         .padding().frame(maxWidth: .infinity, alignment: .leading)
                         .background(PhokartaColor.mist, in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
                 }
-                if experience.companion != nil || experience.timeOfDay != nil || !experience.vibes.isEmpty {
-                    Text("experience.context").font(.headline)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            if let value = experience.companion { chip(humanized(value.rawValue)) }
-                            if let value = experience.timeOfDay { chip(humanized(value.rawValue)) }
-                            ForEach(experience.vibes, id: \.rawValue) { vibe in
-                                chip(humanized(vibe.rawValue))
-                            }
-                        }
-                    }
-                }
                 if !experience.practicalSignals.isEmpty {
                     Text("experience.practical").font(.headline)
                     ForEach(experience.practicalSignals, id: \.rawValue) { signal in
-                        Text("• \(humanized(signal.rawValue))")
+                        Text("• \(ExperienceLocalizedLabels.practical(signal, locale: locale))")
+                    }
+                }
+                if !experience.dimensions.isEmpty {
+                    Text("experience.dimensions").font(.headline)
+                    ForEach(experience.dimensions, id: \.key) { dimension in
+                        HStack {
+                            Text(ExperienceLocalizedLabels.dimensionKey(dimension.key, locale: locale)).foregroundStyle(.secondary)
+                            Spacer()
+                            Text(dimension.semanticState.map { ExperienceLocalizedLabels.dimensionState($0, locale: locale) } ?? String(localized: "experience.past_ratings"))
+                                .fontWeight(.semibold)
+                        }
                     }
                 }
                 Button(action: { onPlace(experience.place.id) }) {
@@ -243,7 +280,8 @@ struct ExperienceDetailScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(PhokartaColor.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+                    .background(PhokartaColor.softSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.lg).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 if let error = controller.error {
@@ -256,7 +294,7 @@ struct ExperienceDetailScreen: View {
 
     private func chip(_ text: String) -> some View {
         Text(text).font(.caption).padding(.horizontal, 10).padding(.vertical, 6)
-            .background(PhokartaColor.mist, in: Capsule())
+            .background(PhokartaColor.softSurface(for: colorScheme), in: Capsule())
     }
 
     private func relationshipTitle(_ state: RelationshipActionState) -> LocalizedStringKey {

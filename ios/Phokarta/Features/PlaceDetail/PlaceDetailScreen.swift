@@ -8,6 +8,7 @@ struct PlaceDetailScreen: View {
     @State private var selectedPending: PendingVisit?
     @State private var replaceDraftTarget: PendingVisit?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
     private let saved: SavedPlaceStore
     private let collections: CollectionStore
     private let visits: VisitStore
@@ -280,15 +281,17 @@ struct PlaceDetailScreen: View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
             Text("place.experiences.title").font(.title2.bold())
             if let aggregate = controller.experienceAggregate {
-                Text("\(aggregate.visibleExperienceCount) \(String(localized: "place.experiences.visible")) · \(aggregate.communityContributionCount) \(String(localized: "place.experiences.community"))")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                Text(String.localizedStringWithFormat(phokartaString("place.experiences.count", locale: locale), aggregate.visibleExperienceCount))
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text(String.localizedStringWithFormat(phokartaString("place.experiences.evaluations", locale: locale), aggregate.communityContributionCount))
+                    .font(.caption).foregroundStyle(.secondary)
                 if let primary = aggregate.primaryExperiences, !primary.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
                             Button("filter.all") { controller.selectPrimary(nil) }
                                 .buttonStyle(.bordered)
-                            ForEach(primary, id: \.code.rawValue) { item in
-                                Button("\(humanized(item.code.rawValue)) · \(item.visibleExperienceCount)") {
+                            ForEach(primary.filter { $0.code != .unknownLegacy && $0.code != .unknown }, id: \.code.rawValue) { item in
+                                Button("\(ExperienceLocalizedLabels.primary(item.code, locale: locale) ?? phokartaString("experience.unknown", locale: locale)) · \(item.visibleExperienceCount)") {
                                     controller.selectPrimary(item.code)
                                 }
                                 .buttonStyle(.bordered)
@@ -296,6 +299,7 @@ struct PlaceDetailScreen: View {
                         }
                     }
                 }
+                experienceInsights(aggregate)
             }
             if controller.experiencesLoading && controller.experiences.isEmpty {
                 ProgressView().frame(maxWidth: .infinity)
@@ -367,14 +371,14 @@ struct PlaceDetailScreen: View {
             .accessibilityLabel(String(localized: "collections.add"))
 
             Button { showingVisitComposer = true } label: {
-                Label("visit.record", systemImage: "plus.circle")
+                Label("experience.share", systemImage: "plus.circle")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(PhokartaColor.mist, in: Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "visit.record"))
+            .accessibilityLabel(String(localized: "experience.share"))
 
             if visits.latest(for: content.place.id) != nil || content.personal != nil {
                 Text("place.visited")
@@ -454,13 +458,62 @@ struct PlaceDetailScreen: View {
                         .font(.body)
                         .foregroundStyle(PhokartaColor.ink(for: colorScheme))
                     Spacer()
-                    Text(ScoreFormatting.display(dimension.average))
-                        .font(.body.weight(.semibold))
+                    ProgressView(value: min(max(dimension.average / 10, 0), 1))
+                        .frame(width: 100)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(dimension.localizedName), \(ScoreFormatting.display(dimension.average))")
+                .accessibilityLabel("\(dimension.localizedName), \(String(localized: "experience.past_ratings"))")
             }
         }
+    }
+
+    @ViewBuilder
+    private func experienceInsights(_ aggregate: PlaceAggregateV2) -> some View {
+        let feelings = aggregate.feelings.filter { $0.contributionCount > 0 }
+        let total = max(feelings.reduce(Int64(0)) { $0 + $1.contributionCount }, 1)
+        if !feelings.isEmpty {
+            insightCard(title: phokartaString("place.experiences.feeling", locale: locale)) {
+                ForEach(feelings, id: \.code.rawValue) { feeling in
+                    HStack {
+                        Text(ExperienceLocalizedLabels.feeling(feeling.code, locale: locale))
+                        Spacer()
+                        Text("\(feeling.contributionCount * 100 / total)%").fontWeight(.semibold)
+                    }
+                }
+            }
+        }
+        let dimensions = aggregate.dimensions.filter { $0.contributionCount > 0 }
+        if !dimensions.isEmpty {
+            insightCard(title: phokartaString("experience.dimensions", locale: locale)) {
+                ForEach(dimensions, id: \.key) { dimension in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(ExperienceLocalizedLabels.dimensionKey(dimension.key, locale: locale)).foregroundStyle(.secondary)
+                            Spacer()
+                            if let state = dimension.semanticDistribution.max(by: { $0.contributionCount < $1.contributionCount })?.state {
+                                Text(ExperienceLocalizedLabels.dimensionState(state, locale: locale)).fontWeight(.semibold)
+                            } else {
+                                Text("experience.past_ratings").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        if dimension.semanticDistribution.isEmpty, let average = dimension.numericAverage {
+                            ProgressView(value: min(max(average / 10, 0), 1))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func insightCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PhokartaColor.softSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.lg))
+        .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.lg).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
     }
 
     private func reviews(_ content: PlaceDetailContent) -> some View {

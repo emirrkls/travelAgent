@@ -9,15 +9,30 @@ struct SettingsScreen: View {
     let policyStore: PolicyStatusStore
     let blockService: any BlockServing
     var syncEngine: MutationSyncEngine? = nil
+    @AppStorage("phokarta.language") private var languageRaw = PhokartaLanguage.system.rawValue
+    @Environment(\.locale) private var locale
 
     var body: some View {
         List {
+            languageSection
             policySection
             safetySection
             accountSection
         }
-        .navigationTitle(String(localized: "settings.title"))
+        .navigationTitle(phokartaString("settings.title", locale: locale))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var languageSection: some View {
+        Section {
+            Picker("settings.language", selection: $languageRaw) {
+                ForEach(PhokartaLanguage.allCases, id: \.rawValue) { language in
+                    Text(LocalizedStringKey(language.localizationKey)).tag(language.rawValue)
+                }
+            }
+        } header: {
+            Text("settings.language")
+        }
     }
 
     private var policySection: some View {

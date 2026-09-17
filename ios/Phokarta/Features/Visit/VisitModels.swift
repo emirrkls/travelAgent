@@ -267,7 +267,7 @@ enum FeelingProvenance: String, ExperienceWireCode, Equatable {
     case unknown = "UNKNOWN"
 }
 
-enum DimensionStateCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum DimensionStateCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case veryGood = "VERY_GOOD"
     case good = "GOOD"
     case medium = "MEDIUM"
@@ -301,7 +301,7 @@ enum ExperienceFamilyCode: String, ExperienceWireCode, Equatable, CaseIterable {
     case unknown = "UNKNOWN"
 }
 
-enum PrimaryExperienceCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum PrimaryExperienceCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case kahvalti = "KAHVALTI", ogunYemek = "OGUN_YEMEK", kahve = "KAHVE", tatli = "TATLI"
     case sokakLezzeti = "SOKAK_LEZZETI", yerelLezzet = "YEREL_LEZZET"
     case gunBatimi = "GUN_BATIMI", gunDogumu = "GUN_DOGUMU", manzara = "MANZARA"
@@ -325,12 +325,12 @@ enum PrimaryExperienceCode: String, ExperienceWireCode, Equatable, CaseIterable 
     case other = "OTHER", unknownLegacy = "UNKNOWN_LEGACY", unknown = "UNKNOWN"
 }
 
-enum CompanionCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum CompanionCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case alone = "ALONE", partner = "PARTNER", friends = "FRIENDS", family = "FAMILY"
     case children = "CHILDREN", unknown = "UNKNOWN"
 }
 
-enum TimeOfDayCode: String, ExperienceWireCode, Equatable, CaseIterable {
+enum TimeOfDayCode: String, ExperienceWireCode, Equatable, Hashable, CaseIterable {
     case morning = "MORNING", daytime = "DAYTIME", evening = "EVENING", night = "NIGHT"
     case unknown = "UNKNOWN"
 }
@@ -350,6 +350,125 @@ enum PracticalSignalCode: String, ExperienceWireCode, Equatable, Hashable, CaseI
     case petFriendly = "PET_FRIENDLY", walkingRequired = "WALKING_REQUIRED"
     case arriveEarly = "ARRIVE_EARLY", cashMayBeNeeded = "CASH_MAY_BE_NEEDED"
     case free = "FREE", quietAreaAvailable = "QUIET_AREA_AVAILABLE", unknown = "UNKNOWN"
+}
+
+enum ExperienceLocalizedLabels {
+    static func isTurkish(_ locale: Locale) -> Bool {
+        locale.identifier.lowercased().hasPrefix("tr")
+    }
+
+    static func primary(_ code: PrimaryExperienceCode, locale: Locale) -> String? {
+        if code == .unknownLegacy { return nil }
+        let en: [PrimaryExperienceCode: String] = [
+            .kahvalti: "Breakfast", .ogunYemek: "Meal", .kahve: "Coffee", .tatli: "Dessert",
+            .sokakLezzeti: "Street food", .yerelLezzet: "Local food", .gunBatimi: "Sunset", .gunDogumu: "Sunrise",
+            .manzara: "Scenery", .geceManzarasi: "Night view", .fotografNoktasi: "Photo spot",
+            .denizYuzme: "Sea / swimming", .plaj: "Beach", .tekne: "Boat trip", .dalisSnorkel: "Diving / snorkeling",
+            .suAktivitesi: "Water activity", .dogaYuruyusu: "Nature walk", .piknik: "Picnic", .kamp: "Camping",
+            .orman: "Forest", .golSelale: "Lake / waterfall", .seyirNoktasi: "Viewpoint", .sokakKesfi: "Street discovery",
+            .mahalleSehirGezisi: "City walk", .sahilYuruyusu: "Coastal walk", .gizliKose: "Hidden corner",
+            .rotaGezi: "Route / trip", .muze: "Museum", .tarihiYer: "Historic place", .mimari: "Architecture",
+            .yerelPazar: "Local market", .yerelYasam: "Local life", .sergiSanat: "Exhibition / art",
+            .canliMuzik: "Live music", .barPub: "Bar / pub", .geceHayati: "Nightlife", .konserGosteri: "Concert / show",
+            .sosyalEtkinlik: "Social event", .bisiklet: "Cycling", .tirmanis: "Climbing", .kayak: "Skiing",
+            .suSporu: "Water sport", .workshop: "Workshop", .acikHavaAktivitesi: "Outdoor activity",
+            .sakinZaman: "Quiet time", .spaHamam: "Spa / hammam", .termal: "Thermal spa",
+            .yogaMeditasyon: "Yoga / meditation", .dinlenme: "Rest", .otel: "Hotel", .butikOtel: "Boutique hotel",
+            .hostel: "Hostel", .kampKonaklamasi: "Campsite stay", .kiralikEvBungalov: "Rental / bungalow",
+            .other: "Other experience", .unknown: "Experience"
+        ]
+        let tr: [PrimaryExperienceCode: String] = [
+            .kahvalti: "Kahvaltı", .ogunYemek: "Öğün / Yemek", .kahve: "Kahve", .tatli: "Tatlı",
+            .sokakLezzeti: "Sokak lezzeti", .yerelLezzet: "Yerel lezzet", .gunBatimi: "Gün batımı", .gunDogumu: "Gün doğumu",
+            .manzara: "Manzara", .geceManzarasi: "Gece manzarası", .fotografNoktasi: "Fotoğraf noktası",
+            .denizYuzme: "Deniz / Yüzme", .plaj: "Plaj", .tekne: "Tekne", .dalisSnorkel: "Dalış / Şnorkel",
+            .suAktivitesi: "Su aktivitesi", .dogaYuruyusu: "Doğa yürüyüşü", .piknik: "Piknik", .kamp: "Kamp",
+            .orman: "Orman", .golSelale: "Göl / Şelale", .seyirNoktasi: "Seyir noktası", .sokakKesfi: "Sokak keşfi",
+            .mahalleSehirGezisi: "Mahalle / Şehir gezisi", .sahilYuruyusu: "Sahil yürüyüşü", .gizliKose: "Gizli köşe",
+            .rotaGezi: "Rota / Gezi", .muze: "Müze", .tarihiYer: "Tarihi yer", .mimari: "Mimari",
+            .yerelPazar: "Yerel pazar", .yerelYasam: "Yerel yaşam", .sergiSanat: "Sergi / Sanat",
+            .canliMuzik: "Canlı müzik", .barPub: "Bar / Pub", .geceHayati: "Gece hayatı", .konserGosteri: "Konser / Gösteri",
+            .sosyalEtkinlik: "Sosyal etkinlik", .bisiklet: "Bisiklet", .tirmanis: "Tırmanış", .kayak: "Kayak",
+            .suSporu: "Su sporu", .workshop: "Atölye", .acikHavaAktivitesi: "Açık hava aktivitesi",
+            .sakinZaman: "Sakin zaman", .spaHamam: "Spa / Hamam", .termal: "Termal",
+            .yogaMeditasyon: "Yoga / Meditasyon", .dinlenme: "Dinlenme", .otel: "Otel", .butikOtel: "Butik otel",
+            .hostel: "Hostel", .kampKonaklamasi: "Kamp konaklaması", .kiralikEvBungalov: "Kiralık ev / Bungalov",
+            .other: "Diğer deneyim", .unknown: "Deneyim"
+        ]
+        return (isTurkish(locale) ? tr : en)[code]
+    }
+
+    static func feeling(_ code: OverallFeelingCode, locale: Locale, emoji: Bool = true) -> String {
+        let mark: String = switch code {
+        case .bayildim: "😍"
+        case .guzeldi: "🙂"
+        case .ehIste: "😐"
+        case .beklentimiKarsilamadi: "🙁"
+        case .birDahaTercihEtmem: "😞"
+        case .unknown: "•"
+        }
+        let label: String
+        if isTurkish(locale) {
+            label = switch code {
+            case .bayildim: "Bayıldım"
+            case .guzeldi: "Güzeldi"
+            case .ehIste: "Eh işte"
+            case .beklentimiKarsilamadi: "Beklentimi karşılamadı"
+            case .birDahaTercihEtmem: "Bir daha tercih etmem"
+            case .unknown: "His"
+            }
+        } else {
+            label = switch code {
+            case .bayildim: "Loved it"
+            case .guzeldi: "Liked it"
+            case .ehIste: "It was okay"
+            case .beklentimiKarsilamadi: "Not what I expected"
+            case .birDahaTercihEtmem: "Wouldn't choose again"
+            case .unknown: "Feeling"
+            }
+        }
+        return emoji ? "\(mark) \(label)" : label
+    }
+
+    static func companion(_ code: CompanionCode, locale: Locale) -> String {
+        let en: [CompanionCode: String] = [.alone: "Solo", .partner: "Partner", .friends: "Friends", .family: "Family", .children: "With children", .unknown: "Company"]
+        let tr: [CompanionCode: String] = [.alone: "Tek başıma", .partner: "Partnerimle", .friends: "Arkadaşlarla", .family: "Ailemle", .children: "Çocuklarla", .unknown: "Kiminle"]
+        return (isTurkish(locale) ? tr : en)[code]!
+    }
+
+    static func time(_ code: TimeOfDayCode, locale: Locale) -> String {
+        let en: [TimeOfDayCode: String] = [.morning: "Morning", .daytime: "Daytime", .evening: "Evening", .night: "Night", .unknown: "Time"]
+        let tr: [TimeOfDayCode: String] = [.morning: "Sabah", .daytime: "Gün içinde", .evening: "Akşam", .night: "Gece", .unknown: "Zaman"]
+        return (isTurkish(locale) ? tr : en)[code]!
+    }
+
+    static func vibe(_ code: VibeCode, locale: Locale) -> String {
+        let en: [VibeCode: String] = [.calm: "Calm", .lively: "Lively", .romantic: "Romantic", .social: "Social", .intimate: "Cozy", .localAuthentic: "Local / authentic", .scenic: "Scenic", .adventurous: "Adventurous", .unknown: "Vibe"]
+        let tr: [VibeCode: String] = [.calm: "Sakin", .lively: "Canlı", .romantic: "Romantik", .social: "Sosyal", .intimate: "Samimi", .localAuthentic: "Yerel / otantik", .scenic: "Manzaralı", .adventurous: "Maceralı", .unknown: "Atmosfer"]
+        return (isTurkish(locale) ? tr : en)[code]!
+    }
+
+    static func practical(_ code: PracticalSignalCode, locale: Locale) -> String {
+        let en = ["Accessible without a car", "Car recommended", "Parking is difficult", "Reservation recommended", "Walk-ins welcome", "Crowded on weekends", "May be crowded", "Calmer in the morning", "Ideal for sunset", "Good with children", "Pet friendly", "Walking required", "Arrive early", "Cash may be needed", "Free", "A quiet area is possible", "Practical detail"]
+        let tr = ["Arabasız gidilebilir", "Araç önerilir", "Park zor", "Rezervasyon önerilir", "Rezervasyonsuz gidilebilir", "Hafta sonu kalabalık", "Kalabalık olabilir", "Sabah daha sakin", "Gün batımı için ideal", "Çocuklarla uygun", "Evcil hayvanla uygun", "Yürümek gerekiyor", "Erken gitmek iyi olur", "Nakit gerekebilir", "Ücretsiz", "Sessiz alan bulmak mümkün", "Pratik bilgi"]
+        return (isTurkish(locale) ? tr : en)[PracticalSignalCode.allCases.firstIndex(of: code)!]
+    }
+
+    static func dimensionState(_ code: DimensionStateCode, locale: Locale) -> String {
+        let en: [DimensionStateCode: String] = [.veryGood: "Very good", .good: "Good", .medium: "Medium", .weak: "Weak", .veryWeak: "Very weak", .unknown: "Select"]
+        let tr: [DimensionStateCode: String] = [.veryGood: "Çok iyi", .good: "İyi", .medium: "Orta", .weak: "Zayıf", .veryWeak: "Çok zayıf", .unknown: "Seç"]
+        return (isTurkish(locale) ? tr : en)[code]!
+    }
+
+    static func dimensionKey(_ key: String, locale: Locale) -> String {
+        let en = ["FOOD": "Food", "SERVICE": "Service", "ATMOSPHERE": "Atmosphere", "VALUE": "Value", "SCENERY": "Scenery", "TRANQUILITY": "Calm", "ACCESS": "Access", "SEA": "Sea / water", "CLEANLINESS": "Cleanliness", "COMFORT": "Comfort", "ROUTE": "Route", "WALKABILITY": "Walkability", "LOCALITY": "Local character", "DISCOVERY_VALUE": "Discovery value", "CONTENT_INTEREST": "Content / interest", "MUSIC_ENTERTAINMENT": "Music / entertainment", "FUN": "Fun", "ORGANIZATION": "Organization", "COMFORT_DIFFICULTY": "Comfort / difficulty", "LOCATION": "Location"]
+        let tr = ["FOOD": "Lezzet", "SERVICE": "Servis", "ATMOSPHERE": "Atmosfer", "VALUE": "Fiyat / Performans", "SCENERY": "Manzara", "TRANQUILITY": "Sakinlik", "ACCESS": "Ulaşım", "SEA": "Deniz / Su", "CLEANLINESS": "Temizlik", "COMFORT": "Konfor", "ROUTE": "Rota", "WALKABILITY": "Yürünebilirlik", "LOCALITY": "Yerellik", "DISCOVERY_VALUE": "Keşif değeri", "CONTENT_INTEREST": "İçerik / İlgi", "MUSIC_ENTERTAINMENT": "Müzik / Eğlence", "FUN": "Eğlence", "ORGANIZATION": "Organizasyon", "COMFORT_DIFFICULTY": "Konfor / Zorluk", "LOCATION": "Konum"]
+        return (isTurkish(locale) ? tr : en)[key.uppercased()] ?? (isTurkish(locale) ? "Deneyim detayı" : "Experience detail")
+    }
+
+    static func shouldShowTitle(_ title: String, placeName: String, classification: ExperienceClassification) -> Bool {
+        classification != .legacyCompatibility || title.trimmingCharacters(in: .whitespacesAndNewlines).localizedCaseInsensitiveCompare(placeName.trimmingCharacters(in: .whitespacesAndNewlines)) != .orderedSame
+    }
 }
 
 enum ExperienceTitleSource: String, ExperienceWireCode, Equatable, CaseIterable {

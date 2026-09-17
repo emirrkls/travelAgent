@@ -610,7 +610,7 @@
     <string name="place_practical_signals_title">Pratik bilgiler</string>
     <string name="profile_experiences">Deneyimlerim</string>
     <string name="experience_following_empty_title">Takip akışın hazır</string>
-    <string name="experience_following_empty_body">Keşif tarzını sevdiğin kişileri takip et. Yeni deneyimleri burada görünecek.</string>
+    <string name="experience_following_empty_body">Keşif tarzını sevdiğin kişileri takip et. Yeni deneyimleri burada görünür.</string>
     <string name="share_experience_header">Deneyimini paylaş</string>
     <string name="share_experience_action">Deneyimi paylaş</string>
     <string name="enrich_experience">Deneyimini zenginleştir</string>

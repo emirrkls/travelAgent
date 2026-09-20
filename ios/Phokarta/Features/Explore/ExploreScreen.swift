@@ -302,14 +302,23 @@ struct ExperienceCardView: View {
                     .buttonStyle(.bordered)
                     .disabled(planBusy)
                     if let onAcknowledge, experience.author.relationship != nil {
-                        Button(action: onAcknowledge) {
-                            Label(
-                                String(localized: (experience.acknowledgedByViewer ?? false) ? "experience.acknowledged" : "experience.acknowledge"),
-                                systemImage: (experience.acknowledgedByViewer ?? false) ? "checkmark.circle.fill" : "checkmark.circle"
-                            )
+                        if AcknowledgementPresentation.resolve(acknowledged: experience.acknowledgedByViewer ?? false) == .confirmed {
+                            Label("experience.acknowledged", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 7)
+                                .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                                .overlay(Capsule().stroke(PhokartaColor.accent(for: colorScheme).opacity(0.55), lineWidth: 1))
+                                .accessibilityLabel(String(localized: "experience.acknowledged.accessibility"))
+                                .accessibilityAddTraits(.isSelected)
+                        } else {
+                            Button(action: onAcknowledge) {
+                                Label("experience.acknowledge", systemImage: "checkmark.circle")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(acknowledgementBusy)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(acknowledgementBusy || (experience.acknowledgedByViewer ?? false))
                     }
                     }
                 }

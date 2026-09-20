@@ -41,4 +41,12 @@
         <item quantity="one">%d person experienced this too</item>
         <item quantity="other">%d people experienced this too</item>
     </plurals>
+    <plurals name="experiences_count">
+        <item quantity="one">%d experience</item>
+        <item quantity="other">%d experiences</item>
+    </plurals>
+    <plurals name="collection_items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
 </resources>

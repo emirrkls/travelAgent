@@ -94,6 +94,7 @@ final class VisitComposerController {
 
     func restoreDraft(_ draft: DurableVisitDraft) async {
         guard draft.userId == composerAccountID, draft.placeId == state.placeId else { return }
+        state.draftRestoreFeedback = VisitComposerRestorePolicy.feedback(for: draft)
         state.overallScore = draft.overallScore
         state.publicReview = draft.publicReview
         state.privateMemory = draft.privateMemory
@@ -121,6 +122,8 @@ final class VisitComposerController {
         await mediaCoordinator.restoreDurablePhotos(draft.photos)
         syncMediaState()
     }
+
+    func consumeDraftRestoreFeedback() { state.draftRestoreFeedback = nil }
 
     func waitForInitialRestore() async {
         await restoreTask?.value
@@ -467,4 +470,22 @@ final class VisitComposerController {
     }
 
     private func rounded(_ value: Double) -> Double { (value * 10).rounded() / 10 }
+}
+
+enum VisitComposerRestorePolicy {
+    static func feedback(for draft: DurableVisitDraft) -> DraftRestoreFeedback? {
+        guard draft.originAcknowledgementId != nil else { return .restoredUserDraft }
+        let hasUserEdits = draft.overallFeelingCode != nil ||
+            draft.companionCode != nil ||
+            draft.timeOfDayCode != nil ||
+            !draft.vibeCodes.isEmpty ||
+            !draft.practicalSignalCodes.isEmpty ||
+            !draft.dimensions.isEmpty ||
+            !(draft.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !draft.story.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !draft.tip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !draft.privateMemory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !draft.photos.isEmpty
+        return hasUserEdits ? .restoredUserDraft : nil
+    }
 }

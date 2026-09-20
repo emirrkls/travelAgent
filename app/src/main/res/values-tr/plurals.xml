@@ -40,4 +40,12 @@
         <item quantity="one">%d kişi de yaşadı</item>
         <item quantity="other">%d kişi de yaşadı</item>
     </plurals>
+    <plurals name="experiences_count">
+        <item quantity="one">%d deneyim</item>
+        <item quantity="other">%d deneyim</item>
+    </plurals>
+    <plurals name="collection_items_count">
+        <item quantity="one">%d öğe</item>
+        <item quantity="other">%d öğe</item>
+    </plurals>
 </resources>

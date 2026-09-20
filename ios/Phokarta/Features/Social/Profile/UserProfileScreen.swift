@@ -20,6 +20,7 @@ struct UserProfileScreen: View {
     let onSettings: (() -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
     @State private var showBlockConfirmation = false
     @State private var showReportSheet = false
     @State private var activeReportController: ReportController?
@@ -345,22 +346,38 @@ struct UserProfileScreen: View {
         if controller.acknowledgementsLoading && controller.acknowledgements.isEmpty {
             ProgressView().frame(maxWidth: .infinity)
         } else if controller.acknowledgements.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .center, spacing: 8) {
+                Image(systemName: "checkmark.circle")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
                 Text("profile.also_experienced.empty.title").font(.headline)
-                Text("profile.also_experienced.empty.body").font(.subheadline).foregroundStyle(.secondary)
+                Text("profile.also_experienced.empty.body")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, PhokartaSpacing.md)
         } else {
             ForEach(controller.acknowledgements) { acknowledgement in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(acknowledgement.place.name).font(.headline)
                     Text(acknowledgement.rawExperienceLabel
-                         ?? ExperienceLocalizedLabels.primary(acknowledgement.primaryExperienceCode, locale: Locale.current)
+                         ?? ExperienceLocalizedLabels.primary(acknowledgement.primaryExperienceCode, locale: locale)
                          ?? String(localized: "experience.primary.other"))
-                        .font(.subheadline).foregroundStyle(.tint)
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
+                    Text(acknowledgement.place.name).font(.headline)
+                    if !acknowledgement.place.city.isEmpty {
+                        Text(acknowledgement.place.city).font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    if let date = ISO8601DateFormatter().date(from: acknowledgement.acknowledgedAt) {
+                        Text(date.formatted(.dateTime.day().month(.abbreviated).year().locale(locale)))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if !acknowledgement.sourceAvailable {
                         Label("experience.source_deleted", systemImage: "rectangle.slash")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    Text("profile.also_experienced.item.help")
+                        .font(.subheadline).foregroundStyle(.secondary)
                     Button("experience.add_your_own") { onConvertAcknowledgement(acknowledgement) }
                         .buttonStyle(.borderedProminent)
                 }

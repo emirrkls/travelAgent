@@ -87,23 +87,27 @@ struct AppRouteDestinationView: View {
                 onSelectExperience: { onNavigate(.experienceDetail($0)) },
                 onConvertAcknowledgement: { acknowledgement in
                     let now = Int64(Date().timeIntervalSince1970 * 1000)
-                    let draft = DurableVisitDraft(
-                        userId: currentUserId,
-                        placeId: acknowledgement.place.id,
-                        overallScore: 8,
-                        publicReview: "",
-                        privateMemory: "",
-                        visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
-                        visibility: VisitVisibility.publicAccess.rawValue,
-                        dimensionsExpanded: false,
-                        createdAtEpochMillis: now,
-                        updatedAtEpochMillis: now,
-                        payloadVersion: 2,
-                        primaryExperienceCode: acknowledgement.primaryExperienceCode.rawValue,
-                        rawExperienceLabel: acknowledgement.rawExperienceLabel,
-                        originAcknowledgementId: acknowledgement.id
-                    )
                     Task {
+                        var draft = (try? await environment.draftRepository.getDraft(
+                            placeId: acknowledgement.place.id,
+                            userId: currentUserId
+                        )) ?? DurableVisitDraft(
+                            userId: currentUserId,
+                            placeId: acknowledgement.place.id,
+                            overallScore: 8,
+                            publicReview: "",
+                            privateMemory: "",
+                            visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
+                            visibility: VisitVisibility.publicAccess.rawValue,
+                            dimensionsExpanded: false,
+                            createdAtEpochMillis: now,
+                            updatedAtEpochMillis: now
+                        )
+                        draft.payloadVersion = 2
+                        draft.primaryExperienceCode = acknowledgement.primaryExperienceCode.rawValue
+                        draft.rawExperienceLabel = acknowledgement.rawExperienceLabel
+                        draft.originAcknowledgementId = acknowledgement.id
+                        draft.updatedAtEpochMillis = now
                         try? await environment.draftRepository.saveDraft(
                             placeId: acknowledgement.place.id, draft: draft, userId: currentUserId
                         )

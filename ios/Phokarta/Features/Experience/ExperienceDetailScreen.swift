@@ -2,6 +2,20 @@ import Foundation
 import Observation
 import SwiftUI
 
+enum ExperienceDetailMediaPresentation: Equatable {
+    case media
+    case noMedia
+
+    static func resolve(mediaCount: Int) -> Self { mediaCount > 0 ? .media : .noMedia }
+}
+
+enum AcknowledgementPresentation: Equatable {
+    case action
+    case confirmed
+
+    static func resolve(acknowledged: Bool) -> Self { acknowledged ? .confirmed : .action }
+}
+
 @MainActor
 @Observable
 final class ExperienceDetailController {
@@ -254,10 +268,26 @@ struct ExperienceDetailScreen: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: PhokartaSpacing.sm) {
                             ForEach(experience.media.sorted(by: { $0.position < $1.position }), id: \.position) { media in
-                                AsyncImage(url: URL(string: media.url)) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Rectangle().fill(PhokartaColor.mist)
+                                AsyncImage(url: URL(string: media.url)) { phase in
+                                    switch phase {
+                                    case .empty:
+                                        ZStack {
+                                            PhokartaColor.mist
+                                            ProgressView()
+                                                .accessibilityLabel(String(localized: "experience.media.loading"))
+                                        }
+                                    case .success(let image):
+                                        image.resizable().scaledToFill()
+                                    case .failure:
+                                        ZStack {
+                                            PhokartaColor.softSurface(for: colorScheme)
+                                            Label("experience.media.failed", systemImage: "photo.badge.exclamationmark")
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    @unknown default:
+                                        ProgressView()
+                                    }
                                 }
                                 .frame(width: 320, height: 260).clipped()
                                 .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.lg))
@@ -270,27 +300,26 @@ struct ExperienceDetailScreen: View {
                         }
                     }
                 } else {
-                    ZStack(alignment: .bottomLeading) {
-                        PhokartaColor.softSurface(for: colorScheme)
+                    HStack(spacing: 14) {
                         Image(systemName: "safari.fill")
                             .font(.system(size: 32))
                             .foregroundStyle(PhokartaColor.accent(for: colorScheme).opacity(0.45))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                            .padding(18)
                         VStack(alignment: .leading, spacing: 4) {
+                            Text("experience.no_media")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             if let label = ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) {
                                 Text(label).font(.caption.weight(.semibold)).foregroundStyle(.tint)
                             }
-                            if ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification) {
-                                Text(experience.title).font(.title2.bold())
-                            }
-                            Text(experience.place.name).foregroundStyle(.secondary)
                         }
-                        .padding(18)
+                        Spacer()
                     }
-                    .frame(height: 160)
+                    .padding(.horizontal, 18)
+                    .frame(height: 112)
+                    .background(PhokartaColor.softSurface(for: colorScheme))
                     .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.lg))
                     .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.lg).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
+                    .accessibilityElement(children: .combine)
                 }
                 HStack {
                     AsyncImage(url: experience.author.avatarUrl.flatMap(URL.init(string:))) { image in
@@ -342,16 +371,25 @@ struct ExperienceDetailScreen: View {
                     .disabled(controller.planBusy)
 
                     if experience.author.relationship != nil {
-                        Button {
-                            Task { await controller.acknowledge() }
-                        } label: {
-                            Label(
-                                String(localized: (experience.acknowledgedByViewer ?? false) ? "experience.acknowledged" : "experience.acknowledge"),
-                                systemImage: (experience.acknowledgedByViewer ?? false) ? "checkmark.circle.fill" : "checkmark.circle"
-                            )
+                        if AcknowledgementPresentation.resolve(acknowledged: experience.acknowledgedByViewer ?? false) == .confirmed {
+                            Label("experience.acknowledged", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(PhokartaColor.ink(for: colorScheme))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                                .overlay(Capsule().stroke(PhokartaColor.accent(for: colorScheme).opacity(0.55), lineWidth: 1))
+                                .accessibilityLabel(String(localized: "experience.acknowledged.accessibility"))
+                                .accessibilityAddTraits(.isSelected)
+                        } else {
+                            Button {
+                                Task { await controller.acknowledge() }
+                            } label: {
+                                Label("experience.acknowledge", systemImage: "checkmark.circle")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(controller.acknowledgementBusy)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(controller.acknowledgementBusy || (experience.acknowledgedByViewer ?? false))
                     }
                 }
                 if (experience.acknowledgementCount ?? 0) > 0 {

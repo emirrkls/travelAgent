@@ -135,9 +135,9 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
     LaunchedEffect(state.discarded) {
         if (state.discarded) onBack()
     }
-    LaunchedEffect(state.showDraftRestoredMessage) {
-        if (state.showDraftRestoredMessage) {
-            snackbarHostState.showSnackbar(context.getString(R.string.draft_restored))
+    LaunchedEffect(state.draftRestoredMessageRes) {
+        state.draftRestoredMessageRes?.let { messageRes ->
+            snackbarHostState.showSnackbar(context.getString(messageRes))
             viewModel.consumeDraftRestoredMessage()
         }
     }

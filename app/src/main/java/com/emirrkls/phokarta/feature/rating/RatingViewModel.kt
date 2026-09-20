@@ -28,6 +28,7 @@ import com.emirrkls.phokarta.core.sync.MutationSyncEngine
 import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceUi
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.media.MediaImportResult
+import com.emirrkls.phokarta.ui.presentation.shouldShowDraftRestoredFeedback
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -59,7 +60,7 @@ data class RatingUiState(
     val existingVisitCount: Int = 0,
     val isDraftInitializing: Boolean = true,
     val hasPersistedDraft: Boolean = false,
-    val showDraftRestoredMessage: Boolean = false,
+    val draftRestoredMessageRes: Int? = null,
     val discarded: Boolean = false,
     val photoError: Int? = null,
     val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
@@ -77,6 +78,7 @@ data class RatingUiState(
     val canDiscard: Boolean get() =
         !isDraftInitializing &&
             (VisitDraftLogic.hasMeaningfulContent(draft) || hasPersistedDraft)
+    val showDraftRestoredMessage: Boolean get() = draftRestoredMessageRes != null
 }
 
 @HiltViewModel
@@ -142,7 +144,7 @@ class RatingViewModel @Inject constructor(
             val persisted = draftRepository.getDraft(placeId)
             hadPersistedDraft = persisted != null
             lastPersistedDraft = persisted
-            val restoredNoticePending = persisted != null &&
+            val restoredNoticePending = shouldShowDraftRestoredFeedback(persisted) &&
                 savedStateHandle.get<Boolean>(KEY_RESTORED_NOTICE_SHOWN) != true
             when (val result = repository.refreshPlaceDetail(placeId)) {
                 is RepositoryResult.Success -> {
@@ -153,7 +155,7 @@ class RatingViewModel @Inject constructor(
                             isLoading = false,
                             isDraftInitializing = false,
                             hasPersistedDraft = persisted != null,
-                            showDraftRestoredMessage = restoredNoticePending,
+                            draftRestoredMessageRes = R.string.draft_restored.takeIf { restoredNoticePending },
                             dateError = VisitDraftLogic.validateDateRes(
                                 (persisted ?: VisitDraft()).visitDate,
                             ),
@@ -170,7 +172,9 @@ class RatingViewModel @Inject constructor(
                             isLoading = false,
                             isDraftInitializing = false,
                             hasPersistedDraft = persisted != null,
-                            showDraftRestoredMessage = restoredNoticePending && cached != null,
+                            draftRestoredMessageRes = R.string.draft_restored.takeIf {
+                                restoredNoticePending && cached != null
+                            },
                             loadError = result.error.toUserMessageRes(),
                             isNotFound = result.error is TravelError.NotFound && cached == null,
                             dateError = VisitDraftLogic.validateDateRes(
@@ -186,7 +190,7 @@ class RatingViewModel @Inject constructor(
 
     fun consumeDraftRestoredMessage() {
         savedStateHandle[KEY_RESTORED_NOTICE_SHOWN] = true
-        _uiState.update { it.copy(showDraftRestoredMessage = false) }
+        _uiState.update { it.copy(draftRestoredMessageRes = null) }
     }
 
     fun setOverall(value: Float) = updateDraft { it.copy(overallScore = value.roundToTenth()) }
@@ -325,7 +329,7 @@ class RatingViewModel @Inject constructor(
                     publishError = null,
                     discarded = true,
                     hasPersistedDraft = false,
-                    showDraftRestoredMessage = false,
+                    draftRestoredMessageRes = null,
                 )
             }
             persistFrozen = false

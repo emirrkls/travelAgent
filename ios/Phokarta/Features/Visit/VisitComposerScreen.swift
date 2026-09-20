@@ -236,6 +236,24 @@ struct VisitComposerScreen: View {
             } message: {
                 Text("visit.discard.message")
             }
+            .overlay(alignment: .bottom) {
+                if let feedback = controller.state.draftRestoreFeedback {
+                    Text(String(localized: String.LocalizationValue(feedback.localizationKey)))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .background(.black.opacity(0.82), in: Capsule())
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .accessibilityAddTraits(.isStaticText)
+                }
+            }
+            .task(id: controller.state.draftRestoreFeedback) {
+                guard controller.state.draftRestoreFeedback != nil else { return }
+                try? await Task.sleep(for: .seconds(3))
+                controller.consumeDraftRestoreFeedback()
+            }
         }
     }
 

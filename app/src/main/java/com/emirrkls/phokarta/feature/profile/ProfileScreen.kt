@@ -70,6 +70,9 @@ import com.emirrkls.phokarta.ui.presentation.WantToGoCopy
 import androidx.compose.material.icons.rounded.Settings
 import com.emirrkls.phokarta.ui.localization.formatScoreLocalized
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
+import com.emirrkls.phokarta.ui.localization.ExperienceLabels
+import com.emirrkls.phokarta.ui.localization.appLocale
+import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.feature.rating.VisitVisibilityCopy
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +81,8 @@ import com.emirrkls.phokarta.ui.components.PendingVisitDetailSheet
 import com.emirrkls.phokarta.ui.components.RemoveFailedVisitDialog
 import com.emirrkls.phokarta.ui.components.ReplaceDraftDialog
 import com.emirrkls.phokarta.feature.policy.PolicyAcceptanceSheet
+import java.time.Instant
+import java.time.ZoneId
 
 @Composable
 fun ProfileScreen(
@@ -97,6 +102,7 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val experienceState by viewModel.experienceState.collectAsStateWithLifecycle()
     val acknowledgements by viewModel.acknowledgements.collectAsStateWithLifecycle()
+    val language = displayLanguage(appLocale())
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshSocialCounts()
     }
@@ -212,16 +218,52 @@ fun ProfileScreen(
                     } else items(acknowledgements, key = { it.id }) { ack ->
                         Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            shape = RoundedCornerShape(18.dp)) {
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                             Column(Modifier.padding(16.dp)) {
-                                Text(ack.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(ack.placeCity, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    ack.rawExperienceLabel?.takeIf(String::isNotBlank)
+                                        ?: ExperienceLabels.primary(ack.primaryExperience, language)
+                                        ?: stringResource(R.string.experience_unknown_label),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    ack.placeName,
+                                    Modifier.padding(top = 4.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                if (ack.placeCity.isNotBlank()) {
+                                    Text(ack.placeCity, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    stringResource(
+                                        R.string.acknowledged_on,
+                                        formatMediumDateLocalized(
+                                            Instant.ofEpochMilli(ack.acknowledgedAtEpochMillis)
+                                                .atZone(ZoneId.systemDefault()).toLocalDate(),
+                                        ),
+                                    ),
+                                    Modifier.padding(top = 6.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                                 if (!ack.sourceAvailable) Text(stringResource(R.string.ack_source_deleted),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    stringResource(R.string.ack_item_helper),
+                                    Modifier.padding(top = 10.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
                                 TextButton(onClick = {
                                     viewModel.beginAcknowledgementConversion(ack, onConvertAcknowledgement)
-                                }) { Text(stringResource(R.string.ack_add_your_experience)) }
+                                }, modifier = Modifier.padding(top = 2.dp)) {
+                                    Text(stringResource(R.string.ack_add_your_experience))
+                                }
                             }
                         }
                     }

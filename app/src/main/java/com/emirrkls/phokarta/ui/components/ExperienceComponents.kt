@@ -35,6 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -254,14 +257,12 @@ fun ExperienceCard(
                             }
                         }
                         if (onAcknowledge != null && experience.author.relationship != null) {
-                            OutlinedButton(
-                                onClick = onAcknowledge,
-                                enabled = !experience.acknowledgedByViewer,
+                            AcknowledgementControl(
+                                acknowledged = experience.acknowledgedByViewer,
+                                busy = false,
+                                onAcknowledge = onAcknowledge,
                                 modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text(stringResource(R.string.experience_also_experienced), Modifier.padding(start = 6.dp), maxLines = 1)
-                            }
+                            )
                         }
                     }
                     if (experience.acknowledgementCount > 0) {
@@ -286,6 +287,59 @@ fun ExperienceCard(
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 5.dp).size(17.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AcknowledgementControl(
+    acknowledged: Boolean,
+    busy: Boolean,
+    onAcknowledge: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (acknowledged) {
+        val state = stringResource(R.string.acknowledgement_selected_state)
+        Surface(
+            modifier = modifier.height(48.dp).semantics {
+                selected = true
+                stateDescription = state
+            },
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            shape = RoundedCornerShape(50),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.secondary.copy(alpha = .55f),
+            ),
+        ) {
+            Row(
+                Modifier.padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    stringResource(R.string.experience_also_experienced_selected),
+                    Modifier.padding(start = 6.dp),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    } else {
+        OutlinedButton(
+            onClick = onAcknowledge,
+            enabled = !busy,
+            modifier = modifier.height(48.dp),
+        ) {
+            Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(R.string.experience_also_experienced),
+                Modifier.padding(start = 6.dp),
+                maxLines = 1,
+            )
         }
     }
 }

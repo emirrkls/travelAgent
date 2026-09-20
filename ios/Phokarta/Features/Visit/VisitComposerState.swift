@@ -15,6 +15,12 @@ struct ExperienceComposerDisclosureState: Equatable, Sendable {
     var titleExpanded = false
 }
 
+enum DraftRestoreFeedback: Equatable, Sendable {
+    case restoredUserDraft
+
+    var localizationKey: String { "visit.draft_restored" }
+}
+
 struct VisitComposerState: Equatable, Sendable {
     let placeId: UUID
     let placeName: String
@@ -44,6 +50,7 @@ struct VisitComposerState: Equatable, Sendable {
     var story = ""
     var tip = ""
     var originAcknowledgementId: UUID?
+    var draftRestoreFeedback: DraftRestoreFeedback?
 
     var isDirty: Bool {
         overallScore != 8.0 || !dimensionScores.isEmpty ||

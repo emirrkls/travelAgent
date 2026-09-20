@@ -78,6 +78,8 @@ import com.emirrkls.phokarta.ui.components.CompactPlaceCard
 import com.emirrkls.phokarta.ui.theme.Coral
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import com.emirrkls.phokarta.ui.presentation.CollectionSummaryKind
+import com.emirrkls.phokarta.ui.presentation.collectionContentSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -411,6 +413,7 @@ fun CollectionDetailScreen(
     val collection = state.collections.firstOrNull { it.id == collectionId }
     val places = state.places.filter { it.id in (collection?.placeIds ?: emptyList()) }
     val experienceItems = state.mixedCollectionItems.filter { it.type == "EXPERIENCE" && it.experience != null }
+    val contentSummary = collectionContentSummary(state.mixedCollectionItems, places.size)
 
     if (state.detailNotFound && collection == null) {
         Column(
@@ -451,7 +454,23 @@ fun CollectionDetailScreen(
                 Text(
                     stringResource(
                         R.string.places_count_with_visibility,
-                        pluralStringResource(R.plurals.places_count, places.size, places.size),
+                        when (contentSummary.kind) {
+                            CollectionSummaryKind.PLACES -> pluralStringResource(
+                                R.plurals.places_count,
+                                contentSummary.placeCount,
+                                contentSummary.placeCount,
+                            )
+                            CollectionSummaryKind.EXPERIENCES -> pluralStringResource(
+                                R.plurals.experiences_count,
+                                contentSummary.experienceCount,
+                                contentSummary.experienceCount,
+                            )
+                            CollectionSummaryKind.MIXED -> pluralStringResource(
+                                R.plurals.collection_items_count,
+                                contentSummary.totalCount,
+                                contentSummary.totalCount,
+                            )
+                        },
                         collection?.visibility?.let { stringResource(it.labelRes()) }.orEmpty(),
                     ),
                     color = Coral,
@@ -490,7 +509,7 @@ fun CollectionDetailScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.plan_experiences), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.collection_item_experience), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         Text(experience.title, style = MaterialTheme.typography.titleMedium)
                         Text(experience.place.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -501,7 +520,15 @@ fun CollectionDetailScreen(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CompactPlaceCard(place, { onPlace(place.id) }, Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.collection_item_place),
+                            Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        CompactPlaceCard(place, { onPlace(place.id) }, Modifier.fillMaxWidth())
+                    }
                     IconButton(onClick = { viewModel.removePlaceFromCollection(collectionId, place.id) }) {
                         Icon(Icons.Rounded.Clear, stringResource(R.string.a11y_remove_from_collection, place.name))
                     }

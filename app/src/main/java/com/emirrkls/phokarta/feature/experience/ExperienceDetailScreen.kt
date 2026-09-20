@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RelationshipActionState
 import com.emirrkls.phokarta.ui.components.UserAvatar
@@ -60,6 +64,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.rounded.FolderCopy
+import com.emirrkls.phokarta.ui.components.AcknowledgementControl
 
 @Composable
 fun ExperienceDetailScreen(
@@ -116,38 +121,68 @@ fun ExperienceDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(experience.media, key = { "${it.kind}-${it.position}-${it.id}" }) { media ->
-                        AsyncImage(
+                        SubcomposeAsyncImage(
                             model = media.url,
                             contentDescription = experience.title,
                             modifier = Modifier.width(320.dp).height(260.dp),
                             contentScale = ContentScale.Crop,
-                        )
+                        ) {
+                            when (painter.state) {
+                                is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
+                                is AsyncImagePainter.State.Error -> Box(
+                                    Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Rounded.BrokenImage, contentDescription = null)
+                                        Text(
+                                            stringResource(R.string.experience_media_failed),
+                                            Modifier.padding(top = 6.dp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                else -> Box(
+                                    Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        Modifier.size(28.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         } else {
             item {
                 Surface(
-                    Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp),
+                    Modifier.fillMaxWidth().height(112.dp).padding(horizontal = 16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.extraLarge,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        Modifier.fillMaxSize().padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Icon(
                             Icons.Rounded.TravelExplore,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.experience_no_media),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = .45f),
-                            modifier = Modifier.size(32.dp).align(Alignment.End),
+                            modifier = Modifier.size(32.dp),
                         )
-                        Column {
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text(
+                                stringResource(R.string.experience_no_media),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             ExperienceLabels.primary(experience.primaryExperience.code, language)?.let {
                                 Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                             }
-                            if (shouldShowExperienceTitle(experience.title, experience.place.name, experience.classification)) {
-                                Text(experience.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            }
-                            Text(experience.place.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -227,17 +262,12 @@ fun ExperienceDetailScreen(
                         Text(stringResource(if (experience.plannedByViewer) R.string.experience_in_plan else R.string.experience_add_to_plan))
                     }
                     if (experience.author.relationship != null) {
-                        OutlinedButton(
-                            onClick = viewModel::acknowledge,
-                            enabled = !state.acknowledgementBusy && !experience.acknowledgedByViewer,
-                            modifier = Modifier.weight(1f).height(48.dp).semantics {
-                                stateDescription = if (experience.acknowledgedByViewer) "selected" else "not selected"
-                            },
-                        ) {
-                            Icon(Icons.Rounded.DoneAll, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.experience_also_experienced))
-                        }
+                        AcknowledgementControl(
+                            acknowledged = experience.acknowledgedByViewer,
+                            busy = state.acknowledgementBusy,
+                            onAcknowledge = viewModel::acknowledge,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
                 if (experience.acknowledgementCount > 0) {

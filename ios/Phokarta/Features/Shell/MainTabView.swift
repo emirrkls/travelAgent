@@ -651,6 +651,7 @@ struct CollectionDetailScreen: View {
     let mutationRepository: (any OfflineMutationRepository)?
     let mediaStore: (any DurableMediaStoring)?
     let syncEngine: MutationSyncEngine?
+    @Environment(\.locale) private var locale
 
     init(
         collectionID: UUID,
@@ -695,7 +696,7 @@ struct CollectionDetailScreen: View {
                             if !detail.description.isEmpty {
                                 Text(detail.description).fixedSize(horizontal: false, vertical: true)
                             }
-                            Text(String(localized: String.LocalizationValue(detail.visibility.localizationKey)))
+                            Text("\(CollectionContentPresentation(items: detail.items).label(locale: locale)) · \(phokartaString(detail.visibility.localizationKey, locale: locale))")
                         }
                         if detail.items.isEmpty {
                             Section { FeatureEmptyState(title: String(localized: "collection.empty")) }
@@ -775,6 +776,52 @@ struct CollectionExperienceRow: View {
     }
 }
 
+enum CollectionContentKind: Equatable {
+    case places
+    case experiences
+    case mixed
+}
+
+struct CollectionContentPresentation: Equatable {
+    let kind: CollectionContentKind
+    let placeCount: Int
+    let experienceCount: Int
+
+    init(items: [CollectionItem]) {
+        self.init(
+            placeCount: items.count { $0.type == .place && $0.place != nil },
+            experienceCount: items.count { $0.type == .experience && $0.experience != nil }
+        )
+    }
+
+    init(placeCount: Int, experienceCount: Int) {
+        self.placeCount = placeCount
+        self.experienceCount = experienceCount
+        kind = if placeCount > 0 && experienceCount > 0 {
+            .mixed
+        } else if experienceCount > 0 {
+            .experiences
+        } else {
+            .places
+        }
+    }
+
+    var totalCount: Int { placeCount + experienceCount }
+
+    func label(locale: Locale) -> String {
+        switch kind {
+        case .places:
+            if placeCount == 1 { return phokartaString("collection.summary.place.one", locale: locale) }
+            return String(format: phokartaString("collection.summary.place.many %lld", locale: locale), locale: locale, Int64(placeCount))
+        case .experiences:
+            if experienceCount == 1 { return phokartaString("collection.summary.experience.one", locale: locale) }
+            return String(format: phokartaString("collection.summary.experience.many %lld", locale: locale), locale: locale, Int64(experienceCount))
+        case .mixed:
+            return String(format: phokartaString("collection.summary.mixed %lld", locale: locale), locale: locale, Int64(totalCount))
+        }
+    }
+}
+
 struct CollectionPlaceRow: View {
     let place: PlaceSummary
     var body: some View {
@@ -783,6 +830,8 @@ struct CollectionPlaceRow: View {
                 .frame(width: 64, height: 64)
                 .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.md))
             VStack(alignment: .leading) {
+                Label("collection.item_place", systemImage: "mappin")
+                    .font(.caption2).foregroundStyle(.tint)
                 Text(place.name).font(.headline).fixedSize(horizontal: false, vertical: true)
                 Text(place.city).font(.subheadline).foregroundStyle(.secondary)
                 Text(place.communityScore.map(ScoreFormatting.display) ?? String(localized: "score.not_rated"))
@@ -918,18 +967,23 @@ struct ProfileTab: View {
                 onSelectExperience: { path.append(.experienceDetail($0)) },
                 onConvertAcknowledgement: { acknowledgement in
                     let now = Int64(Date().timeIntervalSince1970 * 1000)
-                    let draft = DurableVisitDraft(
-                        userId: user.id, placeId: acknowledgement.place.id,
-                        overallScore: 8, publicReview: "", privateMemory: "",
-                        visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
-                        visibility: VisitVisibility.publicAccess.rawValue,
-                        dimensionsExpanded: false, createdAtEpochMillis: now,
-                        updatedAtEpochMillis: now, payloadVersion: 2,
-                        primaryExperienceCode: acknowledgement.primaryExperienceCode.rawValue,
-                        rawExperienceLabel: acknowledgement.rawExperienceLabel,
-                        originAcknowledgementId: acknowledgement.id
-                    )
                     Task {
+                        var draft = (try? await environment.draftRepository.getDraft(
+                            placeId: acknowledgement.place.id,
+                            userId: user.id
+                        )) ?? DurableVisitDraft(
+                            userId: user.id, placeId: acknowledgement.place.id,
+                            overallScore: 8, publicReview: "", privateMemory: "",
+                            visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
+                            visibility: VisitVisibility.publicAccess.rawValue,
+                            dimensionsExpanded: false, createdAtEpochMillis: now,
+                            updatedAtEpochMillis: now
+                        )
+                        draft.payloadVersion = 2
+                        draft.primaryExperienceCode = acknowledgement.primaryExperienceCode.rawValue
+                        draft.rawExperienceLabel = acknowledgement.rawExperienceLabel
+                        draft.originAcknowledgementId = acknowledgement.id
+                        draft.updatedAtEpochMillis = now
                         try? await environment.draftRepository.saveDraft(
                             placeId: acknowledgement.place.id, draft: draft, userId: user.id
                         )

@@ -467,8 +467,8 @@ struct CollectionItem: Decodable, Equatable, Sendable, Identifiable {
 
     var id: String {
         switch type {
-        case .place: "place:\(place?.id.uuidString ?? \"missing\")"
-        case .experience: "experience:\(experience?.id.uuidString ?? \"missing\")"
+        case .place: "place:\(place?.id.uuidString ?? "missing")"
+        case .experience: "experience:\(experience?.id.uuidString ?? "missing")"
         }
     }
 }

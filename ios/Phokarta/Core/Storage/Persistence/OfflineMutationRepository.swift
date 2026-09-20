@@ -95,20 +95,24 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 params: [userId.uuidString, MutationType.setPlannedExperienceState.rawValue, experience.id.uuidString]
             )
             try db.execute(
-                """INSERT INTO pending_mutations
-                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
-                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
-                   VALUES (?,?,?,?,?,1,0,?,?,NULL,?);""",
+                """
+                INSERT INTO pending_mutations
+                (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                 createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                VALUES (?,?,?,?,?,1,0,?,?,NULL,?);
+                """,
                 params: [mutationId.uuidString, userId.uuidString,
                          MutationType.setPlannedExperienceState.rawValue, experience.id.uuidString,
                          MutationState.pending.rawValue, now, now, desired ? 1 : 0]
             )
             try db.execute(
-                """INSERT INTO planned_experiences
-                   (userId,experienceId,plannedAt,snapshotJson,pendingDesiredState)
-                   VALUES (?,?,?,?,1)
-                   ON CONFLICT(userId,experienceId) DO UPDATE SET
-                     plannedAt=excluded.plannedAt,snapshotJson=excluded.snapshotJson,pendingDesiredState=1;""",
+                """
+                INSERT INTO planned_experiences
+                (userId,experienceId,plannedAt,snapshotJson,pendingDesiredState)
+                VALUES (?,?,?,?,1)
+                ON CONFLICT(userId,experienceId) DO UPDATE SET
+                  plannedAt=excluded.plannedAt,snapshotJson=excluded.snapshotJson,pendingDesiredState=1;
+                """,
                 params: [userId.uuidString, experience.id.uuidString,
                          ISO8601DateFormatter().string(from: Date()), snapshot]
             )
@@ -124,10 +128,12 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 params: [userId.uuidString, MutationType.setPlannedExperienceState.rawValue, experienceId.uuidString]
             )
             try db.execute(
-                """INSERT INTO pending_mutations
-                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
-                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
-                   VALUES (?,?,?,?,?,1,0,?,?,NULL,0);""",
+                """
+                INSERT INTO pending_mutations
+                (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                 createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                VALUES (?,?,?,?,?,1,0,?,?,NULL,0);
+                """,
                 params: [mutationId.uuidString, userId.uuidString,
                          MutationType.setPlannedExperienceState.rawValue, experienceId.uuidString,
                          MutationState.pending.rawValue, now, now]
@@ -139,8 +145,10 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
 
     func localPlannedExperiences(userId: UUID) async throws -> [DurablePlannedExperienceRow] {
         try await database.query(
-            """SELECT experienceId,plannedAt,snapshotJson,pendingDesiredState
-               FROM planned_experiences WHERE userId = ? ORDER BY plannedAt DESC;""",
+            """
+            SELECT experienceId,plannedAt,snapshotJson,pendingDesiredState
+            FROM planned_experiences WHERE userId = ? ORDER BY plannedAt DESC;
+            """,
             params: [userId.uuidString]
         ) { statement in
             let id = UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!
@@ -169,18 +177,22 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         let timestamp = ISO8601DateFormatter().string(from: Date())
         try await database.withTransaction { db in
             try db.execute(
-                """INSERT INTO experience_acknowledgements
-                   (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
-                    convertedExperienceId,snapshotJson,pendingUpload)
-                   VALUES (?,?,?,?,?,NULL,?,1);""",
+                """
+                INSERT INTO experience_acknowledgements
+                (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
+                 convertedExperienceId,snapshotJson,pendingUpload)
+                VALUES (?,?,?,?,?,NULL,?,1);
+                """,
                 params: [userId.uuidString, id.uuidString, experience.id.uuidString,
                          experience.place.id.uuidString, timestamp, Self.acknowledgementSnapshot(experience)]
             )
             try db.execute(
-                """INSERT INTO pending_mutations
-                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
-                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
-                   VALUES (?,?,?,?,?,1,0,?,?,NULL,1);""",
+                """
+                INSERT INTO pending_mutations
+                (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                 createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                VALUES (?,?,?,?,?,1,0,?,?,NULL,1);
+                """,
                 params: [id.uuidString, userId.uuidString, MutationType.acknowledgeExperience.rawValue,
                          experience.id.uuidString, MutationState.pending.rawValue, now, now]
             )
@@ -190,11 +202,13 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
 
     func localAcknowledgements(userId: UUID) async throws -> [ExperienceAcknowledgementV2] {
         try await database.query(
-            """SELECT acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
-                      convertedExperienceId,snapshotJson
-               FROM experience_acknowledgements
-               WHERE userId = ? AND convertedExperienceId IS NULL
-               ORDER BY acknowledgedAt DESC;""",
+            """
+            SELECT acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
+                   convertedExperienceId,snapshotJson
+            FROM experience_acknowledgements
+            WHERE userId = ? AND convertedExperienceId IS NULL
+            ORDER BY acknowledgedAt DESC;
+            """,
             params: [userId.uuidString]
         ) { statement in
             let id = UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!
@@ -282,9 +296,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
 
     func reconcileAcknowledgement(_ value: ExperienceAcknowledgementV2, sourceExperienceId: UUID, userId: UUID) async throws {
         try await database.execute(
-            """UPDATE experience_acknowledgements SET acknowledgementId = ?, acknowledgedAt = ?,
-               convertedExperienceId = ?, snapshotJson = ?, pendingUpload = 0
-               WHERE userId = ? AND sourceExperienceId = ?;""",
+            """
+            UPDATE experience_acknowledgements SET acknowledgementId = ?, acknowledgedAt = ?,
+            convertedExperienceId = ?, snapshotJson = ?, pendingUpload = 0
+            WHERE userId = ? AND sourceExperienceId = ?;
+            """,
             params: [value.id.uuidString, value.acknowledgedAt, value.convertedExperienceId?.uuidString,
                      Self.acknowledgementSnapshot(value), userId.uuidString, sourceExperienceId.uuidString]
         )

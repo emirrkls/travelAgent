@@ -835,9 +835,11 @@ final class DurablePersistenceTests: XCTestCase {
                 params: [user.uuidString, experience.uuidString, "2026-09-17T00:00:00Z", "{}"]
             )
             try await db.execute(
-                """INSERT INTO experience_acknowledgements
-                   (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,convertedExperienceId,snapshotJson,pendingUpload)
-                   VALUES (?,?,?,?,?,NULL,'{}',0);""",
+                """
+                INSERT INTO experience_acknowledgements
+                (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,convertedExperienceId,snapshotJson,pendingUpload)
+                VALUES (?,?,?,?,?,NULL,'{}',0);
+                """,
                 params: [user.uuidString, UUID().uuidString, experience.uuidString,
                          UUID().uuidString, "2026-09-17T00:00:00Z"]
             )

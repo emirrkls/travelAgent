@@ -28,7 +28,7 @@ public class Report {
     private User reporter;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "target_type", nullable = false, length = 16)
+    @Column(name = "target_type", nullable = false, length = 24)
     private ReportTargetType targetType;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -38,6 +38,10 @@ public class Report {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_visit_id")
     private Visit targetVisit;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_conversation_entry_id")
+    private ExperienceConversationEntry targetConversationEntry;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -60,12 +64,14 @@ public class Report {
     }
 
     public Report(UUID id, User reporter, ReportTargetType targetType, User targetUser,
-                  Visit targetVisit, ReportReason reason, String details, OffsetDateTime now) {
+                  Visit targetVisit, ExperienceConversationEntry targetConversationEntry,
+                  ReportReason reason, String details, OffsetDateTime now) {
         this.id = id;
         this.reporter = reporter;
         this.targetType = targetType;
         this.targetUser = targetUser;
         this.targetVisit = targetVisit;
+        this.targetConversationEntry = targetConversationEntry;
         this.reason = reason;
         this.details = details;
         this.status = ReportStatus.OPEN;
@@ -78,6 +84,7 @@ public class Report {
     public ReportTargetType getTargetType() { return targetType; }
     public User getTargetUser() { return targetUser; }
     public Visit getTargetVisit() { return targetVisit; }
+    public ExperienceConversationEntry getTargetConversationEntry() { return targetConversationEntry; }
     public ReportReason getReason() { return reason; }
     public String getDetails() { return details; }
     public ReportStatus getStatus() { return status; }

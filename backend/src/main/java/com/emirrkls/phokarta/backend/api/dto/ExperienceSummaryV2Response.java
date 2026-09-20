@@ -36,7 +36,8 @@ public record ExperienceSummaryV2Response(
         Visibility visibility,
         boolean plannedByViewer,
         boolean acknowledgedByViewer,
-        long acknowledgementCount) {
+        long acknowledgementCount,
+        long conversationCount) {
 
     public record Author(
             UUID id,

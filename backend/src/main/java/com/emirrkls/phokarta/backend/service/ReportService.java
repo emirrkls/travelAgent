@@ -6,6 +6,7 @@ import com.emirrkls.phokarta.backend.api.error.ApiException;
 import com.emirrkls.phokarta.backend.domain.entity.Report;
 import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.domain.entity.Visit;
+import com.emirrkls.phokarta.backend.domain.entity.ExperienceConversationEntry;
 import com.emirrkls.phokarta.backend.domain.model.ReportTargetType;
 import com.emirrkls.phokarta.backend.observability.ApplicationMetrics;
 import com.emirrkls.phokarta.backend.repository.ReportRepository;
@@ -31,14 +32,17 @@ public class ReportService {
     private final VisitRepository visits;
     private final ViewerAccessPolicy access;
     private final ApplicationMetrics metrics;
+    private final ExperienceConversationService conversations;
 
     public ReportService(ReportRepository reports, UserRepository users, VisitRepository visits,
-                         ViewerAccessPolicy access, ApplicationMetrics metrics) {
+                         ViewerAccessPolicy access, ApplicationMetrics metrics,
+                         ExperienceConversationService conversations) {
         this.reports = reports;
         this.users = users;
         this.visits = visits;
         this.access = access;
         this.metrics = metrics;
+        this.conversations = conversations;
     }
 
     @Transactional
@@ -49,6 +53,7 @@ public class ReportService {
         return switch (request.targetType()) {
             case USER -> submitUser(reporter, request.targetId(), request, details);
             case VISIT -> submitVisit(reporter, request.targetId(), request, details);
+            case CONVERSATION_ENTRY -> submitConversation(reporter, request.targetId(), request, details);
         };
     }
 
@@ -65,7 +70,7 @@ public class ReportService {
             return SubmitResult.duplicate(toResponse(existing.get()));
         }
         Report saved = reports.save(new Report(UUID.randomUUID(), reporter, ReportTargetType.USER,
-                target, null, request.reason(), details, OffsetDateTime.now(ZoneOffset.UTC)));
+                target, null, null, request.reason(), details, OffsetDateTime.now(ZoneOffset.UTC)));
         metrics.reportCreated(ReportTargetType.USER.name(), request.reason().name());
         log.info("report created reportId={} targetType={} reason={}",
                 saved.getId(), saved.getTargetType(), saved.getReason());
@@ -90,8 +95,24 @@ public class ReportService {
             return SubmitResult.duplicate(toResponse(existing.get()));
         }
         Report saved = reports.save(new Report(UUID.randomUUID(), reporter, ReportTargetType.VISIT,
-                visit.getUser(), visit, request.reason(), details, OffsetDateTime.now(ZoneOffset.UTC)));
+                visit.getUser(), visit, null, request.reason(), details, OffsetDateTime.now(ZoneOffset.UTC)));
         metrics.reportCreated(ReportTargetType.VISIT.name(), request.reason().name());
+        log.info("report created reportId={} targetType={} reason={}",
+                saved.getId(), saved.getTargetType(), saved.getReason());
+        return SubmitResult.created(toResponse(saved));
+    }
+
+    private SubmitResult submitConversation(User reporter, UUID entryId,
+                                            CreateReportRequest request, String details) {
+        ExperienceConversationEntry entry = conversations.requireReportable(entryId, reporter.getId());
+        Optional<Report> existing = reports.findOpenConversationReport(reporter.getId(), entryId);
+        if (existing.isPresent()) {
+            return SubmitResult.duplicate(toResponse(existing.get()));
+        }
+        Report saved = reports.save(new Report(UUID.randomUUID(), reporter,
+                ReportTargetType.CONVERSATION_ENTRY, entry.getAuthor(), entry.getExperience(), entry,
+                request.reason(), details, OffsetDateTime.now(ZoneOffset.UTC)));
+        metrics.reportCreated(ReportTargetType.CONVERSATION_ENTRY.name(), request.reason().name());
         log.info("report created reportId={} targetType={} reason={}",
                 saved.getId(), saved.getTargetType(), saved.getReason());
         return SubmitResult.created(toResponse(saved));

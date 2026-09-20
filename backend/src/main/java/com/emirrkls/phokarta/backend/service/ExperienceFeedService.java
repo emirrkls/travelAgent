@@ -67,6 +67,7 @@ public class ExperienceFeedService {
     private final FollowRequestService relationships;
     private final PlannedExperienceRepository plans;
     private final ExperienceAcknowledgementRepository acknowledgements;
+    private final ExperienceConversationService conversations;
 
     public ExperienceFeedService(
             ExperienceFeedRepository feed,
@@ -75,7 +76,8 @@ public class ExperienceFeedService {
             MediaService media,
             FollowRequestService relationships,
             PlannedExperienceRepository plans,
-            ExperienceAcknowledgementRepository acknowledgements) {
+            ExperienceAcknowledgementRepository acknowledgements,
+            ExperienceConversationService conversations) {
         this.feed = feed;
         this.visits = visits;
         this.details = details;
@@ -83,6 +85,7 @@ public class ExperienceFeedService {
         this.relationships = relationships;
         this.plans = plans;
         this.acknowledgements = acknowledgements;
+        this.conversations = conversations;
     }
 
     public CursorPageResponse<ExperienceSummaryV2Response> explore(
@@ -224,7 +227,8 @@ public class ExperienceFeedService {
                     preview, mediaCount, visit.getVisibility(),
                     viewerId != null && plans.existsByIdUserIdAndIdExperienceId(viewerId, visit.getId()),
                     viewerId != null && acknowledgements.existsByUserIdAndSourceExperienceId(viewerId, visit.getId()),
-                    acknowledgements.countBySourceExperienceId(visit.getId())));
+                    acknowledgements.countBySourceExperienceId(visit.getId()),
+                    conversations.visibleRootCount(visit.getId(), viewerId)));
         }
         return List.copyOf(result);
     }

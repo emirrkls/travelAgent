@@ -33,6 +33,7 @@ public class ExperienceReadService {
     private final FollowRequestService relationships;
     private final PlannedExperienceRepository plans;
     private final ExperienceAcknowledgementRepository acknowledgements;
+    private final ExperienceConversationService conversations;
 
     public ExperienceReadService(
             VisitRepository visits,
@@ -42,7 +43,8 @@ public class ExperienceReadService {
             ViewerAccessPolicy access,
             FollowRequestService relationships,
             PlannedExperienceRepository plans,
-            ExperienceAcknowledgementRepository acknowledgements) {
+            ExperienceAcknowledgementRepository acknowledgements,
+            ExperienceConversationService conversations) {
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
@@ -51,6 +53,7 @@ public class ExperienceReadService {
         this.relationships = relationships;
         this.plans = plans;
         this.acknowledgements = acknowledgements;
+        this.conversations = conversations;
     }
 
     @Transactional(readOnly = true)
@@ -138,7 +141,8 @@ public class ExperienceReadService {
                 nativeV2 ? detail.getTaxonomyVersion() : null,
                 viewerId != null && plans.existsByIdUserIdAndIdExperienceId(viewerId, visit.getId()),
                 viewerId != null && acknowledgements.existsByUserIdAndSourceExperienceId(viewerId, visit.getId()),
-                acknowledgements.countBySourceExperienceId(visit.getId()));
+                acknowledgements.countBySourceExperienceId(visit.getId()),
+                conversations.visibleRootCount(visit.getId(), viewerId));
     }
 
     private List<ExperienceV2Response.Media> mapMedia(

@@ -32,6 +32,16 @@ public interface ReportRepository extends JpaRepository<Report, UUID> {
     Optional<Report> findOpenVisitReport(@Param("reporterId") UUID reporterId,
                                          @Param("targetVisitId") UUID targetVisitId);
 
+    @Query("""
+            select r from Report r
+            where r.reporter.id = :reporterId
+              and r.targetType = com.emirrkls.phokarta.backend.domain.model.ReportTargetType.CONVERSATION_ENTRY
+              and r.targetConversationEntry.id = :entryId
+              and r.status = com.emirrkls.phokarta.backend.domain.model.ReportStatus.OPEN
+            """)
+    Optional<Report> findOpenConversationReport(@Param("reporterId") UUID reporterId,
+                                                 @Param("entryId") UUID entryId);
+
     long countByStatus(ReportStatus status);
 
     @Query("""

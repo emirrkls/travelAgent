@@ -49,6 +49,7 @@ class ExperienceReadServiceTest {
     @Mock private FollowRequestService relationships;
     @Mock private PlannedExperienceRepository planned;
     @Mock private ExperienceAcknowledgementRepository acknowledgements;
+    @Mock private ExperienceConversationService conversations;
     @Mock private Visit visit;
     @Mock private User user;
     @Mock private Place place;
@@ -62,7 +63,7 @@ class ExperienceReadServiceTest {
     @BeforeEach
     void setUp() {
         service = new ExperienceReadService(visits, details, dimensions, media, access, relationships,
-                planned, acknowledgements);
+                planned, acknowledgements, conversations);
         visitId = UUID.randomUUID();
         lenient().when(visits.findDetailedById(visitId)).thenReturn(Optional.of(visit));
         lenient().when(access.canViewVisit(visit, null)).thenReturn(true);

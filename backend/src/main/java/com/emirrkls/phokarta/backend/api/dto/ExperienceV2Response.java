@@ -41,7 +41,8 @@ public record ExperienceV2Response(
         Integer taxonomyVersion,
         boolean plannedByViewer,
         boolean acknowledgedByViewer,
-        long acknowledgementCount) {
+        long acknowledgementCount,
+        long conversationCount) {
 
     public enum Classification { LEGACY_COMPATIBILITY, NATIVE_V2 }
     public enum MediaKind { LEGACY_URL, MANAGED }

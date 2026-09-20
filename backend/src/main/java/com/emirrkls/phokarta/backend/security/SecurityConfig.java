@@ -77,6 +77,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v2/experiences/feed")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v2/experiences/{experienceId}/conversation")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v2/places/{placeId}")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v2/places/{placeId}/experiences")

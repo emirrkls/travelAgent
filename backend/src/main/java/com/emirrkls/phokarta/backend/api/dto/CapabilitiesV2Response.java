@@ -4,4 +4,5 @@ public record CapabilitiesV2Response(
         boolean profilePrivacyV2Enabled,
         boolean experiencePlanningEnabled,
         boolean experienceAcknowledgementsEnabled,
-        boolean mixedCollectionItemsEnabled) {}
+        boolean mixedCollectionItemsEnabled,
+        boolean experienceConversationsEnabled) {}

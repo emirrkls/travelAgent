@@ -32,7 +32,7 @@ public class ReportController {
     }
 
     @Operation(summary = "Submit an abuse report",
-            description = "Authenticated. Reports a USER or VISIT. Duplicate OPEN reports "
+            description = "Authenticated. Reports a USER, VISIT, or CONVERSATION_ENTRY. Duplicate OPEN reports "
                     + "return the existing report. Does not hide content or notify the target.")
     @PostMapping
     public ResponseEntity<ReportResponse> create(@Valid @RequestBody CreateReportRequest request) {

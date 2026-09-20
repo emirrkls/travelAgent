@@ -17,6 +17,6 @@ public class CapabilitiesV2Controller {
 
     @GetMapping
     public CapabilitiesV2Response get() {
-        return new CapabilitiesV2Response(properties.enabled(), true, true, true);
+        return new CapabilitiesV2Response(properties.enabled(), true, true, true, true);
     }
 }

@@ -16,6 +16,8 @@ final class PlaceDetailController {
     private(set) var experiencesHasMore = false
     private(set) var experiencesError: AppError?
     private(set) var relationshipBusy: Set<UUID> = []
+    private(set) var planBusy: Set<UUID> = []
+    private(set) var acknowledgementBusy: Set<UUID> = []
     private var experiencesCursor: String?
     private var experiencesGeneration: UInt64 = 0
 
@@ -92,6 +94,46 @@ final class PlaceDetailController {
             } catch {
                 experiencesError = .server
             }
+        }
+    }
+
+    func togglePlannedExperience(id: UUID) {
+        guard let experienceService,
+              let value = experiences.first(where: { $0.id == id }),
+              !planBusy.contains(id) else { return }
+        let desired = !(value.plannedByViewer ?? false)
+        planBusy.insert(id)
+        Task {
+            defer { planBusy.remove(id) }
+            do {
+                if desired { _ = try await experienceService.plan(experienceId: id) }
+                else { try await experienceService.unplan(experienceId: id) }
+                experiences = experiences.map { $0.id == id ? $0.replacingMilestone(
+                    planned: desired, acknowledged: $0.acknowledgedByViewer ?? false,
+                    count: $0.acknowledgementCount ?? 0
+                ) : $0 }
+            } catch let appError as AppError { experiencesError = appError }
+            catch { experiencesError = .server }
+        }
+    }
+
+    func acknowledgeExperience(id: UUID) {
+        guard let experienceService,
+              let value = experiences.first(where: { $0.id == id }),
+              value.author.relationship != nil,
+              !(value.acknowledgedByViewer ?? false),
+              !acknowledgementBusy.contains(id) else { return }
+        acknowledgementBusy.insert(id)
+        Task {
+            defer { acknowledgementBusy.remove(id) }
+            do {
+                _ = try await experienceService.acknowledge(experienceId: id)
+                experiences = experiences.map { $0.id == id ? $0.replacingMilestone(
+                    planned: $0.plannedByViewer ?? false, acknowledged: true,
+                    count: ($0.acknowledgementCount ?? 0) + 1
+                ) : $0 }
+            } catch let appError as AppError { experiencesError = appError }
+            catch { experiencesError = .server }
         }
     }
 

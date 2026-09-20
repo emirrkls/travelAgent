@@ -54,10 +54,14 @@ struct ExploreScreen: View {
                             ExperienceCardView(
                                 experience: item,
                                 relationshipBusy: controller.relationshipBusy.contains(item.author.id),
+                                planBusy: controller.planBusy.contains(item.id),
+                                acknowledgementBusy: controller.acknowledgementBusy.contains(item.id),
                                 onOpen: { path.append(.experienceDetail(item.id)) },
                                 onAuthor: { path.append(.userProfile(item.author.id)) },
                                 onPlace: { path.append(.placeDetail(item.place.id)) },
-                                onRelationship: { controller.toggleRelationship(authorId: item.author.id) }
+                                onRelationship: { controller.toggleRelationship(authorId: item.author.id) },
+                                onPlan: { controller.togglePlan(experienceId: item.id) },
+                                onAcknowledge: { controller.acknowledge(experienceId: item.id) }
                             )
                             .onAppear { controller.loadMoreIfNeeded(current: item) }
                         }
@@ -156,14 +160,42 @@ struct ExploreScreen: View {
 struct ExperienceCardView: View {
     let experience: ExperienceSummaryV2
     let relationshipBusy: Bool
+    let planBusy: Bool
+    let acknowledgementBusy: Bool
     let onOpen: () -> Void
     let onAuthor: () -> Void
     let onPlace: () -> Void
     let onRelationship: () -> Void
+    let onPlan: (() -> Void)?
+    let onAcknowledge: (() -> Void)?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isOpening = false
+
+    init(
+        experience: ExperienceSummaryV2,
+        relationshipBusy: Bool,
+        planBusy: Bool = false,
+        acknowledgementBusy: Bool = false,
+        onOpen: @escaping () -> Void,
+        onAuthor: @escaping () -> Void,
+        onPlace: @escaping () -> Void,
+        onRelationship: @escaping () -> Void,
+        onPlan: (() -> Void)? = nil,
+        onAcknowledge: (() -> Void)? = nil
+    ) {
+        self.experience = experience
+        self.relationshipBusy = relationshipBusy
+        self.planBusy = planBusy
+        self.acknowledgementBusy = acknowledgementBusy
+        self.onOpen = onOpen
+        self.onAuthor = onAuthor
+        self.onPlace = onPlace
+        self.onRelationship = onRelationship
+        self.onPlan = onPlan
+        self.onAcknowledge = onAcknowledge
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -258,6 +290,32 @@ struct ExperienceCardView: View {
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(PhokartaColor.softSurface(for: colorScheme), in: Capsule())
                     }
+                }
+                if let onPlan {
+                    HStack(spacing: PhokartaSpacing.sm) {
+                    Button(action: onPlan) {
+                        Label(
+                            String(localized: (experience.plannedByViewer ?? false) ? "experience.planned" : "experience.plan"),
+                            systemImage: (experience.plannedByViewer ?? false) ? "bookmark.fill" : "bookmark"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(planBusy)
+                    if let onAcknowledge, experience.author.relationship != nil {
+                        Button(action: onAcknowledge) {
+                            Label(
+                                String(localized: (experience.acknowledgedByViewer ?? false) ? "experience.acknowledged" : "experience.acknowledge"),
+                                systemImage: (experience.acknowledgedByViewer ?? false) ? "checkmark.circle.fill" : "checkmark.circle"
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(acknowledgementBusy || (experience.acknowledgedByViewer ?? false))
+                    }
+                    }
+                }
+                if (experience.acknowledgementCount ?? 0) > 0 {
+                    Text(String(localized: "experience.acknowledgement_count \(experience.acknowledgementCount ?? 0)"))
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Button(action: onPlace) {
                     Label("\(experience.place.name) · \(experience.place.city)", systemImage: "mappin.and.ellipse")

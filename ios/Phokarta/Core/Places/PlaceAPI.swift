@@ -207,7 +207,25 @@ struct CollectionDetailEndpoint: APIEndpoint {
     typealias Response = CollectionDetail
     let collectionId: UUID
     var method: HTTPMethod { .get }
-    var path: String { "api/v1/collections/\(collectionId.uuidString.lowercased())" }
+    var path: String { "api/v2/collections/\(collectionId.uuidString.lowercased())" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct AddCollectionExperienceEndpoint: APIEndpoint {
+    typealias Response = CollectionDetail
+    let collectionId: UUID
+    let experienceId: UUID
+    var method: HTTPMethod { .put }
+    var path: String { "api/v2/collections/\(collectionId.uuidString.lowercased())/experiences/\(experienceId.uuidString.lowercased())" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct RemoveCollectionExperienceEndpoint: APIEndpoint {
+    typealias Response = EmptyPayload
+    let collectionId: UUID
+    let experienceId: UUID
+    var method: HTTPMethod { .delete }
+    var path: String { "api/v2/collections/\(collectionId.uuidString.lowercased())/experiences/\(experienceId.uuidString.lowercased())" }
     var requiresAuthentication: Bool { true }
 }
 

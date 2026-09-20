@@ -33,7 +33,12 @@ struct VisitComposerScreen: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+        Form {
+            if controller.state.originAcknowledgementId != nil {
+                Label("experience.acknowledgement_origin", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.tint)
+            }
                 Section {
                     Text(controller.state.placeName).font(.headline)
                     DatePicker(

@@ -12,6 +12,8 @@ final class ExperienceExploreController {
     private(set) var error: AppError?
     private(set) var coordinate: (latitude: Double, longitude: Double)?
     private(set) var relationshipBusy: Set<UUID> = []
+    private(set) var planBusy: Set<UUID> = []
+    private(set) var acknowledgementBusy: Set<UUID> = []
     var lens: ExperienceFeedLens = .forYou
     var discoveryFilter: ExperienceDiscoveryFilter?
     var query = ""
@@ -105,6 +107,46 @@ final class ExperienceExploreController {
         }
     }
 
+    func togglePlan(experienceId: UUID) {
+        guard let value = items.first(where: { $0.id == experienceId }),
+              !planBusy.contains(experienceId) else { return }
+        let desired = !(value.plannedByViewer ?? false)
+        planBusy.insert(experienceId)
+        Task {
+            defer { planBusy.remove(experienceId) }
+            do {
+                if desired { _ = try await service.plan(experienceId: experienceId) }
+                else { try await service.unplan(experienceId: experienceId) }
+                items = items.map { $0.id == experienceId ? $0.replacingMilestone(
+                    planned: desired,
+                    acknowledged: $0.acknowledgedByViewer ?? false,
+                    count: $0.acknowledgementCount ?? 0
+                ) : $0 }
+            } catch let appError as AppError { error = appError }
+            catch { error = .server }
+        }
+    }
+
+    func acknowledge(experienceId: UUID) {
+        guard let value = items.first(where: { $0.id == experienceId }),
+              value.author.relationship != nil,
+              !(value.acknowledgedByViewer ?? false),
+              !acknowledgementBusy.contains(experienceId) else { return }
+        acknowledgementBusy.insert(experienceId)
+        Task {
+            defer { acknowledgementBusy.remove(experienceId) }
+            do {
+                _ = try await service.acknowledge(experienceId: experienceId)
+                items = items.map { $0.id == experienceId ? $0.replacingMilestone(
+                    planned: $0.plannedByViewer ?? false,
+                    acknowledged: true,
+                    count: ($0.acknowledgementCount ?? 0) + 1
+                ) : $0 }
+            } catch let appError as AppError { error = appError }
+            catch { error = .server }
+        }
+    }
+
     private func load(reset: Bool) {
         if needsNearbyLocation {
             generation += 1
@@ -189,7 +231,23 @@ extension ExperienceSummaryV2 {
             practicalSignals: practicalSignals,
             mediaPreview: mediaPreview,
             mediaCount: mediaCount,
-            visibility: visibility
+            visibility: visibility,
+            plannedByViewer: plannedByViewer,
+            acknowledgedByViewer: acknowledgedByViewer,
+            acknowledgementCount: acknowledgementCount
+        )
+    }
+
+    func replacingMilestone(planned: Bool, acknowledged: Bool, count: Int) -> Self {
+        ExperienceSummaryV2(
+            id: id, classification: classification, author: author, place: place,
+            experiencedAt: experiencedAt, title: title, titleSource: titleSource,
+            primaryExperience: primaryExperience, feeling: feeling,
+            storyPreview: storyPreview, tipPreview: tipPreview, companion: companion,
+            timeOfDay: timeOfDay, vibes: vibes, practicalSignals: practicalSignals,
+            mediaPreview: mediaPreview, mediaCount: mediaCount, visibility: visibility,
+            plannedByViewer: planned, acknowledgedByViewer: acknowledged,
+            acknowledgementCount: count
         )
     }
 }

@@ -108,6 +108,7 @@ struct ExperienceV2CreateRequest: Encodable, Equatable, Sendable {
     let privateMemory: String?
     let visibility: VisitVisibility
     let mediaIds: [UUID]
+    var originAcknowledgementId: UUID? = nil
 }
 
 struct ExperienceV2CreateDimension: Encodable, Equatable, Sendable {
@@ -500,6 +501,9 @@ struct ExperienceV2: Decodable, Equatable, Sendable, Identifiable {
     let media: [Media]
     let visibility: VisitVisibility
     let taxonomyVersion: Int?
+    var plannedByViewer: Bool? = nil
+    var acknowledgedByViewer: Bool? = nil
+    var acknowledgementCount: Int? = nil
 
     struct Author: Decodable, Equatable, Sendable {
         let id: UUID
@@ -611,11 +615,41 @@ struct ExperienceSummaryV2: Decodable, Equatable, Sendable, Identifiable {
     let mediaPreview: MediaPreview?
     let mediaCount: Int
     let visibility: VisitVisibility
+    var plannedByViewer: Bool? = nil
+    var acknowledgedByViewer: Bool? = nil
+    var acknowledgementCount: Int? = nil
 
     struct MediaPreview: Decodable, Equatable, Sendable {
         let kind: ExperienceMediaKind
         let id: UUID?
         let url: String
         let accessExpiresAt: String?
+    }
+}
+
+struct PlannedExperienceV2: Decodable, Equatable, Sendable, Identifiable {
+    let experience: ExperienceV2
+    let plannedAt: String
+    var id: UUID { experience.id }
+}
+
+struct ExperienceAcknowledgementV2: Decodable, Equatable, Sendable, Identifiable {
+    let id: UUID
+    let sourceExperienceId: UUID?
+    let sourceAvailable: Bool
+    let sourceExperience: ExperienceV2?
+    let place: AnchorPlace
+    let primaryExperienceCode: PrimaryExperienceCode
+    let rawExperienceLabel: String?
+    let acknowledgedAt: String
+    let status: String
+    let convertedExperienceId: UUID?
+
+    struct AnchorPlace: Decodable, Equatable, Sendable {
+        let id: UUID
+        let name: String
+        let city: String
+        let region: String
+        let country: String
     }
 }

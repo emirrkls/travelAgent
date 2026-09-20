@@ -22,12 +22,16 @@ final class UserProfileController {
     private(set) var experiencesLoading = false
     private(set) var experiencesError: AppError?
     private(set) var experiencesHasMore = false
+    private(set) var acknowledgements: [ExperienceAcknowledgementV2] = []
+    private(set) var acknowledgementsLoading = false
+    private(set) var acknowledgementsError: AppError?
     private var experiencesCursor: String?
     private var experiencesGeneration: UInt64 = 0
 
     private let service: any SocialServing
     private let store: SocialStateStore
     private let experienceService: (any ExperienceDiscoveryServing)?
+    private let mutationRepository: (any OfflineMutationRepository)?
     private var generation: UInt64 = 0
     private var didStart = false
 
@@ -36,13 +40,15 @@ final class UserProfileController {
         isOwnProfile: Bool,
         service: any SocialServing,
         store: SocialStateStore,
-        experienceService: (any ExperienceDiscoveryServing)? = nil
+        experienceService: (any ExperienceDiscoveryServing)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil
     ) {
         self.userId = userId
         self.isOwnProfile = isOwnProfile
         self.service = service
         self.store = store
         self.experienceService = experienceService
+        self.mutationRepository = mutationRepository
     }
 
     var effectiveRelationship: RelationshipState? {
@@ -76,6 +82,7 @@ final class UserProfileController {
         Task {
             await load()
             await loadExperiences(reset: true)
+            await loadAcknowledgements()
         }
     }
 
@@ -120,6 +127,7 @@ final class UserProfileController {
     func refresh() async {
         await load()
         await loadExperiences(reset: true)
+        await loadAcknowledgements()
     }
 
     func loadMoreExperiences() {
@@ -159,6 +167,32 @@ final class UserProfileController {
     private static func deduplicated(_ values: [ExperienceSummaryV2]) -> [ExperienceSummaryV2] {
         var seen = Set<UUID>()
         return values.filter { seen.insert($0.id).inserted }
+    }
+
+    func retryAcknowledgements() { Task { await loadAcknowledgements() } }
+
+    private func loadAcknowledgements() async {
+        guard let experienceService else { return }
+        acknowledgementsLoading = acknowledgements.isEmpty
+        acknowledgementsError = nil
+        let local = isOwnProfile
+            ? ((try? await mutationRepository?.localAcknowledgements(userId: userId)) ?? [])
+            : []
+        if acknowledgements.isEmpty { acknowledgements = local }
+        do {
+            let remote = try await experienceService.profileAcknowledgements(userId: userId, page: 0).content
+            var sourceIds = Set(remote.compactMap(\.sourceExperienceId))
+            var ids = Set(remote.map(\.id))
+            acknowledgements = remote + local.filter { value in
+                guard !ids.contains(value.id) else { return false }
+                if let source = value.sourceExperienceId, sourceIds.contains(source) { return false }
+                ids.insert(value.id)
+                if let source = value.sourceExperienceId { sourceIds.insert(source) }
+                return true
+            }
+        } catch let appError as AppError { acknowledgementsError = appError }
+        catch { acknowledgementsError = .server }
+        acknowledgementsLoading = false
     }
 
     func toggleFollow() {

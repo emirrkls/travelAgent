@@ -31,9 +31,33 @@ protocol OfflineMutationRepository: Sendable {
     func getPendingVisits(placeId: UUID, userId: UUID) async throws -> [PendingVisit]
     func getAllVisitPhotos() async throws -> [DurablePendingPhoto]
     func getVisitPhotos(mutationId: UUID) async throws -> [DurablePendingPhoto]
+    func setPlannedExperience(_ experience: ExperienceV2, userId: UUID, desired: Bool) async throws
+    func removePlannedExperience(experienceId: UUID, userId: UUID) async throws
+    func localPlannedExperiences(userId: UUID) async throws -> [DurablePlannedExperienceRow]
+    func acknowledgeExperience(_ experience: ExperienceV2, userId: UUID) async throws -> UUID
+    func localAcknowledgements(userId: UUID) async throws -> [ExperienceAcknowledgementV2]
+    func getAcknowledgementAnchor(sourceExperienceId: UUID, userId: UUID) async throws -> DurableAcknowledgementAnchor?
+    func reconcilePlannedExperience(_ value: PlannedExperienceV2?, experienceId: UUID, userId: UUID) async throws
+    func reconcileAcknowledgement(_ value: ExperienceAcknowledgementV2, sourceExperienceId: UUID, userId: UUID) async throws
+    func markAcknowledgementConverted(id: UUID, experienceId: UUID, userId: UUID) async throws
 }
 
 extension OfflineMutationRepository {
+    func setPlannedExperience(_ experience: ExperienceV2, userId: UUID, desired: Bool) async throws {
+        throw PersistenceError.executionFailed("Experience planning is unavailable")
+    }
+    func removePlannedExperience(experienceId: UUID, userId: UUID) async throws {
+        throw PersistenceError.executionFailed("Experience planning is unavailable")
+    }
+    func localPlannedExperiences(userId: UUID) async throws -> [DurablePlannedExperienceRow] { [] }
+    func acknowledgeExperience(_ experience: ExperienceV2, userId: UUID) async throws -> UUID {
+        throw PersistenceError.executionFailed("Experience acknowledgement is unavailable")
+    }
+    func localAcknowledgements(userId: UUID) async throws -> [ExperienceAcknowledgementV2] { [] }
+    func getAcknowledgementAnchor(sourceExperienceId: UUID, userId: UUID) async throws -> DurableAcknowledgementAnchor? { nil }
+    func reconcilePlannedExperience(_ value: PlannedExperienceV2?, experienceId: UUID, userId: UUID) async throws {}
+    func reconcileAcknowledgement(_ value: ExperienceAcknowledgementV2, sourceExperienceId: UUID, userId: UUID) async throws {}
+    func markAcknowledgementConverted(id: UUID, experienceId: UUID, userId: UUID) async throws {}
     func commitExperienceV2(
         payload: DurablePendingExperienceV2Payload,
         dimensions: [DurablePendingExperienceV2Dimension],
@@ -55,6 +79,223 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
     init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
         self.database = database
         self.clock = clock
+    }
+
+    func setPlannedExperience(_ experience: ExperienceV2, userId: UUID, desired: Bool) async throws {
+        if !desired {
+            try await removePlannedExperience(experienceId: experience.id, userId: userId)
+            return
+        }
+        let now = clock.nowMillis()
+        let mutationId = UUID()
+        let snapshot = Self.planSnapshot(experience)
+        try await database.withTransaction { db in
+            try db.execute(
+                "DELETE FROM pending_mutations WHERE userId = ? AND type = ? AND resourceKey = ?;",
+                params: [userId.uuidString, MutationType.setPlannedExperienceState.rawValue, experience.id.uuidString]
+            )
+            try db.execute(
+                """INSERT INTO pending_mutations
+                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                   VALUES (?,?,?,?,?,1,0,?,?,NULL,?);""",
+                params: [mutationId.uuidString, userId.uuidString,
+                         MutationType.setPlannedExperienceState.rawValue, experience.id.uuidString,
+                         MutationState.pending.rawValue, now, now, desired ? 1 : 0]
+            )
+            try db.execute(
+                """INSERT INTO planned_experiences
+                   (userId,experienceId,plannedAt,snapshotJson,pendingDesiredState)
+                   VALUES (?,?,?,?,1)
+                   ON CONFLICT(userId,experienceId) DO UPDATE SET
+                     plannedAt=excluded.plannedAt,snapshotJson=excluded.snapshotJson,pendingDesiredState=1;""",
+                params: [userId.uuidString, experience.id.uuidString,
+                         ISO8601DateFormatter().string(from: Date()), snapshot]
+            )
+        }
+    }
+
+    func removePlannedExperience(experienceId: UUID, userId: UUID) async throws {
+        let now = clock.nowMillis()
+        let mutationId = UUID()
+        try await database.withTransaction { db in
+            try db.execute(
+                "DELETE FROM pending_mutations WHERE userId = ? AND type = ? AND resourceKey = ?;",
+                params: [userId.uuidString, MutationType.setPlannedExperienceState.rawValue, experienceId.uuidString]
+            )
+            try db.execute(
+                """INSERT INTO pending_mutations
+                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                   VALUES (?,?,?,?,?,1,0,?,?,NULL,0);""",
+                params: [mutationId.uuidString, userId.uuidString,
+                         MutationType.setPlannedExperienceState.rawValue, experienceId.uuidString,
+                         MutationState.pending.rawValue, now, now]
+            )
+            try db.execute("DELETE FROM planned_experiences WHERE userId = ? AND experienceId = ?;",
+                           params: [userId.uuidString, experienceId.uuidString])
+        }
+    }
+
+    func localPlannedExperiences(userId: UUID) async throws -> [DurablePlannedExperienceRow] {
+        try await database.query(
+            """SELECT experienceId,plannedAt,snapshotJson,pendingDesiredState
+               FROM planned_experiences WHERE userId = ? ORDER BY plannedAt DESC;""",
+            params: [userId.uuidString]
+        ) { statement in
+            let id = UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!
+            let plannedAt = String(cString: sqlite3_column_text(statement, 1))
+            let snapshot = String(cString: sqlite3_column_text(statement, 2))
+            let json = (try? JSONSerialization.jsonObject(with: Data(snapshot.utf8))) as? [String: String] ?? [:]
+            let pending: Bool? = sqlite3_column_type(statement, 3) == SQLITE_NULL
+                ? nil : sqlite3_column_int(statement, 3) != 0
+            return DurablePlannedExperienceRow(
+                id: id, title: json["title"] ?? "", placeName: json["placeName"] ?? "",
+                authorName: json["authorName"] ?? "",
+                primaryExperienceCode: json["primaryExperienceCode"] ?? "UNKNOWN_LEGACY",
+                imageURL: json["imageURL"], plannedAt: plannedAt, pendingDesiredState: pending
+            )
+        }
+    }
+
+    func acknowledgeExperience(_ experience: ExperienceV2, userId: UUID) async throws -> UUID {
+        let existing = try await database.query(
+            "SELECT acknowledgementId FROM experience_acknowledgements WHERE userId = ? AND sourceExperienceId = ? LIMIT 1;",
+            params: [userId.uuidString, experience.id.uuidString]
+        ) { UUID(uuidString: String(cString: sqlite3_column_text($0, 0))) }
+        if let id = existing.first ?? nil { return id }
+        let id = UUID()
+        let now = clock.nowMillis()
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        try await database.withTransaction { db in
+            try db.execute(
+                """INSERT INTO experience_acknowledgements
+                   (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
+                    convertedExperienceId,snapshotJson,pendingUpload)
+                   VALUES (?,?,?,?,?,NULL,?,1);""",
+                params: [userId.uuidString, id.uuidString, experience.id.uuidString,
+                         experience.place.id.uuidString, timestamp, Self.acknowledgementSnapshot(experience)]
+            )
+            try db.execute(
+                """INSERT INTO pending_mutations
+                   (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                    createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                   VALUES (?,?,?,?,?,1,0,?,?,NULL,1);""",
+                params: [id.uuidString, userId.uuidString, MutationType.acknowledgeExperience.rawValue,
+                         experience.id.uuidString, MutationState.pending.rawValue, now, now]
+            )
+        }
+        return id
+    }
+
+    func localAcknowledgements(userId: UUID) async throws -> [ExperienceAcknowledgementV2] {
+        try await database.query(
+            """SELECT acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,
+                      convertedExperienceId,snapshotJson
+               FROM experience_acknowledgements
+               WHERE userId = ? AND convertedExperienceId IS NULL
+               ORDER BY acknowledgedAt DESC;""",
+            params: [userId.uuidString]
+        ) { statement in
+            let id = UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!
+            let source = sqlite3_column_type(statement, 1) == SQLITE_NULL ? nil
+                : UUID(uuidString: String(cString: sqlite3_column_text(statement, 1)))
+            let placeId = UUID(uuidString: String(cString: sqlite3_column_text(statement, 2)))!
+            let acknowledgedAt = String(cString: sqlite3_column_text(statement, 3))
+            let converted = sqlite3_column_type(statement, 4) == SQLITE_NULL ? nil
+                : UUID(uuidString: String(cString: sqlite3_column_text(statement, 4)))
+            let snapshot = String(cString: sqlite3_column_text(statement, 5))
+            let json = (try? JSONSerialization.jsonObject(with: Data(snapshot.utf8))) as? [String: String] ?? [:]
+            return ExperienceAcknowledgementV2(
+                id: id, sourceExperienceId: source,
+                sourceAvailable: json["sourceAvailable"] != "false", sourceExperience: nil,
+                place: .init(id: placeId, name: json["placeName"] ?? "",
+                             city: json["placeCity"] ?? "", region: json["placeRegion"] ?? "",
+                             country: json["placeCountry"] ?? ""),
+                primaryExperienceCode: PrimaryExperienceCode(rawValue: json["primaryExperienceCode"] ?? "") ?? .unknown,
+                rawExperienceLabel: json["rawExperienceLabel"].flatMap { $0.isEmpty ? nil : $0 },
+                acknowledgedAt: acknowledgedAt, status: "UNCONVERTED",
+                convertedExperienceId: converted
+            )
+        }
+    }
+
+    func getAcknowledgementAnchor(
+        sourceExperienceId: UUID,
+        userId: UUID
+    ) async throws -> DurableAcknowledgementAnchor? {
+        let rows = try await database.query(
+            "SELECT placeId,snapshotJson FROM experience_acknowledgements WHERE userId = ? AND sourceExperienceId = ? LIMIT 1;",
+            params: [userId.uuidString, sourceExperienceId.uuidString]
+        ) {
+            (String(cString: sqlite3_column_text($0, 0)), String(cString: sqlite3_column_text($0, 1)))
+        }
+        guard let row = rows.first, let placeId = UUID(uuidString: row.0),
+              let data = row.1.data(using: .utf8),
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: String],
+              let primary = json["primaryExperienceCode"], !primary.isEmpty else { return nil }
+        let raw = json["rawExperienceLabel"].flatMap { $0.isEmpty ? nil : $0 }
+        return DurableAcknowledgementAnchor(
+            placeId: placeId, primaryExperienceCode: primary, rawExperienceLabel: raw
+        )
+    }
+
+    private static func planSnapshot(_ value: ExperienceV2) -> String {
+        jsonString(["title": value.title, "placeName": value.place.name,
+                    "authorName": value.author.displayName,
+                    "primaryExperienceCode": value.primaryExperience.code.rawValue,
+                    "imageURL": value.media.min(by: { $0.position < $1.position })?.url ?? ""])
+    }
+
+    private static func acknowledgementSnapshot(_ value: ExperienceV2) -> String {
+        jsonString(["placeName": value.place.name, "placeCity": value.place.city,
+                    "placeRegion": value.place.region, "placeCountry": value.place.country,
+                    "sourceAvailable": "true",
+                    "primaryExperienceCode": value.primaryExperience.code.rawValue,
+                    "rawExperienceLabel": value.primaryExperience.rawLabel ?? ""])
+    }
+
+    private static func acknowledgementSnapshot(_ value: ExperienceAcknowledgementV2) -> String {
+        jsonString(["placeName": value.place.name, "placeCity": value.place.city,
+                    "placeRegion": value.place.region, "placeCountry": value.place.country,
+                    "sourceAvailable": value.sourceAvailable ? "true" : "false",
+                    "primaryExperienceCode": value.primaryExperienceCode.rawValue,
+                    "rawExperienceLabel": value.rawExperienceLabel ?? ""])
+    }
+
+    private static func jsonString(_ value: [String: String]) -> String {
+        let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        return data.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+    }
+
+    func reconcilePlannedExperience(_ value: PlannedExperienceV2?, experienceId: UUID, userId: UUID) async throws {
+        if let value {
+            try await database.execute(
+                "UPDATE planned_experiences SET plannedAt = ?, snapshotJson = ?, pendingDesiredState = NULL WHERE userId = ? AND experienceId = ?;",
+                params: [value.plannedAt, Self.planSnapshot(value.experience), userId.uuidString, experienceId.uuidString]
+            )
+        } else {
+            try await database.execute("DELETE FROM planned_experiences WHERE userId = ? AND experienceId = ?;",
+                                       params: [userId.uuidString, experienceId.uuidString])
+        }
+    }
+
+    func reconcileAcknowledgement(_ value: ExperienceAcknowledgementV2, sourceExperienceId: UUID, userId: UUID) async throws {
+        try await database.execute(
+            """UPDATE experience_acknowledgements SET acknowledgementId = ?, acknowledgedAt = ?,
+               convertedExperienceId = ?, snapshotJson = ?, pendingUpload = 0
+               WHERE userId = ? AND sourceExperienceId = ?;""",
+            params: [value.id.uuidString, value.acknowledgedAt, value.convertedExperienceId?.uuidString,
+                     Self.acknowledgementSnapshot(value), userId.uuidString, sourceExperienceId.uuidString]
+        )
+    }
+
+    func markAcknowledgementConverted(id: UUID, experienceId: UUID, userId: UUID) async throws {
+        let changed = try await database.execute(
+            "UPDATE experience_acknowledgements SET convertedExperienceId = ? WHERE userId = ? AND acknowledgementId = ?;",
+            params: [experienceId.uuidString, userId.uuidString, id.uuidString]
+        )
+        guard changed == 1 else { throw PersistenceError.recordNotFound }
     }
 
     public func commitVisit(
@@ -185,8 +426,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 INSERT INTO pending_experience_v2_payloads (
                     mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
                     overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
-                    title,titleSource,story,tip,privateMemory,visibility
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+                    title,titleSource,story,tip,privateMemory,visibility,originAcknowledgementId
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
                 """,
                 params: [
                     mutationId.uuidString, payload.placeId.uuidString, payload.visitedAtEpochDay,
@@ -195,7 +436,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     payload.vibeCodes.sorted().joined(separator: ","),
                     payload.practicalSignalCodes.sorted().joined(separator: ","),
                     payload.title, payload.titleSource, payload.story, payload.tip,
-                    payload.privateMemory, payload.visibility
+                    payload.privateMemory, payload.visibility, payload.originAcknowledgementId?.uuidString
                 ]
             )
             for dimension in dimensions.sorted(by: { $0.dimensionKey < $1.dimensionKey }) {
@@ -365,7 +606,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             """
             SELECT mutationId,placeId,visitedAtEpochDay,primaryExperienceCode,rawExperienceLabel,
                    overallFeelingCode,companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,
-                   title,titleSource,story,tip,privateMemory,visibility
+                   title,titleSource,story,tip,privateMemory,visibility,originAcknowledgementId
             FROM pending_experience_v2_payloads WHERE mutationId = ?;
             """,
             params: [mutationId.uuidString]
@@ -386,7 +627,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 story: String(cString: sqlite3_column_text(stmt, 12)),
                 tip: String(cString: sqlite3_column_text(stmt, 13)),
                 privateMemory: String(cString: sqlite3_column_text(stmt, 14)),
-                visibility: String(cString: sqlite3_column_text(stmt, 15))
+                visibility: String(cString: sqlite3_column_text(stmt, 15)),
+                originAcknowledgementId: sqlite3_column_text(stmt, 16).flatMap { UUID(uuidString: String(cString: $0)) }
             )
         }
         guard let payload = payloads.first else { return nil }
@@ -670,8 +912,9 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     userId,placeId,overallScore,publicReview,privateMemory,visitedAtEpochDay,
                     visibility,dimensionsExpanded,createdAtEpochMillis,updatedAtEpochMillis,
                     payloadVersion,primaryExperienceCode,rawExperienceLabel,overallFeelingCode,
-                    companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,title,titleSource,story,tip
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    companionCode,timeOfDayCode,vibeCodes,practicalSignalCodes,title,titleSource,story,tip,
+                    originAcknowledgementId
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(userId,placeId) DO UPDATE SET
                     privateMemory=excluded.privateMemory,visitedAtEpochDay=excluded.visitedAtEpochDay,
                     visibility=excluded.visibility,dimensionsExpanded=excluded.dimensionsExpanded,
@@ -681,7 +924,8 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     overallFeelingCode=excluded.overallFeelingCode,companionCode=excluded.companionCode,
                     timeOfDayCode=excluded.timeOfDayCode,vibeCodes=excluded.vibeCodes,
                     practicalSignalCodes=excluded.practicalSignalCodes,title=excluded.title,
-                    titleSource=excluded.titleSource,story=excluded.story,tip=excluded.tip;
+                    titleSource=excluded.titleSource,story=excluded.story,tip=excluded.tip,
+                    originAcknowledgementId=excluded.originAcknowledgementId;
                 """,
                 params: [
                     userId.uuidString, placeId.uuidString, 8.0, p.story, p.privateMemory,
@@ -689,7 +933,7 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                     p.primaryExperienceCode, p.rawExperienceLabel, p.overallFeelingCode,
                     p.companionCode, p.timeOfDayCode, p.vibeCodes.sorted().joined(separator: ","),
                     p.practicalSignalCodes.sorted().joined(separator: ","), p.title,
-                    p.titleSource, p.story, p.tip
+                    p.titleSource, p.story, p.tip, p.originAcknowledgementId?.uuidString
                 ]
             )
             try db.execute(

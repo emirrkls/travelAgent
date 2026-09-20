@@ -327,6 +327,37 @@ actor PersistentDatabase {
             try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_pending_experience_v2_dimensions_mutation ON pending_experience_v2_dimensions(mutationId);")
             try executeRaw(handle, "PRAGMA user_version = 2;")
         }
+        if version < 3 {
+            // Milestone 4 keeps the durable conversion anchor on both drafts and queued publishes.
+            try executeRaw(handle, "ALTER TABLE visit_drafts ADD COLUMN originAcknowledgementId TEXT;")
+            try executeRaw(handle, "ALTER TABLE pending_experience_v2_payloads ADD COLUMN originAcknowledgementId TEXT;")
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS planned_experiences (
+                userId TEXT NOT NULL,
+                experienceId TEXT NOT NULL,
+                plannedAt TEXT NOT NULL,
+                snapshotJson TEXT NOT NULL,
+                pendingDesiredState INTEGER,
+                PRIMARY KEY (userId, experienceId)
+            );
+            """)
+            try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_planned_experiences_user_time ON planned_experiences(userId, plannedAt DESC);")
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS experience_acknowledgements (
+                userId TEXT NOT NULL,
+                acknowledgementId TEXT NOT NULL,
+                sourceExperienceId TEXT,
+                placeId TEXT NOT NULL,
+                acknowledgedAt TEXT NOT NULL,
+                convertedExperienceId TEXT,
+                snapshotJson TEXT NOT NULL,
+                pendingUpload INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (userId, acknowledgementId)
+            );
+            """)
+            try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_experience_ack_user_time ON experience_acknowledgements(userId, acknowledgedAt DESC);")
+            try executeRaw(handle, "PRAGMA user_version = 3;")
+        }
     }
 
     private static func userVersion(_ handle: OpaquePointer?) throws -> Int {

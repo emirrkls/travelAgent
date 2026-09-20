@@ -4,6 +4,25 @@ enum MutationType: String, Sendable, Codable, CaseIterable {
     case publishVisit = "PUBLISH_VISIT"
     case publishExperienceV2 = "PUBLISH_EXPERIENCE_V2"
     case setSavedState = "SET_SAVED_STATE"
+    case setPlannedExperienceState = "SET_PLANNED_EXPERIENCE_STATE"
+    case acknowledgeExperience = "ACKNOWLEDGE_EXPERIENCE"
+}
+
+struct DurableAcknowledgementAnchor: Equatable, Sendable {
+    let placeId: UUID
+    let primaryExperienceCode: String
+    let rawExperienceLabel: String?
+}
+
+struct DurablePlannedExperienceRow: Equatable, Sendable, Identifiable {
+    let id: UUID
+    let title: String
+    let placeName: String
+    let authorName: String
+    let primaryExperienceCode: String
+    let imageURL: String?
+    let plannedAt: String
+    let pendingDesiredState: Bool?
 }
 
 enum MutationState: String, Sendable, Codable, CaseIterable {
@@ -168,6 +187,7 @@ struct DurableVisitDraft: Sendable, Equatable {
     public var titleSource: String
     public var story: String
     public var tip: String
+    public var originAcknowledgementId: UUID?
 
     public init(
         userId: UUID,
@@ -193,7 +213,8 @@ struct DurableVisitDraft: Sendable, Equatable {
         title: String? = nil,
         titleSource: String = "GENERATED",
         story: String = "",
-        tip: String = ""
+        tip: String = "",
+        originAcknowledgementId: UUID? = nil
     ) {
         self.userId = userId
         self.placeId = placeId
@@ -219,6 +240,7 @@ struct DurableVisitDraft: Sendable, Equatable {
         self.titleSource = titleSource
         self.story = story
         self.tip = tip
+        self.originAcknowledgementId = originAcknowledgementId
     }
 
     public var isExpired: Bool {
@@ -352,6 +374,7 @@ struct DurablePendingExperienceV2Payload: Sendable, Equatable {
     let tip: String
     let privateMemory: String
     let visibility: String
+    var originAcknowledgementId: UUID? = nil
 }
 
 struct DurablePendingExperienceV2Dimension: Sendable, Equatable {

@@ -117,6 +117,7 @@ final class VisitComposerController {
         state.titleSource = ExperienceTitleSource(rawValue: draft.titleSource) ?? .generated
         state.story = draft.story
         state.tip = draft.tip
+        state.originAcknowledgementId = draft.originAcknowledgementId
         await mediaCoordinator.restoreDurablePhotos(draft.photos)
         syncMediaState()
     }
@@ -269,7 +270,8 @@ final class VisitComposerController {
             title: VisitValidation.trimmedOptional(state.title),
             titleSource: state.titleSource.rawValue,
             story: state.story,
-            tip: state.tip
+            tip: state.tip,
+            originAcknowledgementId: state.originAcknowledgementId
         )
     }
 
@@ -334,7 +336,8 @@ final class VisitComposerController {
                         story: state.story.trimmingCharacters(in: .whitespacesAndNewlines),
                         tip: state.tip.trimmingCharacters(in: .whitespacesAndNewlines),
                         privateMemory: state.privateMemory.trimmingCharacters(in: .whitespacesAndNewlines),
-                        visibility: state.visibility.rawValue
+                        visibility: state.visibility.rawValue,
+                        originAcknowledgementId: state.originAcknowledgementId
                     )
                     let dimensions = state.semanticDimensions.map {
                         DurablePendingExperienceV2Dimension(

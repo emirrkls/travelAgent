@@ -8,15 +8,28 @@ final class ExperienceDetailController {
     private(set) var experience: ExperienceV2?
     private(set) var isLoading = false
     private(set) var relationshipBusy = false
+    private(set) var planBusy = false
+    private(set) var acknowledgementBusy = false
     private(set) var error: AppError?
     private let id: UUID
     private let service: any ExperienceDiscoveryServing
     private let privacy: any PrivacyV2Serving
+    private let mutationRepository: (any OfflineMutationRepository)?
+    private let syncEngine: MutationSyncEngine?
+    private let currentUserId: UUID?
 
-    init(id: UUID, service: any ExperienceDiscoveryServing, privacy: any PrivacyV2Serving) {
+    init(
+        id: UUID, service: any ExperienceDiscoveryServing, privacy: any PrivacyV2Serving,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        syncEngine: MutationSyncEngine? = nil,
+        currentUserId: UUID? = nil
+    ) {
         self.id = id
         self.service = service
         self.privacy = privacy
+        self.mutationRepository = mutationRepository
+        self.syncEngine = syncEngine
+        self.currentUserId = currentUserId
     }
 
     func load() async {
@@ -54,6 +67,50 @@ final class ExperienceDetailController {
         } catch {
             self.error = .server
         }
+    }
+
+    func togglePlanned() async {
+        guard let value = experience, !planBusy else { return }
+        planBusy = true
+        defer { planBusy = false }
+        do {
+            let desired = !(value.plannedByViewer ?? false)
+            if let mutationRepository, let currentUserId {
+                try await mutationRepository.setPlannedExperience(value, userId: currentUserId, desired: desired)
+                _ = await syncEngine?.drain()
+            } else {
+                _ = try await service.setPlanned(experienceId: value.id, desired: desired)
+            }
+            experience = value.replacingMilestone(
+                planned: desired,
+                acknowledged: value.acknowledgedByViewer ?? false,
+                count: value.acknowledgementCount ?? 0
+            )
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    func acknowledge() async {
+        guard let value = experience,
+              value.author.relationship != nil,
+              !(value.acknowledgedByViewer ?? false),
+              !acknowledgementBusy else { return }
+        acknowledgementBusy = true
+        defer { acknowledgementBusy = false }
+        do {
+            if let mutationRepository, let currentUserId {
+                _ = try await mutationRepository.acknowledgeExperience(value, userId: currentUserId)
+                _ = await syncEngine?.drain()
+            } else {
+                _ = try await service.acknowledge(experienceId: value.id)
+            }
+            experience = value.replacingMilestone(
+                planned: value.plannedByViewer ?? false,
+                acknowledged: true,
+                count: (value.acknowledgementCount ?? 0) + 1
+            )
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
     }
 
     private func renewExpiringMedia(_ value: ExperienceV2) async {
@@ -112,13 +169,32 @@ private extension ExperienceV2 {
             dimensions: dimensions,
             media: media,
             visibility: visibility,
-            taxonomyVersion: taxonomyVersion
+            taxonomyVersion: taxonomyVersion,
+            plannedByViewer: plannedByViewer,
+            acknowledgedByViewer: acknowledgedByViewer,
+            acknowledgementCount: acknowledgementCount
+        )
+    }
+
+
+    func replacingMilestone(planned: Bool, acknowledged: Bool, count: Int) -> Self {
+        ExperienceV2(
+            id: id, classification: classification, author: author, place: place,
+            experiencedAt: experiencedAt, title: title, titleSource: titleSource,
+            titlePersisted: titlePersisted, story: story, tip: tip, feeling: feeling,
+            primaryExperience: primaryExperience, companion: companion, timeOfDay: timeOfDay,
+            vibes: vibes, practicalSignals: practicalSignals, dimensions: dimensions, media: media,
+            visibility: visibility, taxonomyVersion: taxonomyVersion,
+            plannedByViewer: planned, acknowledgedByViewer: acknowledged,
+            acknowledgementCount: count
         )
     }
 }
 
 struct ExperienceDetailScreen: View {
     @State private var controller: ExperienceDetailController
+    @State private var showingCollections = false
+    let collections: CollectionStore?
     let onAuthor: (UUID) -> Void
     let onPlace: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
@@ -128,10 +204,19 @@ struct ExperienceDetailScreen: View {
         id: UUID,
         service: any ExperienceDiscoveryServing,
         privacy: any PrivacyV2Serving,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
+        syncEngine: MutationSyncEngine? = nil,
+        currentUserId: UUID? = nil,
+        collections: CollectionStore? = nil,
         onAuthor: @escaping (UUID) -> Void,
         onPlace: @escaping (UUID) -> Void
     ) {
-        _controller = State(initialValue: ExperienceDetailController(id: id, service: service, privacy: privacy))
+        _controller = State(initialValue: ExperienceDetailController(
+            id: id, service: service, privacy: privacy,
+            mutationRepository: mutationRepository, syncEngine: syncEngine,
+            currentUserId: currentUserId
+        ))
+        self.collections = collections
         self.onAuthor = onAuthor
         self.onPlace = onPlace
     }
@@ -155,6 +240,11 @@ struct ExperienceDetailScreen: View {
         .navigationTitle(phokartaString("experience.detail.title", locale: locale))
         .navigationBarTitleDisplayMode(.inline)
         .task { if controller.experience == nil { await controller.load() } }
+        .sheet(isPresented: $showingCollections) {
+            if let collections, let experience = controller.experience {
+                ExperienceCollectionPickerSheet(store: collections, experience: experience)
+            }
+        }
     }
 
     private func content(_ experience: ExperienceV2) -> some View {
@@ -238,6 +328,42 @@ struct ExperienceDetailScreen: View {
                 }
                 if ExperienceLocalizedLabels.shouldShowTitle(experience.title, placeName: experience.place.name, classification: experience.classification) {
                     Text(experience.title).font(.largeTitle.bold())
+                }
+                HStack(spacing: PhokartaSpacing.sm) {
+                    Button {
+                        Task { await controller.togglePlanned() }
+                    } label: {
+                        Label(
+                            String(localized: (experience.plannedByViewer ?? false) ? "experience.planned" : "experience.plan"),
+                            systemImage: (experience.plannedByViewer ?? false) ? "bookmark.fill" : "bookmark"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.planBusy)
+
+                    if experience.author.relationship != nil {
+                        Button {
+                            Task { await controller.acknowledge() }
+                        } label: {
+                            Label(
+                                String(localized: (experience.acknowledgedByViewer ?? false) ? "experience.acknowledged" : "experience.acknowledge"),
+                                systemImage: (experience.acknowledgedByViewer ?? false) ? "checkmark.circle.fill" : "checkmark.circle"
+                            )
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(controller.acknowledgementBusy || (experience.acknowledgedByViewer ?? false))
+                    }
+                }
+                if (experience.acknowledgementCount ?? 0) > 0 {
+                    Text(String(localized: "experience.acknowledgement_count \(experience.acknowledgementCount ?? 0)"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if collections != nil {
+                    Button { showingCollections = true } label: {
+                        Label("collection.add_experience", systemImage: "folder.badge.plus")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint(String(localized: "collection.add_experience_hint"))
                 }
                 if let primary = experience.primaryExperience.rawLabel ?? ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) {
                     Text(primary).font(.headline).foregroundStyle(.tint)
@@ -325,5 +451,67 @@ struct ExperienceDetailScreen: View {
         case .friends: "experience.relationship.friends"
         default: ""
         }
+    }
+}
+
+struct ExperienceCollectionPickerSheet: View {
+    let store: CollectionStore
+    let experience: ExperienceV2
+    @Environment(\.dismiss) private var dismiss
+    @State private var loading = false
+    @State private var error: AppError?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if loading && store.summaries.isEmpty {
+                    ProgressView().frame(maxWidth: .infinity)
+                } else if store.summaries.isEmpty {
+                    FeatureEmptyState(title: String(localized: "collections.empty_list"))
+                } else {
+                    ForEach(store.summaries) { collection in
+                        Button {
+                            Task { await add(to: collection.id) }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(collection.title).font(.headline)
+                                    Text(String(localized: String.LocalizationValue(collection.visibility.localizationKey)))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "plus.circle")
+                            }
+                        }
+                        .accessibilityLabel(String(localized: "collection.add_experience_to \(collection.title)"))
+                    }
+                }
+                if let error {
+                    Text(error.localizedMessage).foregroundStyle(.red)
+                }
+            }
+            .navigationTitle("collection.choose")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("action.cancel") { dismiss() }
+                }
+            }
+            .task {
+                loading = true
+                defer { loading = false }
+                do { try await store.refreshList() }
+                catch let appError as AppError { error = appError }
+                catch { error = .server }
+            }
+        }
+    }
+
+    private func add(to collectionID: UUID) async {
+        error = nil
+        do {
+            try await store.add(experienceID: experience.id, to: collectionID)
+            dismiss()
+        } catch let appError as AppError { error = appError }
+        catch { error = .server }
     }
 }

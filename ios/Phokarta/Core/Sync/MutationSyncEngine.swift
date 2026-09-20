@@ -95,6 +95,10 @@ actor MutationSyncEngine {
                 outcome = await syncExperienceV2(mutation: claimedMutation, userId: userId)
             case .setSavedState:
                 outcome = .failure(retryable: false, category: "UNSUPPORTED_TYPE")
+            case .setPlannedExperienceState:
+                outcome = await syncPlannedExperience(mutation: claimedMutation, userId: userId)
+            case .acknowledgeExperience:
+                outcome = await syncAcknowledgement(mutation: claimedMutation, userId: userId)
             }
 
             processed += 1
@@ -120,6 +124,58 @@ actor MutationSyncEngine {
         }
 
         return SyncRunResult(retryableFailure: retryable, processed: processed)
+    }
+
+    private func syncPlannedExperience(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {
+        guard let experienceId = UUID(uuidString: mutation.resourceKey) else {
+            return .failure(retryable: false, category: "INVALID_PAYLOAD")
+        }
+        do {
+            let canonical = try await visitService.setPlannedExperience(
+                id: experienceId, desired: mutation.payloadVersion == 1
+            )
+            try await mutationRepository.reconcilePlannedExperience(
+                canonical, experienceId: experienceId, userId: userId
+            )
+            guard try await mutationRepository.deleteIfGeneration(
+                mutationId: mutation.mutationId, generation: mutation.generation
+            ) else { return .failure(retryable: true, category: "RECONCILIATION_RACE") }
+            return .success
+        } catch let appError as AppError {
+            if appError == .notFound {
+                try? await mutationRepository.reconcilePlannedExperience(
+                    nil, experienceId: experienceId, userId: userId
+                )
+                if (try? await mutationRepository.deleteIfGeneration(
+                    mutationId: mutation.mutationId, generation: mutation.generation
+                )) == true { return .success }
+                return .failure(retryable: true, category: "RECONCILIATION_RACE")
+            }
+            return classifyAppError(appError)
+        }
+        catch { return .failure(retryable: true, category: "UNKNOWN_ERROR") }
+    }
+
+    private func syncAcknowledgement(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {
+        guard let experienceId = UUID(uuidString: mutation.resourceKey) else {
+            return .failure(retryable: false, category: "INVALID_PAYLOAD")
+        }
+        do {
+            guard let anchor = try await mutationRepository.getAcknowledgementAnchor(
+                sourceExperienceId: experienceId, userId: userId
+            ) else { return .failure(retryable: false, category: "MISSING_ACKNOWLEDGEMENT_ANCHOR") }
+            let canonical = try await visitService.acknowledgeExperience(
+                id: experienceId, clientAcknowledgementId: mutation.mutationId, anchor: anchor
+            )
+            try await mutationRepository.reconcileAcknowledgement(
+                canonical, sourceExperienceId: experienceId, userId: userId
+            )
+            guard try await mutationRepository.deleteIfGeneration(
+                mutationId: mutation.mutationId, generation: mutation.generation
+            ) else { return .failure(retryable: true, category: "RECONCILIATION_RACE") }
+            return .success
+        } catch let appError as AppError { return classifyAppError(appError) }
+        catch { return .failure(retryable: true, category: "UNKNOWN_ERROR") }
     }
 
     private func syncVisit(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {
@@ -281,7 +337,8 @@ actor MutationSyncEngine {
             tip: VisitValidation.trimmedOptional(bundle.payload.tip),
             privateMemory: VisitValidation.trimmedOptional(bundle.payload.privateMemory),
             visibility: VisitVisibility(rawValue: bundle.payload.visibility) ?? .publicAccess,
-            mediaIds: mediaIds
+            mediaIds: mediaIds,
+            originAcknowledgementId: bundle.payload.originAcknowledgementId
         )
         do {
             let experience = try await visitService.createExperience(request)
@@ -319,6 +376,15 @@ actor MutationSyncEngine {
                 },
                 visibility: experience.visibility
             )
+            if let acknowledgementId = bundle.payload.originAcknowledgementId {
+                do {
+                    try await mutationRepository.markAcknowledgementConverted(
+                        id: acknowledgementId, experienceId: experience.id, userId: userId
+                    )
+                } catch {
+                    return .failure(retryable: true, category: "ACKNOWLEDGEMENT_RECONCILIATION")
+                }
+            }
             guard try await mutationRepository.deleteIfGeneration(
                 mutationId: mutation.mutationId,
                 generation: mutation.generation

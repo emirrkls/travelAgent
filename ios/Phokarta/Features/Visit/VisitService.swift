@@ -39,6 +39,48 @@ struct ExperienceV2Endpoint: APIEndpoint {
     var requiresAuthentication: Bool { false }
 }
 
+struct SyncPlanExperienceEndpoint: APIEndpoint {
+    typealias Response = PlannedExperienceV2
+    let experienceId: UUID
+    var method: HTTPMethod { .put }
+    var path: String { "api/v2/me/planned-experiences/\(experienceId.uuidString.uppercased())" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct SyncUnplanExperienceEndpoint: APIEndpoint {
+    typealias Response = EmptyPayload
+    let experienceId: UUID
+    var method: HTTPMethod { .delete }
+    var path: String { "api/v2/me/planned-experiences/\(experienceId.uuidString.uppercased())" }
+    var requiresAuthentication: Bool { true }
+}
+
+struct SyncAcknowledgeExperienceEndpoint: APIEndpoint {
+    typealias Response = ExperienceAcknowledgementV2
+    let experienceId: UUID
+    let clientAcknowledgementId: UUID?
+    let anchorPlaceId: UUID?
+    let anchorPrimaryExperienceCode: String?
+    let anchorRawExperienceLabel: String?
+    var method: HTTPMethod { .put }
+    var path: String { "api/v2/experiences/\(experienceId.uuidString.uppercased())/acknowledgement" }
+    var requiresAuthentication: Bool { true }
+    var queryItems: [URLQueryItem] {
+        var values: [URLQueryItem] = []
+        if let clientAcknowledgementId {
+            values.append(URLQueryItem(name: "clientAcknowledgementId", value: clientAcknowledgementId.uuidString))
+        }
+        if let anchorPlaceId { values.append(URLQueryItem(name: "anchorPlaceId", value: anchorPlaceId.uuidString)) }
+        if let anchorPrimaryExperienceCode {
+            values.append(URLQueryItem(name: "anchorPrimaryExperienceCode", value: anchorPrimaryExperienceCode))
+        }
+        if let anchorRawExperienceLabel {
+            values.append(URLQueryItem(name: "anchorRawExperienceLabel", value: anchorRawExperienceLabel))
+        }
+        return values
+    }
+}
+
 protocol ExperienceV2Serving: Sendable {
     func experience(id: UUID) async throws -> ExperienceV2
 }
@@ -55,11 +97,23 @@ protocol VisitServing: Sendable {
     func create(_ request: VisitCreateRequest) async throws -> OwnerVisit
     func createExperience(_ request: ExperienceV2CreateRequest) async throws -> ExperienceV2
     func ownerVisits() async throws -> [OwnerVisit]
+    func setPlannedExperience(id: UUID, desired: Bool) async throws -> PlannedExperienceV2?
+    func acknowledgeExperience(id: UUID, clientAcknowledgementId: UUID?) async throws -> ExperienceAcknowledgementV2
+    func acknowledgeExperience(
+        id: UUID, clientAcknowledgementId: UUID?, anchor: DurableAcknowledgementAnchor?
+    ) async throws -> ExperienceAcknowledgementV2
 }
 
 extension VisitServing {
     func createExperience(_ request: ExperienceV2CreateRequest) async throws -> ExperienceV2 {
         throw AppError.server
+    }
+    func setPlannedExperience(id: UUID, desired: Bool) async throws -> PlannedExperienceV2? { throw AppError.server }
+    func acknowledgeExperience(id: UUID, clientAcknowledgementId: UUID?) async throws -> ExperienceAcknowledgementV2 { throw AppError.server }
+    func acknowledgeExperience(
+        id: UUID, clientAcknowledgementId: UUID?, anchor: DurableAcknowledgementAnchor?
+    ) async throws -> ExperienceAcknowledgementV2 {
+        try await acknowledgeExperience(id: id, clientAcknowledgementId: clientAcknowledgementId)
     }
 }
 
@@ -84,6 +138,28 @@ struct VisitService: VisitServing {
             page += 1
         } while true
         return rows
+    }
+
+    func setPlannedExperience(id: UUID, desired: Bool) async throws -> PlannedExperienceV2? {
+        if desired { return try await client.send(SyncPlanExperienceEndpoint(experienceId: id)) }
+        _ = try await client.send(SyncUnplanExperienceEndpoint(experienceId: id))
+        return nil
+    }
+
+    func acknowledgeExperience(id: UUID, clientAcknowledgementId: UUID?) async throws -> ExperienceAcknowledgementV2 {
+        try await acknowledgeExperience(id: id, clientAcknowledgementId: clientAcknowledgementId, anchor: nil)
+    }
+
+    func acknowledgeExperience(
+        id: UUID, clientAcknowledgementId: UUID?, anchor: DurableAcknowledgementAnchor?
+    ) async throws -> ExperienceAcknowledgementV2 {
+        try await client.send(SyncAcknowledgeExperienceEndpoint(
+            experienceId: id,
+            clientAcknowledgementId: clientAcknowledgementId,
+            anchorPlaceId: anchor?.placeId,
+            anchorPrimaryExperienceCode: anchor?.primaryExperienceCode,
+            anchorRawExperienceLabel: anchor?.rawExperienceLabel
+        ))
     }
 }
 

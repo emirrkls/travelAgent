@@ -503,6 +503,30 @@ final class ExperienceV2FoundationTests: XCTestCase {
         XCTAssertEqual(DimensionStateCode.veryWeak.compatibilityScore, 2)
     }
 
+    func testMixedCollectionDecodesExperienceIdentityWithoutCollapsingToPlace() throws {
+        let json = """
+        {
+          "id":"40000000-0000-0000-0000-000000000099",
+          "ownerUserId":"11111111-1111-1111-1111-111111111111",
+          "title":"Mixed","description":"","visibility":"PRIVATE","coverImage":"",
+          "createdAt":"2026-09-17T10:00:00Z","updatedAt":"2026-09-17T10:00:00Z",
+          "items":[{
+            "type":"EXPERIENCE","displayOrder":0,"addedAt":"2026-09-17T10:00:00Z",
+            "place":null,"experience":\(Self.fixture)
+          }]
+        }
+        """
+
+        let detail = try APIJSON.decoder.decode(CollectionDetail.self, from: Data(json.utf8))
+
+        XCTAssertTrue(detail.places.isEmpty)
+        XCTAssertEqual(detail.items.count, 1)
+        XCTAssertEqual(detail.items.first?.type, .experience)
+        XCTAssertEqual(detail.items.first?.experience?.id.uuidString.lowercased(),
+                       "30000000-0000-0000-0000-000000000001")
+        XCTAssertEqual(detail.items.first?.experience?.place.name, "Foça")
+    }
+
     private static let fixture = """
     {
       "id":"30000000-0000-0000-0000-000000000001",

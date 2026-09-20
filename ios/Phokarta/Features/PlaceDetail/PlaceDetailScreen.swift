@@ -18,6 +18,7 @@ struct PlaceDetailScreen: View {
     private let syncEngine: MutationSyncEngine?
     private let onSelectUser: ((UUID) -> Void)?
     private let onSelectExperience: ((UUID) -> Void)?
+    private let openComposerOnLoad: Bool
 
     init(
         placeId: UUID,
@@ -32,7 +33,8 @@ struct PlaceDetailScreen: View {
         onSelectUser: ((UUID) -> Void)? = nil,
         experienceService: (any ExperienceDiscoveryServing)? = nil,
         privacyService: (any PrivacyV2Serving)? = nil,
-        onSelectExperience: ((UUID) -> Void)? = nil
+        onSelectExperience: ((UUID) -> Void)? = nil,
+        openComposerOnLoad: Bool = false
     ) {
         self.saved = saved
         self.collections = collections
@@ -43,6 +45,7 @@ struct PlaceDetailScreen: View {
         self.syncEngine = syncEngine
         self.onSelectUser = onSelectUser
         self.onSelectExperience = onSelectExperience
+        self.openComposerOnLoad = openComposerOnLoad
         _controller = State(initialValue: PlaceDetailController(
             placeId: placeId,
             places: places,
@@ -81,6 +84,11 @@ struct PlaceDetailScreen: View {
         .task {
             controller.startIfNeeded()
             await reloadPendingVisits()
+        }
+        .onChange(of: controller.content?.place.id, initial: true) { _, placeId in
+            if openComposerOnLoad && placeId != nil {
+                showingVisitComposer = true
+            }
         }
         .onDisappear {
             controller.cancel()
@@ -313,10 +321,14 @@ struct PlaceDetailScreen: View {
                     ExperienceCardView(
                         experience: experience,
                         relationshipBusy: controller.relationshipBusy.contains(experience.author.id),
+                        planBusy: controller.planBusy.contains(experience.id),
+                        acknowledgementBusy: controller.acknowledgementBusy.contains(experience.id),
                         onOpen: { onSelectExperience?(experience.id) },
                         onAuthor: { onSelectUser?(experience.author.id) },
                         onPlace: {},
-                        onRelationship: { controller.toggleExperienceRelationship(authorId: experience.author.id) }
+                        onRelationship: { controller.toggleExperienceRelationship(authorId: experience.author.id) },
+                        onPlan: { controller.togglePlannedExperience(id: experience.id) },
+                        onAcknowledge: { controller.acknowledgeExperience(id: experience.id) }
                     )
                 }
                 if controller.experiencesHasMore {

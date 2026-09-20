@@ -38,7 +38,7 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                    createdAtEpochMillis, updatedAtEpochMillis, payloadVersion,
                    primaryExperienceCode, rawExperienceLabel, overallFeelingCode,
                    companionCode, timeOfDayCode, vibeCodes, practicalSignalCodes,
-                   title, titleSource, story, tip
+                   title, titleSource, story, tip, originAcknowledgementId
             FROM visit_drafts
             WHERE userId = ? AND placeId = ?;
             """,
@@ -66,7 +66,8 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                 title: sqlite3_column_text(stmt, 18).map { String(cString: $0) },
                 titleSource: String(cString: sqlite3_column_text(stmt, 19)),
                 story: String(cString: sqlite3_column_text(stmt, 20)),
-                tip: String(cString: sqlite3_column_text(stmt, 21))
+                tip: String(cString: sqlite3_column_text(stmt, 21)),
+                originAcknowledgementId: sqlite3_column_text(stmt, 22).flatMap { UUID(uuidString: String(cString: $0)) }
             )
         }
 
@@ -123,8 +124,8 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     createdAtEpochMillis, updatedAtEpochMillis, payloadVersion,
                     primaryExperienceCode, rawExperienceLabel, overallFeelingCode,
                     companionCode, timeOfDayCode, vibeCodes, practicalSignalCodes,
-                    title, titleSource, story, tip
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    title, titleSource, story, tip, originAcknowledgementId
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(userId, placeId) DO UPDATE SET
                     overallScore = excluded.overallScore,
                     publicReview = excluded.publicReview,
@@ -144,6 +145,7 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     titleSource = excluded.titleSource,
                     story = excluded.story,
                     tip = excluded.tip,
+                    originAcknowledgementId = excluded.originAcknowledgementId,
                     updatedAtEpochMillis = excluded.updatedAtEpochMillis;
                 """,
                 params: [
@@ -168,7 +170,8 @@ final class SQLiteVisitDraftRepository: VisitDraftRepository, Sendable {
                     draft.title,
                     draft.titleSource,
                     draft.story,
-                    draft.tip
+                    draft.tip,
+                    draft.originAcknowledgementId?.uuidString
                 ]
             )
 

@@ -453,6 +453,26 @@ struct CollectionPlace: Decodable, Equatable, Sendable, Identifiable {
     var id: UUID { place.id }
 }
 
+enum CollectionItemType: String, Decodable, Equatable, Sendable {
+    case place = "PLACE"
+    case experience = "EXPERIENCE"
+}
+
+struct CollectionItem: Decodable, Equatable, Sendable, Identifiable {
+    let type: CollectionItemType
+    let displayOrder: Int
+    let addedAt: String
+    let place: PlaceSummary?
+    let experience: ExperienceV2?
+
+    var id: String {
+        switch type {
+        case .place: "place:\(place?.id.uuidString ?? \"missing\")"
+        case .experience: "experience:\(experience?.id.uuidString ?? \"missing\")"
+        }
+    }
+}
+
 struct CollectionDetail: Decodable, Equatable, Sendable, Identifiable {
     let id: UUID
     let userId: UUID
@@ -463,6 +483,61 @@ struct CollectionDetail: Decodable, Equatable, Sendable, Identifiable {
     let createdAt: String
     let updatedAt: String
     let places: [CollectionPlace]
+    let items: [CollectionItem]
+
+    init(
+        id: UUID, userId: UUID, title: String, description: String,
+        visibility: CollectionVisibility, coverImage: String, createdAt: String,
+        updatedAt: String, places: [CollectionPlace], items: [CollectionItem]? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.title = title
+        self.description = description
+        self.visibility = visibility
+        self.coverImage = coverImage
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.places = places
+        self.items = items ?? places.map {
+            CollectionItem(type: .place, displayOrder: $0.displayOrder, addedAt: $0.addedAt,
+                           place: $0.place, experience: nil)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        if let legacyUserId = try container.decodeIfPresent(UUID.self, forKey: .userId) {
+            userId = legacyUserId
+        } else {
+            userId = try container.decode(UUID.self, forKey: .ownerUserId)
+        }
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decode(String.self, forKey: .description)
+        visibility = try container.decode(CollectionVisibility.self, forKey: .visibility)
+        coverImage = try container.decode(String.self, forKey: .coverImage)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        if let decodedItems = try container.decodeIfPresent([CollectionItem].self, forKey: .items) {
+            items = decodedItems
+            places = decodedItems.compactMap { item in
+                guard item.type == .place, let place = item.place else { return nil }
+                return CollectionPlace(place: place, displayOrder: item.displayOrder, addedAt: item.addedAt)
+            }
+        } else {
+            places = try container.decodeIfPresent([CollectionPlace].self, forKey: .places) ?? []
+            items = places.map {
+                CollectionItem(type: .place, displayOrder: $0.displayOrder, addedAt: $0.addedAt,
+                               place: $0.place, experience: nil)
+            }
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, userId, ownerUserId, title, description, visibility, coverImage
+        case createdAt, updatedAt, places, items
+    }
 }
 
 struct CreateCollectionRequestDTO: Encodable, Equatable, Sendable {

@@ -103,12 +103,15 @@ struct MainTabView: View {
 }
 
 enum SavedCollectionsSegment: Int, CaseIterable {
-    case places = 0
+    case wantToGo = 0
     case collections = 1
 }
 
+enum WantToGoSegment: Int, CaseIterable { case experiences = 0, places = 1 }
+
 struct SavedTab: View {
-    @State private var selectedSegment: SavedCollectionsSegment = .places
+    @State private var selectedSegment: SavedCollectionsSegment = .wantToGo
+    @State private var wantToGoSegment: WantToGoSegment = .experiences
     let environment: AppEnvironment
     let user: CurrentUser
     @Environment(\.colorScheme) private var colorScheme
@@ -116,7 +119,7 @@ struct SavedTab: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $selectedSegment) {
-                Text(String(localized: "saved.places_tab")).tag(SavedCollectionsSegment.places)
+                Text(String(localized: "plan.want_to_go")).tag(SavedCollectionsSegment.wantToGo)
                 Text(String(localized: "saved.collections_tab")).tag(SavedCollectionsSegment.collections)
             }
             .pickerStyle(.segmented)
@@ -125,19 +128,32 @@ struct SavedTab: View {
             .padding(.bottom, 4)
             .background(PhokartaColor.background(for: colorScheme))
 
-            if selectedSegment == .places {
-                SavedScreen(
-                    store: environment.saved,
-                    places: environment.places,
-                    collections: environment.collections,
-                    visits: environment.visits,
-                    draftRepository: environment.draftRepository,
-                    mutationRepository: environment.mutationRepository,
-                    mediaStore: environment.mediaStore,
-                    syncEngine: environment.syncEngine,
-                    environment: environment,
-                    currentUserId: user.id
-                )
+            if selectedSegment == .wantToGo {
+                VStack(spacing: 0) {
+                    Picker("", selection: $wantToGoSegment) {
+                        Text(String(localized: "plan.experiences")).tag(WantToGoSegment.experiences)
+                        Text(String(localized: "plan.places")).tag(WantToGoSegment.places)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, PhokartaSpacing.md)
+                    .padding(.vertical, 8)
+                    if wantToGoSegment == .experiences {
+                        PlannedExperiencesScreen(environment: environment, currentUserId: user.id)
+                    } else {
+                        SavedScreen(
+                            store: environment.saved,
+                            places: environment.places,
+                            collections: environment.collections,
+                            visits: environment.visits,
+                            draftRepository: environment.draftRepository,
+                            mutationRepository: environment.mutationRepository,
+                            mediaStore: environment.mediaStore,
+                            syncEngine: environment.syncEngine,
+                            environment: environment,
+                            currentUserId: user.id
+                        )
+                    }
+                }
             } else {
                 CollectionsScreen(
                     store: environment.collections,
@@ -149,6 +165,113 @@ struct SavedTab: View {
                     mediaStore: environment.mediaStore,
                     syncEngine: environment.syncEngine
                 )
+            }
+        }
+    }
+}
+
+@MainActor
+@Observable
+final class PlannedExperiencesController {
+    private(set) var rows: [DurablePlannedExperienceRow] = []
+    private(set) var loading = false
+    private(set) var error: AppError?
+    private let service: any ExperienceDiscoveryServing
+    private let mutations: any OfflineMutationRepository
+    private let syncEngine: MutationSyncEngine
+    private let userId: UUID
+    init(service: any ExperienceDiscoveryServing, mutations: any OfflineMutationRepository,
+         syncEngine: MutationSyncEngine, userId: UUID) {
+        self.service = service
+        self.mutations = mutations
+        self.syncEngine = syncEngine
+        self.userId = userId
+    }
+    func load() async {
+        loading = rows.isEmpty
+        defer { loading = false }
+        let local = (try? await mutations.localPlannedExperiences(userId: userId)) ?? []
+        if rows.isEmpty { rows = local }
+        do {
+            let remote = try await service.plannedExperiences(page: 0).content.map {
+                DurablePlannedExperienceRow(
+                    id: $0.id, title: $0.experience.title, placeName: $0.experience.place.name,
+                    authorName: $0.experience.author.displayName,
+                    primaryExperienceCode: $0.experience.primaryExperience.code.rawValue,
+                    imageURL: $0.experience.media.min(by: { $0.position < $1.position })?.url,
+                    plannedAt: $0.plannedAt, pendingDesiredState: nil
+                )
+            }
+            var seen = Set<UUID>()
+            let optimistic = local.filter { $0.pendingDesiredState == true }
+            rows = (optimistic + remote).filter { seen.insert($0.id).inserted }
+            error = nil
+        }
+        catch let value as AppError { error = value }
+        catch { error = .server }
+    }
+    func remove(_ id: UUID) async {
+        do {
+            try await mutations.removePlannedExperience(experienceId: id, userId: userId)
+            rows.removeAll { $0.id == id }
+            _ = await syncEngine.drain()
+        }
+        catch let value as AppError { error = value }
+        catch { error = .server }
+    }
+}
+
+struct PlannedExperiencesScreen: View {
+    @State private var controller: PlannedExperiencesController
+    @State private var path: [AppRoute] = []
+    let environment: AppEnvironment
+    let currentUserId: UUID
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(environment: AppEnvironment, currentUserId: UUID) {
+        self.environment = environment
+        self.currentUserId = currentUserId
+        _controller = State(initialValue: PlannedExperiencesController(
+            service: environment.experiences, mutations: environment.mutationRepository,
+            syncEngine: environment.syncEngine, userId: currentUserId
+        ))
+    }
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            Group {
+                if controller.loading && controller.rows.isEmpty { ProgressView() }
+                else if controller.rows.isEmpty {
+                    FeatureEmptyState(title: String(localized: "plan.experiences.empty"))
+                } else {
+                    List(controller.rows) { row in
+                        Button { path.append(.experienceDetail(row.id)) } label: {
+                            HStack(spacing: 12) {
+                                AsyncImage(url: row.imageURL.flatMap { URL(string: $0) }) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: { Rectangle().fill(PhokartaColor.mist) }
+                                .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 12))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(row.title).font(.headline).lineLimit(2)
+                                    Text(row.placeName).font(.subheadline).foregroundStyle(.secondary)
+                                    Text(row.authorName).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button { Task { await controller.remove(row.id) } } label: {
+                                    Image(systemName: "bookmark.fill")
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(String(localized: "experience.remove_from_plan"))
+                            }
+                        }.buttonStyle(.plain)
+                    }.listStyle(.plain)
+                }
+            }
+            .background(PhokartaColor.background(for: colorScheme))
+            .refreshable { await controller.load() }
+            .task { if controller.rows.isEmpty { await controller.load() } }
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteDestinationView(route: route, environment: environment, currentUserId: currentUserId) { path.append($0) }
             }
         }
     }
@@ -508,6 +631,14 @@ final class CollectionDetailController {
         catch is CancellationError { return }
         catch { mutationError = .server }
     }
+
+    func remove(experienceID: UUID) async {
+        mutationError = nil
+        do { try await store.remove(experienceID: experienceID, from: collectionID) }
+        catch let error as AppError { mutationError = error }
+        catch is CancellationError { return }
+        catch { mutationError = .server }
+    }
 }
 
 struct CollectionDetailScreen: View {
@@ -566,33 +697,37 @@ struct CollectionDetailScreen: View {
                             }
                             Text(String(localized: String.LocalizationValue(detail.visibility.localizationKey)))
                         }
-                        if detail.places.isEmpty {
+                        if detail.items.isEmpty {
                             Section { FeatureEmptyState(title: String(localized: "collection.empty")) }
                         } else {
                             Section {
-                                ForEach(detail.places.sorted { $0.displayOrder < $1.displayOrder }) { row in
-                                    NavigationLink {
-                                        PlaceDetailScreen(
-                                            placeId: row.place.id,
-                                            places: places,
-                                            saved: saved,
-                                            collections: store,
-                                            visits: visits,
-                                            draftRepository: draftRepository,
-                                            mutationRepository: mutationRepository,
-                                            mediaStore: mediaStore,
-                                            syncEngine: syncEngine
-                                        )
-                                    } label: {
-                                        CollectionPlaceRow(place: row.place)
-                                    }
-                                    .swipeActions {
-                                        Button(role: .destructive) {
-                                            Task { await controller.remove(placeID: row.place.id) }
+                                ForEach(detail.items.sorted { $0.displayOrder < $1.displayOrder }) { item in
+                                    if let place = item.place, item.type == .place {
+                                        NavigationLink {
+                                            PlaceDetailScreen(
+                                                placeId: place.id, places: places, saved: saved,
+                                                collections: store, visits: visits,
+                                                draftRepository: draftRepository,
+                                                mutationRepository: mutationRepository,
+                                                mediaStore: mediaStore, syncEngine: syncEngine
+                                            )
                                         } label: {
-                                            Label("collections.remove", systemImage: "trash")
+                                            CollectionPlaceRow(place: place)
                                         }
-                                        .accessibilityLabel(String(localized: "collections.remove_place \(row.place.name)"))
+                                        .swipeActions {
+                                            Button(role: .destructive) {
+                                                Task { await controller.remove(placeID: place.id) }
+                                            } label: { Label("collections.remove", systemImage: "trash") }
+                                            .accessibilityLabel(String(localized: "collections.remove_place \(place.name)"))
+                                        }
+                                    } else if let experience = item.experience, item.type == .experience {
+                                        CollectionExperienceRow(experience: experience)
+                                            .swipeActions {
+                                                Button(role: .destructive) {
+                                                    Task { await controller.remove(experienceID: experience.id) }
+                                                } label: { Label("collections.remove", systemImage: "trash") }
+                                                .accessibilityLabel(String(localized: "collection.remove_experience \(experience.title)"))
+                                            }
                                     }
                                 }
                             }
@@ -610,6 +745,33 @@ struct CollectionDetailScreen: View {
             }
         }
         .task { controller.startIfNeeded() }
+    }
+}
+
+struct CollectionExperienceRow: View {
+    let experience: ExperienceV2
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        HStack(spacing: PhokartaSpacing.md) {
+            AsyncImage(url: experience.media.sorted(by: { $0.position < $1.position }).first?.url.flatMap(URL.init(string:))) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Image(systemName: "sparkles").foregroundStyle(.secondary)
+            }
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: PhokartaRadius.md))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(experience.title).font(.headline)
+                Text(experience.place.name).font(.subheadline).foregroundStyle(.secondary)
+                Text(ExperienceLocalizedLabels.primary(experience.primaryExperience.code, locale: locale) ?? "")
+                    .font(.caption).foregroundStyle(.tint)
+                Label("collection.item_experience", systemImage: "sparkles")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "collection.experience_item \(experience.title) \(experience.place.name)"))
     }
 }
 
@@ -752,7 +914,28 @@ struct ProfileTab: View {
                 onFriends: { path.append(.socialList(.friends)) },
                 onUserSearch: { path.append(.userSearch) },
                 experienceService: environment.experiences,
+                mutationRepository: environment.mutationRepository,
                 onSelectExperience: { path.append(.experienceDetail($0)) },
+                onConvertAcknowledgement: { acknowledgement in
+                    let now = Int64(Date().timeIntervalSince1970 * 1000)
+                    let draft = DurableVisitDraft(
+                        userId: user.id, placeId: acknowledgement.place.id,
+                        overallScore: 8, publicReview: "", privateMemory: "",
+                        visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
+                        visibility: VisitVisibility.publicAccess.rawValue,
+                        dimensionsExpanded: false, createdAtEpochMillis: now,
+                        updatedAtEpochMillis: now, payloadVersion: 2,
+                        primaryExperienceCode: acknowledgement.primaryExperienceCode.rawValue,
+                        rawExperienceLabel: acknowledgement.rawExperienceLabel,
+                        originAcknowledgementId: acknowledgement.id
+                    )
+                    Task {
+                        try? await environment.draftRepository.saveDraft(
+                            placeId: acknowledgement.place.id, draft: draft, userId: user.id
+                        )
+                        await MainActor.run { path.append(.placeComposer(acknowledgement.place.id)) }
+                    }
+                },
                 onSettings: { path.append(.settings) },
                 onLogout: onLogout
             )

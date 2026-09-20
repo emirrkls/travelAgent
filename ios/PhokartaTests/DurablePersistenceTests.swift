@@ -747,7 +747,7 @@ final class DurablePersistenceTests: XCTestCase {
 
         let db = try PersistentDatabase(path: path)
         let version = try await db.query("PRAGMA user_version;", mapRow: { Int(sqlite3_column_int($0, 0)) })
-        XCTAssertEqual(version.first, 2)
+        XCTAssertEqual(version.first, 3)
         let draftVersion = try await db.query(
             "SELECT payloadVersion, story, titleSource FROM visit_drafts WHERE userId = ? AND placeId = ?;",
             params: [user.uuidString, place.uuidString]
@@ -760,6 +760,11 @@ final class DurablePersistenceTests: XCTestCase {
             mapRow: { Int(sqlite3_column_int($0, 0)) }
         )
         XCTAssertEqual(mutationVersion.first, 1)
+        let milestoneTables = try await db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('planned_experiences','experience_acknowledgements') ORDER BY name;",
+            mapRow: { String(cString: sqlite3_column_text($0, 0)) }
+        )
+        XCTAssertEqual(milestoneTables, ["experience_acknowledgements", "planned_experiences"])
     }
 
     func testNativeV2DraftAndPendingPayloadRoundTripEverySemanticField() async throws {
@@ -780,7 +785,8 @@ final class DurablePersistenceTests: XCTestCase {
             overallFeelingCode: "BAYILDIM", companionCode: "PARTNER",
             timeOfDayCode: "EVENING", vibeCodes: ["SCENIC", "CALM"],
             practicalSignalCodes: ["FREE", "ARRIVE_EARLY"], title: "Golden hour",
-            titleSource: "CUSTOM", story: "story", tip: "arrive early"
+            titleSource: "CUSTOM", story: "story", tip: "arrive early",
+            originAcknowledgementId: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
         )
         try await draftRepo.saveDraft(placeId: place, draft: draft, userId: user)
         let restoredDraft = try await draftRepo.getDraft(placeId: place, userId: user)
@@ -790,6 +796,7 @@ final class DurablePersistenceTests: XCTestCase {
         XCTAssertEqual(restored.overallFeelingCode, "BAYILDIM")
         XCTAssertEqual(restored.vibeCodes, ["CALM", "SCENIC"])
         XCTAssertEqual(restored.dimensions.first?.semanticStateCode, "VERY_GOOD")
+        XCTAssertEqual(restored.originAcknowledgementId?.uuidString.lowercased(), "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
         let payload = DurablePendingExperienceV2Payload(
             mutationId: mutation, placeId: place, visitedAtEpochDay: 20712,
@@ -816,4 +823,118 @@ final class DurablePersistenceTests: XCTestCase {
         let clearedDraft = try await draftRepo.getDraft(placeId: place, userId: user)
         XCTAssertNil(clearedDraft)
     }
+
+    func testMilestoneStateIsAccountScopedAndPurgedWithItsOwner() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let userA = UUID()
+        let userB = UUID()
+        let experience = UUID()
+        for user in [userA, userB] {
+            try await db.execute(
+                "INSERT INTO planned_experiences (userId,experienceId,plannedAt,snapshotJson,pendingDesiredState) VALUES (?,?,?,?,NULL);",
+                params: [user.uuidString, experience.uuidString, "2026-09-17T00:00:00Z", "{}"]
+            )
+            try await db.execute(
+                """INSERT INTO experience_acknowledgements
+                   (userId,acknowledgementId,sourceExperienceId,placeId,acknowledgedAt,convertedExperienceId,snapshotJson,pendingUpload)
+                   VALUES (?,?,?,?,?,NULL,'{}',0);""",
+                params: [user.uuidString, UUID().uuidString, experience.uuidString,
+                         UUID().uuidString, "2026-09-17T00:00:00Z"]
+            )
+        }
+        let purger = SQLiteLocalAccountPurger(database: db)
+        try await purger.purgeLocalData(userId: userA)
+        let remainingPlans = try await db.query("SELECT userId FROM planned_experiences;", mapRow: { String(cString: sqlite3_column_text($0, 0)) })
+        let remainingAcknowledgements = try await db.query("SELECT userId FROM experience_acknowledgements;", mapRow: { String(cString: sqlite3_column_text($0, 0)) })
+        XCTAssertEqual(remainingPlans, [userB.uuidString])
+        XCTAssertEqual(remainingAcknowledgements, [userB.uuidString])
+    }
+
+    func testMilestoneOfflineMutationsAreDuplicateSafeDurableAndConversionAware() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteOfflineMutationRepository(database: db)
+        let user = UUID()
+        let experience = try APIJSON.decoder.decode(ExperienceV2.self, from: Data(Self.milestoneExperienceJSON.utf8))
+
+        try await repo.setPlannedExperience(experience, userId: user, desired: true)
+        try await repo.setPlannedExperience(experience, userId: user, desired: true)
+        let plans = try await db.query(
+            "SELECT experienceId,pendingDesiredState FROM planned_experiences WHERE userId = ?;",
+            params: [user.uuidString]
+        ) { (String(cString: sqlite3_column_text($0, 0)), Int(sqlite3_column_int($0, 1))) }
+        XCTAssertEqual(plans.count, 1)
+        XCTAssertEqual(plans.first?.0.lowercased(), experience.id.uuidString.lowercased())
+        XCTAssertEqual(plans.first?.1, 1)
+        let planMutations = try await db.query(
+            "SELECT COUNT(*) FROM pending_mutations WHERE userId = ? AND type = 'SET_PLANNED_EXPERIENCE_STATE';",
+            params: [user.uuidString], mapRow: { Int(sqlite3_column_int($0, 0)) }
+        )
+        XCTAssertEqual(planMutations.first, 1)
+
+        let durablePlans = try await repo.localPlannedExperiences(userId: user)
+        XCTAssertEqual(durablePlans.map(\.id), [experience.id])
+        XCTAssertEqual(durablePlans.first?.title, "Sunset")
+        XCTAssertEqual(durablePlans.first?.placeName, "Foça")
+        XCTAssertEqual(durablePlans.first?.pendingDesiredState, true)
+
+        let first = try await repo.acknowledgeExperience(experience, userId: user)
+        let duplicate = try await repo.acknowledgeExperience(experience, userId: user)
+        XCTAssertEqual(first, duplicate)
+        let acknowledgements = try await db.query(
+            "SELECT acknowledgementId,placeId,pendingUpload FROM experience_acknowledgements WHERE userId = ?;",
+            params: [user.uuidString]
+        ) {
+            (String(cString: sqlite3_column_text($0, 0)),
+             String(cString: sqlite3_column_text($0, 1)), Int(sqlite3_column_int($0, 2)))
+        }
+        XCTAssertEqual(acknowledgements.count, 1)
+        XCTAssertEqual(acknowledgements.first?.0.lowercased(), first.uuidString.lowercased())
+        XCTAssertEqual(acknowledgements.first?.1.lowercased(), experience.place.id.uuidString.lowercased())
+        XCTAssertEqual(acknowledgements.first?.2, 1)
+        let acknowledgementMutations = try await db.query(
+            "SELECT mutationId FROM pending_mutations WHERE userId = ? AND type = 'ACKNOWLEDGE_EXPERIENCE';",
+            params: [user.uuidString], mapRow: { String(cString: sqlite3_column_text($0, 0)) }
+        )
+        XCTAssertEqual(acknowledgementMutations, [first.uuidString])
+
+        let durableAcknowledgements = try await repo.localAcknowledgements(userId: user)
+        XCTAssertEqual(durableAcknowledgements.map(\.id), [first])
+        XCTAssertEqual(durableAcknowledgements.first?.place.name, "Foça")
+        XCTAssertEqual(durableAcknowledgements.first?.primaryExperienceCode, .gunBatimi)
+
+        let converted = UUID()
+        try await repo.markAcknowledgementConverted(id: first, experienceId: converted, userId: user)
+        let remainingUnconverted = try await repo.localAcknowledgements(userId: user)
+        XCTAssertTrue(remainingUnconverted.isEmpty)
+        let convertedIds = try await db.query(
+            "SELECT convertedExperienceId FROM experience_acknowledgements WHERE userId = ?;",
+            params: [user.uuidString], mapRow: { String(cString: sqlite3_column_text($0, 0)) }
+        )
+        XCTAssertEqual(convertedIds, [converted.uuidString])
+
+        try await repo.removePlannedExperience(experienceId: experience.id, userId: user)
+        let remainingPlans = try await repo.localPlannedExperiences(userId: user)
+        XCTAssertTrue(remainingPlans.isEmpty)
+        let removalIntent = try await db.query(
+            "SELECT payloadVersion FROM pending_mutations WHERE userId = ? AND type = 'SET_PLANNED_EXPERIENCE_STATE';",
+            params: [user.uuidString], mapRow: { Int(sqlite3_column_int($0, 0)) }
+        )
+        XCTAssertEqual(removalIntent, [0])
+    }
+
+    private static let milestoneExperienceJSON = """
+    {
+      "id":"30000000-0000-0000-0000-000000000401",
+      "classification":"NATIVE_V2",
+      "author":{"id":"11111111-1111-1111-1111-111111111401","username":"author","displayName":"Author","avatarUrl":null,"relationship":null},
+      "place":{"id":"20000000-0000-0000-0000-000000000401","name":"Foça","category":"BEACH","city":"İzmir","region":"Aegean","country":"Türkiye","coverImage":"","distanceMeters":null},
+      "experiencedAt":"2026-09-17","title":"Sunset","titleSource":"CUSTOM","titlePersisted":true,
+      "story":"Story","tip":null,
+      "feeling":{"code":"GUZELDI","source":"EXPLICIT","compatibilityNumericRating":8.0},
+      "primaryExperience":{"code":"GUN_BATIMI","canonical":true,"family":"SCENERY_AND_MOMENT","rawLabel":null},
+      "companion":"PARTNER","timeOfDay":"EVENING","vibes":[],"practicalSignals":[],
+      "dimensions":[],"media":[],"visibility":"PUBLIC","taxonomyVersion":1,
+      "plannedByViewer":false,"acknowledgedByViewer":false,"acknowledgementCount":0
+    }
+    """
 }

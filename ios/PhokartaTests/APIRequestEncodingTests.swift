@@ -132,12 +132,48 @@ final class APIRequestEncodingTests: XCTestCase {
         XCTAssertEqual(list.url?.path, "/api/v1/me/collections")
         let detail = try client.makeRequest(CollectionDetailEndpoint(collectionId: collectionID))
         XCTAssertEqual(detail.httpMethod, "GET")
-        XCTAssertEqual(detail.url?.path, "/api/v1/collections/\(collectionID.uuidString.lowercased())")
+        XCTAssertEqual(detail.url?.path, "/api/v2/collections/\(collectionID.uuidString.lowercased())")
         let add = try client.makeRequest(AddCollectionPlaceEndpoint(collectionId: collectionID, placeId: TestPlaces.placeID))
         let remove = try client.makeRequest(RemoveCollectionPlaceEndpoint(collectionId: collectionID, placeId: TestPlaces.placeID))
         XCTAssertEqual(add.httpMethod, "POST")
         XCTAssertEqual(remove.httpMethod, "DELETE")
         XCTAssertEqual(add.url?.path, remove.url?.path)
+        let experienceID = UUID(uuidString: "30000000-0000-0000-0000-000000000001")!
+        let addExperience = try client.makeRequest(AddCollectionExperienceEndpoint(
+            collectionId: collectionID, experienceId: experienceID
+        ))
+        let removeExperience = try client.makeRequest(RemoveCollectionExperienceEndpoint(
+            collectionId: collectionID, experienceId: experienceID
+        ))
+        XCTAssertEqual(addExperience.httpMethod, "PUT")
+        XCTAssertEqual(removeExperience.httpMethod, "DELETE")
+        XCTAssertEqual(addExperience.url?.path, removeExperience.url?.path)
+        XCTAssertTrue(addExperience.url?.path.contains("/api/v2/collections/") == true)
+    }
+
+    func testOfflineAcknowledgementCarriesStableIdentityAndOnlyDurableAnchorFields() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let source = UUID(uuidString: "30000000-0000-0000-0000-000000000401")!
+        let acknowledgement = UUID(uuidString: "50000000-0000-0000-0000-000000000401")!
+        let place = UUID(uuidString: "20000000-0000-0000-0000-000000000401")!
+        let request = try client.makeRequest(SyncAcknowledgeExperienceEndpoint(
+            experienceId: source,
+            clientAcknowledgementId: acknowledgement,
+            anchorPlaceId: place,
+            anchorPrimaryExperienceCode: "GUN_BATIMI",
+            anchorRawExperienceLabel: nil
+        ))
+        let query = Dictionary(uniqueKeysWithValues:
+            (URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? [])
+                .compactMap { item in item.value.map { (item.name, $0) } }
+        )
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(query["clientAcknowledgementId"]?.lowercased(), acknowledgement.uuidString.lowercased())
+        XCTAssertEqual(query["anchorPlaceId"]?.lowercased(), place.uuidString.lowercased())
+        XCTAssertEqual(query["anchorPrimaryExperienceCode"], "GUN_BATIMI")
+        XCTAssertNil(query["anchorRawExperienceLabel"])
+        XCTAssertFalse(request.url?.absoluteString.contains("Story") == true)
+        XCTAssertFalse(request.url?.absoluteString.contains("privateMemory") == true)
     }
 }
 

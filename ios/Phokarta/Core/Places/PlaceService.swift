@@ -230,6 +230,13 @@ protocol CollectionServing: Sendable {
     func detail(id: UUID) async throws -> CollectionDetail
     func add(placeId: UUID, to collectionId: UUID) async throws -> CollectionDetail
     func remove(placeId: UUID, from collectionId: UUID) async throws
+    func add(experienceId: UUID, to collectionId: UUID) async throws -> CollectionDetail
+    func remove(experienceId: UUID, from collectionId: UUID) async throws
+}
+
+extension CollectionServing {
+    func add(experienceId: UUID, to collectionId: UUID) async throws -> CollectionDetail { throw AppError.server }
+    func remove(experienceId: UUID, from collectionId: UUID) async throws { throw AppError.server }
 }
 
 struct CollectionService: CollectionServing {
@@ -256,11 +263,24 @@ struct CollectionService: CollectionServing {
     }
 
     func add(placeId: UUID, to collectionId: UUID) async throws -> CollectionDetail {
-        try await client.send(AddCollectionPlaceEndpoint(collectionId: collectionId, placeId: placeId))
+        _ = try await client.send(AddCollectionPlaceEndpoint(collectionId: collectionId, placeId: placeId))
+        return try await detail(id: collectionId)
     }
 
     func remove(placeId: UUID, from collectionId: UUID) async throws {
         _ = try await client.send(RemoveCollectionPlaceEndpoint(collectionId: collectionId, placeId: placeId))
+    }
+
+    func add(experienceId: UUID, to collectionId: UUID) async throws -> CollectionDetail {
+        try await client.send(AddCollectionExperienceEndpoint(
+            collectionId: collectionId, experienceId: experienceId
+        ))
+    }
+
+    func remove(experienceId: UUID, from collectionId: UUID) async throws {
+        _ = try await client.send(RemoveCollectionExperienceEndpoint(
+            collectionId: collectionId, experienceId: experienceId
+        ))
     }
 }
 
@@ -497,6 +517,10 @@ final class CollectionStore {
         details[collectionID]?.places.contains(where: { $0.place.id == placeID }) == true
     }
 
+    func contains(experienceID: UUID, in collectionID: UUID) -> Bool {
+        details[collectionID]?.items.contains(where: { $0.experience?.id == experienceID }) == true
+    }
+
     func add(placeID: UUID, to collectionID: UUID) async throws {
         let relation = CollectionRelation(collectionID: collectionID, placeID: placeID)
         guard !busyRelations.contains(relation) else { return }
@@ -519,6 +543,34 @@ final class CollectionStore {
         busyRelations.insert(relation)
         defer { busyRelations.remove(relation) }
         try await service.remove(placeId: placeID, from: collectionID)
+        guard account == accountID else { throw CancellationError() }
+        revision &+= 1
+        detailRevision[collectionID] = revision
+        try await refreshDetail(id: collectionID)
+    }
+
+    func add(experienceID: UUID, to collectionID: UUID) async throws {
+        let relation = CollectionRelation(collectionID: collectionID, placeID: experienceID)
+        guard !busyRelations.contains(relation) else { return }
+        guard let account = accountID else { throw AppError.unauthorized }
+        busyRelations.insert(relation)
+        defer { busyRelations.remove(relation) }
+        do {
+            let detail = try await service.add(experienceId: experienceID, to: collectionID)
+            guard account == accountID else { throw CancellationError() }
+            applyCanonical(detail)
+        } catch let error as AppError where error == .conflict(code: "CONFLICT") {
+            try await refreshDetail(id: collectionID)
+        }
+    }
+
+    func remove(experienceID: UUID, from collectionID: UUID) async throws {
+        let relation = CollectionRelation(collectionID: collectionID, placeID: experienceID)
+        guard !busyRelations.contains(relation) else { return }
+        guard let account = accountID else { throw AppError.unauthorized }
+        busyRelations.insert(relation)
+        defer { busyRelations.remove(relation) }
+        try await service.remove(experienceId: experienceID, from: collectionID)
         guard account == accountID else { throw CancellationError() }
         revision &+= 1
         detailRevision[collectionID] = revision

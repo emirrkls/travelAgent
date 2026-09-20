@@ -12,6 +12,7 @@ struct UserProfileScreen: View {
     let onUserSearch: () -> Void
     let onSelectExperience: (UUID) -> Void
     let onLogout: (() -> Void)?
+    let onConvertAcknowledgement: (ExperienceAcknowledgementV2) -> Void
 
     private let store: SocialStateStore
     let blockService: (any BlockServing)?
@@ -22,6 +23,7 @@ struct UserProfileScreen: View {
     @State private var showBlockConfirmation = false
     @State private var showReportSheet = false
     @State private var activeReportController: ReportController?
+    @State private var profileContentSegment = 0
 
     init(
         userId: UUID,
@@ -37,7 +39,9 @@ struct UserProfileScreen: View {
         onFriends: @escaping () -> Void,
         onUserSearch: @escaping () -> Void,
         experienceService: (any ExperienceDiscoveryServing)? = nil,
+        mutationRepository: (any OfflineMutationRepository)? = nil,
         onSelectExperience: @escaping (UUID) -> Void = { _ in },
+        onConvertAcknowledgement: @escaping (ExperienceAcknowledgementV2) -> Void = { _ in },
         onSettings: (() -> Void)? = nil,
         onLogout: (() -> Void)? = nil
     ) {
@@ -53,6 +57,7 @@ struct UserProfileScreen: View {
         self.onFriends = onFriends
         self.onUserSearch = onUserSearch
         self.onSelectExperience = onSelectExperience
+        self.onConvertAcknowledgement = onConvertAcknowledgement
         self.onSettings = onSettings
         self.onLogout = onLogout
         _controller = State(initialValue: UserProfileController(
@@ -60,7 +65,8 @@ struct UserProfileScreen: View {
             isOwnProfile: isOwnProfile,
             service: service,
             store: store,
-            experienceService: experienceService
+            experienceService: experienceService,
+            mutationRepository: mutationRepository
         ))
     }
 
@@ -251,11 +257,18 @@ struct UserProfileScreen: View {
                 }
 
                 VStack(alignment: .leading, spacing: PhokartaSpacing.md) {
-                    Text(String(localized: String.LocalizationValue(
-                        controller.isOwnProfile ? "profile.my_experiences" : "profile.experiences"
-                    )))
-                        .font(.title2.bold())
-                    if controller.experiencesLoading && controller.experiences.isEmpty {
+                    if isOwnProfile {
+                        Picker("", selection: $profileContentSegment) {
+                            Text(String(localized: "profile.my_experiences")).tag(0)
+                            Text(String(localized: "profile.also_experienced")).tag(1)
+                        }
+                        .pickerStyle(.segmented)
+                    } else {
+                        Text(String(localized: "profile.experiences")).font(.title2.bold())
+                    }
+                    if isOwnProfile && profileContentSegment == 1 {
+                        acknowledgementContent
+                    } else if controller.experiencesLoading && controller.experiences.isEmpty {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if controller.experiences.isEmpty {
                         Text("experience.empty")
@@ -324,6 +337,41 @@ struct UserProfileScreen: View {
                 Spacer()
             }
             .padding(PhokartaSpacing.lg)
+        }
+    }
+
+    @ViewBuilder
+    private var acknowledgementContent: some View {
+        if controller.acknowledgementsLoading && controller.acknowledgements.isEmpty {
+            ProgressView().frame(maxWidth: .infinity)
+        } else if controller.acknowledgements.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("profile.also_experienced.empty.title").font(.headline)
+                Text("profile.also_experienced.empty.body").font(.subheadline).foregroundStyle(.secondary)
+            }
+        } else {
+            ForEach(controller.acknowledgements) { acknowledgement in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(acknowledgement.place.name).font(.headline)
+                    Text(acknowledgement.rawExperienceLabel
+                         ?? ExperienceLocalizedLabels.primary(acknowledgement.primaryExperienceCode, locale: Locale.current)
+                         ?? String(localized: "experience.primary.other"))
+                        .font(.subheadline).foregroundStyle(.tint)
+                    if !acknowledgement.sourceAvailable {
+                        Label("experience.source_deleted", systemImage: "rectangle.slash")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button("experience.add_your_own") { onConvertAcknowledgement(acknowledgement) }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(PhokartaColor.softSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: PhokartaRadius.md))
+            }
+        }
+        if let error = controller.acknowledgementsError {
+            Text(error.localizedMessage).font(.footnote).foregroundStyle(.red)
+            Button("action.try_again", action: controller.retryAcknowledgements)
         }
     }
 

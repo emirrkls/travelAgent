@@ -43,6 +43,7 @@ struct VisitComposerState: Equatable, Sendable {
     var titleSource: ExperienceTitleSource = .generated
     var story = ""
     var tip = ""
+    var originAcknowledgementId: UUID?
 
     var isDirty: Bool {
         overallScore != 8.0 || !dimensionScores.isEmpty ||

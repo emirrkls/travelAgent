@@ -39,11 +39,32 @@ struct AppRouteDestinationView: View {
                 privacyService: environment.privacy,
                 onSelectExperience: { onNavigate(.experienceDetail($0)) }
             )
+        case .placeComposer(let id):
+            PlaceDetailScreen(
+                placeId: id,
+                places: environment.places,
+                saved: environment.saved,
+                collections: environment.collections,
+                visits: environment.visits,
+                draftRepository: environment.draftRepository,
+                mutationRepository: environment.mutationRepository,
+                mediaStore: environment.mediaStore,
+                syncEngine: environment.syncEngine,
+                onSelectUser: { onNavigate(.userProfile($0)) },
+                experienceService: environment.experiences,
+                privacyService: environment.privacy,
+                onSelectExperience: { onNavigate(.experienceDetail($0)) },
+                openComposerOnLoad: true
+            )
         case .experienceDetail(let id):
             ExperienceDetailScreen(
                 id: id,
                 service: environment.experiences,
                 privacy: environment.privacy,
+                mutationRepository: environment.mutationRepository,
+                syncEngine: environment.syncEngine,
+                currentUserId: currentUserId,
+                collections: environment.collections,
                 onAuthor: { onNavigate(.userProfile($0)) },
                 onPlace: { onNavigate(.placeDetail($0)) }
             )
@@ -62,7 +83,33 @@ struct AppRouteDestinationView: View {
                 onFriends: { onNavigate(.socialList(.friends)) },
                 onUserSearch: { onNavigate(.userSearch) },
                 experienceService: environment.experiences,
+                mutationRepository: environment.mutationRepository,
                 onSelectExperience: { onNavigate(.experienceDetail($0)) },
+                onConvertAcknowledgement: { acknowledgement in
+                    let now = Int64(Date().timeIntervalSince1970 * 1000)
+                    let draft = DurableVisitDraft(
+                        userId: currentUserId,
+                        placeId: acknowledgement.place.id,
+                        overallScore: 8,
+                        publicReview: "",
+                        privateMemory: "",
+                        visitedAtEpochDay: Int64(Date().timeIntervalSince1970 / 86400),
+                        visibility: VisitVisibility.publicAccess.rawValue,
+                        dimensionsExpanded: false,
+                        createdAtEpochMillis: now,
+                        updatedAtEpochMillis: now,
+                        payloadVersion: 2,
+                        primaryExperienceCode: acknowledgement.primaryExperienceCode.rawValue,
+                        rawExperienceLabel: acknowledgement.rawExperienceLabel,
+                        originAcknowledgementId: acknowledgement.id
+                    )
+                    Task {
+                        try? await environment.draftRepository.saveDraft(
+                            placeId: acknowledgement.place.id, draft: draft, userId: currentUserId
+                        )
+                        await MainActor.run { onNavigate(.placeComposer(acknowledgement.place.id)) }
+                    }
+                },
                 onSettings: id == currentUserId ? { onNavigate(.settings) } : nil,
                 onLogout: id == currentUserId ? onLogout : nil
             )

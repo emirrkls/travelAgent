@@ -123,7 +123,7 @@ final class ExperienceExploreController {
                     count: $0.acknowledgementCount ?? 0
                 ) : $0 }
             } catch let appError as AppError { error = appError }
-            catch { error = .server }
+            catch { self.error = .server }
         }
     }
 
@@ -143,7 +143,7 @@ final class ExperienceExploreController {
                     count: ($0.acknowledgementCount ?? 0) + 1
                 ) : $0 }
             } catch let appError as AppError { error = appError }
-            catch { error = .server }
+            catch { self.error = .server }
         }
     }
 

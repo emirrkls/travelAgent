@@ -208,7 +208,7 @@ final class PlannedExperiencesController {
             error = nil
         }
         catch let value as AppError { error = value }
-        catch { error = .server }
+        catch { self.error = .server }
     }
     func remove(_ id: UUID) async {
         do {
@@ -217,7 +217,7 @@ final class PlannedExperiencesController {
             _ = await syncEngine.drain()
         }
         catch let value as AppError { error = value }
-        catch { error = .server }
+        catch { self.error = .server }
     }
 }
 
@@ -754,7 +754,7 @@ struct CollectionExperienceRow: View {
 
     var body: some View {
         HStack(spacing: PhokartaSpacing.md) {
-            AsyncImage(url: experience.media.sorted(by: { $0.position < $1.position }).first?.url.flatMap(URL.init(string:))) { image in
+            AsyncImage(url: experience.media.sorted(by: { $0.position < $1.position }).first.flatMap { URL(string: $0.url) }) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Image(systemName: "sparkles").foregroundStyle(.secondary)

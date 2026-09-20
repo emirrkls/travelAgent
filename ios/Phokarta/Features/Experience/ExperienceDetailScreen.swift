@@ -501,7 +501,7 @@ struct ExperienceCollectionPickerSheet: View {
                 defer { loading = false }
                 do { try await store.refreshList() }
                 catch let appError as AppError { error = appError }
-                catch { error = .server }
+                catch { self.error = .server }
             }
         }
     }
@@ -512,6 +512,6 @@ struct ExperienceCollectionPickerSheet: View {
             try await store.add(experienceID: experience.id, to: collectionID)
             dismiss()
         } catch let appError as AppError { error = appError }
-        catch { error = .server }
+        catch { self.error = .server }
     }
 }

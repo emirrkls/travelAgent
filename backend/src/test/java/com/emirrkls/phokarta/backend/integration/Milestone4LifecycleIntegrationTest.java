@@ -92,7 +92,7 @@ class Milestone4LifecycleIntegrationTest {
                 .isEqualTo(1);
         assertThat(collections.detail(collection, PLANNER).places()).hasSize(1);
 
-        jdbc.update("insert into user_blocks (blocker_id, blocked_id, created_at) values (?, ?, now())",
+        jdbc.update("insert into user_blocks (blocker_user_id, blocked_user_id, created_at) values (?, ?, now())",
                 AUTHOR, VIEWER);
         assertThat(collections.detailV2(collection, VIEWER).items())
                 .extracting(item -> item.type().name()).containsExactly("PLACE");
@@ -169,7 +169,7 @@ class Milestone4LifecycleIntegrationTest {
     @Test
     void profilePrivacyAndBlockPreventAcknowledgementAndDoNotLeakHiddenRowsOrTotals() {
         UUID source = experience(AUTHOR, "PUBLIC");
-        jdbc.update("insert into user_blocks (blocker_id, blocked_id, created_at) values (?, ?, now())",
+        jdbc.update("insert into user_blocks (blocker_user_id, blocked_user_id, created_at) values (?, ?, now())",
                 AUTHOR, PLANNER);
         assertThatThrownBy(() -> acknowledgements.acknowledge(PLANNER, source))
                 .isInstanceOf(ApiException.class);

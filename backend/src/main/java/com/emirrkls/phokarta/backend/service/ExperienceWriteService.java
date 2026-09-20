@@ -22,6 +22,7 @@ import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
 import com.emirrkls.phokarta.backend.domain.entity.ExperienceAcknowledgement;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +57,7 @@ public class ExperienceWriteService {
     private final UgcPolicyService ugcPolicy;
     private final ExperienceReadService reader;
     private final ExperienceAcknowledgementRepository acknowledgements;
+    private final EntityManager entityManager;
 
     public ExperienceWriteService(
             VisitRepository visits,
@@ -66,7 +68,8 @@ public class ExperienceWriteService {
             MediaService media,
             UgcPolicyService ugcPolicy,
             ExperienceReadService reader,
-            ExperienceAcknowledgementRepository acknowledgements) {
+            ExperienceAcknowledgementRepository acknowledgements,
+            EntityManager entityManager) {
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
@@ -76,6 +79,7 @@ public class ExperienceWriteService {
         this.ugcPolicy = ugcPolicy;
         this.reader = reader;
         this.acknowledgements = acknowledgements;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -125,12 +129,16 @@ public class ExperienceWriteService {
                 canonical.story(), canonical.privateMemory(), List.of(), request.visibility(),
                 VerificationStatus.UNVERIFIED, now));
 
-        VisitExperienceDetail detail = details.save(new VisitExperienceDetail(
+        VisitExperienceDetail detail = new VisitExperienceDetail(
                 visit, request.primaryExperienceCode(), canonical.rawLabel(),
                 request.overallFeelingCode(), FeelingSource.EXPLICIT,
                 request.companionCode(), request.timeOfDayCode(), canonical.title(),
                 request.titleSource(), canonical.story(), canonical.tip(), TAXONOMY_VERSION,
-                canonical.vibes(), canonical.practicalSignals(), now));
+                canonical.vibes(), canonical.practicalSignals(), now);
+        // This sidecar uses the Visit id through @MapsId. Repository.save() sees that
+        // assigned id and chooses merge, which treats a brand-new row as detached on
+        // Hibernate 6.6. Persist explicitly so creation always uses an INSERT.
+        entityManager.persist(detail);
 
         List<VisitDimensionScore> dimensionEntities = canonical.dimensions().stream()
                 .map(value -> new VisitDimensionScore(

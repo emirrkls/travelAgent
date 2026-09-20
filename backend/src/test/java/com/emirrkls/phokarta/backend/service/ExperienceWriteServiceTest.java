@@ -24,6 +24,7 @@ import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,7 @@ class ExperienceWriteServiceTest {
     @Mock UgcPolicyService ugcPolicy;
     @Mock ExperienceReadService reader;
     @Mock ExperienceAcknowledgementRepository acknowledgements;
+    @Mock EntityManager entityManager;
     @Mock User user;
     @Mock Place place;
     @Mock ExperienceV2Response response;
@@ -66,7 +68,8 @@ class ExperienceWriteServiceTest {
     @BeforeEach
     void setUp() {
         service = new ExperienceWriteService(
-                visits, details, dimensions, users, places, media, ugcPolicy, reader, acknowledgements);
+                visits, details, dimensions, users, places, media, ugcPolicy, reader,
+                acknowledgements, entityManager);
         userId = UUID.randomUUID();
         placeId = UUID.randomUUID();
         lenient().when(users.findById(userId)).thenReturn(Optional.of(user));
@@ -183,7 +186,6 @@ class ExperienceWriteServiceTest {
     @Test
     void createPersistsOneVisitSidecarSemanticDimensionsAndMediaAtomically() {
         when(visits.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(details.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(media.attach(any(), any(), anyList())).thenReturn(List.of());
         when(reader.map(any(), any(), anyList(), anyList())).thenReturn(response);
 
@@ -195,7 +197,7 @@ class ExperienceWriteServiceTest {
         ArgumentCaptor<Visit> visit = ArgumentCaptor.forClass(Visit.class);
         ArgumentCaptor<VisitExperienceDetail> detail = ArgumentCaptor.forClass(VisitExperienceDetail.class);
         verify(visits).save(visit.capture());
-        verify(details).save(detail.capture());
+        verify(entityManager).persist(detail.capture());
         assertThat(visit.getValue().getOverallRating()).isEqualTo(10.0);
         assertThat(visit.getValue().getPublicReview()).isEqualTo("story");
         assertThat(detail.getValue().getOverallFeelingCode()).isEqualTo(OverallFeelingCode.BAYILDIM);

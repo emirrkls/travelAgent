@@ -137,7 +137,7 @@ class SchemaUpgradeMilestone4MigrationTest {
                     companion_code, time_of_day_code, title, title_source, story, tip,
                     taxonomy_version, created_at, updated_at
                 ) values (?, 'GUN_BATIMI', 'GUZELDI', 'EXPLICIT', 'PARTNER', 'EVENING',
-                    'Sunset', 'USER', 'Story', '', 1, now(), now())
+                    'Sunset', 'CUSTOM', 'Story', '', 1, now(), now())
                 """, experienceId);
     }
 

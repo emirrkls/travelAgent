@@ -422,3 +422,46 @@ The final design-review pass is presentation-only. It changes no backend source,
 - Opening the composer from an acknowledgement prefill no longer emits generic draft-recovery feedback. A genuine previously edited draft preserved on top of that origin still emits localized contextual recovery feedback.
 
 Focused Android unit and connected-device coverage locks these distinctions, mixed-summary shapes, Profile states, composer feedback conditions, and English/Turkish copy. Equivalent deterministic XCTest coverage is included for Xcode Cloud. Final authoritative Android CI and Xcode Cloud results are recorded from the pushed closure commits; the existing Milestone 4 beta deployment remains unchanged.
+
+## Milestone 5: Experience Conversations
+
+Milestone 5 adds one contextual `Questions & Comments` / `Sorular ve Yorumlar` surface to Experience Detail without creating a review, rating, notification, reaction, or Profile-history system. `QUESTION` and `COMMENT` are root entries; each may have exactly one level of `REPLY`. Roots are returned newest first with a stable timestamp/UUID cursor and Replies oldest first. An Experience-author Reply is presentation metadata on the normal Reply row (`Author answer` for Questions and `Author` for Comments), not a second answer model.
+
+### Flyway V16 and deletion semantics
+
+`V16__experience_conversations.sql` adds `experience_conversation_entries` with canonical Experience and author foreign keys, a nullable self-parent, bounded body, client mutation identity, creation/update/edit/delete timestamps, root/reply shape constraints, deterministic root/reply indexes, and an insert/update trigger that rejects a missing, deleted, cross-Experience, or Reply parent. The unique `(author_user_id, client_mutation_id)` boundary and transaction-scoped advisory lock make create retries deterministic without permitting a mutation ID to represent a different payload.
+
+The source Experience and author foreign keys cascade. Deleting the source therefore removes the entire conversation. Deleting a root author removes that root and its Replies; deleting only a Reply author removes that Reply; unrelated Experiences are unchanged. User deletion of an individual entry is soft so the author can repeat the delete safely, while reads, counts, reports, and child visibility treat deleted entries as unavailable. A hidden or deleted root never leaves orphan Replies on a product surface.
+
+V16 also extends the existing report target with `CONVERSATION_ENTRY`, keeps reports durable when the target later disappears, and prevents more than one open report by the same reporter for the same entry. Reporting uses the existing reason, moderation, metrics, and duplicate-response behavior and cannot enumerate a blocked, deleted, or otherwise inaccessible target.
+
+### Authorization, counts, and API
+
+Conversation rows contain no copied visibility. Every read, create, edit, delete, Reply, report, card count, and detail count inherits the live source Experience decision through `ViewerAccessPolicy`. Profile privacy does not suppress an explicit entry posted into an otherwise authorized Experience, but opening that participant's Profile retains the existing private-profile boundary. Symmetric block separation removes a blocked root and its full thread; it removes only a blocked Reply when the root remains visible; separation from the Experience author makes the entire Experience inaccessible.
+
+The backward-compatible V2 API additions are:
+
+- `GET|POST /api/v2/experiences/{experienceId}/conversation`;
+- `POST /api/v2/conversation/{rootId}/replies`;
+- `PATCH|DELETE /api/v2/conversation/{entryId}`;
+- `CONVERSATION_ENTRY` on the existing report endpoint;
+- viewer-relative `conversationCount` on Experience card/detail responses;
+- the enabled `experienceConversations` capability.
+
+`conversationCount` includes only active visible roots. Replies never increment it. Questions, Comments, and Replies do not touch Overall Feeling, Community Feeling, dimensions, Place aggregates, Experience count, acknowledgement count, planning state, recommendation rating, or legacy numeric rating.
+
+### Android and iOS durability
+
+Android advances Room from schema 9 to 10 and iOS advances SQLite from schema 3 to 4. Both persist account-scoped conversation snapshots and typed pending root, Reply, edit, and delete mutations. Local creates use the final `clientMutationId`, render optimistically, survive process death, expose Pending/Failed/Retry state, and reconcile a lost-response retry without duplication. Local Reply persistence retains its root relation through edit/retry. Logout and account deletion purge only the selected account's conversation cache and queued payloads.
+
+Both native detail surfaces provide root type selection, a bounded composer, one-level Reply affordance, author-context badge, edited state, own-entry Edit/Delete, other-entry Report/Block, root-cascade warning, offline retry, empty/loading/error treatment, dark appearance, 120% text support, and English/Turkish localization. The Experience owner receives no extra deletion control.
+
+### Validation and review record
+
+- Backend production packaging and test compilation pass locally. The local Docker engine is unavailable, so the authoritative PostgreSQL/Flyway/Testcontainers result is taken only from pushed CI; the local full Maven attempt recorded 104 passing tests, zero assertion failures, and 29 Docker-unavailable errors.
+- Android records 241/241 unit tests with zero failures, errors, or skips; lint has zero errors; debug assembly and release Kotlin compilation pass.
+- The final bounded tablet run records 22/22 connected tests across conversation behavior, Room 9-to-10 migration, account isolation, offline queueing, retry, and idempotency. Six additional screenshot-capture tests pass.
+- The iOS String Catalog parses as JSON and the new persistence/service/controller/UI/test code is structurally checked on Windows. Swift/Xcode/XCTest are unavailable locally; authoritative compilation and XCTest remain an Xcode Cloud result and are never inferred.
+- The design-review package is external to Git under `C:\Users\Emir\Documents\Phokarta_Design_Review\Milestone_5\20260920_202811` and contains 19 PNGs, a manifest, a contact sheet, and a ZIP.
+
+Milestone 5 does not begin a later milestone. Its next gate after engineering closure is `PHOKARTA V2 DESIGN / PRODUCT REVIEW — MILESTONE 5`.

@@ -238,7 +238,7 @@ struct VisitComposerScreen: View {
             }
             .overlay(alignment: .bottom) {
                 if let feedback = controller.state.draftRestoreFeedback {
-                    Text(String(localized: String.LocalizationValue(feedback.localizationKey)))
+                    Text(phokartaString(feedback.localizationKey, locale: locale))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)

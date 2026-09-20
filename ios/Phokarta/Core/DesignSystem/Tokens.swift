@@ -8,8 +8,18 @@ enum PhokartaLanguage: String, CaseIterable {
 }
 
 func phokartaString(_ key: String, locale: Locale) -> String {
-    String(localized: String.LocalizationValue(key), locale: locale)
+    let appBundle = Bundle(for: PhokartaLocalizationBundleMarker.self)
+    let localeIdentifier = locale.identifier.replacingOccurrences(of: "-", with: "_")
+    let languageCode = localeIdentifier.split(separator: "_").first.map(String.init)
+    let localizedBundle = [localeIdentifier, languageCode]
+        .compactMap { $0 }
+        .compactMap { appBundle.path(forResource: $0, ofType: "lproj") }
+        .compactMap(Bundle.init(path:))
+        .first ?? appBundle
+    return localizedBundle.localizedString(forKey: key, value: key, table: nil)
 }
+
+private final class PhokartaLocalizationBundleMarker {}
 
 enum PhokartaSpacing {
     static let xs: CGFloat = 4

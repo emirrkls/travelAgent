@@ -2755,4 +2755,45 @@ The existence of these compatibility values must not cause the V2 UI to reintrod
 
 This mapping is a locked compatibility decision for the initial Phokarta V2 migration.
 
+---
+
+# 132. MILESTONE 5 — EXPERIENCE CONVERSATIONS
+
+Experience Detail contains one contextual conversation surface named:
+
+Questions & Comments
+/
+Sorular ve Yorumlar
+
+The surface contains chronological root entries of exactly two types:
+
+- `QUESTION`
+- `COMMENT`
+
+Both root types may receive first-level `REPLY` entries. A Reply may never receive another Reply; the backend and database must reject nested-reply attempts rather than relying on presentation-only hiding.
+
+When the Experience author replies to a Question, clients present the normal Reply with a compact `Author answer` / `Deneyim sahibinin yanıtı` label. Under a Comment, the same ownership context is presented with the smaller `Author` / `Deneyim sahibi` label. This does not create a separate answer domain object.
+
+Conversation is contextual social UGC and is never a review or rating input. Questions, Comments and Replies have zero effect on Overall Feeling, Community Feeling, dimensions, Place aggregates, Experience count, Ben de Yaşadım count, planning state, recommendation rating, or legacy numeric rating. Milestone 5 adds no Likes, votes, reactions, notifications, or profile conversation history.
+
+The Experience owner is not the conversation moderator. Only an entry's author may edit or user-delete that entry. Owning the source Experience grants no right to delete another person's Question, Comment, or Reply. Existing authorized platform moderation remains separate, and the Experience owner may use the ordinary Reply, Report, and Block behavior.
+
+Conversation entries have no independent visibility. Read and write access always inherits the current source Experience decision through the central `ViewerAccessPolicy`. Changing an Experience from PUBLIC to FRIENDS or PRIVATE changes conversation access immediately, without copied visibility on conversation rows.
+
+Profile privacy does not hide an entry that a private-profile user intentionally posts into an otherwise accessible conversation. If that user posts on a PUBLIC Experience, every viewer authorized to read that Experience may read the explicit entry. Opening the participant's profile still applies the private-profile boundary and exposes only the existing identity-level preview unless the viewer is otherwise approved.
+
+Blocking remains a symmetric authored-content barrier. An entry is hidden when its author and viewer are block-separated in either direction. A hidden root hides its whole thread so Replies are never orphaned. A block-separated Reply is removed from an otherwise visible thread. A block between the viewer and Experience author makes the Experience and therefore its entire conversation inaccessible through the central policy.
+
+Experience card and detail conversation counts are viewer-relative counts of visible, active root Questions plus Comments only. Replies never increment the count, and blocked, deleted, or otherwise unauthorized roots never leak through it. The count is a restrained contextual affordance, not an engagement or popularity metric.
+
+Deleting the source Experience removes its complete conversation from product surfaces. Deleting a conversation author's account removes that author's active conversation UGC; deleting a root author also removes the root's child Replies from product surfaces, while deleting only a Reply author removes that Reply. Unrelated Experiences remain unchanged.
+
+An entry author may edit their own Question, Comment, or Reply. The canonical row tracks update/edit time and clients show a subtle `Edited` / `Düzenlendi` indicator without exposing edit history. An entry author may delete their own Reply independently. Deleting a root removes the entire thread from product surfaces and the UI warns when that root has Replies.
+
+Question, Comment, and Reply reporting extends the existing Report infrastructure with a conversation-entry target. Reporting does not automatically delete content or change any Experience or Place aggregate. Authorization must not let the report endpoint enumerate inaccessible entries.
+
+Root ordering is newest first with a stable cursor and UUID tie-break. Replies within a root are oldest first. Conversation stays attached to Experience Detail and is not added as a Profile tab. Milestone 5 sends no push, email, or in-app conversation notifications.
+
+These are locked Milestone 5 product decisions and supersede the earlier recommendation-level wording in sections 85–90 where the two differ.
+
 END OF PHOKARTA V2 PRODUCT CONTRACT

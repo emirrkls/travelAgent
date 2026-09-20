@@ -12,4 +12,8 @@ struct ReportTarget: Equatable, Sendable {
     static func visit(id: UUID, placeName: String) -> ReportTarget {
         ReportTarget(targetType: .visit, targetId: id, displayContext: placeName)
     }
+
+    static func conversationEntry(id: UUID, authorName: String) -> ReportTarget {
+        ReportTarget(targetType: .conversationEntry, targetId: id, displayContext: authorName)
+    }
 }

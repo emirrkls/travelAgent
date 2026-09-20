@@ -77,6 +77,7 @@ struct AppEnvironment {
         let visitService = VisitService(client: client)
         let visitMediaService = VisitMediaService(client: client)
         let visits = VisitStore(service: visitService, mediaService: visitMediaService)
+        let experienceService = ExperienceDiscoveryService(client: client)
 
         // Initialize SQLite persistence in Application Support
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -104,7 +105,8 @@ struct AppEnvironment {
             mediaService: visitMediaService,
             visitService: visitService,
             visitStore: visits,
-            sessionProvider: sessionOwner
+            sessionProvider: sessionOwner,
+            experienceService: experienceService
         )
         let purger = SQLiteLocalAccountPurger(
             database: database,
@@ -115,7 +117,6 @@ struct AppEnvironment {
 
         let socialService = SocialService(client: client)
         let privacyService = PrivacyV2Service(client: client)
-        let experienceService = ExperienceDiscoveryService(client: client)
         let activityService = ActivityService(client: client)
         let socialState = SocialStateStore(service: socialService)
 
@@ -193,9 +194,9 @@ struct AppEnvironment {
         let visitService = VisitService(client: client)
         let visitMediaService = VisitMediaService(client: client)
         let visits = VisitStore(service: visitService, mediaService: visitMediaService)
+        let experienceService = ExperienceDiscoveryService(client: client)
         let socialService = customSocial ?? SocialService(client: client)
         let privacyService = PrivacyV2Service(client: client)
-        let experienceService = ExperienceDiscoveryService(client: client)
         let activityService = customActivity ?? ActivityService(client: client)
         let socialState = customSocialState ?? SocialStateStore(service: socialService)
 
@@ -218,7 +219,8 @@ struct AppEnvironment {
             mediaService: visitMediaService,
             visitService: visitService,
             visitStore: visits,
-            sessionProvider: sessionOwner
+            sessionProvider: sessionOwner,
+            experienceService: experienceService
         )
         let purger = SQLiteLocalAccountPurger(
             database: database,

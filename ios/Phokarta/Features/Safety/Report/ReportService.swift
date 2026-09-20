@@ -5,6 +5,7 @@ import Foundation
 enum ReportTargetType: String, Codable, Equatable, Sendable {
     case user = "USER"
     case visit = "VISIT"
+    case conversationEntry = "CONVERSATION_ENTRY"
 }
 
 enum ReportReason: String, CaseIterable, Codable, Equatable, Sendable {

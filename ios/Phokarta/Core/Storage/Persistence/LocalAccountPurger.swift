@@ -30,6 +30,7 @@ final class SQLiteLocalAccountPurger: LocalAccountPurger, Sendable {
                     "DELETE FROM pending_mutations WHERE userId = ?;",
                     params: [userId.uuidString]
                 )
+                try db.execute("DELETE FROM conversation_entries WHERE userId = ?;", params: [userId.uuidString])
                 try db.execute("DELETE FROM planned_experiences WHERE userId = ?;", params: [userId.uuidString])
                 try db.execute("DELETE FROM experience_acknowledgements WHERE userId = ?;", params: [userId.uuidString])
             }

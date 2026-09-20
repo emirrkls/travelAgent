@@ -233,7 +233,8 @@ extension ExperienceSummaryV2 {
             visibility: visibility,
             plannedByViewer: plannedByViewer,
             acknowledgedByViewer: acknowledgedByViewer,
-            acknowledgementCount: acknowledgementCount
+            acknowledgementCount: acknowledgementCount,
+            conversationCount: conversationCount
         )
     }
 
@@ -246,7 +247,7 @@ extension ExperienceSummaryV2 {
             timeOfDay: timeOfDay, vibes: vibes, practicalSignals: practicalSignals,
             mediaPreview: mediaPreview, mediaCount: mediaCount, visibility: visibility,
             plannedByViewer: planned, acknowledgedByViewer: acknowledged,
-            acknowledgementCount: count
+            acknowledgementCount: count, conversationCount: conversationCount
         )
     }
 }

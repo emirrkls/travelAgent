@@ -567,6 +567,73 @@ final class ExperienceV2FoundationTests: XCTestCase {
         XCTAssertEqual(detail.items.first?.experience?.place.name, "Foça")
     }
 
+    func testConversationEndpointsUseV2RoutesAndStableMutationIdentity() throws {
+        let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
+        let experienceId = UUID(uuidString: "30000000-0000-4000-8000-000000000001")!
+        let mutationId = UUID(uuidString: "40000000-0000-4000-8000-000000000001")!
+        let rootId = UUID(uuidString: "50000000-0000-4000-8000-000000000001")!
+        let create = try client.makeRequest(CreateConversationEntryEndpoint(
+            experienceId: experienceId,
+            requestBody: CreateConversationEntryRequest(
+                clientMutationId: mutationId, type: .question, body: "Is it quiet?"
+            )
+        ))
+        let reply = try client.makeRequest(CreateConversationReplyEndpoint(
+            rootId: rootId,
+            requestBody: CreateConversationReplyRequest(clientMutationId: mutationId, body: "Yes")
+        ))
+
+        XCTAssertEqual(create.httpMethod, "POST")
+        XCTAssertEqual(create.url?.path, "/api/v2/experiences/\(experienceId.uuidString.uppercased())/conversation")
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: XCTUnwrap(create.httpBody)) as? [String: Any])
+        XCTAssertEqual(json["clientMutationId"] as? String, mutationId.uuidString.uppercased())
+        XCTAssertEqual(json["type"] as? String, "QUESTION")
+        XCTAssertEqual(reply.url?.path, "/api/v2/conversation/\(rootId.uuidString.uppercased())/replies")
+    }
+
+    func testConversationDecodesOneLevelOrderAndAuthorAnswerPresentation() throws {
+        let page = try APIJSON.decoder.decode(
+            CursorPageDTO<ConversationEntry>.self,
+            from: Data(Self.conversationFixture.utf8)
+        )
+
+        XCTAssertEqual(page.items.map(\.body), ["new question", "older comment"])
+        XCTAssertEqual(page.items.first?.replies.map(\.body), ["first answer", "follow-up"])
+        let authorReply = try XCTUnwrap(page.items.first?.replies.first)
+        XCTAssertEqual(
+            ConversationPresentation.authorBadgeKey(
+                experienceAuthor: authorReply.experienceAuthor,
+                rootType: .question,
+                isReply: true
+            ),
+            "conversation.author_answer"
+        )
+        XCTAssertFalse(ConversationPresentation.canReply(to: authorReply))
+        XCTAssertTrue(ConversationPresentation.canReply(to: try XCTUnwrap(page.items.first)))
+    }
+
+    func testConversationReportTargetUsesExistingModerationWireType() throws {
+        let encoded = try APIJSON.encoder.encode(CreateReportRequestDTO(
+            targetType: .conversationEntry,
+            targetId: UUID(uuidString: "50000000-0000-4000-8000-000000000001")!,
+            reason: .spam,
+            details: nil
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(json["targetType"] as? String, "CONVERSATION_ENTRY")
+    }
+
+    func testConversationLocalizationCoversEnglishAndTurkish() {
+        let english = Locale(identifier: "en")
+        let turkish = Locale(identifier: "tr")
+        XCTAssertEqual(phokartaString("conversation.title", locale: english), "Questions & Comments")
+        XCTAssertEqual(phokartaString("conversation.author_answer", locale: english), "Author answer")
+        XCTAssertEqual(phokartaString("conversation.pending", locale: english), "Sending…")
+        XCTAssertEqual(phokartaString("conversation.title", locale: turkish), "Sorular ve Yorumlar")
+        XCTAssertEqual(phokartaString("conversation.author_answer", locale: turkish), "Deneyim sahibinin yanıtı")
+        XCTAssertEqual(phokartaString("conversation.pending", locale: turkish), "Gönderiliyor…")
+    }
+
     private static let fixture = """
     {
       "id":"30000000-0000-0000-0000-000000000001",
@@ -593,6 +660,38 @@ final class ExperienceV2FoundationTests: XCTestCase {
       "visibility":"PUBLIC",
       "taxonomyVersion":1,
       "privateMemory":"must-not-decode"
+    }
+    """
+
+    private static let conversationFixture = """
+    {
+      "items":[{
+        "id":"50000000-0000-4000-8000-000000000001",
+        "experienceId":"30000000-0000-4000-8000-000000000001",
+        "type":"QUESTION","body":"new question",
+        "author":{"id":"60000000-0000-4000-8000-000000000001","username":"reader","displayName":"Reader","avatarUrl":null},
+        "createdAt":"2026-09-20T12:00:00Z","updatedAt":"2026-09-20T12:00:00Z",
+        "edited":false,"experienceAuthor":false,"ownedByViewer":false,"reportableByViewer":true,
+        "replies":[{
+          "id":"70000000-0000-4000-8000-000000000001","experienceId":"30000000-0000-4000-8000-000000000001",
+          "type":"REPLY","body":"first answer",
+          "author":{"id":"11111111-1111-1111-1111-111111111111","username":"author","displayName":"Author","avatarUrl":null},
+          "createdAt":"2026-09-20T12:01:00Z","updatedAt":"2026-09-20T12:01:00Z",
+          "edited":false,"experienceAuthor":true,"ownedByViewer":false,"reportableByViewer":true
+        },{
+          "id":"70000000-0000-4000-8000-000000000002","experienceId":"30000000-0000-4000-8000-000000000001",
+          "type":"REPLY","body":"follow-up",
+          "author":{"id":"60000000-0000-4000-8000-000000000001","username":"reader","displayName":"Reader","avatarUrl":null},
+          "createdAt":"2026-09-20T12:02:00Z","updatedAt":"2026-09-20T12:02:00Z",
+          "edited":false,"experienceAuthor":false,"ownedByViewer":true,"reportableByViewer":false
+        }]
+      },{
+        "id":"50000000-0000-4000-8000-000000000002","experienceId":"30000000-0000-4000-8000-000000000001",
+        "type":"COMMENT","body":"older comment",
+        "author":{"id":"60000000-0000-4000-8000-000000000001","username":"reader","displayName":"Reader","avatarUrl":null},
+        "createdAt":"2026-09-20T11:00:00Z","updatedAt":"2026-09-20T11:00:00Z",
+        "edited":false,"experienceAuthor":false,"ownedByViewer":true,"reportableByViewer":false
+      }],"nextCursor":null,"hasMore":false
     }
     """
 }

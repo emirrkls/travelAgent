@@ -16,6 +16,20 @@ enum AcknowledgementPresentation: Equatable {
     static func resolve(acknowledged: Bool) -> Self { acknowledged ? .confirmed : .action }
 }
 
+enum ConversationPresentation {
+    static func authorBadgeKey(
+        experienceAuthor: Bool, rootType: ConversationEntryType, isReply: Bool
+    ) -> String? {
+        guard experienceAuthor else { return nil }
+        return isReply && rootType == .question
+            ? "conversation.author_answer" : "conversation.author"
+    }
+
+    static func canReply(to entry: ConversationEntry) -> Bool {
+        entry.type != .reply && entry.syncState == .synced
+    }
+}
+
 @MainActor
 @Observable
 final class ExperienceDetailController {
@@ -24,6 +38,9 @@ final class ExperienceDetailController {
     private(set) var relationshipBusy = false
     private(set) var planBusy = false
     private(set) var acknowledgementBusy = false
+    private(set) var conversation: [ConversationEntry] = []
+    private(set) var conversationLoading = false
+    private(set) var conversationBusy = false
     private(set) var error: AppError?
     private let id: UUID
     private let service: any ExperienceDiscoveryServing
@@ -54,6 +71,7 @@ final class ExperienceDetailController {
             experience = value
             isLoading = false
             await renewExpiringMedia(value)
+            await loadConversation()
         } catch let appError as AppError {
             error = appError
             isLoading = false
@@ -127,6 +145,150 @@ final class ExperienceDetailController {
         catch { self.error = .server }
     }
 
+    func loadConversation() async {
+        conversationLoading = true
+        defer { conversationLoading = false }
+        if let mutationRepository, let currentUserId,
+           let local = try? await mutationRepository.localConversation(experienceId: id, userId: currentUserId),
+           !local.isEmpty {
+            conversation = local
+        }
+        do {
+            let page = try await service.conversation(experienceId: id)
+            if let mutationRepository, let currentUserId {
+                try await mutationRepository.replaceConversationSnapshot(
+                    page.items, experienceId: id, userId: currentUserId
+                )
+                conversation = try await mutationRepository.localConversation(
+                    experienceId: id, userId: currentUserId
+                )
+            } else {
+                conversation = page.items
+            }
+        } catch let appError as AppError {
+            if conversation.isEmpty { error = appError }
+        } catch {
+            if conversation.isEmpty { self.error = .server }
+        }
+    }
+
+    func createConversation(type: ConversationEntryType, body: String) async {
+        guard let experience, !conversationBusy else { return }
+        conversationBusy = true
+        defer { conversationBusy = false }
+        do {
+            if let mutationRepository, let currentUserId {
+                _ = try await mutationRepository.createConversationRoot(
+                    experience: experience, type: type, body: body,
+                    author: optimisticAuthor(for: experience, userId: currentUserId),
+                    userId: currentUserId
+                )
+                await refreshLocalConversation()
+                _ = await syncEngine?.drain()
+                await refreshLocalConversation()
+            } else {
+                _ = try await service.createConversationEntry(
+                    experienceId: experience.id,
+                    request: CreateConversationEntryRequest(
+                        clientMutationId: UUID(), type: type, body: body
+                    )
+                )
+                await loadConversation()
+            }
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    func reply(to root: ConversationEntry, body: String) async {
+        guard let experience, !conversationBusy else { return }
+        conversationBusy = true
+        defer { conversationBusy = false }
+        do {
+            if let mutationRepository, let currentUserId {
+                _ = try await mutationRepository.createConversationReply(
+                    experience: experience, root: root, body: body,
+                    author: optimisticAuthor(for: experience, userId: currentUserId),
+                    userId: currentUserId
+                )
+                await refreshLocalConversation()
+                _ = await syncEngine?.drain()
+                await refreshLocalConversation()
+            } else {
+                _ = try await service.createConversationReply(
+                    rootId: root.id,
+                    request: CreateConversationReplyRequest(clientMutationId: UUID(), body: body)
+                )
+                await loadConversation()
+            }
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    func edit(_ entry: ConversationEntry, body: String) async {
+        guard !conversationBusy else { return }
+        conversationBusy = true
+        defer { conversationBusy = false }
+        do {
+            if let mutationRepository, let currentUserId {
+                try await mutationRepository.editConversationEntry(entry, body: body, userId: currentUserId)
+                await refreshLocalConversation()
+                _ = await syncEngine?.drain()
+                await refreshLocalConversation()
+            } else {
+                _ = try await service.updateConversationEntry(entryId: entry.id, body: body)
+                await loadConversation()
+            }
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    func delete(_ entry: ConversationEntry) async {
+        guard !conversationBusy else { return }
+        conversationBusy = true
+        defer { conversationBusy = false }
+        do {
+            if let mutationRepository, let currentUserId {
+                try await mutationRepository.deleteConversationEntry(entry, userId: currentUserId)
+                await refreshLocalConversation()
+                _ = await syncEngine?.drain()
+                await refreshLocalConversation()
+            } else {
+                try await service.deleteConversationEntry(entryId: entry.id)
+                await loadConversation()
+            }
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    func retry(_ entry: ConversationEntry) async {
+        guard let mutationId = entry.clientMutationId,
+              let mutationRepository, let currentUserId else { return }
+        do {
+            try await mutationRepository.retry(mutationId: mutationId, userId: currentUserId)
+            await refreshLocalConversation()
+            _ = await syncEngine?.drain()
+            await refreshLocalConversation()
+        } catch let appError as AppError { error = appError }
+        catch { self.error = .server }
+    }
+
+    private func refreshLocalConversation() async {
+        guard let mutationRepository, let currentUserId else { return }
+        if let values = try? await mutationRepository.localConversation(
+            experienceId: id, userId: currentUserId
+        ) { conversation = values }
+    }
+
+    private func optimisticAuthor(for experience: ExperienceV2, userId: UUID) -> ConversationAuthor {
+        if experience.author.id == userId {
+            return ConversationAuthor(
+                id: userId, username: experience.author.username,
+                displayName: experience.author.displayName, avatarUrl: experience.author.avatarUrl
+            )
+        }
+        return ConversationAuthor(id: userId, username: "", displayName: "", avatarUrl: nil)
+    }
+
     private func renewExpiringMedia(_ value: ExperienceV2) async {
         let parser = ISO8601DateFormatter()
         let threshold = Date().addingTimeInterval(60)
@@ -186,7 +348,8 @@ private extension ExperienceV2 {
             taxonomyVersion: taxonomyVersion,
             plannedByViewer: plannedByViewer,
             acknowledgedByViewer: acknowledgedByViewer,
-            acknowledgementCount: acknowledgementCount
+            acknowledgementCount: acknowledgementCount,
+            conversationCount: conversationCount
         )
     }
 
@@ -200,7 +363,7 @@ private extension ExperienceV2 {
             vibes: vibes, practicalSignals: practicalSignals, dimensions: dimensions, media: media,
             visibility: visibility, taxonomyVersion: taxonomyVersion,
             plannedByViewer: planned, acknowledgedByViewer: acknowledged,
-            acknowledgementCount: count
+            acknowledgementCount: count, conversationCount: conversationCount
         )
     }
 }
@@ -208,7 +371,12 @@ private extension ExperienceV2 {
 struct ExperienceDetailScreen: View {
     @State private var controller: ExperienceDetailController
     @State private var showingCollections = false
+    @State private var reportController: ReportController?
+    @State private var blockEntry: ConversationEntry?
     let collections: CollectionStore?
+    let reportService: (any ReportServing)?
+    let blockService: (any BlockServing)?
+    let currentUserId: UUID?
     let onAuthor: (UUID) -> Void
     let onPlace: (UUID) -> Void
     @Environment(\.colorScheme) private var colorScheme
@@ -222,6 +390,8 @@ struct ExperienceDetailScreen: View {
         syncEngine: MutationSyncEngine? = nil,
         currentUserId: UUID? = nil,
         collections: CollectionStore? = nil,
+        reportService: (any ReportServing)? = nil,
+        blockService: (any BlockServing)? = nil,
         onAuthor: @escaping (UUID) -> Void,
         onPlace: @escaping (UUID) -> Void
     ) {
@@ -231,6 +401,9 @@ struct ExperienceDetailScreen: View {
             currentUserId: currentUserId
         ))
         self.collections = collections
+        self.reportService = reportService
+        self.blockService = blockService
+        self.currentUserId = currentUserId
         self.onAuthor = onAuthor
         self.onPlace = onPlace
     }
@@ -258,6 +431,33 @@ struct ExperienceDetailScreen: View {
             if let collections, let experience = controller.experience {
                 ExperienceCollectionPickerSheet(store: collections, experience: experience)
             }
+        }
+        .sheet(isPresented: Binding(
+            get: { reportController != nil },
+            set: { if !$0 { reportController = nil } }
+        )) {
+            if let reportController {
+                ReportSheet(controller: reportController) { self.reportController = nil }
+            }
+        }
+        .alert(
+            String(localized: "block.confirm_title"),
+            isPresented: Binding(
+                get: { blockEntry != nil },
+                set: { if !$0 { blockEntry = nil } }
+            ),
+            presenting: blockEntry
+        ) { entry in
+            Button(String(localized: "block.action"), role: .destructive) {
+                Task {
+                    try? await blockService?.block(userId: entry.author.id)
+                    blockEntry = nil
+                    await controller.loadConversation()
+                }
+            }
+            Button(String(localized: "action.cancel"), role: .cancel) { blockEntry = nil }
+        } message: { _ in
+            Text("block.confirm_body")
         }
     }
 
@@ -454,6 +654,12 @@ struct ExperienceDetailScreen: View {
                         }
                     }
                 }
+                ExperienceConversationSection(
+                    controller: controller,
+                    currentUserId: currentUserId,
+                    onReport: openReport,
+                    onBlock: { blockEntry = $0 }
+                )
                 Button(action: { onPlace(experience.place.id) }) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("experience.about_place").font(.caption)
@@ -476,6 +682,17 @@ struct ExperienceDetailScreen: View {
         }
     }
 
+    private func openReport(_ entry: ConversationEntry) {
+        guard let reportService, let currentUserId else { return }
+        let report = ReportController(service: reportService)
+        report.activate(accountId: currentUserId)
+        report.open(target: .conversationEntry(
+            id: entry.id,
+            authorName: entry.author.displayName.isEmpty ? entry.author.username : entry.author.displayName
+        ))
+        reportController = report
+    }
+
     private func chip(_ text: String) -> some View {
         Text(text).font(.caption).padding(.horizontal, 10).padding(.vertical, 6)
             .background(PhokartaColor.softSurface(for: colorScheme), in: Capsule())
@@ -489,6 +706,344 @@ struct ExperienceDetailScreen: View {
         case .friends: "experience.relationship.friends"
         default: ""
         }
+    }
+}
+
+private struct ExperienceConversationSection: View {
+    @Bindable var controller: ExperienceDetailController
+    let currentUserId: UUID?
+    let onReport: (ConversationEntry) -> Void
+    let onBlock: (ConversationEntry) -> Void
+    @State private var type: ConversationEntryType = .question
+    @State private var body = ""
+    @State private var replyingTo: ConversationEntry?
+    @State private var editingEntry: ConversationEntry?
+    @State private var deletingEntry: ConversationEntry?
+    @State private var modalBody = ""
+    @Environment(\.colorScheme) private var colorScheme
+
+    var bodyView: some View {
+        VStack(alignment: .leading, spacing: PhokartaSpacing.sm) {
+            Text("conversation.title").font(.title2.bold())
+            Text("conversation.subtitle").font(.subheadline).foregroundStyle(.secondary)
+            Picker("conversation.type", selection: $type) {
+                Text("conversation.question").tag(ConversationEntryType.question)
+                Text("conversation.comment").tag(ConversationEntryType.comment)
+            }
+            .pickerStyle(.segmented)
+            TextField(
+                type == .question
+                    ? String(localized: "conversation.question.placeholder")
+                    : String(localized: "conversation.comment.placeholder"),
+                text: $body,
+                axis: .vertical
+            )
+            .lineLimit(2...5)
+            .onChange(of: body) { _, value in body = String(value.prefix(Self.bodyLimit)) }
+            HStack {
+                Text("\(body.count)/\(Self.bodyLimit)").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    let submitted = body
+                    body = ""
+                    Task { await controller.createConversation(type: type, body: submitted) }
+                } label: {
+                    Label("conversation.send", systemImage: "paperplane.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
+            }
+            if controller.conversationLoading && controller.conversation.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding()
+            } else if controller.conversation.isEmpty {
+                Text("conversation.empty").foregroundStyle(.secondary).padding(.vertical)
+            } else {
+                ForEach(controller.conversation) { entry in
+                    ConversationEntryCard(
+                        entry: entry,
+                        rootType: entry.type,
+                        allowReply: true,
+                        currentUserId: currentUserId,
+                        busy: controller.conversationBusy,
+                        onReply: {
+                            replyingTo = entry
+                            editingEntry = nil
+                            modalBody = ""
+                        },
+                        onEdit: {
+                            editingEntry = $0
+                            replyingTo = nil
+                            modalBody = $0.body
+                        },
+                        onDelete: { deletingEntry = $0 },
+                        onRetry: { value in Task { await controller.retry(value) } },
+                        onReport: onReport,
+                        onBlock: onBlock
+                    )
+                }
+            }
+        }
+        .padding(.top, PhokartaSpacing.sm)
+        .sheet(isPresented: Binding(
+            get: { replyingTo != nil || editingEntry != nil },
+            set: {
+                if !$0 { replyingTo = nil; editingEntry = nil; modalBody = "" }
+            }
+        )) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("conversation.reply.placeholder", text: $modalBody, axis: .vertical)
+                        .lineLimit(4...8)
+                        .onChange(of: modalBody) { _, value in
+                            modalBody = String(value.prefix(Self.bodyLimit))
+                        }
+                    Text("\(modalBody.count)/\(Self.bodyLimit)")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+                .navigationTitle(
+                    editingEntry == nil
+                        ? String(localized: "conversation.reply.title")
+                        : String(localized: "conversation.edit.title")
+                )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("action.cancel") { replyingTo = nil; editingEntry = nil; modalBody = "" }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(
+                            editingEntry == nil
+                                ? String(localized: "conversation.reply")
+                                : String(localized: "action.save")
+                        ) {
+                            let submitted = modalBody
+                            let reply = replyingTo
+                            let edit = editingEntry
+                            replyingTo = nil
+                            editingEntry = nil
+                            modalBody = ""
+                            Task {
+                                if let edit { await controller.edit(edit, body: submitted) }
+                                else if let reply { await controller.reply(to: reply, body: submitted) }
+                            }
+                        }
+                        .disabled(modalBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+        .alert(
+            String(localized: "conversation.delete.title"),
+            isPresented: Binding(
+                get: { deletingEntry != nil },
+                set: { if !$0 { deletingEntry = nil } }
+            ),
+            presenting: deletingEntry
+        ) { entry in
+            Button(String(localized: "action.delete"), role: .destructive) {
+                deletingEntry = nil
+                Task { await controller.delete(entry) }
+            }
+            Button(String(localized: "action.cancel"), role: .cancel) { deletingEntry = nil }
+        } message: { entry in
+            Text(entry.replies.isEmpty
+                 ? String(localized: "conversation.delete.body")
+                 : String(localized: "conversation.delete.thread_body"))
+        }
+    }
+
+    var body: some View { bodyView }
+    private static let bodyLimit = 1_000
+}
+
+private struct ConversationEntryCard: View {
+    let entry: ConversationEntry
+    let rootType: ConversationEntryType
+    let allowReply: Bool
+    let currentUserId: UUID?
+    let busy: Bool
+    let onReply: () -> Void
+    let onEdit: (ConversationEntry) -> Void
+    let onDelete: (ConversationEntry) -> Void
+    let onRetry: (ConversationEntry) -> Void
+    let onReport: (ConversationEntry) -> Void
+    let onBlock: (ConversationEntry) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                AsyncImage(url: entry.author.avatarUrl.flatMap(URL.init(string:))) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary)
+                }
+                .frame(width: allowReply ? 34 : 28, height: allowReply ? 34 : 28)
+                .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(authorName).font(.subheadline.weight(.semibold))
+                        if entry.experienceAuthor {
+                            Text(authorBadge)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        if allowReply {
+                            Text(entry.type == .question
+                                 ? String(localized: "conversation.question")
+                                 : String(localized: "conversation.comment"))
+                                .font(.caption).foregroundStyle(.tint)
+                        }
+                        if entry.edited { Text("conversation.edited").font(.caption).foregroundStyle(.secondary) }
+                        if entry.syncState == .pending {
+                            Text("conversation.pending").font(.caption).foregroundStyle(.orange)
+                        } else if entry.syncState == .failed {
+                            Text("conversation.failed").font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
+                Spacer()
+                Menu {
+                    if entry.ownedByViewer {
+                        Button("action.edit") { onEdit(entry) }
+                        Button("action.delete", role: .destructive) { onDelete(entry) }
+                    } else {
+                        if entry.reportableByViewer { Button("report.action_conversation") { onReport(entry) } }
+                        Button("block.action", role: .destructive) { onBlock(entry) }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                }
+                .disabled(busy)
+                .accessibilityLabel(Text("conversation.actions"))
+            }
+            Text(entry.body).font(.body)
+            HStack {
+                Spacer()
+                if entry.syncState == .failed {
+                    Button("action.try_again") { onRetry(entry) }.buttonStyle(.borderless)
+                }
+                if allowReply && entry.syncState == .synced {
+                    Button("conversation.reply", action: onReply).buttonStyle(.borderless).disabled(busy)
+                }
+            }
+            ForEach(entry.replies) { reply in
+                ConversationReplyCard(
+                    entry: reply, rootType: rootType,
+                    currentUserId: currentUserId, busy: busy,
+                    onEdit: onEdit, onDelete: onDelete, onRetry: onRetry,
+                    onReport: onReport, onBlock: onBlock
+                )
+                .padding(.leading, 18)
+            }
+        }
+        .padding(12)
+        .background(
+            allowReply ? PhokartaColor.softSurface(for: colorScheme) : PhokartaColor.mist.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: PhokartaRadius.md)
+        )
+        .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.md).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
+    }
+
+    private var authorName: String {
+        if entry.author.id == currentUserId { return String(localized: "conversation.you") }
+        return entry.author.displayName.isEmpty ? entry.author.username : entry.author.displayName
+    }
+
+    private var authorBadge: LocalizedStringKey {
+        LocalizedStringKey(ConversationPresentation.authorBadgeKey(
+            experienceAuthor: entry.experienceAuthor,
+            rootType: rootType,
+            isReply: !allowReply
+        ) ?? "conversation.author")
+    }
+}
+
+private struct ConversationReplyCard: View {
+    let entry: ConversationEntry
+    let rootType: ConversationEntryType
+    let currentUserId: UUID?
+    let busy: Bool
+    let onEdit: (ConversationEntry) -> Void
+    let onDelete: (ConversationEntry) -> Void
+    let onRetry: (ConversationEntry) -> Void
+    let onReport: (ConversationEntry) -> Void
+    let onBlock: (ConversationEntry) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                AsyncImage(url: entry.author.avatarUrl.flatMap(URL.init(string:))) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: "person.crop.circle.fill").resizable().foregroundStyle(.secondary)
+                }
+                .frame(width: 28, height: 28)
+                .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(authorName).font(.subheadline.weight(.semibold))
+                        if entry.experienceAuthor {
+                            Text(authorBadge)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        if entry.edited { Text("conversation.edited").font(.caption).foregroundStyle(.secondary) }
+                        if entry.syncState == .pending {
+                            Text("conversation.pending").font(.caption).foregroundStyle(.orange)
+                        } else if entry.syncState == .failed {
+                            Text("conversation.failed").font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
+                Spacer()
+                Menu {
+                    if entry.ownedByViewer {
+                        Button("action.edit") { onEdit(entry) }
+                        Button("action.delete", role: .destructive) { onDelete(entry) }
+                    } else {
+                        if entry.reportableByViewer { Button("report.action_conversation") { onReport(entry) } }
+                        Button("block.action", role: .destructive) { onBlock(entry) }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                }
+                .disabled(busy)
+                .accessibilityLabel(Text("conversation.actions"))
+            }
+            Text(entry.body).font(.body)
+            if entry.syncState == .failed {
+                HStack {
+                    Spacer()
+                    Button("action.try_again") { onRetry(entry) }.buttonStyle(.borderless)
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            PhokartaColor.mist.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: PhokartaRadius.md)
+        )
+        .overlay(RoundedRectangle(cornerRadius: PhokartaRadius.md).stroke(PhokartaColor.border(for: colorScheme), lineWidth: 1))
+    }
+
+    private var authorName: String {
+        if entry.author.id == currentUserId { return String(localized: "conversation.you") }
+        return entry.author.displayName.isEmpty ? entry.author.username : entry.author.displayName
+    }
+
+    private var authorBadge: LocalizedStringKey {
+        LocalizedStringKey(rootType == .question
+            ? "conversation.author_answer" : "conversation.author")
     }
 }
 

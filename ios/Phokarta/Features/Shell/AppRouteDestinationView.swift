@@ -65,6 +65,8 @@ struct AppRouteDestinationView: View {
                 syncEngine: environment.syncEngine,
                 currentUserId: currentUserId,
                 collections: environment.collections,
+                reportService: environment.reportService,
+                blockService: environment.blockService,
                 onAuthor: { onNavigate(.userProfile($0)) },
                 onPlace: { onNavigate(.placeDetail($0)) }
             )

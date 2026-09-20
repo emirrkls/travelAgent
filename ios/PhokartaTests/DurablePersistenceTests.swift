@@ -747,7 +747,7 @@ final class DurablePersistenceTests: XCTestCase {
 
         let db = try PersistentDatabase(path: path)
         let version = try await db.query("PRAGMA user_version;", mapRow: { Int(sqlite3_column_int($0, 0)) })
-        XCTAssertEqual(version.first, 3)
+        XCTAssertEqual(version.first, 4)
         let draftVersion = try await db.query(
             "SELECT payloadVersion, story, titleSource FROM visit_drafts WHERE userId = ? AND placeId = ?;",
             params: [user.uuidString, place.uuidString]
@@ -761,10 +761,13 @@ final class DurablePersistenceTests: XCTestCase {
         )
         XCTAssertEqual(mutationVersion.first, 1)
         let milestoneTables = try await db.query(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('planned_experiences','experience_acknowledgements') ORDER BY name;",
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('planned_experiences','experience_acknowledgements','conversation_entries','pending_conversation_payloads') ORDER BY name;",
             mapRow: { String(cString: sqlite3_column_text($0, 0)) }
         )
-        XCTAssertEqual(milestoneTables, ["experience_acknowledgements", "planned_experiences"])
+        XCTAssertEqual(milestoneTables, [
+            "conversation_entries", "experience_acknowledgements",
+            "pending_conversation_payloads", "planned_experiences"
+        ])
     }
 
     func testNativeV2DraftAndPendingPayloadRoundTripEverySemanticField() async throws {
@@ -922,6 +925,119 @@ final class DurablePersistenceTests: XCTestCase {
             params: [user.uuidString], mapRow: { Int(sqlite3_column_int($0, 0)) }
         )
         XCTAssertEqual(removalIntent, [0])
+    }
+
+    func testConversationQueueIsDurableOneLevelIdempotentAndAccountScoped() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteOfflineMutationRepository(database: db, clock: TestEpochClock(initialMillis: 1_000))
+        let userA = UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")!
+        let userB = UUID(uuidString: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")!
+        let experience = try APIJSON.decoder.decode(
+            ExperienceV2.self, from: Data(Self.milestoneExperienceJSON.utf8)
+        )
+        let participant = ConversationAuthor(
+            id: userA, username: "participant", displayName: "Participant", avatarUrl: nil
+        )
+
+        let pendingRootId = try await repo.createConversationRoot(
+            experience: experience, type: .question, body: "  Is it quiet?  ",
+            author: participant, userId: userA
+        )
+        let pendingRoots = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        XCTAssertEqual(pendingRoots.first?.body, "Is it quiet?")
+        XCTAssertEqual(pendingRoots.first?.syncState, .pending)
+        XCTAssertEqual(pendingRoots.first?.clientMutationId, pendingRootId)
+        let otherAccountRoots = try await repo.localConversation(experienceId: experience.id, userId: userB)
+        XCTAssertTrue(otherAccountRoots.isEmpty)
+
+        var nestedRejected = false
+        do {
+            _ = try await repo.createConversationReply(
+                experience: experience, root: try XCTUnwrap(pendingRoots.first), body: "Too soon",
+                author: participant, userId: userA
+            )
+        } catch { nestedRejected = true }
+        XCTAssertTrue(nestedRejected)
+
+        let root = ConversationEntry(
+            id: UUID(), experienceId: experience.id, type: .question, body: "Is it quiet?",
+            author: participant, createdAt: "2026-09-20T10:00:00Z",
+            updatedAt: "2026-09-20T10:00:00Z", edited: false,
+            experienceAuthor: false, ownedByViewer: true, reportableByViewer: false
+        )
+        try await repo.replaceConversationSnapshot([root], experienceId: experience.id, userId: userA)
+        let replyMutation = try await repo.createConversationReply(
+            experience: experience, root: root, body: "First reply",
+            author: participant, userId: userA
+        )
+        let replyBundle = try await repo.getConversationBundle(mutationId: replyMutation)
+        XCTAssertEqual(replyBundle?.mutation.type, .createConversationReply)
+        let canonicalReply = ConversationEntry(
+            id: UUID(), experienceId: experience.id, type: .reply, body: "First reply",
+            author: participant, createdAt: "2026-09-20T10:01:00Z",
+            updatedAt: "2026-09-20T10:01:00Z", edited: false,
+            experienceAuthor: false, ownedByViewer: true, reportableByViewer: false
+        )
+        try await repo.reconcileConversationEntry(canonicalReply, mutationId: replyMutation, userId: userA)
+        try await repo.reconcileConversationEntry(canonicalReply, mutationId: replyMutation, userId: userA)
+        let reconciled = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        XCTAssertEqual(reconciled.filter { $0.id == root.id }.first?.replies.map(\.id), [canonicalReply.id])
+    }
+
+    func testConversationEditDeleteRetryAndAccountPurge() async throws {
+        let db = try PersistentDatabase(path: nil)
+        let repo = SQLiteOfflineMutationRepository(database: db)
+        let userA = UUID()
+        let userB = UUID()
+        let experience = try APIJSON.decoder.decode(
+            ExperienceV2.self, from: Data(Self.milestoneExperienceJSON.utf8)
+        )
+        let author = ConversationAuthor(id: userA, username: "a", displayName: "A", avatarUrl: nil)
+        let root = ConversationEntry(
+            id: UUID(), experienceId: experience.id, type: .comment, body: "Original",
+            author: author, createdAt: "2026-09-20T10:00:00Z",
+            updatedAt: "2026-09-20T10:00:00Z", edited: false,
+            experienceAuthor: false, ownedByViewer: true, reportableByViewer: false
+        )
+        try await repo.replaceConversationSnapshot([root], experienceId: experience.id, userId: userA)
+        try await repo.replaceConversationSnapshot([root], experienceId: experience.id, userId: userB)
+
+        try await repo.editConversationEntry(root, body: "Edited", userId: userA)
+        let afterEdit = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        let pendingEdit = try XCTUnwrap(afterEdit.first)
+        XCTAssertEqual(pendingEdit.body, "Edited")
+        XCTAssertEqual(pendingEdit.syncState, .pending)
+        let editMutation = try XCTUnwrap(pendingEdit.clientMutationId)
+        try await repo.markFailure(
+            mutationId: editMutation, generation: 1, state: .failedRetryable,
+            category: "CONNECTION", now: Date()
+        )
+        let afterFailure = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        XCTAssertEqual(afterFailure.first?.syncState, .failed)
+        try await repo.retry(mutationId: editMutation, userId: userA)
+        let afterRetry = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        XCTAssertEqual(afterRetry.first?.syncState, .pending)
+
+        let edited = ConversationEntry(
+            id: root.id, experienceId: root.experienceId, type: root.type, body: "Edited",
+            author: root.author, createdAt: root.createdAt, updatedAt: "2026-09-20T10:02:00Z",
+            edited: true, experienceAuthor: false, ownedByViewer: true, reportableByViewer: false
+        )
+        try await repo.reconcileConversationEntry(edited, mutationId: editMutation, userId: userA)
+        try await repo.deleteConversationEntry(edited, userId: userA)
+        let afterDeleteQueued = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        let pendingDelete = try XCTUnwrap(afterDeleteQueued.first)
+        let deleteMutation = try XCTUnwrap(pendingDelete.clientMutationId)
+        try await repo.reconcileConversationDeletion(
+            entryId: edited.id, mutationId: deleteMutation, userId: userA
+        )
+        let afterDelete = try await repo.localConversation(experienceId: experience.id, userId: userA)
+        XCTAssertTrue(afterDelete.isEmpty)
+
+        let purger = SQLiteLocalAccountPurger(database: db)
+        try await purger.purgeLocalData(userId: userB)
+        let afterPurge = try await repo.localConversation(experienceId: experience.id, userId: userB)
+        XCTAssertTrue(afterPurge.isEmpty)
     }
 
     private static let milestoneExperienceJSON = """

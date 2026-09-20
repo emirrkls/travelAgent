@@ -326,6 +326,13 @@ struct ExperienceCardView: View {
                     Text(String(localized: "experience.acknowledgement_count \(experience.acknowledgementCount ?? 0)"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                if (experience.conversationCount ?? 0) > 0 {
+                    Label(
+                        String(localized: "conversation.count \(experience.conversationCount ?? 0)"),
+                        systemImage: "bubble.left"
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
+                }
                 Button(action: onPlace) {
                     Label("\(experience.place.name) · \(experience.place.city)", systemImage: "mappin.and.ellipse")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)

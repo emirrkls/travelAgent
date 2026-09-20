@@ -504,6 +504,7 @@ struct ExperienceV2: Decodable, Equatable, Sendable, Identifiable {
     var plannedByViewer: Bool? = nil
     var acknowledgedByViewer: Bool? = nil
     var acknowledgementCount: Int? = nil
+    var conversationCount: Int? = nil
 
     struct Author: Decodable, Equatable, Sendable {
         let id: UUID
@@ -618,6 +619,7 @@ struct ExperienceSummaryV2: Decodable, Equatable, Sendable, Identifiable {
     var plannedByViewer: Bool? = nil
     var acknowledgedByViewer: Bool? = nil
     var acknowledgementCount: Int? = nil
+    var conversationCount: Int? = nil
 
     struct MediaPreview: Decodable, Equatable, Sendable {
         let kind: ExperienceMediaKind

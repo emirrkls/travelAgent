@@ -23,6 +23,7 @@ actor MutationSyncEngine {
     private let visitStore: VisitStore?
     private let sessionProvider: any SessionOwnerProvider
     private let clock: any EpochClock
+    private let experienceService: (any ExperienceDiscoveryServing)?
     private var isDraining = false
 
     init(
@@ -33,7 +34,8 @@ actor MutationSyncEngine {
         visitService: any VisitServing,
         visitStore: VisitStore? = nil,
         sessionProvider: any SessionOwnerProvider,
-        clock: any EpochClock = SystemEpochClock()
+        clock: any EpochClock = SystemEpochClock(),
+        experienceService: (any ExperienceDiscoveryServing)? = nil
     ) {
         self.mutationRepository = mutationRepository
         self.draftRepository = draftRepository
@@ -43,6 +45,7 @@ actor MutationSyncEngine {
         self.visitStore = visitStore
         self.sessionProvider = sessionProvider
         self.clock = clock
+        self.experienceService = experienceService
     }
 
     func drain(batchSize: Int = 20) async -> SyncRunResult {
@@ -99,6 +102,9 @@ actor MutationSyncEngine {
                 outcome = await syncPlannedExperience(mutation: claimedMutation, userId: userId)
             case .acknowledgeExperience:
                 outcome = await syncAcknowledgement(mutation: claimedMutation, userId: userId)
+            case .createConversationRoot, .createConversationReply,
+                 .editConversationEntry, .deleteConversationEntry:
+                outcome = await syncConversation(mutation: claimedMutation, userId: userId)
             }
 
             processed += 1
@@ -124,6 +130,81 @@ actor MutationSyncEngine {
         }
 
         return SyncRunResult(retryableFailure: retryable, processed: processed)
+    }
+
+    private func syncConversation(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {
+        guard let experienceService,
+              let bundle = try? await mutationRepository.getConversationBundle(
+                mutationId: mutation.mutationId
+              ) else {
+            return .failure(retryable: false, category: "MISSING_PAYLOAD")
+        }
+        do {
+            switch mutation.type {
+            case .createConversationRoot:
+                guard let type = bundle.payload.entryType,
+                      type == .question || type == .comment,
+                      let body = bundle.payload.body else {
+                    return .failure(retryable: false, category: "INVALID_PAYLOAD")
+                }
+                let canonical = try await experienceService.createConversationEntry(
+                    experienceId: bundle.payload.experienceId,
+                    request: CreateConversationEntryRequest(
+                        clientMutationId: mutation.mutationId, type: type, body: body
+                    )
+                )
+                try await mutationRepository.reconcileConversationEntry(
+                    canonical, mutationId: mutation.mutationId, userId: userId
+                )
+            case .createConversationReply:
+                guard let rootId = bundle.payload.parentEntryId,
+                      let body = bundle.payload.body else {
+                    return .failure(retryable: false, category: "INVALID_PAYLOAD")
+                }
+                let canonical = try await experienceService.createConversationReply(
+                    rootId: rootId,
+                    request: CreateConversationReplyRequest(
+                        clientMutationId: mutation.mutationId, body: body
+                    )
+                )
+                try await mutationRepository.reconcileConversationEntry(
+                    canonical, mutationId: mutation.mutationId, userId: userId
+                )
+            case .editConversationEntry:
+                guard let entryId = bundle.payload.targetEntryId,
+                      let body = bundle.payload.body else {
+                    return .failure(retryable: false, category: "INVALID_PAYLOAD")
+                }
+                let canonical = try await experienceService.updateConversationEntry(
+                    entryId: entryId, body: body
+                )
+                try await mutationRepository.reconcileConversationEntry(
+                    canonical, mutationId: mutation.mutationId, userId: userId
+                )
+            case .deleteConversationEntry:
+                guard let entryId = bundle.payload.targetEntryId else {
+                    return .failure(retryable: false, category: "INVALID_PAYLOAD")
+                }
+                try await experienceService.deleteConversationEntry(entryId: entryId)
+                try await mutationRepository.reconcileConversationDeletion(
+                    entryId: entryId, mutationId: mutation.mutationId, userId: userId
+                )
+            default:
+                return .failure(retryable: false, category: "INVALID_PAYLOAD")
+            }
+            guard try await mutationRepository.deleteIfGeneration(
+                mutationId: mutation.mutationId, generation: mutation.generation
+            ) else {
+                return .failure(retryable: true, category: "RECONCILIATION_RACE")
+            }
+            return .success
+        } catch let appError as AppError {
+            return classifyAppError(appError)
+        } catch is CancellationError {
+            return .failure(retryable: true, category: "CANCELLED")
+        } catch {
+            return .failure(retryable: true, category: "UNKNOWN_ERROR")
+        }
     }
 
     private func syncPlannedExperience(mutation: DurablePendingMutation, userId: UUID) async -> Outcome {

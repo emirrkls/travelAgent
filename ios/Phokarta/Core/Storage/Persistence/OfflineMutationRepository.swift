@@ -40,6 +40,21 @@ protocol OfflineMutationRepository: Sendable {
     func reconcilePlannedExperience(_ value: PlannedExperienceV2?, experienceId: UUID, userId: UUID) async throws
     func reconcileAcknowledgement(_ value: ExperienceAcknowledgementV2, sourceExperienceId: UUID, userId: UUID) async throws
     func markAcknowledgementConverted(id: UUID, experienceId: UUID, userId: UUID) async throws
+    func localConversation(experienceId: UUID, userId: UUID) async throws -> [ConversationEntry]
+    func replaceConversationSnapshot(_ entries: [ConversationEntry], experienceId: UUID, userId: UUID) async throws
+    func createConversationRoot(
+        experience: ExperienceV2, type: ConversationEntryType, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID
+    func createConversationReply(
+        experience: ExperienceV2, root: ConversationEntry, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID
+    func editConversationEntry(_ entry: ConversationEntry, body: String, userId: UUID) async throws
+    func deleteConversationEntry(_ entry: ConversationEntry, userId: UUID) async throws
+    func getConversationBundle(mutationId: UUID) async throws -> PendingConversationMutationBundle?
+    func reconcileConversationEntry(_ entry: ConversationEntry, mutationId: UUID, userId: UUID) async throws
+    func reconcileConversationDeletion(entryId: UUID, mutationId: UUID, userId: UUID) async throws
 }
 
 extension OfflineMutationRepository {
@@ -70,6 +85,25 @@ extension OfflineMutationRepository {
     func getExperienceV2Bundle(mutationId: UUID) async throws -> PendingExperienceV2MutationBundle? {
         nil
     }
+    func localConversation(experienceId: UUID, userId: UUID) async throws -> [ConversationEntry] { [] }
+    func replaceConversationSnapshot(_ entries: [ConversationEntry], experienceId: UUID, userId: UUID) async throws {}
+    func createConversationRoot(
+        experience: ExperienceV2, type: ConversationEntryType, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID { throw PersistenceError.executionFailed("Conversation unavailable") }
+    func createConversationReply(
+        experience: ExperienceV2, root: ConversationEntry, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID { throw PersistenceError.executionFailed("Conversation unavailable") }
+    func editConversationEntry(_ entry: ConversationEntry, body: String, userId: UUID) async throws {
+        throw PersistenceError.executionFailed("Conversation unavailable")
+    }
+    func deleteConversationEntry(_ entry: ConversationEntry, userId: UUID) async throws {
+        throw PersistenceError.executionFailed("Conversation unavailable")
+    }
+    func getConversationBundle(mutationId: UUID) async throws -> PendingConversationMutationBundle? { nil }
+    func reconcileConversationEntry(_ entry: ConversationEntry, mutationId: UUID, userId: UUID) async throws {}
+    func reconcileConversationDeletion(entryId: UUID, mutationId: UUID, userId: UUID) async throws {}
 }
 
 final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable {
@@ -79,6 +113,256 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
     init(database: PersistentDatabase, clock: any EpochClock = SystemEpochClock()) {
         self.database = database
         self.clock = clock
+    }
+
+    func localConversation(experienceId: UUID, userId: UUID) async throws -> [ConversationEntry] {
+        let rows = try await database.query(
+            """
+            SELECT entryId,parentEntryId,type,body,authorId,authorUsername,authorDisplayName,
+                   authorAvatarUrl,createdAt,updatedAt,edited,experienceAuthor,ownedByViewer,
+                   reportableByViewer,syncState,clientMutationId
+            FROM conversation_entries
+            WHERE userId = ? AND experienceId = ?;
+            """,
+            params: [userId.uuidString, experienceId.uuidString]
+        ) { statement -> (ConversationEntry, UUID?) in
+            let entryId = UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!
+            let parentId = sqlite3_column_text(statement, 1).flatMap { UUID(uuidString: String(cString: $0)) }
+            let authorId = UUID(uuidString: String(cString: sqlite3_column_text(statement, 4)))!
+            let avatar = sqlite3_column_text(statement, 7).map { String(cString: $0) }
+            let mutationId = sqlite3_column_text(statement, 15).flatMap { UUID(uuidString: String(cString: $0)) }
+            return (ConversationEntry(
+                id: entryId,
+                experienceId: experienceId,
+                type: ConversationEntryType(rawValue: String(cString: sqlite3_column_text(statement, 2))) ?? .unknown,
+                body: String(cString: sqlite3_column_text(statement, 3)),
+                author: ConversationAuthor(
+                    id: authorId,
+                    username: String(cString: sqlite3_column_text(statement, 5)),
+                    displayName: String(cString: sqlite3_column_text(statement, 6)),
+                    avatarUrl: avatar
+                ),
+                createdAt: String(cString: sqlite3_column_text(statement, 8)),
+                updatedAt: String(cString: sqlite3_column_text(statement, 9)),
+                edited: sqlite3_column_int(statement, 10) != 0,
+                experienceAuthor: sqlite3_column_int(statement, 11) != 0,
+                ownedByViewer: sqlite3_column_int(statement, 12) != 0,
+                reportableByViewer: sqlite3_column_int(statement, 13) != 0,
+                syncState: ConversationSyncState(rawValue: String(cString: sqlite3_column_text(statement, 14))) ?? .failed,
+                clientMutationId: mutationId
+            ), parentId)
+        }
+        let replies = Dictionary(grouping: rows.filter { $0.1 != nil }, by: { $0.1! })
+        return rows.filter { $0.1 == nil }
+            .sorted { ($0.0.createdAt, $0.0.id.uuidString) > ($1.0.createdAt, $1.0.id.uuidString) }
+            .map { row in
+                var root = row.0
+                root.replies = replies[root.id, default: []]
+                    .map { $0.0 }
+                    .sorted { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }
+                return root
+            }
+    }
+
+    func replaceConversationSnapshot(
+        _ entries: [ConversationEntry], experienceId: UUID, userId: UUID
+    ) async throws {
+        try await database.withTransaction { db in
+            try db.execute(
+                "DELETE FROM conversation_entries WHERE userId = ? AND experienceId = ? AND syncState = 'SYNCED';",
+                params: [userId.uuidString, experienceId.uuidString]
+            )
+            for root in entries {
+                try Self.upsertConversation(root, parentId: nil, userId: userId, db: db)
+                for reply in root.replies {
+                    try Self.upsertConversation(reply, parentId: root.id, userId: userId, db: db)
+                }
+            }
+        }
+    }
+
+    func createConversationRoot(
+        experience: ExperienceV2, type: ConversationEntryType, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID {
+        guard type == .question || type == .comment else { throw PersistenceError.conflict("Invalid root type") }
+        return try await queueConversationCreate(
+            experience: experience, parent: nil, type: type, body: body, author: author, userId: userId
+        )
+    }
+
+    func createConversationReply(
+        experience: ExperienceV2, root: ConversationEntry, body: String,
+        author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID {
+        guard root.type != .reply, root.syncState == .synced else {
+            throw PersistenceError.conflict("Reply is available after the root finishes sending")
+        }
+        return try await queueConversationCreate(
+            experience: experience, parent: root, type: .reply, body: body, author: author, userId: userId
+        )
+    }
+
+    private func queueConversationCreate(
+        experience: ExperienceV2, parent: ConversationEntry?, type: ConversationEntryType,
+        body: String, author: ConversationAuthor, userId: UUID
+    ) async throws -> UUID {
+        let normalized = try Self.conversationBody(body)
+        let mutationId = UUID()
+        let nowMillis = clock.nowMillis()
+        let timestamp = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(nowMillis) / 1000))
+        let mutationType: MutationType = parent == nil ? .createConversationRoot : .createConversationReply
+        let local = ConversationEntry(
+            id: mutationId, experienceId: experience.id, type: type, body: normalized,
+            author: author, createdAt: timestamp, updatedAt: timestamp, edited: false,
+            experienceAuthor: author.id == experience.author.id, ownedByViewer: true,
+            reportableByViewer: false, syncState: .pending, clientMutationId: mutationId
+        )
+        try await database.withTransaction { db in
+            try db.execute(
+                """
+                INSERT INTO pending_mutations
+                (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                 createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                VALUES (?,?,?,?,?,1,0,?,?,NULL,1);
+                """,
+                params: [mutationId.uuidString, userId.uuidString, mutationType.rawValue,
+                         mutationId.uuidString, MutationState.pending.rawValue, nowMillis, nowMillis]
+            )
+            try db.execute(
+                """
+                INSERT INTO pending_conversation_payloads
+                (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                VALUES (?,?,NULL,?,?,?,?);
+                """,
+                params: [mutationId.uuidString, experience.id.uuidString,
+                         parent?.id.uuidString, type.rawValue, normalized, mutationId.uuidString]
+            )
+            try Self.upsertConversation(local, parentId: parent?.id, userId: userId, db: db)
+        }
+        return mutationId
+    }
+
+    func editConversationEntry(_ entry: ConversationEntry, body: String, userId: UUID) async throws {
+        guard entry.ownedByViewer, entry.syncState == .synced else { throw PersistenceError.conflict("Entry cannot be edited") }
+        let normalized = try Self.conversationBody(body)
+        let mutationId = UUID()
+        let nowMillis = clock.nowMillis()
+        let timestamp = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(nowMillis) / 1000))
+        try await database.withTransaction { db in
+            let parentIds = try db.query(
+                "SELECT parentEntryId FROM conversation_entries WHERE userId=? AND entryId=? LIMIT 1;",
+                params: [userId.uuidString, entry.id.uuidString]
+            ) { statement in
+                sqlite3_column_text(statement, 0).flatMap { UUID(uuidString: String(cString: $0)) }
+            }
+            let parentId = parentIds.first ?? nil
+            try Self.insertConversationMutation(
+                id: mutationId, userId: userId, type: .editConversationEntry,
+                resourceKey: entry.id.uuidString, now: nowMillis, db: db
+            )
+            try db.execute(
+                """INSERT INTO pending_conversation_payloads
+                   (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                   VALUES (?,?,?,?,?,?,?);""",
+                params: [mutationId.uuidString, entry.experienceId.uuidString, entry.id.uuidString,
+                         parentId?.uuidString, entry.type.rawValue, normalized, entry.id.uuidString]
+            )
+            try db.execute(
+                """UPDATE conversation_entries SET body=?,updatedAt=?,edited=1,syncState='PENDING',
+                   clientMutationId=? WHERE userId=? AND entryId=?;""",
+                params: [normalized, timestamp, mutationId.uuidString, userId.uuidString, entry.id.uuidString]
+            )
+        }
+    }
+
+    func deleteConversationEntry(_ entry: ConversationEntry, userId: UUID) async throws {
+        guard entry.ownedByViewer, entry.syncState == .synced else { throw PersistenceError.conflict("Entry cannot be deleted") }
+        let mutationId = UUID()
+        let nowMillis = clock.nowMillis()
+        try await database.withTransaction { db in
+            try Self.insertConversationMutation(
+                id: mutationId, userId: userId, type: .deleteConversationEntry,
+                resourceKey: entry.id.uuidString, now: nowMillis, db: db
+            )
+            try db.execute(
+                """INSERT INTO pending_conversation_payloads
+                   (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                   VALUES (?,?,?,NULL,NULL,NULL,?);""",
+                params: [mutationId.uuidString, entry.experienceId.uuidString,
+                         entry.id.uuidString, entry.id.uuidString]
+            )
+            try db.execute(
+                "UPDATE conversation_entries SET syncState='PENDING',clientMutationId=? WHERE userId=? AND entryId=?;",
+                params: [mutationId.uuidString, userId.uuidString, entry.id.uuidString]
+            )
+        }
+    }
+
+    func getConversationBundle(mutationId: UUID) async throws -> PendingConversationMutationBundle? {
+        let mutations = try await database.query(
+            """
+            SELECT mutationId,userId,type,resourceKey,state,generation,attemptCount,
+                   createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion
+            FROM pending_mutations WHERE mutationId=?;
+            """,
+            params: [mutationId.uuidString]
+        ) { statement -> DurablePendingMutation? in
+            guard let type = MutationType(rawValue: String(cString: sqlite3_column_text(statement, 2))),
+                  [.createConversationRoot, .createConversationReply, .editConversationEntry,
+                   .deleteConversationEntry].contains(type) else { return nil }
+            return DurablePendingMutation(
+                mutationId: mutationId,
+                userId: UUID(uuidString: String(cString: sqlite3_column_text(statement, 1)))!,
+                type: type,
+                resourceKey: String(cString: sqlite3_column_text(statement, 3)),
+                state: MutationState(rawValue: String(cString: sqlite3_column_text(statement, 4))) ?? .pending,
+                generation: sqlite3_column_int64(statement, 5),
+                attemptCount: Int(sqlite3_column_int(statement, 6)),
+                createdAtEpochMillis: sqlite3_column_int64(statement, 7),
+                updatedAtEpochMillis: sqlite3_column_int64(statement, 8),
+                lastErrorCategory: sqlite3_column_text(statement, 9).map { String(cString: $0) },
+                payloadVersion: Int(sqlite3_column_int(statement, 10))
+            )
+        }.compactMap { $0 }
+        guard let mutation = mutations.first else { return nil }
+        let payloads = try await database.query(
+            """SELECT experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId
+               FROM pending_conversation_payloads WHERE mutationId=?;""",
+            params: [mutationId.uuidString]
+        ) { statement in
+            DurablePendingConversationPayload(
+                mutationId: mutationId,
+                experienceId: UUID(uuidString: String(cString: sqlite3_column_text(statement, 0)))!,
+                targetEntryId: sqlite3_column_text(statement, 1).flatMap { UUID(uuidString: String(cString: $0)) },
+                parentEntryId: sqlite3_column_text(statement, 2).flatMap { UUID(uuidString: String(cString: $0)) },
+                entryType: sqlite3_column_text(statement, 3).flatMap { ConversationEntryType(rawValue: String(cString: $0)) },
+                body: sqlite3_column_text(statement, 4).map { String(cString: $0) },
+                localEntryId: sqlite3_column_text(statement, 5).flatMap { UUID(uuidString: String(cString: $0)) }
+            )
+        }
+        guard let payload = payloads.first else { return nil }
+        return PendingConversationMutationBundle(mutation: mutation, payload: payload)
+    }
+
+    func reconcileConversationEntry(
+        _ entry: ConversationEntry, mutationId: UUID, userId: UUID
+    ) async throws {
+        let parentId = try await getConversationBundle(mutationId: mutationId)?.payload.parentEntryId
+        try await database.withTransaction { db in
+            try db.execute(
+                "DELETE FROM conversation_entries WHERE userId=? AND clientMutationId=?;",
+                params: [userId.uuidString, mutationId.uuidString]
+            )
+            try Self.upsertConversation(entry, parentId: parentId, userId: userId, db: db)
+        }
+    }
+
+    func reconcileConversationDeletion(entryId: UUID, mutationId: UUID, userId: UUID) async throws {
+        try await database.execute(
+            "DELETE FROM conversation_entries WHERE userId=? AND (entryId=? OR parentEntryId=?);",
+            params: [userId.uuidString, entryId.uuidString, entryId.uuidString]
+        )
     }
 
     func setPlannedExperience(_ experience: ExperienceV2, userId: UUID, desired: Bool) async throws {
@@ -712,6 +996,10 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             """,
             params: [state.rawValue, category, nowMillis, mutationId.uuidString, generation]
         )
+        try await database.execute(
+            "UPDATE conversation_entries SET syncState='FAILED' WHERE clientMutationId=?;",
+            params: [mutationId.uuidString]
+        )
     }
 
     public func updatePhotoRemoteState(
@@ -758,6 +1046,10 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
             WHERE mutationId = ? AND userId = ?;
             """,
             params: [now, mutationId.uuidString, userId.uuidString]
+        )
+        try await database.execute(
+            "UPDATE conversation_entries SET syncState='PENDING' WHERE userId=? AND clientMutationId=?;",
+            params: [userId.uuidString, mutationId.uuidString]
         )
     }
 
@@ -1206,5 +1498,61 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 failureCategory: failStr
             )
         }
+    }
+
+    private static func conversationBody(_ value: String) throws -> String {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty, normalized.count <= 1_000 else {
+            throw PersistenceError.conflict("Conversation body must be between 1 and 1000 characters")
+        }
+        return normalized
+    }
+
+    private static func insertConversationMutation(
+        id: UUID, userId: UUID, type: MutationType, resourceKey: String,
+        now: Int64, db: isolated PersistentDatabase
+    ) throws {
+        try db.execute(
+            """
+            INSERT INTO pending_mutations
+            (mutationId,userId,type,resourceKey,state,generation,attemptCount,
+             createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+            VALUES (?,?,?,?,?,1,0,?,?,NULL,1);
+            """,
+            params: [id.uuidString, userId.uuidString, type.rawValue, resourceKey,
+                     MutationState.pending.rawValue, now, now]
+        )
+    }
+
+    private static func upsertConversation(
+        _ entry: ConversationEntry, parentId: UUID?, userId: UUID,
+        db: isolated PersistentDatabase
+    ) throws {
+        try db.execute(
+            """
+            INSERT INTO conversation_entries
+            (userId,entryId,experienceId,parentEntryId,type,body,authorId,authorUsername,
+             authorDisplayName,authorAvatarUrl,createdAt,updatedAt,edited,experienceAuthor,
+             ownedByViewer,reportableByViewer,syncState,clientMutationId)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(userId,entryId) DO UPDATE SET
+              parentEntryId=excluded.parentEntryId,type=excluded.type,body=excluded.body,
+              authorId=excluded.authorId,authorUsername=excluded.authorUsername,
+              authorDisplayName=excluded.authorDisplayName,authorAvatarUrl=excluded.authorAvatarUrl,
+              createdAt=excluded.createdAt,updatedAt=excluded.updatedAt,edited=excluded.edited,
+              experienceAuthor=excluded.experienceAuthor,ownedByViewer=excluded.ownedByViewer,
+              reportableByViewer=excluded.reportableByViewer,syncState=excluded.syncState,
+              clientMutationId=excluded.clientMutationId
+            WHERE conversation_entries.syncState='SYNCED';
+            """,
+            params: [
+                userId.uuidString, entry.id.uuidString, entry.experienceId.uuidString,
+                parentId?.uuidString, entry.type.rawValue, entry.body, entry.author.id.uuidString,
+                entry.author.username, entry.author.displayName, entry.author.avatarUrl,
+                entry.createdAt, entry.updatedAt, entry.edited, entry.experienceAuthor,
+                entry.ownedByViewer, entry.reportableByViewer, entry.syncState.rawValue,
+                entry.clientMutationId?.uuidString
+            ]
+        )
     }
 }

@@ -6,6 +6,10 @@ enum MutationType: String, Sendable, Codable, CaseIterable {
     case setSavedState = "SET_SAVED_STATE"
     case setPlannedExperienceState = "SET_PLANNED_EXPERIENCE_STATE"
     case acknowledgeExperience = "ACKNOWLEDGE_EXPERIENCE"
+    case createConversationRoot = "CREATE_CONVERSATION_ROOT"
+    case createConversationReply = "CREATE_CONVERSATION_REPLY"
+    case editConversationEntry = "EDIT_CONVERSATION_ENTRY"
+    case deleteConversationEntry = "DELETE_CONVERSATION_ENTRY"
 }
 
 struct DurableAcknowledgementAnchor: Equatable, Sendable {
@@ -375,6 +379,21 @@ struct DurablePendingExperienceV2Payload: Sendable, Equatable {
     let privateMemory: String
     let visibility: String
     var originAcknowledgementId: UUID? = nil
+}
+
+struct DurablePendingConversationPayload: Sendable, Equatable {
+    let mutationId: UUID
+    let experienceId: UUID
+    let targetEntryId: UUID?
+    let parentEntryId: UUID?
+    let entryType: ConversationEntryType?
+    let body: String?
+    let localEntryId: UUID?
+}
+
+struct PendingConversationMutationBundle: Sendable, Equatable {
+    let mutation: DurablePendingMutation
+    let payload: DurablePendingConversationPayload
 }
 
 struct DurablePendingExperienceV2Dimension: Sendable, Equatable {

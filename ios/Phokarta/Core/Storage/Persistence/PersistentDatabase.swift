@@ -358,6 +358,46 @@ actor PersistentDatabase {
             try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_experience_ack_user_time ON experience_acknowledgements(userId, acknowledgedAt DESC);")
             try executeRaw(handle, "PRAGMA user_version = 3;")
         }
+        if version < 4 {
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS conversation_entries (
+                userId TEXT NOT NULL,
+                entryId TEXT NOT NULL,
+                experienceId TEXT NOT NULL,
+                parentEntryId TEXT,
+                type TEXT NOT NULL,
+                body TEXT NOT NULL,
+                authorId TEXT NOT NULL,
+                authorUsername TEXT NOT NULL,
+                authorDisplayName TEXT NOT NULL,
+                authorAvatarUrl TEXT,
+                createdAt TEXT NOT NULL,
+                updatedAt TEXT NOT NULL,
+                edited INTEGER NOT NULL,
+                experienceAuthor INTEGER NOT NULL,
+                ownedByViewer INTEGER NOT NULL,
+                reportableByViewer INTEGER NOT NULL,
+                syncState TEXT NOT NULL,
+                clientMutationId TEXT,
+                PRIMARY KEY (userId, entryId)
+            );
+            """)
+            try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_conversation_experience ON conversation_entries(userId, experienceId, parentEntryId, createdAt);")
+            try executeRaw(handle, "CREATE INDEX IF NOT EXISTS idx_conversation_mutation ON conversation_entries(userId, clientMutationId);")
+            try executeRaw(handle, """
+            CREATE TABLE IF NOT EXISTS pending_conversation_payloads (
+                mutationId TEXT PRIMARY KEY,
+                experienceId TEXT NOT NULL,
+                targetEntryId TEXT,
+                parentEntryId TEXT,
+                entryType TEXT,
+                body TEXT,
+                localEntryId TEXT,
+                FOREIGN KEY (mutationId) REFERENCES pending_mutations(mutationId) ON DELETE CASCADE
+            );
+            """)
+            try executeRaw(handle, "PRAGMA user_version = 4;")
+        }
     }
 
     private static func userVersion(_ handle: OpaquePointer?) throws -> Int {

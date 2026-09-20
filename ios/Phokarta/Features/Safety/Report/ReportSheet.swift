@@ -43,9 +43,7 @@ struct ReportSheet: View {
                     Text(target.displayContext)
                         .font(.headline)
                 } header: {
-                    Text(controller.target?.targetType == .user
-                         ? String(localized: "report.target.user")
-                         : String(localized: "report.target.visit"))
+                    Text(reportTargetLabel)
                 }
             }
 
@@ -102,6 +100,15 @@ struct ReportSheet: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityHint(String(localized: "report.submit_hint"))
             }
+        }
+    }
+
+    private var reportTargetLabel: String {
+        switch controller.target?.targetType {
+        case .user: String(localized: "report.target.user")
+        case .visit: String(localized: "report.target.visit")
+        case .conversationEntry: String(localized: "report.target.conversation")
+        case .none: ""
         }
     }
 

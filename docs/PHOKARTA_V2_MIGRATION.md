@@ -346,3 +346,67 @@ Android app-locale changes persist through AppCompat and recompose localized res
 - Remote Android CI was not run from this Windows workspace; the results above are local Gradle and connected-device results.
 
 The design-review package is stored outside Git under `C:\Users\Emir\Documents\Phokarta_Design_Review\Milestone_3_5\20260917_161036`. Human review of that package is the next gate; Milestone 4 must not start automatically.
+
+## Milestone 4: Planım Experiences and Ben de Yaşadım
+
+Milestone 4 keeps `Visit` as the persisted Experience identity and adds three separate relations around it: future planning, mixed Collection membership, and a past real-world acknowledgement. Planning and acknowledgement remain semantically independent. Neither creates a rating, Experience, feed event, copied UGC, or Community aggregate contribution.
+
+### Flyway V15 and deletion rules
+
+Flyway `V15__experience_plans_collections_acknowledgements.sql` adds:
+
+- `planned_experiences(user_id, experience_id, planned_at)`, with a composite primary key, owner-time index, and cascading user/source FKs;
+- `collection_experiences(collection_id, experience_id, display_order, added_at)`, with a composite primary key, non-negative stable order, collection-order index, source index, and cascading collection/source FKs;
+- `experience_acknowledgements`, with a client-stable UUID, acknowledging user, nullable source Experience, durable Place and Primary Experience anchor, acknowledgement time, nullable converted Experience, and durable `converted_at` history.
+
+The acknowledgement source uses `ON DELETE SET NULL`; the durable Place uses `ON DELETE RESTRICT`; the acknowledging user uses `ON DELETE CASCADE`. Deleting a source card or its author therefore removes planned and Collection render references but preserves another user's acknowledgement anchor. Deleting the later converted Experience clears only `converted_experience_id`: `converted_at` remains, so the acknowledgement stays historically converted and cannot return to the unconverted Profile list or be converted a second time. Deleting the acknowledging account removes its plans, Collection ownership/memberships through existing cascades, and acknowledgements.
+
+Uniqueness and indexes prevent duplicate plan rows, duplicate Experience membership in one Collection, duplicate acknowledgement per live source/user, and multiple acknowledgements from claiming one converted Experience. A partial user/unconverted index keys on `converted_at IS NULL`, not the nullable converted-card FK.
+
+### API and central access policy
+
+The backward-compatible V2 API additions are:
+
+- `GET|PUT|DELETE /api/v2/me/planned-experiences[/{experienceId}]`;
+- `GET /api/v2/collections/{collectionId}` and `PUT|DELETE /api/v2/collections/{collectionId}/experiences/{experienceId}`;
+- `PUT /api/v2/experiences/{experienceId}/acknowledgement`;
+- owner/profile acknowledgement lists under `/api/v2/me` and `/api/v2/users/{userId}`;
+- optional `originAcknowledgementId` on native V2 publication;
+- card/detail milestone fields `plannedByViewer`, `acknowledgedByViewer`, and `acknowledgementCount`;
+- explicit capabilities for Experience planning, mixed Collections, and acknowledgements.
+
+The existing V1 Collection detail stays Place-only so older clients cannot reinterpret Experience identity or corrupt memberships. V2 Collection detail returns one ordered typed `items` stream where Place and Experience are distinct. Collection visibility is checked first; every Experience item is then independently authorized through `ViewerAccessPolicy`. A PUBLIC Collection cannot expose a FRIENDS/PRIVATE, private-profile, or block-separated Experience.
+
+Planım is owner-only state. Save and acknowledgement writes require the existing UGC policy acceptance and current authenticated account. Source reads, writes, Profile reads, and Collection reads reuse the central profile/visibility/friend/block policy. Third-party acknowledgement pages return only rows whose live source is independently visible and do not reveal filtered totals. Owner history may render a deleted-source anchor, but never deleted author, Story, Tip, media, Feeling, or `privateMemory`.
+
+### Acknowledgement and conversion lifecycle
+
+Creating an acknowledgement locks the account, rejects self-acknowledgement, verifies source access, copies only Place plus Primary Experience (and the custom raw label only for `OTHER`), and is idempotent by both live source relation and optional client-generated acknowledgement UUID. No source Story, Tip, media, Feeling, title, or private memory is copied.
+
+Offline clients generate the final acknowledgement UUID before enqueueing. They submit that UUID together with the durable Place/Primary anchor. If the source still exists, the server validates the supplied anchor against it. If the source was deleted before first sync, the server accepts the tombstone only when a client UUID and valid existing Place/canonical anchor are present; the row has no source content and cannot contribute to a deleted source count. A lost-response retry after source deletion returns the existing user-owned UUID instead of inflating or conflicting.
+
+An acknowledgement begins `UNCONVERTED`. “Add your own Experience” creates a normal V2 draft prefilled only with Place and Primary Experience and records the acknowledgement UUID as an optional origin. Publication locks both the account and origin row, verifies ownership and exact anchor equality, uses the existing `clientMutationId` fingerprint/idempotency boundary, writes the independent Experience, and sets conversion fields in the same database transaction. A lost response returns the same Experience and reconciles the same origin. A different publication cannot reuse that origin. Conversion never decrements the original source count and never deletes the acknowledgement.
+
+### Android persistence and UX
+
+Room moves from schema 8 to 9 without destructive fallback. It adds account-scoped `planned_experiences` and `experience_acknowledgements`, adds the optional acknowledgement origin to V2 drafts/pending publication, and adds typed `SET_PLANNED_EXPERIENCE_STATE` and `ACKNOWLEDGE_EXPERIENCE` mutations to the existing queue. Rapid plan changes coalesce by account/resource and generation. Acknowledgement queue identity equals the final server UUID. Place/Primary anchor data is durable across process death, logout, and delayed sync. A server `404` while reconciling a plan removes the optimistic stale card instead of leaving a broken Experience render.
+
+Planım retains Want to Go and Collections, with Experiences and Places as nested peers. Compact planned cards, feed/detail plan and acknowledgement actions, acknowledgement count, typed mixed Collection rows/picker, Profile `My Experiences` / `I Experienced This Too`, deleted-source fallback, conversion CTA, and acknowledgement-origin composer context are localized in English and Turkish. Existing Place saves and V1 Collections remain intact.
+
+### iOS persistence and UX
+
+SQLite advances from schema 2 to 3 in place. It adds the same account-scoped plan and acknowledgement concepts, typed pending mutations, and optional origin on drafts/publications. Offline acknowledgement snapshots contain only durable Place/Primary anchor data; sync submits the client UUID and anchor. Publication marks the local acknowledgement converted before deleting the successful queued publication. Account purge removes only the selected account's milestone state.
+
+SwiftUI mirrors Planım Experiences, restrained card/detail actions, mixed typed Collections, acknowledgement Profile state, deleted-source fallback, and conversion prefill. The conversion CTA persists the prefilled draft and routes directly to the existing Place composer sheet. New static copy lives in the EN/TR String Catalog; taxonomy wire codes remain language-independent.
+
+### Validation scope
+
+Deterministic backend coverage includes plan add/duplicate/remove/access/deletion, Place-plus-Experience Collection ordering and deduplication, block filtering, legacy Place preservation, acknowledgement create/duplicate/self rejection/no automatic Visit, source and author deletion, offline tombstone creation, client-ID retry, conversion/retry/count preservation, converted-card deletion, Profile privacy, hidden-total behavior, and acknowledging-account cleanup. The V14-to-V15 migration test executes on real PostGIS in CI and covers both source-author and converted-card deletion.
+
+Android validation includes Room 8-to-9 migration, account isolation/purge, durable/coalesced plan mutation, duplicate-safe acknowledgement identity/anchor persistence, publication origin round-trip, unit/lint/debug/release compile gates, and bounded Pixel_7 API 35 connected execution. iOS XCTest additions cover schema migration, milestone account purge, offline plan/acknowledgement duplication, durable conversion state, typed mixed Collection decoding, endpoint encoding, origin round-trip, and account isolation. Authoritative PostgreSQL/Testcontainers, production image, Android CI, and Xcode Cloud Build/Test results are recorded from the pushed commit rather than inferred from Windows.
+
+The mobile refresh path merges only still-pending local plan/acknowledgement intent into a fresh server snapshot. This prevents an in-flight refresh from erasing an optimistic offline action while ensuring a successful server response can remove stale local rows. Both platforms render their account-scoped local snapshot first, preserve deterministic last-intent-wins behavior, and reconcile it with the authoritative response.
+
+The final Windows validation run recorded 233/233 Android unit tests, 107/107 production connected tests in bounded class runs on a standard 4 KB API 35 emulator, and four additional deterministic screenshot-capture tests. Lint, debug assembly, release Kotlin compilation, Room schema export, English/Turkish resources, dark appearance, and 120% font scale passed. The iOS String Catalog parsed with 446 keys and all 141 Swift sources passed structural balance checks; authoritative Swift compilation and XCTest remain an Xcode Cloud responsibility. Local Testcontainers execution was intentionally not redirected to the live VPS database and remained unavailable because the local Docker engine could not start.
+
+The established beta deployment remains the repository Compose/staging process against `https://api.phokarta.com/`; V15 runs through startup Flyway before readiness. Deployment verification must record liveness, readiness, Flyway V15 success, container health/restarts/logs, capabilities, new endpoints, bounded synthetic lifecycle acceptance, cleanup, and the exact source SHA. No TestFlight action is added.

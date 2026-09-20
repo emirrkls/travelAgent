@@ -15,6 +15,8 @@ import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.repository.PlannedExperienceRepository;
+import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,8 @@ class ExperienceReadServiceTest {
     @Mock private MediaService media;
     @Mock private ViewerAccessPolicy access;
     @Mock private FollowRequestService relationships;
+    @Mock private PlannedExperienceRepository planned;
+    @Mock private ExperienceAcknowledgementRepository acknowledgements;
     @Mock private Visit visit;
     @Mock private User user;
     @Mock private Place place;
@@ -57,7 +61,8 @@ class ExperienceReadServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ExperienceReadService(visits, details, dimensions, media, access, relationships);
+        service = new ExperienceReadService(visits, details, dimensions, media, access, relationships,
+                planned, acknowledgements);
         visitId = UUID.randomUUID();
         lenient().when(visits.findDetailedById(visitId)).thenReturn(Optional.of(visit));
         lenient().when(access.canViewVisit(visit, null)).thenReturn(true);

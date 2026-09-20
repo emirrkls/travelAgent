@@ -33,7 +33,10 @@ public record ExperienceSummaryV2Response(
         List<PracticalSignalCode> practicalSignals,
         MediaPreview mediaPreview,
         int mediaCount,
-        Visibility visibility) {
+        Visibility visibility,
+        boolean plannedByViewer,
+        boolean acknowledgedByViewer,
+        long acknowledgementCount) {
 
     public record Author(
             UUID id,

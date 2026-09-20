@@ -9,10 +9,16 @@ import com.emirrkls.phokarta.backend.api.mapper.PlaceMapper;
 import com.emirrkls.phokarta.backend.domain.entity.Collection;
 import com.emirrkls.phokarta.backend.domain.entity.CollectionPlace;
 import com.emirrkls.phokarta.backend.domain.entity.CollectionPlaceId;
+import com.emirrkls.phokarta.backend.domain.entity.CollectionExperience;
+import com.emirrkls.phokarta.backend.domain.entity.CollectionExperienceId;
+import com.emirrkls.phokarta.backend.domain.entity.Visit;
+import com.emirrkls.phokarta.backend.api.dto.CollectionV2DetailResponse;
 import com.emirrkls.phokarta.backend.domain.entity.Place;
 import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.repository.CollectionPlaceRepository;
 import com.emirrkls.phokarta.backend.repository.CollectionRepository;
+import com.emirrkls.phokarta.backend.repository.CollectionExperienceRepository;
+import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -36,11 +42,16 @@ public class CollectionService {
     private final ViewerAccessPolicy access;
     private final PlaceMapper mapper;
     private final UgcPolicyService ugcPolicy;
+    private final CollectionExperienceRepository experienceMemberships;
+    private final VisitRepository visits;
+    private final ExperienceReadService experienceReader;
 
     public CollectionService(CollectionRepository collections,
                              CollectionPlaceRepository memberships, PlaceRepository places,
                              UserRepository users, ViewerAccessPolicy access,
-                             PlaceMapper mapper, UgcPolicyService ugcPolicy) {
+                             PlaceMapper mapper, UgcPolicyService ugcPolicy,
+                             CollectionExperienceRepository experienceMemberships,
+                             VisitRepository visits, ExperienceReadService experienceReader) {
         this.collections = collections;
         this.memberships = memberships;
         this.places = places;
@@ -48,6 +59,9 @@ public class CollectionService {
         this.access = access;
         this.mapper = mapper;
         this.ugcPolicy = ugcPolicy;
+        this.experienceMemberships = experienceMemberships;
+        this.visits = visits;
+        this.experienceReader = experienceReader;
     }
 
     @Transactional(readOnly = true)
@@ -118,7 +132,8 @@ public class CollectionService {
         Place place = places.findById(placeId)
                 .orElseThrow(() -> ApiException.notFound("Place", placeId));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        int order = memberships.maxDisplayOrder(collectionId) + 1;
+        int order = Math.max(memberships.maxDisplayOrder(collectionId),
+                experienceMemberships.maxDisplayOrder(collectionId)) + 1;
         memberships.save(new CollectionPlace(collection, place, order, now));
         collection.touch(now);
         return detail(collectionId, userId);
@@ -130,6 +145,56 @@ public class CollectionService {
         CollectionPlaceId id = new CollectionPlaceId(collectionId, placeId);
         if (!memberships.existsById(id)) throw ApiException.notFound("Collection place", placeId);
         memberships.deleteById(id);
+        collection.touch(OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    @Transactional(readOnly = true)
+    public CollectionV2DetailResponse detailV2(UUID collectionId, UUID viewerUserId) {
+        Collection collection = require(collectionId);
+        assertReadable(collection, viewerUserId, collectionId);
+        var items = new java.util.ArrayList<CollectionV2DetailResponse.Item>();
+        for (CollectionPlace cp : memberships.findByCollectionIdOrderByDisplayOrder(collectionId)) {
+            PlaceRepository.RatingAggregate rating = places.aggregateByIds(List.of(cp.getPlace().getId()))
+                    .stream().findFirst().orElse(null);
+            items.add(new CollectionV2DetailResponse.Item(CollectionV2DetailResponse.ItemType.PLACE,
+                    cp.getDisplayOrder(), cp.getAddedAt(), mapper.toSummary(cp.getPlace(),
+                    rating == null ? null : rating.getAverageScore(), rating == null ? 0 : rating.getRatingCount()), null));
+        }
+        for (CollectionExperience ce : experienceMemberships.findByCollectionIdOrderByDisplayOrder(collectionId)) {
+            if (access.canViewVisit(ce.getExperience(), viewerUserId)) {
+                items.add(new CollectionV2DetailResponse.Item(CollectionV2DetailResponse.ItemType.EXPERIENCE,
+                        ce.getDisplayOrder(), ce.getAddedAt(), null,
+                        experienceReader.getVisible(ce.getExperience().getId(), viewerUserId)));
+            }
+        }
+        items.sort(java.util.Comparator.comparingInt(CollectionV2DetailResponse.Item::displayOrder));
+        return new CollectionV2DetailResponse(collection.getId(), collection.getUser().getId(),
+                collection.getTitle(), collection.getDescription(), collection.getVisibility(),
+                collection.getCoverImage(), collection.getCreatedAt(), collection.getUpdatedAt(), List.copyOf(items));
+    }
+
+    @Transactional
+    public CollectionV2DetailResponse addExperience(UUID collectionId, UUID userId, UUID experienceId) {
+        ugcPolicy.requireAccepted(userId);
+        Collection collection = requireOwnedForUpdate(collectionId, userId);
+        CollectionExperienceId id = new CollectionExperienceId(collectionId, experienceId);
+        Visit experience = visits.findDetailedById(experienceId)
+                .orElseThrow(() -> ApiException.notFound("Experience", experienceId));
+        if (!access.canViewVisit(experience, userId)) throw ApiException.notFound("Experience", experienceId);
+        if (!experienceMemberships.existsById(id)) {
+            int order = Math.max(memberships.maxDisplayOrder(collectionId),
+                    experienceMemberships.maxDisplayOrder(collectionId)) + 1;
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            experienceMemberships.save(new CollectionExperience(collection, experience, order, now));
+            collection.touch(now);
+        }
+        return detailV2(collectionId, userId);
+    }
+
+    @Transactional
+    public void removeExperience(UUID collectionId, UUID userId, UUID experienceId) {
+        Collection collection = requireOwnedForUpdate(collectionId, userId);
+        experienceMemberships.deleteById(new CollectionExperienceId(collectionId, experienceId));
         collection.touch(OffsetDateTime.now(ZoneOffset.UTC));
     }
 

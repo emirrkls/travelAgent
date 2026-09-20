@@ -10,6 +10,8 @@ import com.emirrkls.phokarta.backend.security.SecurityUtils;
 import com.emirrkls.phokarta.backend.service.FollowRequestService;
 import com.emirrkls.phokarta.backend.service.ProfileV2Service;
 import com.emirrkls.phokarta.backend.service.ExperienceFeedService;
+import com.emirrkls.phokarta.backend.service.ExperienceAcknowledgementService;
+import com.emirrkls.phokarta.backend.api.dto.ExperienceAcknowledgementV2Response;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -30,12 +32,15 @@ public class UserV2Controller {
     private final ProfileV2Service profiles;
     private final FollowRequestService followRequests;
     private final ExperienceFeedService experiences;
+    private final ExperienceAcknowledgementService acknowledgements;
 
     public UserV2Controller(ProfileV2Service profiles, FollowRequestService followRequests,
-                            ExperienceFeedService experiences) {
+                            ExperienceFeedService experiences,
+                            ExperienceAcknowledgementService acknowledgements) {
         this.profiles = profiles;
         this.followRequests = followRequests;
         this.experiences = experiences;
+        this.acknowledgements = acknowledgements;
     }
 
     @GetMapping("/search")
@@ -59,6 +64,15 @@ public class UserV2Controller {
         profiles.profile(userId, SecurityUtils.currentUserId().orElse(null));
         return experiences.forProfile(userId, SecurityUtils.currentUserId().orElse(null),
                 cursor, size);
+    }
+
+    @GetMapping("/{userId}/experience-acknowledgements")
+    public PageResponse<ExperienceAcknowledgementV2Response> acknowledgements(
+            @PathVariable UUID userId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        profiles.profile(userId, SecurityUtils.currentUserId().orElse(null));
+        return acknowledgements.listUnconverted(userId, SecurityUtils.currentUserId().orElse(null), page, size);
     }
 
     @PostMapping("/{userId}/follow")

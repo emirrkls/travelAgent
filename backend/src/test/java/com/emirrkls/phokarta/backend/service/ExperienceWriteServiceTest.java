@@ -23,6 +23,7 @@ import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +55,7 @@ class ExperienceWriteServiceTest {
     @Mock MediaService media;
     @Mock UgcPolicyService ugcPolicy;
     @Mock ExperienceReadService reader;
+    @Mock ExperienceAcknowledgementRepository acknowledgements;
     @Mock User user;
     @Mock Place place;
     @Mock ExperienceV2Response response;
@@ -64,7 +66,7 @@ class ExperienceWriteServiceTest {
     @BeforeEach
     void setUp() {
         service = new ExperienceWriteService(
-                visits, details, dimensions, users, places, media, ugcPolicy, reader);
+                visits, details, dimensions, users, places, media, ugcPolicy, reader, acknowledgements);
         userId = UUID.randomUUID();
         placeId = UUID.randomUUID();
         lenient().when(users.findById(userId)).thenReturn(Optional.of(user));
@@ -277,7 +279,7 @@ class ExperienceWriteServiceTest {
         CreateExperienceV2Request build() {
             return new CreateExperienceV2Request(mutation, place, date, primary, raw, feeling,
                     companion, time, vibes, signals, dimensions, title, titleSource,
-                    story, tip, memory, visibility, media);
+                    story, tip, memory, visibility, media, null);
         }
     }
 }

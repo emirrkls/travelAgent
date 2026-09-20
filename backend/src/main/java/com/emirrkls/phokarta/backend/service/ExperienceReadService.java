@@ -11,6 +11,8 @@ import com.emirrkls.phokarta.backend.domain.model.ExperienceTaxonomy.FeelingSour
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.repository.PlannedExperienceRepository;
+import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,8 @@ public class ExperienceReadService {
     private final MediaService media;
     private final ViewerAccessPolicy access;
     private final FollowRequestService relationships;
+    private final PlannedExperienceRepository plans;
+    private final ExperienceAcknowledgementRepository acknowledgements;
 
     public ExperienceReadService(
             VisitRepository visits,
@@ -36,13 +40,17 @@ public class ExperienceReadService {
             VisitDimensionScoreRepository dimensions,
             MediaService media,
             ViewerAccessPolicy access,
-            FollowRequestService relationships) {
+            FollowRequestService relationships,
+            PlannedExperienceRepository plans,
+            ExperienceAcknowledgementRepository acknowledgements) {
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
         this.media = media;
         this.access = access;
         this.relationships = relationships;
+        this.plans = plans;
+        this.acknowledgements = acknowledgements;
     }
 
     @Transactional(readOnly = true)
@@ -127,7 +135,10 @@ public class ExperienceReadService {
                 dimensionResponses,
                 mapMedia(visit, managedMedia),
                 visit.getVisibility(),
-                nativeV2 ? detail.getTaxonomyVersion() : null);
+                nativeV2 ? detail.getTaxonomyVersion() : null,
+                viewerId != null && plans.existsByIdUserIdAndIdExperienceId(viewerId, visit.getId()),
+                viewerId != null && acknowledgements.existsByUserIdAndSourceExperienceId(viewerId, visit.getId()),
+                acknowledgements.countBySourceExperienceId(visit.getId()));
     }
 
     private List<ExperienceV2Response.Media> mapMedia(

@@ -20,6 +20,8 @@ import com.emirrkls.phokarta.backend.repository.ExperienceFeedRepository.FeedQue
 import com.emirrkls.phokarta.backend.repository.ExperienceFeedRepository.FeedRow;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.repository.PlannedExperienceRepository;
+import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,18 +65,24 @@ public class ExperienceFeedService {
     private final VisitExperienceDetailRepository details;
     private final MediaService media;
     private final FollowRequestService relationships;
+    private final PlannedExperienceRepository plans;
+    private final ExperienceAcknowledgementRepository acknowledgements;
 
     public ExperienceFeedService(
             ExperienceFeedRepository feed,
             VisitRepository visits,
             VisitExperienceDetailRepository details,
             MediaService media,
-            FollowRequestService relationships) {
+            FollowRequestService relationships,
+            PlannedExperienceRepository plans,
+            ExperienceAcknowledgementRepository acknowledgements) {
         this.feed = feed;
         this.visits = visits;
         this.details = details;
         this.media = media;
         this.relationships = relationships;
+        this.plans = plans;
+        this.acknowledgements = acknowledgements;
     }
 
     public CursorPageResponse<ExperienceSummaryV2Response> explore(
@@ -213,7 +221,10 @@ public class ExperienceFeedService {
                     nativeV2 ? detail.getTimeOfDayCode() : null,
                     List.copyOf(vibesById.getOrDefault(row.id(), List.of())),
                     List.copyOf(practicalById.getOrDefault(row.id(), List.of()).stream().limit(2).toList()),
-                    preview, mediaCount, visit.getVisibility()));
+                    preview, mediaCount, visit.getVisibility(),
+                    viewerId != null && plans.existsByIdUserIdAndIdExperienceId(viewerId, visit.getId()),
+                    viewerId != null && acknowledgements.existsByUserIdAndSourceExperienceId(viewerId, visit.getId()),
+                    acknowledgements.countBySourceExperienceId(visit.getId())));
         }
         return List.copyOf(result);
     }

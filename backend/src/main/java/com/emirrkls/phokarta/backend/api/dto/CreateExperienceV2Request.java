@@ -39,7 +39,8 @@ public record CreateExperienceV2Request(
         @Size(max = 1000) String tip,
         @Size(max = 4000) String privateMemory,
         @NotNull Visibility visibility,
-        @Size(max = 6) List<@NotNull UUID> mediaIds) {
+        @Size(max = 6) List<@NotNull UUID> mediaIds,
+        UUID originAcknowledgementId) {
 
     public record Dimension(
             @NotBlank @Size(max = 40) String key,

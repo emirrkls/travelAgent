@@ -38,7 +38,10 @@ public record ExperienceV2Response(
         List<Dimension> dimensions,
         List<Media> media,
         Visibility visibility,
-        Integer taxonomyVersion) {
+        Integer taxonomyVersion,
+        boolean plannedByViewer,
+        boolean acknowledgedByViewer,
+        long acknowledgementCount) {
 
     public enum Classification { LEGACY_COMPATIBILITY, NATIVE_V2 }
     public enum MediaKind { LEGACY_URL, MANAGED }

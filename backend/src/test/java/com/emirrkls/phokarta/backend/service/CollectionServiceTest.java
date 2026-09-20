@@ -7,8 +7,10 @@ import com.emirrkls.phokarta.backend.domain.entity.CollectionPlaceId;
 import com.emirrkls.phokarta.backend.domain.entity.User;
 import com.emirrkls.phokarta.backend.repository.CollectionPlaceRepository;
 import com.emirrkls.phokarta.backend.repository.CollectionRepository;
+import com.emirrkls.phokarta.backend.repository.CollectionExperienceRepository;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
 import com.emirrkls.phokarta.backend.repository.UserRepository;
+import com.emirrkls.phokarta.backend.repository.VisitRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,6 +36,9 @@ class CollectionServiceTest {
     @Mock private ViewerAccessPolicy access;
     @Mock private PlaceMapper mapper;
     @Mock private UgcPolicyService ugcPolicy;
+    @Mock private CollectionExperienceRepository experienceMemberships;
+    @Mock private VisitRepository visits;
+    @Mock private ExperienceReadService experienceReader;
     @Mock private Collection collection;
     @Mock private User owner;
 
@@ -48,7 +53,8 @@ class CollectionServiceTest {
         when(memberships.existsById(new CollectionPlaceId(collectionId, placeId))).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy,
+                        experienceMemberships, visits, experienceReader);
 
         assertThatThrownBy(() -> service.add(collectionId, userId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -71,7 +77,8 @@ class CollectionServiceTest {
         when(owner.getId()).thenReturn(ownerId);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy,
+                        experienceMemberships, visits, experienceReader);
 
         assertThatThrownBy(() -> service.add(collectionId, otherUserId, placeId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -93,7 +100,8 @@ class CollectionServiceTest {
         when(memberships.existsById(membershipId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy,
+                        experienceMemberships, visits, experienceReader);
 
         service.remove(collectionId, userId, placeId);
 
@@ -112,7 +120,8 @@ class CollectionServiceTest {
         when(access.isBlockSeparated(viewerId, ownerId)).thenReturn(true);
 
         CollectionService service =
-                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy);
+                new CollectionService(collections, memberships, places, users, access, mapper, ugcPolicy,
+                        experienceMemberships, visits, experienceReader);
 
         assertThatThrownBy(() -> service.detail(collectionId, viewerId))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {

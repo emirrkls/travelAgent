@@ -21,6 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import com.emirrkls.phokarta.backend.service.ExperienceAcknowledgementService;
+import com.emirrkls.phokarta.backend.api.dto.ExperienceAcknowledgementV2Response;
+import com.emirrkls.phokarta.backend.domain.model.ExperienceTaxonomy.PrimaryExperienceCode;
 
 import java.util.UUID;
 
@@ -30,12 +34,15 @@ public class ExperienceV2Controller {
     private final ExperienceReadService reads;
     private final ExperienceWriteService writes;
     private final ExperienceFeedService feeds;
+    private final ExperienceAcknowledgementService acknowledgements;
 
     public ExperienceV2Controller(ExperienceReadService reads, ExperienceWriteService writes,
-                                  ExperienceFeedService feeds) {
+                                  ExperienceFeedService feeds,
+                                  ExperienceAcknowledgementService acknowledgements) {
         this.reads = reads;
         this.writes = writes;
         this.feeds = feeds;
+        this.acknowledgements = acknowledgements;
     }
 
     @Operation(summary = "Publish a native Visit-backed V2 Experience")
@@ -68,5 +75,17 @@ public class ExperienceV2Controller {
             @RequestParam(required = false, defaultValue = "10000") Double radiusMeters) {
         return feeds.explore(lens, SecurityUtils.currentUserId().orElse(null), cursor, size,
                 search, primary, vibe, latitude, longitude, radiusMeters);
+    }
+
+    @PutMapping("/{experienceId}/acknowledgement")
+    public ExperienceAcknowledgementV2Response acknowledge(
+            @PathVariable UUID experienceId,
+            @RequestParam(required = false) UUID clientAcknowledgementId,
+            @RequestParam(required = false) UUID anchorPlaceId,
+            @RequestParam(required = false) PrimaryExperienceCode anchorPrimaryExperienceCode,
+            @RequestParam(required = false) String anchorRawExperienceLabel) {
+        return acknowledgements.acknowledge(
+                SecurityUtils.requireCurrentUserId(), experienceId, clientAcknowledgementId,
+                anchorPlaceId, anchorPrimaryExperienceCode, anchorRawExperienceLabel);
     }
 }

@@ -20,6 +20,8 @@ import com.emirrkls.phokarta.backend.repository.UserRepository;
 import com.emirrkls.phokarta.backend.repository.VisitDimensionScoreRepository;
 import com.emirrkls.phokarta.backend.repository.VisitExperienceDetailRepository;
 import com.emirrkls.phokarta.backend.repository.VisitRepository;
+import com.emirrkls.phokarta.backend.repository.ExperienceAcknowledgementRepository;
+import com.emirrkls.phokarta.backend.domain.entity.ExperienceAcknowledgement;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +55,7 @@ public class ExperienceWriteService {
     private final MediaService media;
     private final UgcPolicyService ugcPolicy;
     private final ExperienceReadService reader;
+    private final ExperienceAcknowledgementRepository acknowledgements;
 
     public ExperienceWriteService(
             VisitRepository visits,
@@ -62,7 +65,8 @@ public class ExperienceWriteService {
             PlaceRepository places,
             MediaService media,
             UgcPolicyService ugcPolicy,
-            ExperienceReadService reader) {
+            ExperienceReadService reader,
+            ExperienceAcknowledgementRepository acknowledgements) {
         this.visits = visits;
         this.details = details;
         this.dimensions = dimensions;
@@ -71,6 +75,7 @@ public class ExperienceWriteService {
         this.media = media;
         this.ugcPolicy = ugcPolicy;
         this.reader = reader;
+        this.acknowledgements = acknowledgements;
     }
 
     @Transactional
@@ -82,6 +87,20 @@ public class ExperienceWriteService {
         Place place = places.findById(request.placeId())
                 .orElseThrow(() -> ApiException.notFound("Place", request.placeId()));
 
+        ExperienceAcknowledgement origin = null;
+        if (request.originAcknowledgementId() != null) {
+            origin = acknowledgements.findByIdForUpdate(request.originAcknowledgementId())
+                    .orElseThrow(() -> ApiException.notFound("Acknowledgement", request.originAcknowledgementId()));
+            if (!origin.getUser().getId().equals(userId)) {
+                throw ApiException.forbidden("You do not own this acknowledgement");
+            }
+            if (!origin.getPlace().getId().equals(request.placeId())
+                    || origin.getPrimaryExperienceCode() != request.primaryExperienceCode()
+                    || !java.util.Objects.equals(origin.getRawExperienceLabel(), normalized(request.rawExperienceLabel()))) {
+                throw ApiException.validation("Publication does not match the acknowledgement anchor");
+            }
+        }
+
         Canonical canonical = canonicalize(request, place);
         visits.lockClientMutation(userId, request.clientMutationId());
         Visit existing = visits.findByUserIdAndClientMutationId(userId, request.clientMutationId())
@@ -92,7 +111,11 @@ public class ExperienceWriteService {
                 throw ApiException.conflict(
                         "clientMutationId was already used with a different Experience payload");
             }
+            if (origin != null) origin.convertTo(existing, OffsetDateTime.now(ZoneOffset.UTC));
             return reader.getVisible(existing.getId(), userId);
+        }
+        if (origin != null && origin.isConverted()) {
+            throw ApiException.conflict("Acknowledgement was already converted to another Experience");
         }
 
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -115,6 +138,7 @@ public class ExperienceWriteService {
                 .toList();
         dimensions.saveAll(dimensionEntities);
         List<VisitMediaResponse> attached = media.attach(visit, userId, canonical.mediaIds());
+        if (origin != null) origin.convertTo(visit, now);
         return reader.map(visit, detail, dimensionEntities, attached);
     }
 
@@ -221,6 +245,7 @@ public class ExperienceWriteService {
         fields.add(request.visibility().name());
         fields.add(mediaIds.stream().map(UUID::toString)
                 .reduce((a, b) -> a + "\u001f" + b).orElse(""));
+        fields.add(request.originAcknowledgementId() == null ? "" : request.originAcknowledgementId().toString());
         return sha256(String.join("\u001e", fields));
     }
 

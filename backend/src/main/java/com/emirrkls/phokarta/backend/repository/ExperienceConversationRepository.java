@@ -34,12 +34,23 @@ public interface ExperienceConversationRepository
             where entry.experience.id = :experienceId
               and entry.parent is null
               and entry.deletedAt is null
-              and (:cursorCreatedAt is null
-                   or entry.createdAt < :cursorCreatedAt
+            order by entry.createdAt desc, entry.id desc
+            """)
+    List<ExperienceConversationEntry> findFirstAnonymousRoots(
+            @Param("experienceId") UUID experienceId,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = {"author", "experience", "experience.user"})
+    @Query("""
+            select entry from ExperienceConversationEntry entry
+            where entry.experience.id = :experienceId
+              and entry.parent is null
+              and entry.deletedAt is null
+              and (entry.createdAt < :cursorCreatedAt
                    or (entry.createdAt = :cursorCreatedAt and entry.id < :cursorId))
             order by entry.createdAt desc, entry.id desc
             """)
-    List<ExperienceConversationEntry> findAnonymousRoots(
+    List<ExperienceConversationEntry> findAnonymousRootsAfter(
             @Param("experienceId") UUID experienceId,
             @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
             @Param("cursorId") UUID cursorId,
@@ -56,12 +67,29 @@ public interface ExperienceConversationRepository
                   where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = entry.author.id)
                      or (block.id.blockerUserId = entry.author.id and block.id.blockedUserId = :viewerId)
               ))
-              and (:cursorCreatedAt is null
-                   or entry.createdAt < :cursorCreatedAt
+            order by entry.createdAt desc, entry.id desc
+            """)
+    List<ExperienceConversationEntry> findFirstVisibleRoots(
+            @Param("experienceId") UUID experienceId,
+            @Param("viewerId") UUID viewerId,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = {"author", "experience", "experience.user"})
+    @Query("""
+            select entry from ExperienceConversationEntry entry
+            where entry.experience.id = :experienceId
+              and entry.parent is null
+              and entry.deletedAt is null
+              and (entry.author.id = :viewerId or not exists (
+                  select 1 from UserBlock block
+                  where (block.id.blockerUserId = :viewerId and block.id.blockedUserId = entry.author.id)
+                     or (block.id.blockerUserId = entry.author.id and block.id.blockedUserId = :viewerId)
+              ))
+              and (entry.createdAt < :cursorCreatedAt
                    or (entry.createdAt = :cursorCreatedAt and entry.id < :cursorId))
             order by entry.createdAt desc, entry.id desc
             """)
-    List<ExperienceConversationEntry> findVisibleRoots(
+    List<ExperienceConversationEntry> findVisibleRootsAfter(
             @Param("experienceId") UUID experienceId,
             @Param("viewerId") UUID viewerId,
             @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,

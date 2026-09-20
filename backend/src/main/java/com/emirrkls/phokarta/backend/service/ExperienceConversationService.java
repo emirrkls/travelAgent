@@ -63,12 +63,19 @@ public class ExperienceConversationService {
         }
         Visit experience = requireVisibleExperience(experienceId, viewerId);
         Cursor decoded = decode(cursor);
-        List<ExperienceConversationEntry> roots = viewerId == null
-                ? entries.findAnonymousRoots(experienceId, decoded == null ? null : decoded.createdAt(),
-                        decoded == null ? null : decoded.id(), PageRequest.of(0, size + 1))
-                : entries.findVisibleRoots(experienceId, viewerId,
-                        decoded == null ? null : decoded.createdAt(),
-                        decoded == null ? null : decoded.id(), PageRequest.of(0, size + 1));
+        PageRequest page = PageRequest.of(0, size + 1);
+        List<ExperienceConversationEntry> roots;
+        if (viewerId == null) {
+            roots = decoded == null
+                    ? entries.findFirstAnonymousRoots(experienceId, page)
+                    : entries.findAnonymousRootsAfter(
+                            experienceId, decoded.createdAt(), decoded.id(), page);
+        } else {
+            roots = decoded == null
+                    ? entries.findFirstVisibleRoots(experienceId, viewerId, page)
+                    : entries.findVisibleRootsAfter(
+                            experienceId, viewerId, decoded.createdAt(), decoded.id(), page);
+        }
         boolean hasMore = roots.size() > size;
         List<ExperienceConversationEntry> pageRoots = hasMore
                 ? roots.subList(0, size) : roots;

@@ -85,6 +85,14 @@ class Milestone5ConversationIntegrationTest {
                         ConversationEntryType.COMMENT, ConversationEntryType.QUESTION);
         assertThat(conversations.read(experience, VIEWER, null, 20).items().get(1).replies())
                 .singleElement().satisfies(reply -> assertThat(reply.id()).isEqualTo(answer.id()));
+        var firstPage = conversations.read(experience, VIEWER, null, 1);
+        assertThat(firstPage.hasMore()).isTrue();
+        assertThat(firstPage.items()).singleElement()
+                .satisfies(value -> assertThat(value.id()).isEqualTo(comment.id()));
+        var secondPage = conversations.read(experience, VIEWER, firstPage.nextCursor(), 1);
+        assertThat(secondPage.hasMore()).isFalse();
+        assertThat(secondPage.items()).singleElement()
+                .satisfies(value -> assertThat(value.id()).isEqualTo(question.id()));
         assertThatThrownBy(() -> conversations.createReply(answer.id(), VIEWER,
                 new CreateConversationReplyRequest(UUID.randomUUID(), "Nested")))
                 .isInstanceOfSatisfying(ApiException.class,

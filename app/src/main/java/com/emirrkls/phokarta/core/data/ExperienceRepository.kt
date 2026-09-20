@@ -13,6 +13,24 @@ import com.emirrkls.phokarta.core.network.source.PlaceRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.MediaRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.SocialRemoteDataSource
 import com.emirrkls.phokarta.core.network.source.VisitRemoteDataSource
+import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
+import com.emirrkls.phokarta.core.sync.OfflineMutationRepository
+import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
+import com.emirrkls.phokarta.core.auth.SessionManager
+import com.emirrkls.phokarta.core.model.PlannedExperienceItem
+import com.emirrkls.phokarta.core.model.AcknowledgementAnchor
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
+import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
+import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
+import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import androidx.room.withTransaction
+import com.emirrkls.phokarta.core.database.TravelDatabase
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,6 +50,10 @@ interface ExperienceFeedGateway {
     suspend fun follow(authorId: String): RepositoryResult<RelationshipV2>
     suspend fun unfollow(authorId: String): RepositoryResult<RelationshipV2>
     suspend fun cancelFollowRequest(authorId: String): RepositoryResult<RelationshipV2>
+    suspend fun togglePlan(id: String): RepositoryResult<Boolean> =
+        RepositoryResult.Failure(TravelError.Unknown("Experience planning unavailable"))
+    suspend fun acknowledge(id: String): RepositoryResult<String> =
+        RepositoryResult.Failure(TravelError.Unknown("Experience acknowledgement unavailable"))
 }
 
 @Singleton
@@ -40,6 +62,11 @@ class ExperienceRepository @Inject constructor(
     private val places: PlaceRemoteDataSource,
     private val social: SocialRemoteDataSource,
     private val media: MediaRemoteDataSource,
+    private val offline: OfflineMutationRepository,
+    private val milestoneDao: ExperienceMilestoneDao,
+    private val session: SessionManager,
+    private val database: TravelDatabase,
+    private val collectionsRemote: CollectionRemoteDataSource,
 ) : ExperienceFeedGateway {
     override suspend fun feed(
         lens: ExperienceFeedLens,
@@ -72,6 +99,97 @@ class ExperienceRepository @Inject constructor(
         request = { visits.experience(id.toCanonicalUuid()) },
         transform = { it.toDomain() },
     )
+
+    override suspend fun togglePlan(id: String): RepositoryResult<Boolean> = when (val loaded = detail(id)) {
+        is RepositoryResult.Failure -> loaded
+        is RepositoryResult.Success -> RepositoryResult.Success(offline.togglePlannedExperience(loaded.value))
+    }
+
+    override suspend fun acknowledge(id: String): RepositoryResult<String> = when (val loaded = detail(id)) {
+        is RepositoryResult.Failure -> loaded
+        is RepositoryResult.Success -> RepositoryResult.Success(offline.acknowledgeExperience(loaded.value))
+    }
+
+    suspend fun addToCollection(collectionId: String, experienceId: String): RepositoryResult<Unit> = map(
+        request = { collectionsRemote.addExperience(collectionId.toCanonicalUuid(), experienceId.toCanonicalUuid()) },
+        transform = { Unit },
+    )
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun plannedExperiences(): Flow<List<PlannedExperienceItem>> = session.state.flatMapLatest { state ->
+        val userId = (state as? com.emirrkls.phokarta.core.auth.AuthState.Authenticated)?.user?.id
+            ?: return@flatMapLatest flowOf(emptyList())
+        milestoneDao.observePlans(userId).map { rows -> rows.map { row ->
+            PlannedExperienceItem(row.experienceId, row.title, row.placeId, row.placeName,
+                PrimaryExperienceCode.fromWire(row.primaryExperienceCode),
+                OverallFeelingCode.fromWire(row.feelingCode), row.authorName, row.imageUrl)
+        } }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun acknowledgements(): Flow<List<AcknowledgementAnchor>> = session.state.flatMapLatest { state ->
+        val userId = (state as? com.emirrkls.phokarta.core.auth.AuthState.Authenticated)?.user?.id
+            ?: return@flatMapLatest flowOf(emptyList())
+        milestoneDao.observeUnconvertedAcknowledgements(userId).map { rows -> rows.map { row ->
+            AcknowledgementAnchor(row.id, row.sourceExperienceId, row.sourceAvailable,
+                row.placeId, row.placeName, row.placeCity,
+                PrimaryExperienceCode.fromWire(row.primaryExperienceCode), row.rawExperienceLabel,
+                row.acknowledgedAtEpochMillis)
+        } }
+    }
+
+    suspend fun refreshMilestoneState() {
+        val userId = session.currentUserId() ?: return
+        // Snapshot optimistic intents before starting network I/O. A worker can complete while
+        // these list requests are in flight, so the response can legitimately be older than the
+        // local action that triggered it.
+        val mutationDao = database.pendingMutationDao()
+        val planIntentsBefore = mutationDao.intents(userId, MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE)
+        val acknowledgementIntentsBefore = mutationDao.intents(userId, MutationTypeValue.ACKNOWLEDGE_EXPERIENCE)
+        val plans = visits.plannedExperiences()
+        val acknowledgements = visits.myAcknowledgements()
+        database.withTransaction {
+            if (plans is RemoteResult.Success) {
+                val currentIntents = mutationDao.intents(userId, MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE)
+                val intents = (planIntentsBefore + currentIntents)
+                    .associateBy { it.resourceKey }
+                val preservedPlans = intents.values
+                    .filter { it.desiredSaved == true }
+                    .mapNotNull { milestoneDao.plan(userId, it.resourceKey) }
+                milestoneDao.deletePlans(userId)
+                milestoneDao.upsertPlans(plans.value.content
+                    .filterNot { it.experience.id in intents.keys }
+                    .map { dto ->
+                    PlannedExperienceEntity(userId, dto.experience.id, dto.experience.title,
+                        dto.experience.place.id, dto.experience.place.name,
+                        dto.experience.primaryExperience.code, dto.experience.feeling.code,
+                        dto.experience.author.displayName,
+                        dto.experience.media.minByOrNull { it.position }?.url,
+                        dto.plannedAt.toEpochMillisSafely())
+                })
+                milestoneDao.upsertPlans(preservedPlans)
+            }
+            if (acknowledgements is RemoteResult.Success) {
+                val currentIntents = mutationDao.intents(userId, MutationTypeValue.ACKNOWLEDGE_EXPERIENCE)
+                val intents = (acknowledgementIntentsBefore + currentIntents)
+                    .associateBy { it.resourceKey }
+                val preservedAcknowledgements = intents.values.mapNotNull {
+                    milestoneDao.acknowledgementForSource(userId, it.resourceKey)
+                }
+                milestoneDao.deleteAcknowledgements(userId)
+                milestoneDao.upsertAcknowledgements(acknowledgements.value.content
+                    .filterNot { it.sourceExperienceId in intents.keys }
+                    .map { dto ->
+                    ExperienceAcknowledgementEntity(userId, dto.id, dto.sourceExperienceId,
+                        dto.sourceAvailable, dto.place.id, dto.place.name, dto.place.city,
+                        dto.place.region, dto.place.country, dto.primaryExperienceCode,
+                        dto.rawExperienceLabel, dto.acknowledgedAt.toEpochMillisSafely(),
+                        dto.convertedExperienceId)
+                })
+                milestoneDao.upsertAcknowledgements(preservedAcknowledgements)
+            }
+        }
+    }
 
     suspend fun forPlace(
         placeId: String,

@@ -239,6 +239,9 @@ fun ExperienceV2Dto.toDomain(): Experience = Experience(
     },
     visibility = ExperienceVisibility.fromWire(visibility),
     taxonomyVersion = taxonomyVersion,
+    plannedByViewer = plannedByViewer,
+    acknowledgedByViewer = acknowledgedByViewer,
+    acknowledgementCount = acknowledgementCount,
 )
 
 fun CursorPageDto<ExperienceSummaryV2Dto>.toExperiencePage(): ExperiencePage = ExperiencePage(
@@ -294,6 +297,9 @@ fun ExperienceSummaryV2Dto.toDomain(): ExperienceSummary = ExperienceSummary(
     },
     mediaCount = mediaCount,
     visibility = ExperienceVisibility.fromWire(visibility),
+    plannedByViewer = plannedByViewer,
+    acknowledgedByViewer = acknowledgedByViewer,
+    acknowledgementCount = acknowledgementCount,
 )
 
 fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(

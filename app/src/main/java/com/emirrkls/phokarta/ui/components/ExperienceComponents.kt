@@ -42,6 +42,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Icon
 import coil.compose.AsyncImage
 import com.emirrkls.phokarta.R
@@ -63,6 +66,8 @@ fun ExperienceCard(
     onPlace: () -> Unit,
     onRelationship: () -> Unit,
     relationshipBusy: Boolean,
+    onPlan: (() -> Unit)? = null,
+    onAcknowledge: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val language = displayLanguage(appLocale())
@@ -229,6 +234,49 @@ fun ExperienceCard(
                     Text(stringResource(R.string.experience_legacy_badge), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 }
                 HorizontalDivider(Modifier.padding(top = 11.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                if (onPlan != null || onAcknowledge != null) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        onPlan?.let {
+                            OutlinedButton(onClick = it, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    if (experience.plannedByViewer) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Text(
+                                    stringResource(if (experience.plannedByViewer) R.string.experience_in_plan else R.string.experience_add_to_plan),
+                                    Modifier.padding(start = 6.dp),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        if (onAcknowledge != null && experience.author.relationship != null) {
+                            OutlinedButton(
+                                onClick = onAcknowledge,
+                                enabled = !experience.acknowledgedByViewer,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text(stringResource(R.string.experience_also_experienced), Modifier.padding(start = 6.dp), maxLines = 1)
+                            }
+                        }
+                    }
+                    if (experience.acknowledgementCount > 0) {
+                        Text(
+                            androidx.compose.ui.res.pluralStringResource(
+                                R.plurals.experience_acknowledgement_count,
+                                experience.acknowledgementCount.toInt(),
+                                experience.acknowledgementCount,
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
                 Row(
                     Modifier.fillMaxWidth().padding(top = 11.dp),
                     horizontalArrangement = Arrangement.End,

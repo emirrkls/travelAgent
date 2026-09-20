@@ -290,6 +290,34 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration8To9PreservesQueuedPublicationAndAddsMilestoneState() {
+        val userId = "20000000-0000-4000-8000-000000000002"
+        val placeId = "30000000-0000-4000-8000-000000000003"
+        helper.createDatabase(TEST_DATABASE, 8).apply {
+            execSQL(
+                """INSERT INTO visit_drafts
+                    (userId,placeId,overallScore,publicReview,privateMemory,visitedAtEpochDay,
+                     visibility,dimensionsExpanded,createdAtEpochMillis,updatedAtEpochMillis,
+                     payloadVersion,vibeCodes,practicalSignalCodes,titleSource,story,tip)
+                   VALUES (?,?,8.0,'','','21000','PUBLIC',0,1,1,2,'','','GENERATED','','')""",
+                arrayOf<Any>(userId, placeId),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 9, true, MIGRATION_8_9).apply {
+            query("SELECT payloadVersion,originAcknowledgementId FROM visit_drafts WHERE userId=? AND placeId=?", arrayOf(userId, placeId)).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(2, cursor.getInt(0))
+                assertEquals(null, cursor.getString(1))
+            }
+            assertEquals(0, rowCount("planned_experiences"))
+            assertEquals(0, rowCount("experience_acknowledgements"))
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits

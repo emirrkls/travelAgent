@@ -36,4 +36,8 @@
         <item quantity="one">%d aktif filtre</item>
         <item quantity="other">%d aktif filtre</item>
     </plurals>
+    <plurals name="experience_acknowledgement_count">
+        <item quantity="one">%d kişi de yaşadı</item>
+        <item quantity="other">%d kişi de yaşadı</item>
+    </plurals>
 </resources>

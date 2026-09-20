@@ -154,6 +154,12 @@ interface PendingMutationDao {
     @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND type = 'SET_SAVED_STATE'")
     suspend fun savedIntents(userId: String): List<PendingMutationEntity>
 
+    @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND type = :type AND resourceKey = :resourceKey LIMIT 1")
+    suspend fun intent(userId: String, type: String, resourceKey: String): PendingMutationEntity?
+
+    @Query("SELECT * FROM pending_mutations WHERE userId = :userId AND type = :type")
+    suspend fun intents(userId: String, type: String): List<PendingMutationEntity>
+
     @Upsert
     suspend fun upsertMutation(value: PendingMutationEntity)
 

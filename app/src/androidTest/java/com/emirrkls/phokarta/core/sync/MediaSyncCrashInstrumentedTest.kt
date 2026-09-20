@@ -168,6 +168,7 @@ class MediaSyncCrashInstrumentedTest {
         media,
         uploader,
         store,
+        database.experienceMilestoneDao(),
     )
 
     private fun openDatabase(): TravelDatabase =

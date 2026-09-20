@@ -47,6 +47,7 @@ data class VisitDraft(
     val titleSource: ExperienceTitleSource = ExperienceTitleSource.GENERATED,
     val story: String = "",
     val tip: String = "",
+    val originAcknowledgementId: String? = null,
 )
 
 /**
@@ -119,6 +120,7 @@ object VisitDraftLogic {
             draft.title != null ||
             draft.story.isNotBlank() ||
             draft.tip.isNotBlank()
+            || draft.originAcknowledgementId != null
     }
 
     fun toVisit(

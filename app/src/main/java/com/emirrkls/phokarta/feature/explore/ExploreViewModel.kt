@@ -127,6 +127,33 @@ class ExploreViewModel @Inject constructor(
         }
     }
 
+    fun togglePlan(experienceId: String) {
+        viewModelScope.launch {
+            when (val result = repository.togglePlan(experienceId)) {
+                is RepositoryResult.Success -> _uiState.update { state -> state.copy(
+                    items = state.items.map { if (it.id == experienceId) it.copy(plannedByViewer = result.value) else it }
+                ) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+            }
+        }
+    }
+
+    fun acknowledge(experienceId: String) {
+        viewModelScope.launch {
+            when (val result = repository.acknowledge(experienceId)) {
+                is RepositoryResult.Success -> _uiState.update { state -> state.copy(
+                    items = state.items.map {
+                        if (it.id == experienceId && !it.acknowledgedByViewer) it.copy(
+                            acknowledgedByViewer = true,
+                            acknowledgementCount = it.acknowledgementCount + 1,
+                        ) else it
+                    }
+                ) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+            }
+        }
+    }
+
     private fun replaceRelationship(authorId: String, relationship: RelationshipV2) {
         _uiState.update { state ->
             state.copy(items = state.items.map { item ->

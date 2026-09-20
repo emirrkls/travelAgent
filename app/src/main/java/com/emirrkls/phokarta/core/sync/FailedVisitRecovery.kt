@@ -128,6 +128,7 @@ object FailedVisitRecoveryMapper {
             titleSource = enumOrDefault(payload.titleSource, ExperienceTitleSource.GENERATED),
             story = payload.story,
             tip = payload.tip,
+            originAcknowledgementId = payload.originAcknowledgementId,
         )
     }
 

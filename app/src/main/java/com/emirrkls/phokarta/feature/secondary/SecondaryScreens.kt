@@ -399,11 +399,18 @@ fun CollectionsScreen(
 }
 
 @Composable
-fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (String) -> Unit, viewModel: SecondaryViewModel = hiltViewModel()) {
+fun CollectionDetailScreen(
+    collectionId: String,
+    onBack: () -> Unit,
+    onPlace: (String) -> Unit,
+    onExperience: (String) -> Unit = {},
+    viewModel: SecondaryViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(collectionId) { viewModel.refreshCollectionDetail(collectionId) }
     val collection = state.collections.firstOrNull { it.id == collectionId }
     val places = state.places.filter { it.id in (collection?.placeIds ?: emptyList()) }
+    val experienceItems = state.mixedCollectionItems.filter { it.type == "EXPERIENCE" && it.experience != null }
 
     if (state.detailNotFound && collection == null) {
         Column(
@@ -460,7 +467,7 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
                 }
             }
         }
-        if (places.isEmpty()) {
+        if (places.isEmpty() && experienceItems.isEmpty()) {
             item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(R.string.no_places_here_yet), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
@@ -474,6 +481,21 @@ fun CollectionDetailScreen(collectionId: String, onBack: () -> Unit, onPlace: (S
                 }
             }
         } else {
+            items(experienceItems, key = { "experience-${it.experience!!.id}" }) { item ->
+                val experience = item.experience!!
+                Surface(
+                    onClick = { onExperience(experience.id) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(stringResource(R.string.plan_experiences), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(experience.title, style = MaterialTheme.typography.titleMedium)
+                        Text(experience.place.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             items(places, key = { it.id }) { place ->
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),

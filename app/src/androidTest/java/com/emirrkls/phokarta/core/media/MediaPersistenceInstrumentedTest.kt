@@ -442,6 +442,7 @@ class MediaPersistenceInstrumentedTest {
         EpochClock { 5_000 },
         object : MutationSyncScheduler { override fun schedule() = Unit },
         store,
+        database.experienceMilestoneDao(),
     )
 
     private fun openDatabase() =

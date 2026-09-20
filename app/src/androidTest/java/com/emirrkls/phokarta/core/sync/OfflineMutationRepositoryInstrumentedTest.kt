@@ -22,6 +22,15 @@ import com.emirrkls.phokarta.core.model.PracticalSignalCode
 import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import com.emirrkls.phokarta.core.model.TimeOfDayCode
 import com.emirrkls.phokarta.core.model.VibeCode
+import com.emirrkls.phokarta.core.model.Experience
+import com.emirrkls.phokarta.core.model.ExperienceAuthor
+import com.emirrkls.phokarta.core.model.ExperienceClassification
+import com.emirrkls.phokarta.core.model.ExperienceFamily
+import com.emirrkls.phokarta.core.model.ExperienceFeeling
+import com.emirrkls.phokarta.core.model.ExperiencePlace
+import com.emirrkls.phokarta.core.model.ExperiencePrimary
+import com.emirrkls.phokarta.core.model.ExperienceVisibility
+import com.emirrkls.phokarta.core.model.FeelingProvenance
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.core.time.EpochClock
 import com.emirrkls.phokarta.core.media.MediaFileMutationLock
@@ -61,6 +70,7 @@ class OfflineMutationRepositoryInstrumentedTest {
             draftRepository, database.savedPlaceDao(),
             session, EpochClock { 1_000L }, scheduler,
             VisitMediaStore(context),
+            database.experienceMilestoneDao(),
         )
         login(USER_A)
     }
@@ -155,6 +165,78 @@ class OfflineMutationRepositoryInstrumentedTest {
         assertEquals(1, database.pendingMutationDao().eligible(USER_A, 20).size)
     }
 
+    @Test fun plannedExperienceRapidToggleIsDurableCoalescedAndAccountScoped() = runTest {
+        val experience = experience()
+        assertTrue(repository.togglePlannedExperience(experience))
+        assertTrue(database.experienceMilestoneDao().plan(USER_A, EXPERIENCE) != null)
+
+        val first = database.pendingMutationDao().observeForUser(USER_A).first()
+            .single { it.type == MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE }
+        assertEquals(true, first.desiredSaved)
+        assertEquals(1, first.generation)
+
+        assertFalse(repository.togglePlannedExperience(experience))
+        assertNull(database.experienceMilestoneDao().plan(USER_A, EXPERIENCE))
+        val coalesced = database.pendingMutationDao().observeForUser(USER_A).first()
+            .single { it.type == MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE }
+        assertEquals(first.mutationId, coalesced.mutationId)
+        assertEquals(false, coalesced.desiredSaved)
+        assertEquals(2, coalesced.generation)
+
+        repository.togglePlannedExperience(experience)
+        session.clearSession()
+        login(USER_B)
+        assertTrue(database.experienceMilestoneDao().observePlans(USER_B).first().isEmpty())
+        assertEquals(EXPERIENCE, database.experienceMilestoneDao().observePlans(USER_A).first().single().experienceId)
+    }
+
+    @Test fun acknowledgementIsDurableDuplicateSafeAndUsesItsFinalIdForSync() = runTest {
+        val experience = experience()
+        val first = repository.acknowledgeExperience(experience)
+        val duplicate = repository.acknowledgeExperience(experience)
+
+        assertEquals(first, duplicate)
+        val local = database.experienceMilestoneDao().acknowledgementForSource(USER_A, EXPERIENCE)!!
+        assertEquals(first, local.id)
+        assertEquals(PLACE, local.placeId)
+        assertEquals("GUN_BATIMI", local.primaryExperienceCode)
+        val mutation = database.pendingMutationDao().observeForUser(USER_A).first()
+            .single { it.type == MutationTypeValue.ACKNOWLEDGE_EXPERIENCE }
+        assertEquals(first, mutation.mutationId)
+        assertEquals(EXPERIENCE, mutation.resourceKey)
+
+        session.clearSession()
+        login(USER_B)
+        assertTrue(database.experienceMilestoneDao().observeUnconvertedAcknowledgements(USER_B).first().isEmpty())
+        assertEquals(first, database.experienceMilestoneDao()
+            .observeUnconvertedAcknowledgements(USER_A).first().single().id)
+    }
+
+    private fun experience() = Experience(
+        id = EXPERIENCE,
+        classification = ExperienceClassification.NATIVE_V2,
+        author = ExperienceAuthor(USER_B, "author", "Author", null),
+        place = ExperiencePlace(PLACE, "Milestone Place", "BEACH", "Istanbul", "Marmara", "Turkiye", ""),
+        experiencedAt = LocalDate.of(2026, 9, 17),
+        title = "Sunset",
+        titleSource = ExperienceTitleSource.CUSTOM,
+        titlePersisted = true,
+        story = "Story",
+        tip = null,
+        feeling = ExperienceFeeling(OverallFeelingCode.GUZELDI, FeelingProvenance.EXPLICIT, 8.0),
+        primaryExperience = ExperiencePrimary(
+            PrimaryExperienceCode.GUN_BATIMI, true, ExperienceFamily.SCENERY_AND_MOMENT, null,
+        ),
+        companion = CompanionCode.PARTNER,
+        timeOfDay = TimeOfDayCode.EVENING,
+        vibes = emptyList(),
+        practicalSignals = emptyList(),
+        dimensions = emptyList(),
+        media = emptyList(),
+        visibility = ExperienceVisibility.PUBLIC,
+        taxonomyVersion = 1,
+    )
+
     private fun login(id: String) = session.setAuthenticated(
         AuthenticatedUser(id, "$id@test.local", id, id, "", ""), "access", "refresh",
     )
@@ -168,5 +250,6 @@ class OfflineMutationRepositoryInstrumentedTest {
         const val USER_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         const val USER_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
         const val PLACE = "20000000-0000-0000-0000-000000000003"
+        const val EXPERIENCE = "30000000-0000-0000-0000-000000000003"
     }
 }

@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
+import com.emirrkls.phokarta.core.network.RemoteResult
+import com.emirrkls.phokarta.core.network.model.CollectionV2ItemDto
 
 data class SecondaryUiState(
     val collections: List<Collection> = emptyList(),
@@ -31,10 +34,14 @@ data class SecondaryUiState(
     val createdCollectionId: String? = null,
     val membershipError: Int? = null,
     val policy: PolicyAcceptanceUi = PolicyAcceptanceUi(),
+    val mixedCollectionItems: List<CollectionV2ItemDto> = emptyList(),
 )
 
 @HiltViewModel
-class SecondaryViewModel @Inject constructor(private val repository: TravelRepository) : ViewModel() {
+class SecondaryViewModel @Inject constructor(
+    private val repository: TravelRepository,
+    private val collectionsRemote: CollectionRemoteDataSource,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(SecondaryUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -88,6 +95,12 @@ class SecondaryViewModel @Inject constructor(private val repository: TravelRepos
                         )
                     }
                 }
+            }
+            when (val mixed = collectionsRemote.detailV2(collectionId)) {
+                is RemoteResult.Success -> _uiState.update {
+                    it.copy(mixedCollectionItems = mixed.value.items.sortedBy(CollectionV2ItemDto::displayOrder))
+                }
+                is RemoteResult.Failure -> Unit
             }
         }
     }

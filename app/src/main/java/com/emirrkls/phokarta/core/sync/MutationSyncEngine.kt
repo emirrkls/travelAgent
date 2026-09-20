@@ -7,10 +7,13 @@ import com.emirrkls.phokarta.core.data.LocalUserStateDataSource
 import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
+import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
 import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity
+import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
+import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
@@ -56,6 +59,7 @@ class MutationSyncEngine @Inject constructor(
     private val mediaRemote: MediaRemoteDataSource,
     private val mediaUploader: DirectMediaUploader,
     private val mediaStore: VisitMediaStore,
+    private val experienceMilestones: ExperienceMilestoneDao,
 ) {
     private val drainMutex = Mutex()
 
@@ -76,6 +80,8 @@ class MutationSyncEngine @Inject constructor(
                 MutationTypeValue.PUBLISH_VISIT -> syncVisit(mutation)
                 MutationTypeValue.PUBLISH_EXPERIENCE_V2 -> syncExperienceV2(mutation)
                 MutationTypeValue.SET_SAVED_STATE -> syncSaved(mutation)
+                MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE -> syncPlannedExperience(mutation)
+                MutationTypeValue.ACKNOWLEDGE_EXPERIENCE -> syncAcknowledgement(mutation)
                 else -> Failure(false, "UNKNOWN_TYPE")
             }
             processed++
@@ -195,6 +201,7 @@ class MutationSyncEngine @Inject constructor(
             privateMemory = payload.privateMemory.takeIf(String::isNotBlank),
             visibility = payload.visibility,
             mediaIds = mediaIds,
+            originAcknowledgementId = payload.originAcknowledgementId,
         )
         return when (val result = visitsRemote.createExperience(request)) {
             is RemoteResult.Failure -> result.error.toOutcome()
@@ -229,6 +236,11 @@ class MutationSyncEngine @Inject constructor(
                 try {
                     database.withTransaction {
                         local.upsertVisit(canonical)
+                        payload.originAcknowledgementId?.let { acknowledgementId ->
+                            check(experienceMilestones.markConverted(
+                                mutation.userId, acknowledgementId, experience.id,
+                            ) == 1) { "Acknowledgement conversion anchor missing" }
+                        }
                         check(mutations.deleteIfGeneration(mutation.mutationId, mutation.generation) == 1) {
                             "Mutation generation changed before reconciliation"
                         }
@@ -349,6 +361,82 @@ class MutationSyncEngine @Inject constructor(
                         } else {
                             savedDao.deleteSavedPlace(mutation.userId, mutation.resourceKey)
                         }
+                        mutations.deleteIfGeneration(mutation.mutationId, mutation.generation)
+                    }
+                }
+                Success
+            }
+        }
+    }
+
+    private suspend fun syncPlannedExperience(mutation: PendingMutationEntity): Outcome {
+        val desired = mutation.desiredSaved ?: return Failure(false, "MISSING_PAYLOAD")
+        val result = if (desired) visitsRemote.planExperience(mutation.resourceKey)
+            else visitsRemote.unplanExperience(mutation.resourceKey)
+        return when (result) {
+            is RemoteResult.Failure -> if (result.error is NetworkError.NotFound) {
+                database.withTransaction {
+                    if (mutations.get(mutation.mutationId)?.generation == mutation.generation) {
+                        experienceMilestones.deletePlan(mutation.userId, mutation.resourceKey)
+                        mutations.deleteIfGeneration(mutation.mutationId, mutation.generation)
+                    }
+                }
+                Success
+            } else result.error.toOutcome()
+            is RemoteResult.Success -> {
+                database.withTransaction {
+                    if (mutations.get(mutation.mutationId)?.generation == mutation.generation) {
+                        if (desired) {
+                            val dto = result.value as com.emirrkls.phokarta.core.network.model.PlannedExperienceV2Dto
+                            val experience = dto.experience
+                            experienceMilestones.upsertPlan(PlannedExperienceEntity(
+                                ownerUserId = mutation.userId, experienceId = experience.id,
+                                title = experience.title, placeId = experience.place.id,
+                                placeName = experience.place.name,
+                                primaryExperienceCode = experience.primaryExperience.code,
+                                feelingCode = experience.feeling.code,
+                                authorName = experience.author.displayName,
+                                imageUrl = experience.media.minByOrNull { it.position }?.url,
+                                plannedAtEpochMillis = dto.plannedAt.toEpochMillisSafely(),
+                            ))
+                        } else experienceMilestones.deletePlan(mutation.userId, mutation.resourceKey)
+                        mutations.deleteIfGeneration(mutation.mutationId, mutation.generation)
+                    }
+                }
+                Success
+            }
+        }
+    }
+
+    private suspend fun syncAcknowledgement(mutation: PendingMutationEntity): Outcome {
+        val anchor = experienceMilestones.acknowledgementForSource(
+            mutation.userId, mutation.resourceKey,
+        ) ?: return Failure(false, "MISSING_ACKNOWLEDGEMENT_ANCHOR")
+        return when (val result = visitsRemote.acknowledgeExperience(
+            id = mutation.resourceKey,
+            clientAcknowledgementId = mutation.mutationId,
+            anchorPlaceId = anchor.placeId,
+            anchorPrimaryExperienceCode = anchor.primaryExperienceCode,
+            anchorRawExperienceLabel = anchor.rawExperienceLabel,
+        )) {
+            is RemoteResult.Failure -> result.error.toOutcome()
+            is RemoteResult.Success -> {
+                val dto = result.value
+                database.withTransaction {
+                    if (mutations.get(mutation.mutationId)?.generation == mutation.generation) {
+                        experienceMilestones.deleteAcknowledgement(mutation.userId, "pending:${mutation.resourceKey}")
+                        experienceMilestones.deleteAcknowledgement(mutation.userId, mutation.mutationId)
+                        experienceMilestones.upsertAcknowledgement(ExperienceAcknowledgementEntity(
+                            ownerUserId = mutation.userId, id = dto.id,
+                            sourceExperienceId = dto.sourceExperienceId,
+                            sourceAvailable = dto.sourceAvailable, placeId = dto.place.id,
+                            placeName = dto.place.name, placeCity = dto.place.city,
+                            placeRegion = dto.place.region, placeCountry = dto.place.country,
+                            primaryExperienceCode = dto.primaryExperienceCode,
+                            rawExperienceLabel = dto.rawExperienceLabel,
+                            acknowledgedAtEpochMillis = dto.acknowledgedAt.toEpochMillisSafely(),
+                            convertedExperienceId = dto.convertedExperienceId,
+                        ))
                         mutations.deleteIfGeneration(mutation.mutationId, mutation.generation)
                     }
                 }

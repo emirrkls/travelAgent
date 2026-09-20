@@ -246,6 +246,7 @@ fun PhokartaApp() {
                     PlanScreen(
                         onPlace = { navController.navigate("place/$it") },
                         onCollection = { navController.navigate("collection/$it") },
+                        onExperience = { navController.navigate("experience/$it") },
                     )
                 }
                 composable(Route.Profile) {
@@ -264,6 +265,9 @@ fun PhokartaApp() {
                         onFollowing = { navController.navigate("social/following") },
                         onFriends = { navController.navigate("social/friends") },
                         onSettings = { navController.navigate(Route.Settings) },
+                        onConvertAcknowledgement = { placeId ->
+                            navController.navigate("rating/$placeId") { launchSingleTop = true }
+                        },
                     )
                 }
                 composable(Route.Settings) {
@@ -362,7 +366,7 @@ fun PhokartaApp() {
                         },
                     )
                 }
-                composable(Route.Collection, arguments = listOf(navArgument("collectionId") { type = NavType.StringType })) { entry -> CollectionDetailScreen(checkNotNull(entry.arguments?.getString("collectionId")), { navController.popBackStack() }, { navController.navigate("place/$it") }) }
+                composable(Route.Collection, arguments = listOf(navArgument("collectionId") { type = NavType.StringType })) { entry -> CollectionDetailScreen(checkNotNull(entry.arguments?.getString("collectionId")), { navController.popBackStack() }, { navController.navigate("place/$it") }, { navController.navigate("experience/$it") }) }
                 composable(Route.Success, arguments = listOf(navArgument("placeName") { type = NavType.StringType })) { entry -> SuccessScreen(entry.arguments?.getString("placeName").orEmpty(), { navController.navigate(Route.Profile) { popUpTo(Route.Explore); launchSingleTop = true } }, { navController.navigate(Route.Explore) { popUpTo(Route.Explore) { inclusive = true } } }) }
             }
         }

@@ -91,15 +91,18 @@ fun ProfileScreen(
     onFollowing: () -> Unit = {},
     onFriends: () -> Unit = {},
     onSettings: () -> Unit = {},
+    onConvertAcknowledgement: (String) -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val experienceState by viewModel.experienceState.collectAsStateWithLifecycle()
+    val acknowledgements by viewModel.acknowledgements.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshSocialCounts()
     }
     val context = LocalContext.current
     var tab by remember { mutableIntStateOf(0) }
+    var experienceSegment by remember { mutableIntStateOf(0) }
     var selectedVisit by remember { mutableStateOf<com.emirrkls.phokarta.core.model.Visit?>(null) }
     var selectedPlaceName by remember { mutableStateOf("") }
     var selectedPending by remember { mutableStateOf<PendingVisitedPlace?>(null) }
@@ -166,7 +169,7 @@ fun ProfileScreen(
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)).padding(4.dp)) {
                 listOf(
-                    Icons.Rounded.Explore to stringResource(R.string.profile_experiences),
+                    Icons.Rounded.Explore to stringResource(R.string.profile_discovery),
                     Icons.Rounded.GridView to stringResource(R.string.places),
                     Icons.Rounded.FolderCopy to stringResource(R.string.lists),
                     Icons.Rounded.Map to stringResource(R.string.map_tab),
@@ -181,7 +184,48 @@ fun ProfileScreen(
         }
         when (tab) {
             0 -> {
-                if (experienceState.isLoading) {
+                item {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)).padding(4.dp)) {
+                        listOf(stringResource(R.string.profile_experiences),
+                            stringResource(R.string.profile_also_experienced)).forEachIndexed { index, label ->
+                            Surface(Modifier.weight(1f).clickable { experienceSegment = index },
+                                color = if (experienceSegment == index) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                shape = RoundedCornerShape(11.dp)) {
+                                Text(label, Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                    textAlign = TextAlign.Center, style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+                if (experienceSegment == 1) {
+                    if (acknowledgements.isEmpty()) {
+                        item {
+                            Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(R.string.ack_empty_title), textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.ack_empty_body), Modifier.padding(top = 8.dp),
+                                    textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    } else items(acknowledgements, key = { it.id }) { ack ->
+                        Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(ack.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(ack.placeCity, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (!ack.sourceAvailable) Text(stringResource(R.string.ack_source_deleted),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = {
+                                    viewModel.beginAcknowledgementConversion(ack, onConvertAcknowledgement)
+                                }) { Text(stringResource(R.string.ack_add_your_experience)) }
+                            }
+                        }
+                    }
+                } else if (experienceState.isLoading) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
                             androidx.compose.material3.CircularProgressIndicator()

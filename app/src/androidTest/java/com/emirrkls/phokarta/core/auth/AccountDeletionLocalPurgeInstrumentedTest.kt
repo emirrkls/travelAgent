@@ -47,6 +47,7 @@ class AccountDeletionLocalPurgeInstrumentedTest {
             database.collectionDao(),
             database.pendingMutationDao(),
             store,
+            database.experienceMilestoneDao(),
         )
     }
 

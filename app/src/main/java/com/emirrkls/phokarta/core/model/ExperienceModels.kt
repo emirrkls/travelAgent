@@ -91,6 +91,9 @@ data class ExperienceSummary(
     val mediaPreview: ExperienceMedia?,
     val mediaCount: Int,
     val visibility: ExperienceVisibility,
+    val plannedByViewer: Boolean = false,
+    val acknowledgedByViewer: Boolean = false,
+    val acknowledgementCount: Long = 0,
 )
 
 data class Experience(
@@ -114,6 +117,46 @@ data class Experience(
     val media: List<ExperienceMedia>,
     val visibility: ExperienceVisibility,
     val taxonomyVersion: Int?,
+    val plannedByViewer: Boolean = false,
+    val acknowledgedByViewer: Boolean = false,
+    val acknowledgementCount: Long = 0,
+)
+
+data class ExperienceAcknowledgement(
+    val id: String,
+    val ownerUserId: String,
+    val sourceExperienceId: String?,
+    val sourceAvailable: Boolean,
+    val sourceExperience: Experience?,
+    val place: ExperiencePlace,
+    val primaryExperience: PrimaryExperienceCode,
+    val rawExperienceLabel: String?,
+    val acknowledgedAt: String,
+    val converted: Boolean,
+    val convertedExperienceId: String?,
+)
+
+data class PlannedExperienceItem(
+    val experienceId: String,
+    val title: String,
+    val placeId: String,
+    val placeName: String,
+    val primaryExperience: PrimaryExperienceCode,
+    val feeling: OverallFeelingCode,
+    val authorName: String,
+    val imageUrl: String?,
+)
+
+data class AcknowledgementAnchor(
+    val id: String,
+    val sourceExperienceId: String?,
+    val sourceAvailable: Boolean,
+    val placeId: String,
+    val placeName: String,
+    val placeCity: String,
+    val primaryExperience: PrimaryExperienceCode,
+    val rawExperienceLabel: String?,
+    val acknowledgedAtEpochMillis: Long,
 )
 
 data class ExperienceAuthor(

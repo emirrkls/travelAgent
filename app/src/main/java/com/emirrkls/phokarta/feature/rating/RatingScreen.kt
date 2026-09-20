@@ -294,6 +294,20 @@ fun RatingScreen(onBack: () -> Unit, onPublished: () -> Unit, viewModel: RatingV
                     }
                 }
             }
+            if (state.draft.originAcknowledgementId != null) {
+                Surface(
+                    Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Text(
+                        stringResource(R.string.ack_origin_context),
+                        Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
             if (state.hasExistingVisits) {
                 Text(
                     stringResource(

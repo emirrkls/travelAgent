@@ -74,6 +74,11 @@ import com.emirrkls.phokarta.core.network.model.PolicyStatusDto
 import com.emirrkls.phokarta.core.network.model.PracticalSignalAggregateDto
 import com.emirrkls.phokarta.core.network.model.PrimaryExperienceAggregateDto
 import com.emirrkls.phokarta.core.network.model.SemanticStateAggregateDto
+import com.emirrkls.phokarta.core.network.model.PlannedExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceAcknowledgementV2Dto
+import com.emirrkls.phokarta.core.network.model.AcknowledgementAnchorPlaceDto
+import com.emirrkls.phokarta.core.network.model.CollectionV2DetailDto
+import com.emirrkls.phokarta.core.network.model.CollectionV2ItemDto
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
@@ -362,6 +367,13 @@ class FakeVisits(
     @Volatile var failCreate: Boolean = false
     @Volatile var failCreatePermanent: NetworkError? = null
     val recordedClientMutationIds = mutableListOf<String>()
+    private val plannedExperienceIds = linkedSetOf<String>()
+    private val acknowledgements = linkedMapOf<String, ExperienceAcknowledgementV2Dto>()
+
+    fun resetMilestone4() {
+        plannedExperienceIds.clear()
+        acknowledgements.clear()
+    }
 
     fun resetRecordedClientMutationIds() {
         recordedClientMutationIds.clear()
@@ -539,6 +551,64 @@ class FakeVisits(
             ?.let { RemoteResult.Success(it.toDetailDto()) }
             ?: RemoteResult.Failure(NetworkError.NotFound(null))
 
+    override suspend fun plannedExperiences(): RemoteResult<PageResponseDto<PlannedExperienceV2Dto>> =
+        RemoteResult.Success(page(plannedExperienceIds.mapNotNull { id ->
+            experienceSummaries.firstOrNull { it.id == id }?.let {
+                PlannedExperienceV2Dto(it.toDetailDto(), TIMESTAMP)
+            }
+        }))
+
+    override suspend fun planExperience(id: String): RemoteResult<PlannedExperienceV2Dto> {
+        val value = experienceSummaries.firstOrNull { it.id == id }
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        plannedExperienceIds += id
+        return RemoteResult.Success(PlannedExperienceV2Dto(value.toDetailDto(), TIMESTAMP))
+    }
+
+    override suspend fun unplanExperience(id: String): RemoteResult<Unit> {
+        plannedExperienceIds -= id
+        return RemoteResult.Success(Unit)
+    }
+
+    override suspend fun acknowledgeExperience(
+        id: String,
+        clientAcknowledgementId: String?,
+        anchorPlaceId: String?,
+        anchorPrimaryExperienceCode: String?,
+        anchorRawExperienceLabel: String?,
+    ): RemoteResult<ExperienceAcknowledgementV2Dto> {
+        acknowledgements.values.firstOrNull { it.sourceExperienceId == id }?.let {
+            return RemoteResult.Success(it)
+        }
+        val source = experienceSummaries.firstOrNull { it.id == id }
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        val value = ExperienceAcknowledgementV2Dto(
+            id = clientAcknowledgementId ?: UUID.randomUUID().toString(),
+            ownerUserId = USER_ID,
+            sourceExperienceId = id,
+            sourceAvailable = true,
+            sourceExperience = source.toDetailDto(),
+            place = AcknowledgementAnchorPlaceDto(
+                source.place.id, source.place.name, source.place.city,
+                source.place.region, source.place.country,
+            ),
+            primaryExperienceCode = source.primaryExperience.code,
+            rawExperienceLabel = source.primaryExperience.rawLabel,
+            acknowledgedAt = TIMESTAMP,
+            status = "UNCONVERTED",
+        )
+        acknowledgements[value.id] = value
+        return RemoteResult.Success(value)
+    }
+
+    override suspend fun myAcknowledgements(): RemoteResult<PageResponseDto<ExperienceAcknowledgementV2Dto>> =
+        RemoteResult.Success(page(acknowledgements.values.filter { it.status == "UNCONVERTED" }))
+
+    override suspend fun profileAcknowledgements(
+        userId: String,
+    ): RemoteResult<PageResponseDto<ExperienceAcknowledgementV2Dto>> =
+        RemoteResult.Success(page(if (userId == USER_ID) acknowledgements.values.filter { it.status == "UNCONVERTED" } else emptyList()))
+
     override suspend fun placeExperiences(
         placeId: String,
         cursor: String?,
@@ -622,9 +692,17 @@ class FakeVisits(
         failCreatePermanent?.let { return RemoteResult.Failure(it) }
         if (failCreate) return RemoteResult.Failure(NetworkError.Server(500, null))
 
+        val publishedId = UUID.randomUUID().toString()
+        request.originAcknowledgementId?.let { origin ->
+            acknowledgements[origin]?.let { existing ->
+                acknowledgements[origin] = existing.copy(
+                    status = "CONVERTED", convertedExperienceId = publishedId,
+                )
+            }
+        }
         return RemoteResult.Success(
             ExperienceV2Dto(
-                id = UUID.randomUUID().toString(),
+                id = publishedId,
                 classification = "NATIVE_V2",
                 author = ExperienceAuthorDto(
                     id = USER_ID,
@@ -827,6 +905,7 @@ private class FakeCollections(
     private val social: FakeSocial,
 ) : CollectionRemoteDataSource {
     private val collections = linkedMapOf<String, CollectionDetailDto>()
+    private val experienceIds = linkedMapOf<String, LinkedHashSet<String>>()
 
     override suspend fun list(page: Int, size: Int) =
         RemoteResult.Success(page(collections.values.map { it.toSummary() }))
@@ -851,6 +930,25 @@ private class FakeCollections(
     override suspend fun detail(collectionId: String): RemoteResult<CollectionDetailDto> =
         collections[collectionId]?.let { RemoteResult.Success(it) }
             ?: RemoteResult.Failure(NetworkError.NotFound(null))
+
+    override suspend fun detailV2(collectionId: String): RemoteResult<CollectionV2DetailDto> {
+        val current = collections[collectionId]
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        return RemoteResult.Success(current.toV2(experienceIds[collectionId].orEmpty()))
+    }
+
+    override suspend fun addExperience(
+        collectionId: String,
+        experienceId: String,
+    ): RemoteResult<CollectionV2DetailDto> {
+        val current = collections[collectionId]
+            ?: return RemoteResult.Failure(NetworkError.NotFound(null))
+        if (experienceSummaries.none { it.id == experienceId }) {
+            return RemoteResult.Failure(NetworkError.NotFound(null))
+        }
+        experienceIds.getOrPut(collectionId) { linkedSetOf() } += experienceId
+        return RemoteResult.Success(current.toV2(experienceIds[collectionId].orEmpty()))
+    }
 
     override suspend fun addPlace(collectionId: String, placeId: String): RemoteResult<CollectionDetailDto> {
         social.policyForbidden()?.let { return it }
@@ -894,6 +992,24 @@ private class FakeCollections(
         placeCount = places.size.toLong(),
         updatedAt = updatedAt,
     )
+
+    private fun CollectionDetailDto.toV2(experiences: Set<String>): CollectionV2DetailDto {
+        val placeItems = places.map {
+            CollectionV2ItemDto("PLACE", it.displayOrder, it.addedAt, place = it.place)
+        }
+        val nextOrder = (placeItems.maxOfOrNull { it.displayOrder } ?: -1) + 1
+        val experienceItems = experiences.mapIndexedNotNull { index, id ->
+            experienceSummaries.firstOrNull { it.id == id }?.let {
+                CollectionV2ItemDto(
+                    "EXPERIENCE", nextOrder + index, TIMESTAMP, experience = it.toDetailDto(),
+                )
+            }
+        }
+        return CollectionV2DetailDto(
+            id, userId, title, description, visibility, coverImage,
+            createdAt, updatedAt, placeItems + experienceItems,
+        )
+    }
 }
 
 private class FakeAuthApi : AuthApi {

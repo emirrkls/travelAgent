@@ -8,6 +8,7 @@ import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
 import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
+import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
 import com.emirrkls.phokarta.core.media.VisitMediaStore
 import com.emirrkls.phokarta.core.sync.WorkManagerMutationSyncScheduler
 import android.content.Context
@@ -46,6 +47,7 @@ class RoomLocalAccountPurger @Inject constructor(
     private val collectionDao: CollectionDao,
     private val pendingMutationDao: PendingMutationDao,
     private val visitMediaStore: VisitMediaStore,
+    private val experienceMilestoneDao: ExperienceMilestoneDao,
 ) : LocalAccountPurger {
 
     override suspend fun purge(userId: String) {
@@ -60,6 +62,8 @@ class RoomLocalAccountPurger @Inject constructor(
             savedPlaceDao.deleteSavedPlacesForOwner(userId)
             collectionDao.deleteCollectionPlacesForOwner(userId)
             collectionDao.deleteCollectionsForOwner(userId)
+            experienceMilestoneDao.deletePlans(userId)
+            experienceMilestoneDao.deleteAcknowledgements(userId)
         }
         visitMediaStore.deleteAllOwned(userId)
         val imageLoader = context.imageLoader

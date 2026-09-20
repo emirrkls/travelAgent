@@ -8,6 +8,8 @@ object MutationTypeValue {
     const val PUBLISH_VISIT = "PUBLISH_VISIT"
     const val PUBLISH_EXPERIENCE_V2 = "PUBLISH_EXPERIENCE_V2"
     const val SET_SAVED_STATE = "SET_SAVED_STATE"
+    const val SET_PLANNED_EXPERIENCE_STATE = "SET_PLANNED_EXPERIENCE_STATE"
+    const val ACKNOWLEDGE_EXPERIENCE = "ACKNOWLEDGE_EXPERIENCE"
 }
 
 object MutationStateValue {
@@ -69,6 +71,7 @@ data class PendingExperienceV2PayloadEntity(
     val tip: String,
     val privateMemory: String,
     val visibility: String,
+    val originAcknowledgementId: String? = null,
 )
 
 @Entity(

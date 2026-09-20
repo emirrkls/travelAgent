@@ -252,3 +252,30 @@ fun CollectionPickerSheet(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExperienceCollectionPickerSheet(
+    collections: List<Collection>,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp)) {
+            Text(stringResource(R.string.add_experience_to_collection), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.add_experience_to_collection_body),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            collections.forEach { collection ->
+                Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { onAdd(collection.id) }
+                    .padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(collection.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                }
+            }
+            if (collections.isEmpty()) Text(stringResource(R.string.no_shortlists_yet))
+        }
+    }
+}

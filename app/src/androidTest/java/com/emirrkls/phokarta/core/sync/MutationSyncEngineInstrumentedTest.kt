@@ -63,6 +63,7 @@ class MutationSyncEngineInstrumentedTest {
             database.savedPlaceDao(),
             session, EpochClock { 1_000 }, object : MutationSyncScheduler { override fun schedule() = Unit },
             VisitMediaStore(context),
+            database.experienceMilestoneDao(),
         )
         visits = FakeVisits()
         saved = FakeSaved()
@@ -80,6 +81,7 @@ class MutationSyncEngineInstrumentedTest {
             },
             DirectMediaUploader(OkHttpClient()),
             VisitMediaStore(context),
+            database.experienceMilestoneDao(),
         )
     }
 

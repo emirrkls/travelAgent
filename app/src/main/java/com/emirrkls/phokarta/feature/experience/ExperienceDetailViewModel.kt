@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emirrkls.phokarta.core.data.ExperienceRepository
+import com.emirrkls.phokarta.core.data.TravelRepository
+import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.model.Experience
 import com.emirrkls.phokarta.core.model.ExperienceMediaKind
@@ -22,6 +24,10 @@ data class ExperienceDetailUiState(
     val experience: Experience? = null,
     val isLoading: Boolean = true,
     val relationshipBusy: Boolean = false,
+    val planBusy: Boolean = false,
+    val acknowledgementBusy: Boolean = false,
+    val collections: List<Collection> = emptyList(),
+    val collectionBusy: Boolean = false,
     val errorMessage: Int? = null,
 )
 
@@ -29,12 +35,21 @@ data class ExperienceDetailUiState(
 class ExperienceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: ExperienceRepository,
+    private val travelRepository: TravelRepository,
 ) : ViewModel() {
     private val experienceId: String = checkNotNull(savedStateHandle["experienceId"])
     private val _uiState = MutableStateFlow(ExperienceDetailUiState())
     val uiState: StateFlow<ExperienceDetailUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            travelRepository.observeCollections().collect { values ->
+                _uiState.update { it.copy(collections = values) }
+            }
+        }
+        viewModelScope.launch { travelRepository.refreshCollections() }
+    }
 
     fun retry() = load()
 
@@ -63,6 +78,51 @@ class ExperienceDetailViewModel @Inject constructor(
                 null -> Unit
             }
             _uiState.update { it.copy(relationshipBusy = false) }
+        }
+    }
+
+    fun togglePlan() {
+        val experience = _uiState.value.experience ?: return
+        if (_uiState.value.planBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(planBusy = true) }
+            when (val result = repository.togglePlan(experience.id)) {
+                is RepositoryResult.Success -> _uiState.update { state ->
+                    state.copy(experience = state.experience?.copy(plannedByViewer = result.value))
+                }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+            }
+            _uiState.update { it.copy(planBusy = false) }
+        }
+    }
+
+    fun acknowledge() {
+        val experience = _uiState.value.experience ?: return
+        if (_uiState.value.acknowledgementBusy || experience.acknowledgedByViewer) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(acknowledgementBusy = true) }
+            when (val result = repository.acknowledge(experience.id)) {
+                is RepositoryResult.Success -> _uiState.update { state -> state.copy(
+                    experience = state.experience?.copy(
+                        acknowledgedByViewer = true,
+                        acknowledgementCount = state.experience.acknowledgementCount + 1,
+                    ),
+                ) }
+                is RepositoryResult.Failure -> _uiState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+            }
+            _uiState.update { it.copy(acknowledgementBusy = false) }
+        }
+    }
+
+    fun addToCollection(collectionId: String) {
+        if (_uiState.value.collectionBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(collectionBusy = true) }
+            when (val result = repository.addToCollection(collectionId, experienceId)) {
+                is RepositoryResult.Failure -> _uiState.update { it.copy(errorMessage = result.error.toUserMessageRes()) }
+                is RepositoryResult.Success -> Unit
+            }
+            _uiState.update { it.copy(collectionBusy = false) }
         }
     }
 

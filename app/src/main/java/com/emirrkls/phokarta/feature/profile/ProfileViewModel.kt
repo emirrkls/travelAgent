@@ -13,6 +13,10 @@ import com.emirrkls.phokarta.core.model.Place
 import com.emirrkls.phokarta.core.model.User
 import com.emirrkls.phokarta.core.model.Visit
 import com.emirrkls.phokarta.core.model.ExperienceSummary
+import com.emirrkls.phokarta.core.model.AcknowledgementAnchor
+import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.core.auth.SessionManager
+import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.core.model.VisitStateLogic
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import com.emirrkls.phokarta.core.sync.NoOpOfflineMutationRepository
@@ -71,6 +75,8 @@ class ProfileViewModel @Inject constructor(
     private val experienceRepository: ExperienceRepository? = null,
     private val offlineMutations: OfflineMutationRepository = NoOpOfflineMutationRepository,
     private val mediaAccess: MediaAccessRepository? = null,
+    private val draftRepository: VisitDraftRepository? = null,
+    private val sessionManager: SessionManager? = null,
 ) : ViewModel() {
     private val recoveryCoordinator = PendingVisitRecoveryCoordinator(offlineMutations)
     val recoveryEvents = recoveryCoordinator.events
@@ -81,6 +87,8 @@ class ProfileViewModel @Inject constructor(
     private var pendingPolicyMutationId: String? = null
     private val _experienceState = MutableStateFlow(ProfileExperiencesUiState())
     val experienceState = _experienceState.asStateFlow()
+    private val _acknowledgements = MutableStateFlow<List<AcknowledgementAnchor>>(emptyList())
+    val acknowledgements = _acknowledgements.asStateFlow()
     private var experienceRequestGeneration = 0L
 
     init {
@@ -92,6 +100,10 @@ class ProfileViewModel @Inject constructor(
         }
         refreshSocialCounts()
         loadExperiences(reset = true)
+        experienceRepository?.let { source ->
+            viewModelScope.launch { source.acknowledgements().collect { _acknowledgements.value = it } }
+            viewModelScope.launch { source.refreshMilestoneState() }
+        }
     }
 
     fun refreshSocialCounts() {
@@ -104,6 +116,22 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun retryExperiences() = loadExperiences(reset = true)
+
+    fun beginAcknowledgementConversion(item: AcknowledgementAnchor, onReady: (String) -> Unit) {
+        val drafts = draftRepository ?: return
+        val userId = sessionManager?.currentUserId() ?: return
+        viewModelScope.launch {
+            val existing = drafts.getDraft(item.placeId)
+            val prefilled = (existing ?: VisitDraft()).copy(
+                payloadVersion = 2,
+                primaryExperience = item.primaryExperience,
+                rawExperienceLabel = item.rawExperienceLabel,
+                originAcknowledgementId = item.id,
+            )
+            drafts.saveDraft(item.placeId, prefilled, userId)
+            onReady(item.placeId)
+        }
+    }
 
     fun loadMoreExperiences() {
         val state = _experienceState.value

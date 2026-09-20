@@ -9,6 +9,7 @@ import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
 import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
 import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
+import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
 import com.emirrkls.phokarta.core.di.DatabaseModule
 import dagger.Module
 import dagger.Provides
@@ -47,4 +48,8 @@ object TestDatabaseModule {
 
     @Provides
     fun providePendingMutationDao(database: TravelDatabase): PendingMutationDao = database.pendingMutationDao()
+
+    @Provides
+    fun provideExperienceMilestoneDao(database: TravelDatabase): ExperienceMilestoneDao =
+        database.experienceMilestoneDao()
 }

@@ -223,3 +223,15 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_experience_v2_dimensions_mutationId` ON `pending_experience_v2_dimensions` (`mutationId`)")
     }
 }
+
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `visit_drafts` ADD COLUMN `originAcknowledgementId` TEXT")
+        db.execSQL("ALTER TABLE `pending_experience_v2_payloads` ADD COLUMN `originAcknowledgementId` TEXT")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `planned_experiences` (`ownerUserId` TEXT NOT NULL, `experienceId` TEXT NOT NULL, `title` TEXT NOT NULL, `placeId` TEXT NOT NULL, `placeName` TEXT NOT NULL, `primaryExperienceCode` TEXT NOT NULL, `feelingCode` TEXT NOT NULL, `authorName` TEXT NOT NULL, `imageUrl` TEXT, `plannedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`ownerUserId`, `experienceId`))""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_planned_experiences_ownerUserId_plannedAtEpochMillis` ON `planned_experiences` (`ownerUserId`, `plannedAtEpochMillis`)")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `experience_acknowledgements` (`ownerUserId` TEXT NOT NULL, `id` TEXT NOT NULL, `sourceExperienceId` TEXT, `sourceAvailable` INTEGER NOT NULL, `placeId` TEXT NOT NULL, `placeName` TEXT NOT NULL, `placeCity` TEXT NOT NULL, `placeRegion` TEXT NOT NULL, `placeCountry` TEXT NOT NULL, `primaryExperienceCode` TEXT NOT NULL, `rawExperienceLabel` TEXT, `acknowledgedAtEpochMillis` INTEGER NOT NULL, `convertedExperienceId` TEXT, PRIMARY KEY(`ownerUserId`, `id`))""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_experience_acknowledgements_ownerUserId_acknowledgedAtEpochMillis` ON `experience_acknowledgements` (`ownerUserId`, `acknowledgedAtEpochMillis`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_experience_acknowledgements_ownerUserId_sourceExperienceId` ON `experience_acknowledgements` (`ownerUserId`, `sourceExperienceId`)")
+    }
+}

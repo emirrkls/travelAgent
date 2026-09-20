@@ -45,6 +45,8 @@ import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VisitOwnerDto
+import com.emirrkls.phokarta.core.network.model.PlannedExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceAcknowledgementV2Dto
 import com.emirrkls.phokarta.core.network.safeApiCall
 import com.emirrkls.phokarta.core.network.safeUnitApiCall
 import javax.inject.Inject
@@ -128,6 +130,24 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
 }
 
 interface VisitRemoteDataSource {
+    suspend fun plannedExperiences(): RemoteResult<PageResponseDto<PlannedExperienceV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun planExperience(id: String): RemoteResult<PlannedExperienceV2Dto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun unplanExperience(id: String): RemoteResult<Unit> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun acknowledgeExperience(
+        id: String,
+        clientAcknowledgementId: String? = null,
+        anchorPlaceId: String? = null,
+        anchorPrimaryExperienceCode: String? = null,
+        anchorRawExperienceLabel: String? = null,
+    ): RemoteResult<ExperienceAcknowledgementV2Dto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun myAcknowledgements(): RemoteResult<PageResponseDto<ExperienceAcknowledgementV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun profileAcknowledgements(userId: String): RemoteResult<PageResponseDto<ExperienceAcknowledgementV2Dto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
     suspend fun experienceFeed(
         lens: String,
         cursor: String? = null,
@@ -187,6 +207,24 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
     private val api: VisitApi,
     private val json: Json,
 ) : VisitRemoteDataSource {
+    override suspend fun plannedExperiences() = safeApiCall(json) { api.plannedExperiences() }
+    override suspend fun planExperience(id: String) = safeApiCall(json) { api.planExperience(id) }
+    override suspend fun unplanExperience(id: String) = safeUnitApiCall(json) { api.unplanExperience(id) }
+    override suspend fun acknowledgeExperience(
+        id: String,
+        clientAcknowledgementId: String?,
+        anchorPlaceId: String?,
+        anchorPrimaryExperienceCode: String?,
+        anchorRawExperienceLabel: String?,
+    ) = safeApiCall(json) {
+        api.acknowledgeExperience(
+            id, clientAcknowledgementId, anchorPlaceId,
+            anchorPrimaryExperienceCode, anchorRawExperienceLabel,
+        )
+    }
+    override suspend fun myAcknowledgements() = safeApiCall(json) { api.myAcknowledgements() }
+    override suspend fun profileAcknowledgements(userId: String) =
+        safeApiCall(json) { api.profileAcknowledgements(userId) }
     override suspend fun experienceFeed(
         lens: String,
         cursor: String?,
@@ -261,6 +299,10 @@ class RetrofitSavedPlaceRemoteDataSource @Inject constructor(
 }
 
 interface CollectionRemoteDataSource {
+    suspend fun addExperience(collectionId: String, experienceId: String): RemoteResult<com.emirrkls.phokarta.core.network.model.CollectionV2DetailDto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown(null, null))
+    suspend fun detailV2(collectionId: String): RemoteResult<com.emirrkls.phokarta.core.network.model.CollectionV2DetailDto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown(null, null))
     suspend fun list(
         page: Int = 0,
         size: Int = 20,
@@ -286,6 +328,9 @@ class RetrofitCollectionRemoteDataSource @Inject constructor(
     private val api: CollectionApi,
     private val json: Json,
 ) : CollectionRemoteDataSource {
+    override suspend fun detailV2(collectionId: String) = safeApiCall(json) { api.detailV2(collectionId) }
+    override suspend fun addExperience(collectionId: String, experienceId: String) =
+        safeApiCall(json) { api.addExperience(collectionId, experienceId) }
     override suspend fun list(page: Int, size: Int) =
         safeApiCall(json) { api.list(page, size) }
 

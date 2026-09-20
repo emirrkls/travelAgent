@@ -38,6 +38,10 @@ import java.time.LocalDate
 import com.emirrkls.phokarta.core.media.VisitMediaStore
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.feature.rating.VisitDraftLogic
+import com.emirrkls.phokarta.core.model.Experience
+import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
+import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
+import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
 
 data class PendingVisit(
     val mutationId: String,
@@ -65,6 +69,8 @@ interface OfflineMutationRepository {
     suspend fun commitVisit(visit: Visit): String
     suspend fun commitExperienceV2(placeId: String, draft: VisitDraft): String
     suspend fun toggleSaved(placeId: String): Boolean
+    suspend fun togglePlannedExperience(experience: Experience): Boolean
+    suspend fun acknowledgeExperience(experience: Experience): String
     suspend fun retry(mutationId: String)
     suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean = false): RecoverFailedVisitResult
     suspend fun removeFailedVisit(mutationId: String): RemoveFailedVisitResult
@@ -80,6 +86,8 @@ object NoOpOfflineMutationRepository : OfflineMutationRepository {
     override suspend fun commitExperienceV2(placeId: String, draft: VisitDraft) =
         error("Offline mutation repository unavailable")
     override suspend fun toggleSaved(placeId: String) = error("Offline mutation repository unavailable")
+    override suspend fun togglePlannedExperience(experience: Experience) = error("Offline mutation repository unavailable")
+    override suspend fun acknowledgeExperience(experience: Experience) = error("Offline mutation repository unavailable")
     override suspend fun retry(mutationId: String) = Unit
     override suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean) =
         RecoverFailedVisitResult.NOT_FOUND
@@ -101,6 +109,7 @@ class RoomOfflineMutationRepository @Inject constructor(
     private val clock: EpochClock,
     private val scheduler: MutationSyncScheduler,
     private val mediaStore: VisitMediaStore,
+    private val experienceMilestones: ExperienceMilestoneDao,
 ) : OfflineMutationRepository {
     override suspend fun commitVisit(visit: Visit): String {
         val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
@@ -192,6 +201,7 @@ class RoomOfflineMutationRepository @Inject constructor(
                 tip = draft.tip.trim(),
                 privateMemory = draft.privateMemory.trim(),
                 visibility = draft.visibility.name,
+                originAcknowledgementId = draft.originAcknowledgementId,
             ))
             if (draft.semanticDimensions.isNotEmpty()) {
                 mutations.insertExperienceV2Dimensions(
@@ -250,6 +260,69 @@ class RoomOfflineMutationRepository @Inject constructor(
         }
         scheduler.schedule()
         return target
+    }
+
+    override suspend fun togglePlannedExperience(experience: Experience): Boolean {
+        val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
+        val now = clock.nowMillis()
+        val desired = database.withTransaction {
+            val desiredState = experienceMilestones.plan(userId, experience.id) == null
+            if (desiredState) {
+                experienceMilestones.upsertPlan(PlannedExperienceEntity(
+                    ownerUserId = userId,
+                    experienceId = experience.id,
+                    title = experience.title,
+                    placeId = experience.place.id,
+                    placeName = experience.place.name,
+                    primaryExperienceCode = experience.primaryExperience.code.name,
+                    feelingCode = experience.feeling.code.name,
+                    authorName = experience.author.displayName,
+                    imageUrl = experience.media.minByOrNull { it.position }?.url,
+                    plannedAtEpochMillis = now,
+                ))
+            } else experienceMilestones.deletePlan(userId, experience.id)
+            val existing = mutations.intent(userId, MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE, experience.id)
+            mutations.upsertMutation(PendingMutationEntity(
+                mutationId = existing?.mutationId ?: UUID.randomUUID().toString(), userId = userId,
+                type = MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE, resourceKey = experience.id,
+                state = MutationStateValue.PENDING, generation = (existing?.generation ?: 0) + 1,
+                desiredSaved = desiredState, attemptCount = existing?.attemptCount ?: 0,
+                createdAtEpochMillis = existing?.createdAtEpochMillis ?: now,
+                updatedAtEpochMillis = now, lastErrorCategory = null,
+            ))
+            desiredState
+        }
+        scheduler.schedule()
+        return desired
+    }
+
+    override suspend fun acknowledgeExperience(experience: Experience): String {
+        val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
+        experienceMilestones.acknowledgementForSource(userId, experience.id)?.let { return it.id }
+        val now = clock.nowMillis()
+        val pendingId = UUID.randomUUID().toString()
+        database.withTransaction {
+            experienceMilestones.upsertAcknowledgement(ExperienceAcknowledgementEntity(
+                ownerUserId = userId, id = pendingId, sourceExperienceId = experience.id,
+                sourceAvailable = true, placeId = experience.place.id, placeName = experience.place.name,
+                placeCity = experience.place.city, placeRegion = experience.place.region,
+                placeCountry = experience.place.country,
+                primaryExperienceCode = experience.primaryExperience.code.name,
+                rawExperienceLabel = experience.primaryExperience.rawLabel,
+                acknowledgedAtEpochMillis = now, convertedExperienceId = null,
+            ))
+            val existing = mutations.intent(userId, MutationTypeValue.ACKNOWLEDGE_EXPERIENCE, experience.id)
+            mutations.upsertMutation(PendingMutationEntity(
+                mutationId = existing?.mutationId ?: pendingId, userId = userId,
+                type = MutationTypeValue.ACKNOWLEDGE_EXPERIENCE, resourceKey = experience.id,
+                state = MutationStateValue.PENDING, generation = existing?.generation ?: 1,
+                desiredSaved = true, attemptCount = existing?.attemptCount ?: 0,
+                createdAtEpochMillis = existing?.createdAtEpochMillis ?: now,
+                updatedAtEpochMillis = now, lastErrorCategory = null,
+            ))
+        }
+        scheduler.schedule()
+        return pendingId
     }
 
     override suspend fun retry(mutationId: String) {

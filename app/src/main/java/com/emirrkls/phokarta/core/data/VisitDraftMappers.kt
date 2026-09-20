@@ -43,6 +43,7 @@ internal fun VisitDraft.toDraftEntity(
     titleSource = titleSource.name,
     story = story,
     tip = tip,
+    originAcknowledgementId = originAcknowledgementId,
 )
 
 internal fun VisitDraft.toDraftDimensionEntities(
@@ -96,6 +97,7 @@ internal fun VisitDraftEntity.toDomain(
     titleSource = titleSource.enumOrNull<ExperienceTitleSource>() ?: ExperienceTitleSource.GENERATED,
     story = story,
     tip = tip,
+    originAcknowledgementId = originAcknowledgementId,
 )
 
 private inline fun <reified T : Enum<T>> String?.enumOrNull(): T? =

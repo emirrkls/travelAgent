@@ -45,6 +45,8 @@ import com.emirrkls.phokarta.core.network.model.MediaAccessDto
 import com.emirrkls.phokarta.core.network.model.MediaStateDto
 import com.emirrkls.phokarta.core.network.model.MediaUploadIntentRequestDto
 import com.emirrkls.phokarta.core.network.model.MediaUploadIntentResponseDto
+import com.emirrkls.phokarta.core.network.model.PlannedExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ExperienceAcknowledgementV2Dto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -219,6 +221,36 @@ interface PrivacyV2Api {
 }
 
 interface VisitApi {
+    @GET("api/v2/me/planned-experiences")
+    suspend fun plannedExperiences(
+        @Query("page") page: Int = 0, @Query("size") size: Int = 100,
+    ): Response<PageResponseDto<PlannedExperienceV2Dto>>
+
+    @PUT("api/v2/me/planned-experiences/{experienceId}")
+    suspend fun planExperience(@Path("experienceId") experienceId: String): Response<PlannedExperienceV2Dto>
+
+    @DELETE("api/v2/me/planned-experiences/{experienceId}")
+    suspend fun unplanExperience(@Path("experienceId") experienceId: String): Response<Unit>
+
+    @PUT("api/v2/experiences/{experienceId}/acknowledgement")
+    suspend fun acknowledgeExperience(
+        @Path("experienceId") experienceId: String,
+        @Query("clientAcknowledgementId") clientAcknowledgementId: String? = null,
+        @Query("anchorPlaceId") anchorPlaceId: String? = null,
+        @Query("anchorPrimaryExperienceCode") anchorPrimaryExperienceCode: String? = null,
+        @Query("anchorRawExperienceLabel") anchorRawExperienceLabel: String? = null,
+    ): Response<ExperienceAcknowledgementV2Dto>
+
+    @GET("api/v2/me/experience-acknowledgements")
+    suspend fun myAcknowledgements(
+        @Query("page") page: Int = 0, @Query("size") size: Int = 100,
+    ): Response<PageResponseDto<ExperienceAcknowledgementV2Dto>>
+
+    @GET("api/v2/users/{userId}/experience-acknowledgements")
+    suspend fun profileAcknowledgements(
+        @Path("userId") userId: String,
+        @Query("page") page: Int = 0, @Query("size") size: Int = 100,
+    ): Response<PageResponseDto<ExperienceAcknowledgementV2Dto>>
     @GET("api/v2/experiences/feed")
     suspend fun experienceFeed(
         @Query("lens") lens: String,
@@ -315,6 +347,14 @@ interface SavedPlaceApi {
 }
 
 interface CollectionApi {
+    @GET("api/v2/collections/{collectionId}")
+    suspend fun detailV2(@Path("collectionId") collectionId: String): Response<com.emirrkls.phokarta.core.network.model.CollectionV2DetailDto>
+    @PUT("api/v2/collections/{collectionId}/experiences/{experienceId}")
+    suspend fun addExperience(
+        @Path("collectionId") collectionId: String,
+        @Path("experienceId") experienceId: String,
+    ): Response<com.emirrkls.phokarta.core.network.model.CollectionV2DetailDto>
+
     @GET("api/v1/me/collections")
     suspend fun list(
         @Query("page") page: Int = 0,

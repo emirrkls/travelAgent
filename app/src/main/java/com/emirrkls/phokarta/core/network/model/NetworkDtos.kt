@@ -203,6 +203,7 @@ data class CreateExperienceV2Dto(
     val privateMemory: String? = null,
     val visibility: String,
     val mediaIds: List<String> = emptyList(),
+    val originAcknowledgementId: String? = null,
 )
 
 @Serializable
@@ -234,6 +235,9 @@ data class ExperienceV2Dto(
     val media: List<ExperienceMediaDto> = emptyList(),
     val visibility: String,
     val taxonomyVersion: Int? = null,
+    val plannedByViewer: Boolean = false,
+    val acknowledgedByViewer: Boolean = false,
+    val acknowledgementCount: Long = 0,
 )
 
 @Serializable
@@ -284,6 +288,32 @@ data class ExperienceSummaryV2Dto(
     val mediaPreview: ExperienceMediaPreviewDto? = null,
     val mediaCount: Int,
     val visibility: String,
+    val plannedByViewer: Boolean = false,
+    val acknowledgedByViewer: Boolean = false,
+    val acknowledgementCount: Long = 0,
+)
+
+@Serializable
+data class PlannedExperienceV2Dto(val experience: ExperienceV2Dto, val plannedAt: String)
+
+@Serializable
+data class AcknowledgementAnchorPlaceDto(
+    val id: String, val name: String, val city: String, val region: String, val country: String,
+)
+
+@Serializable
+data class ExperienceAcknowledgementV2Dto(
+    val id: String,
+    val ownerUserId: String,
+    val sourceExperienceId: String? = null,
+    val sourceAvailable: Boolean,
+    val sourceExperience: ExperienceV2Dto? = null,
+    val place: AcknowledgementAnchorPlaceDto,
+    val primaryExperienceCode: String,
+    val rawExperienceLabel: String? = null,
+    val acknowledgedAt: String,
+    val status: String,
+    val convertedExperienceId: String? = null,
 )
 
 @Serializable
@@ -511,6 +541,28 @@ data class PublicUserProfileDto(
 )
 
 @Serializable
+data class CollectionV2DetailDto(
+    val id: String,
+    val ownerUserId: String,
+    val title: String,
+    val description: String,
+    val visibility: VisibilityDto,
+    val coverImage: String,
+    val createdAt: String,
+    val updatedAt: String,
+    val items: List<CollectionV2ItemDto>,
+)
+
+@Serializable
+data class CollectionV2ItemDto(
+    val type: String,
+    val displayOrder: Int,
+    val addedAt: String,
+    val place: PlaceSummaryDto? = null,
+    val experience: ExperienceV2Dto? = null,
+)
+
+@Serializable
 data class RelationshipV2Dto(
     val state: String,
     val followsYou: Boolean,
@@ -557,7 +609,12 @@ data class FollowRequestV2Dto(
 )
 
 @Serializable
-data class CapabilitiesV2Dto(val profilePrivacyV2Enabled: Boolean)
+data class CapabilitiesV2Dto(
+    val profilePrivacyV2Enabled: Boolean,
+    val experiencePlanningEnabled: Boolean = false,
+    val experienceAcknowledgementsEnabled: Boolean = false,
+    val mixedCollectionItemsEnabled: Boolean = false,
+)
 
 @Serializable
 data class PlaceAggregateV2Dto(

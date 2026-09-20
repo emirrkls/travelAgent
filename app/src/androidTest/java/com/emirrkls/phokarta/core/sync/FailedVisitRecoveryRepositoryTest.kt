@@ -59,6 +59,7 @@ class FailedVisitRecoveryRepositoryTest {
             EpochClock { 5_000L },
             object : MutationSyncScheduler { override fun schedule() = Unit },
             VisitMediaStore(context),
+            database.experienceMilestoneDao(),
         )
         login(USER_A)
     }

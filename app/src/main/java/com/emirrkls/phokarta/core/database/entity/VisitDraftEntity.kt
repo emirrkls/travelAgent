@@ -36,4 +36,5 @@ data class VisitDraftEntity(
     val titleSource: String = "GENERATED",
     val story: String = "",
     val tip: String = "",
+    val originAcknowledgementId: String? = null,
 )

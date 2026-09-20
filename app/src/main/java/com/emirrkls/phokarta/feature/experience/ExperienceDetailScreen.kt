@@ -21,6 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.TravelExplore
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,6 +55,11 @@ import com.emirrkls.phokarta.ui.localization.appLocale
 import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
 import com.emirrkls.phokarta.ui.localization.shouldShowExperienceTitle
+import com.emirrkls.phokarta.feature.collections.ExperienceCollectionPickerSheet
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.rounded.FolderCopy
 
 @Composable
 fun ExperienceDetailScreen(
@@ -60,6 +71,15 @@ fun ExperienceDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val experience = state.experience
     val language = displayLanguage(appLocale())
+    var showCollectionPicker by remember { mutableStateOf(false) }
+    if (showCollectionPicker) {
+        ExperienceCollectionPickerSheet(
+            collections = state.collections,
+            busy = state.collectionBusy,
+            onDismiss = { showCollectionPicker = false },
+            onAdd = { viewModel.addToCollection(it); showCollectionPicker = false },
+        )
+    }
     if (state.isLoading) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
@@ -191,6 +211,49 @@ fun ExperienceDetailScreen(
                     label = { Text(ExperienceLabels.feeling(experience.feeling.code, language)) },
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::togglePlan,
+                        enabled = !state.planBusy,
+                        modifier = Modifier.weight(1f).height(48.dp).semantics {
+                            stateDescription = if (experience.plannedByViewer) "selected" else "not selected"
+                        },
+                    ) {
+                        Icon(Icons.Rounded.Bookmark, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(if (experience.plannedByViewer) R.string.experience_in_plan else R.string.experience_add_to_plan))
+                    }
+                    if (experience.author.relationship != null) {
+                        OutlinedButton(
+                            onClick = viewModel::acknowledge,
+                            enabled = !state.acknowledgementBusy && !experience.acknowledgedByViewer,
+                            modifier = Modifier.weight(1f).height(48.dp).semantics {
+                                stateDescription = if (experience.acknowledgedByViewer) "selected" else "not selected"
+                            },
+                        ) {
+                            Icon(Icons.Rounded.DoneAll, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.experience_also_experienced))
+                        }
+                    }
+                }
+                if (experience.acknowledgementCount > 0) {
+                    Text(
+                        pluralStringResource(R.plurals.experience_acknowledgement_count,
+                            experience.acknowledgementCount.toInt(), experience.acknowledgementCount),
+                        Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                TextButton(onClick = { showCollectionPicker = true }, Modifier.padding(top = 2.dp)) {
+                    Icon(Icons.Rounded.FolderCopy, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.add_experience_to_collection))
+                }
                 if (experience.companion != null || experience.timeOfDay != null || experience.vibes.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         experience.companion?.let { item { AssistChip(onClick = {}, label = { Text(ExperienceLabels.companion(it, language)) }) } }

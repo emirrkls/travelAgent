@@ -197,6 +197,8 @@ fun ExploreScreen(
                     onPlace = { onPlace(experience.place.id) },
                     onRelationship = { viewModel.toggleRelationship(experience.author.id) },
                     relationshipBusy = experience.author.id in state.relationshipInFlight,
+                    onPlan = { viewModel.togglePlan(experience.id) },
+                    onAcknowledge = { viewModel.acknowledge(experience.id) },
                 )
             }
             if (state.hasMore) {

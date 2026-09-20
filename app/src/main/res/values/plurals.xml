@@ -37,4 +37,8 @@
         <item quantity="one">%d active filter</item>
         <item quantity="other">%d active filters</item>
     </plurals>
+    <plurals name="experience_acknowledgement_count">
+        <item quantity="one">%d person experienced this too</item>
+        <item quantity="other">%d people experienced this too</item>
+    </plurals>
 </resources>

@@ -2,6 +2,46 @@ import XCTest
 @testable import Phokarta
 
 final class VisitContractTests: XCTestCase {
+    func testMilestone4DesignPresentationStatesRemainDistinct() {
+        XCTAssertEqual(ExperienceDetailMediaPresentation.resolve(mediaCount: 0), .noMedia)
+        XCTAssertEqual(ExperienceDetailMediaPresentation.resolve(mediaCount: 1), .media)
+        XCTAssertEqual(AcknowledgementPresentation.resolve(acknowledged: false), .action)
+        XCTAssertEqual(AcknowledgementPresentation.resolve(acknowledged: true), .confirmed)
+    }
+
+    func testMixedCollectionSummaryModelsAllContentShapesAndLocales() {
+        let places = CollectionContentPresentation(placeCount: 2, experienceCount: 0)
+        let experiences = CollectionContentPresentation(placeCount: 0, experienceCount: 2)
+        let mixed = CollectionContentPresentation(placeCount: 1, experienceCount: 1)
+
+        XCTAssertEqual(places.kind, .places)
+        XCTAssertEqual(experiences.kind, .experiences)
+        XCTAssertEqual(mixed.kind, .mixed)
+        XCTAssertEqual(mixed.totalCount, 2)
+        XCTAssertEqual(mixed.label(locale: Locale(identifier: "en")), "2 items")
+        XCTAssertEqual(mixed.label(locale: Locale(identifier: "tr")), "2 öğe")
+    }
+
+    func testAcknowledgementPrefillDoesNotEmitDraftRestoreFeedback() {
+        let userID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let placeID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
+        let acknowledgementID = UUID(uuidString: "30000000-0000-0000-0000-000000000001")!
+        let prefill = DurableVisitDraft(
+            userId: userID, placeId: placeID, overallScore: 8, publicReview: "",
+            privateMemory: "", visitedAtEpochDay: 0, visibility: VisitVisibility.publicAccess.rawValue,
+            dimensionsExpanded: false, createdAtEpochMillis: 1, updatedAtEpochMillis: 1,
+            payloadVersion: 2, primaryExperienceCode: PrimaryExperienceCode.gunBatimi.rawValue,
+            originAcknowledgementId: acknowledgementID
+        )
+
+        XCTAssertNil(VisitComposerRestorePolicy.feedback(for: prefill))
+        var edited = prefill
+        edited.overallFeelingCode = OverallFeelingCode.guzeldi.rawValue
+        XCTAssertEqual(VisitComposerRestorePolicy.feedback(for: edited), .restoredUserDraft)
+        XCTAssertEqual(phokartaString("visit.draft_restored", locale: Locale(identifier: "en")), "Your draft was restored")
+        XCTAssertEqual(phokartaString("visit.draft_restored", locale: Locale(identifier: "tr")), "Taslağın geri yüklendi")
+    }
+
     func testCreateRequestUsesExactEndpointAndWireKeys() throws {
         let client = APIClient(config: try TestConfig.debugHTTP(), transport: URLSessionTransport.default)
         let mutation = UUID(uuidString: "10000000-0000-4000-8000-000000000001")!

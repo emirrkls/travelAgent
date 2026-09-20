@@ -19,6 +19,10 @@ import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
 import com.emirrkls.phokarta.core.network.source.CollectionRemoteDataSource
+import com.emirrkls.phokarta.core.data.VisitDraftRepository
+import com.emirrkls.phokarta.feature.rating.VisitDraft
+import com.emirrkls.phokarta.core.model.OverallFeelingCode
+import com.emirrkls.phokarta.core.model.PrimaryExperienceCode
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -39,6 +43,7 @@ class Milestone4ScreenshotTest {
 
     @Inject lateinit var fakeVisits: FakeVisits
     @Inject lateinit var collections: CollectionRemoteDataSource
+    @Inject lateinit var drafts: VisitDraftRepository
 
     @Before
     fun seedReviewContent() {
@@ -63,6 +68,109 @@ class Milestone4ScreenshotTest {
     @After
     fun restoreLocale() {
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+        composeRule.runOnUiThread {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+    }
+
+    @Test
+    fun captureFinalLightPunchList() {
+        composeRule.runOnUiThread {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+        openExploreEnglish()
+        capture("03_acknowledged_state_light.png")
+
+        composeRule.onNodeWithText("Search experiences, places or feelings").performTextInput("quiet swim")
+        waitFor("A quiet swim at Sarnıç Cove")
+        composeRule.onNodeWithText("A quiet swim at Sarnıç Cove").performClick()
+        waitFor("Photo-free experience")
+        capture("01_experience_detail_no_media_light.png")
+
+        returnToRoot()
+        composeRule.onNodeWithText("My Plan").performClick()
+        composeRule.onNodeWithText("Collections").performClick()
+        waitFor("Bodrum Summer")
+        composeRule.onAllNodesWithText("Bodrum Summer").onFirst().performClick()
+        waitFor("2 items · Private")
+        capture("05_collection_mixed_summary.png")
+
+        returnToRoot()
+        composeRule.onNodeWithText("Profile").performClick()
+        composeRule.onAllNodesWithText("I Experienced This Too").onFirst().performScrollTo().performClick()
+        waitFor("Share your version of this experience.")
+        capture("06_profile_ack_item.png")
+        composeRule.onNodeWithText("Add your own experience").performClick()
+        waitFor("You experienced this too")
+        capture("08_composer_ack_prefill.png")
+    }
+
+    @Test
+    fun captureFinalDarkPunchList() {
+        composeRule.runOnUiThread {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        }
+        openExploreEnglish()
+        capture("04_acknowledged_state_dark.png")
+        composeRule.onNodeWithText("Search experiences, places or feelings").performTextInput("quiet swim")
+        waitFor("A quiet swim at Sarnıç Cove")
+        composeRule.onNodeWithText("A quiet swim at Sarnıç Cove").performClick()
+        waitFor("Photo-free experience")
+        capture("02_experience_detail_no_media_dark.png")
+    }
+
+    @Test
+    fun captureFinalEmptyAndRealRestore() {
+        openExploreEnglish()
+        composeRule.onNodeWithText("Profile").performClick()
+        composeRule.onAllNodesWithText("I Experienced This Too").onFirst().performScrollTo().performClick()
+        waitFor("Add your own experience")
+        runBlocking {
+            drafts.saveDraft(
+                PLACE_ID,
+                VisitDraft(
+                    payloadVersion = 2,
+                    primaryExperience = PrimaryExperienceCode.GUN_BATIMI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
+                    story = "A real saved draft from Sarnıç Cove.",
+                ),
+                USER_ID,
+            )
+        }
+        composeRule.onNodeWithText("Add your own experience").performClick()
+        waitFor("Your draft was restored")
+        capture("09_composer_real_draft_restore.png")
+
+        composeRule.onNodeWithText("Share experience").performClick()
+        composeRule.waitUntil(15_000) {
+            composeRule.onAllNodesWithText("Profile").fetchSemanticsNodes().isNotEmpty()
+        }
+        returnToRoot()
+        composeRule.onNodeWithText("Profile").performClick()
+        composeRule.onAllNodesWithText("I Experienced This Too").onFirst().performScrollTo().performClick()
+        waitFor("Nothing here yet")
+        capture("07_profile_ack_empty.png")
+    }
+
+    @Test
+    fun captureFinalProfile120() {
+        openExploreEnglish()
+        composeRule.onNodeWithText("Profile").performClick()
+        composeRule.onAllNodesWithText("I Experienced This Too").onFirst().performScrollTo().performClick()
+        waitFor("Share your version of this experience.")
+        capture("10_profile_ack_120.png")
+    }
+
+    @Test
+    fun captureFinalTurkishComposer() {
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("tr"))
+        openExploreLocalized()
+        composeRule.onNodeWithText("Profil").performClick()
+        composeRule.onAllNodesWithText("Ben de Yaşadım").onFirst().performScrollTo().performClick()
+        waitFor("Kendi deneyimini ekle")
+        composeRule.onNodeWithText("Kendi deneyimini ekle").performClick()
+        waitFor("Bunu sen de yaşadın")
+        capture("11_composer_ack_tr.png")
     }
 
     @Test
@@ -240,6 +348,7 @@ class Milestone4ScreenshotTest {
     }
 
     private companion object {
+        const val USER_ID = "11111111-1111-1111-1111-111111111111"
         const val EXPERIENCE_ID = "30000000-0000-0000-0000-000000000501"
         const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
     }

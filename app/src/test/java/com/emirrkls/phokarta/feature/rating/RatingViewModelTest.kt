@@ -136,6 +136,52 @@ class RatingViewModelTest {
     }
 
     @Test
+    fun acknowledgementPrefillDoesNotTriggerGenericDraftRestoreFeedback() = runTest(dispatcher) {
+        val placeId = seedPlaceId()
+        val drafts = FakeVisitDraftRepository(activeUserId = userId).apply {
+            seed(
+                userId,
+                placeId,
+                VisitDraft(
+                    payloadVersion = 2,
+                    primaryExperience = PrimaryExperienceCode.GUN_BATIMI,
+                    originAcknowledgementId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                ),
+            )
+        }
+
+        val viewModel = createViewModel(placeId, drafts = drafts)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.showDraftRestoredMessage)
+        assertEquals("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", viewModel.uiState.value.draft.originAcknowledgementId)
+    }
+
+    @Test
+    fun genuineEditsOnAcknowledgementDraftStillShowRecoveryFeedback() = runTest(dispatcher) {
+        val placeId = seedPlaceId()
+        val drafts = FakeVisitDraftRepository(activeUserId = userId).apply {
+            seed(
+                userId,
+                placeId,
+                VisitDraft(
+                    payloadVersion = 2,
+                    primaryExperience = PrimaryExperienceCode.GUN_BATIMI,
+                    overallFeeling = OverallFeelingCode.GUZELDI,
+                    story = "My recovered version",
+                    originAcknowledgementId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                ),
+            )
+        }
+
+        val viewModel = createViewModel(placeId, drafts = drafts)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showDraftRestoredMessage)
+        assertEquals(R.string.draft_restored, viewModel.uiState.value.draftRestoredMessageRes)
+    }
+
+    @Test
     fun processLikeRecreateRestoresFromRepository() = runTest(dispatcher) {
         val placeId = seedPlaceId()
         val drafts = FakeVisitDraftRepository(activeUserId = userId)

@@ -106,8 +106,7 @@ final class PlaceDetailController {
         Task {
             defer { planBusy.remove(id) }
             do {
-                if desired { _ = try await experienceService.plan(experienceId: id) }
-                else { try await experienceService.unplan(experienceId: id) }
+                _ = try await experienceService.setPlanned(experienceId: id, desired: desired)
                 experiences = experiences.map { $0.id == id ? $0.replacingMilestone(
                     planned: desired, acknowledged: $0.acknowledgedByViewer ?? false,
                     count: $0.acknowledgementCount ?? 0

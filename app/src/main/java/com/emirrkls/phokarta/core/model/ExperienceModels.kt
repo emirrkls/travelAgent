@@ -94,6 +94,7 @@ data class ExperienceSummary(
     val plannedByViewer: Boolean = false,
     val acknowledgedByViewer: Boolean = false,
     val acknowledgementCount: Long = 0,
+    val conversationCount: Long = 0,
 )
 
 data class Experience(
@@ -120,6 +121,43 @@ data class Experience(
     val plannedByViewer: Boolean = false,
     val acknowledgedByViewer: Boolean = false,
     val acknowledgementCount: Long = 0,
+    val conversationCount: Long = 0,
+)
+
+enum class ConversationEntryType { QUESTION, COMMENT, REPLY, UNKNOWN;
+    companion object { fun fromWire(raw: String) = decodeCode<ConversationEntryType>(raw) }
+}
+
+enum class ConversationSyncState { SYNCED, PENDING, FAILED }
+
+data class ConversationAuthor(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String?,
+)
+
+data class ConversationEntry(
+    val id: String,
+    val experienceId: String,
+    val type: ConversationEntryType,
+    val body: String,
+    val author: ConversationAuthor,
+    val createdAt: String,
+    val updatedAt: String,
+    val edited: Boolean,
+    val experienceAuthor: Boolean,
+    val ownedByViewer: Boolean,
+    val reportableByViewer: Boolean,
+    val replies: List<ConversationEntry> = emptyList(),
+    val syncState: ConversationSyncState = ConversationSyncState.SYNCED,
+    val clientMutationId: String? = null,
+)
+
+data class ConversationPage(
+    val items: List<ConversationEntry>,
+    val nextCursor: String?,
+    val hasMore: Boolean,
 )
 
 data class ExperienceAcknowledgement(

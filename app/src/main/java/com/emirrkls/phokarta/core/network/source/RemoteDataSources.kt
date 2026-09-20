@@ -17,6 +17,10 @@ import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationReplyDto
+import com.emirrkls.phokarta.core.network.model.UpdateConversationEntryDto
 import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
 import com.emirrkls.phokarta.core.network.model.CursorPageDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
@@ -130,6 +134,24 @@ class RetrofitPlaceRemoteDataSource @Inject constructor(
 }
 
 interface VisitRemoteDataSource {
+    suspend fun conversation(
+        experienceId: String, cursor: String? = null, size: Int = 20,
+    ): RemoteResult<CursorPageDto<ConversationEntryDto>> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun createConversationRoot(
+        experienceId: String, request: CreateConversationEntryDto,
+    ): RemoteResult<ConversationEntryDto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun createConversationReply(
+        rootId: String, request: CreateConversationReplyDto,
+    ): RemoteResult<ConversationEntryDto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun editConversationEntry(
+        entryId: String, request: UpdateConversationEntryDto,
+    ): RemoteResult<ConversationEntryDto> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
+    suspend fun deleteConversationEntry(entryId: String): RemoteResult<Unit> =
+        RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
     suspend fun plannedExperiences(): RemoteResult<PageResponseDto<PlannedExperienceV2Dto>> =
         RemoteResult.Failure(com.emirrkls.phokarta.core.network.NetworkError.Unknown())
     suspend fun planExperience(id: String): RemoteResult<PlannedExperienceV2Dto> =
@@ -207,6 +229,16 @@ class RetrofitVisitRemoteDataSource @Inject constructor(
     private val api: VisitApi,
     private val json: Json,
 ) : VisitRemoteDataSource {
+    override suspend fun conversation(experienceId: String, cursor: String?, size: Int) =
+        safeApiCall(json) { api.conversation(experienceId, cursor, size) }
+    override suspend fun createConversationRoot(experienceId: String, request: CreateConversationEntryDto) =
+        safeApiCall(json) { api.createConversationRoot(experienceId, request) }
+    override suspend fun createConversationReply(rootId: String, request: CreateConversationReplyDto) =
+        safeApiCall(json) { api.createConversationReply(rootId, request) }
+    override suspend fun editConversationEntry(entryId: String, request: UpdateConversationEntryDto) =
+        safeApiCall(json) { api.editConversationEntry(entryId, request) }
+    override suspend fun deleteConversationEntry(entryId: String) =
+        safeUnitApiCall(json) { api.deleteConversationEntry(entryId) }
     override suspend fun plannedExperiences() = safeApiCall(json) { api.plannedExperiences() }
     override suspend fun planExperience(id: String) = safeApiCall(json) { api.planExperience(id) }
     override suspend fun unplanExperience(id: String) = safeUnitApiCall(json) { api.unplanExperience(id) }

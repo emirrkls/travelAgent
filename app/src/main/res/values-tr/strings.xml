@@ -645,4 +645,30 @@
     <string name="dimension_select">Seç</string>
     <string name="past_ratings">Geçmiş değerlendirmeler</string>
     <string name="share_experience_at_place">Deneyimini paylaş</string>
+    <string name="action_edit">Düzenle</string>
+    <string name="action_delete">Sil</string>
+    <string name="conversation_title">Sorular ve yorumlar</string>
+    <string name="conversation_subtitle">Bu deneyim hakkında sor veya yararlı bir bilgi ekle.</string>
+    <string name="conversation_question">Soru</string>
+    <string name="conversation_comment">Yorum</string>
+    <string name="conversation_question_hint">Neyi merak ediyorsun?</string>
+    <string name="conversation_comment_hint">Yararlı bir yorum ekle</string>
+    <string name="conversation_send">Gönder</string>
+    <string name="conversation_empty">Henüz soru veya yorum yok. Sohbeti başlat.</string>
+    <string name="conversation_reply">Yanıtla</string>
+    <string name="conversation_reply_title">Yanıt yaz</string>
+    <string name="conversation_edit_title">İletiyi düzenle</string>
+    <string name="conversation_delete_title">İleti silinsin mi?</string>
+    <string name="conversation_delete_body">Bu ileti kaldırılacak.</string>
+    <string name="conversation_delete_root_body">Bu ileti ve tüm yanıtları kaldırılacak.</string>
+    <string name="conversation_author_answer">Deneyim sahibinin yanıtı</string>
+    <string name="conversation_author_badge">Deneyim sahibi</string>
+    <string name="conversation_edited">Düzenlendi</string>
+    <string name="conversation_pending">Gönderiliyor…</string>
+    <string name="conversation_failed">Gönderilemedi</string>
+    <string name="conversation_actions">Sohbet işlemleri</string>
+    <plurals name="conversation_count">
+        <item quantity="one">%d soru veya yorum</item>
+        <item quantity="other">%d soru ve yorum</item>
+    </plurals>
 </resources>

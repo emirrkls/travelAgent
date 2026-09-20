@@ -8,6 +8,10 @@ import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateReportDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.CreateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationReplyDto
+import com.emirrkls.phokarta.core.network.model.UpdateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
 import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsRequestDto
@@ -53,6 +57,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.POST
+import retrofit2.http.PATCH
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -221,6 +226,34 @@ interface PrivacyV2Api {
 }
 
 interface VisitApi {
+    @GET("api/v2/experiences/{experienceId}/conversation")
+    suspend fun conversation(
+        @Path("experienceId") experienceId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("size") size: Int = 20,
+    ): Response<CursorPageDto<ConversationEntryDto>>
+
+    @POST("api/v2/experiences/{experienceId}/conversation")
+    suspend fun createConversationRoot(
+        @Path("experienceId") experienceId: String,
+        @Body request: CreateConversationEntryDto,
+    ): Response<ConversationEntryDto>
+
+    @POST("api/v2/conversation/{rootId}/replies")
+    suspend fun createConversationReply(
+        @Path("rootId") rootId: String,
+        @Body request: CreateConversationReplyDto,
+    ): Response<ConversationEntryDto>
+
+    @PATCH("api/v2/conversation/{entryId}")
+    suspend fun editConversationEntry(
+        @Path("entryId") entryId: String,
+        @Body request: UpdateConversationEntryDto,
+    ): Response<ConversationEntryDto>
+
+    @DELETE("api/v2/conversation/{entryId}")
+    suspend fun deleteConversationEntry(@Path("entryId") entryId: String): Response<Unit>
+
     @GET("api/v2/me/planned-experiences")
     suspend fun plannedExperiences(
         @Query("page") page: Int = 0, @Query("size") size: Int = 100,

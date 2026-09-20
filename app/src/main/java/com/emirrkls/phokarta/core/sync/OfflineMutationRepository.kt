@@ -42,6 +42,13 @@ import com.emirrkls.phokarta.core.model.Experience
 import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
 import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
 import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
+import com.emirrkls.phokarta.core.database.dao.ConversationDao
+import com.emirrkls.phokarta.core.database.entity.ConversationEntryEntity
+import com.emirrkls.phokarta.core.database.entity.PendingConversationPayloadEntity
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
+import com.emirrkls.phokarta.core.model.ConversationSyncState
+import java.time.Instant
 
 data class PendingVisit(
     val mutationId: String,
@@ -71,6 +78,10 @@ interface OfflineMutationRepository {
     suspend fun toggleSaved(placeId: String): Boolean
     suspend fun togglePlannedExperience(experience: Experience): Boolean
     suspend fun acknowledgeExperience(experience: Experience): String
+    suspend fun createConversationRoot(experience: Experience, type: ConversationEntryType, body: String): String
+    suspend fun createConversationReply(experience: Experience, root: ConversationEntry, body: String): String
+    suspend fun editConversationEntry(entry: ConversationEntry, body: String)
+    suspend fun deleteConversationEntry(entry: ConversationEntry)
     suspend fun retry(mutationId: String)
     suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean = false): RecoverFailedVisitResult
     suspend fun removeFailedVisit(mutationId: String): RemoveFailedVisitResult
@@ -88,6 +99,14 @@ object NoOpOfflineMutationRepository : OfflineMutationRepository {
     override suspend fun toggleSaved(placeId: String) = error("Offline mutation repository unavailable")
     override suspend fun togglePlannedExperience(experience: Experience) = error("Offline mutation repository unavailable")
     override suspend fun acknowledgeExperience(experience: Experience) = error("Offline mutation repository unavailable")
+    override suspend fun createConversationRoot(experience: Experience, type: ConversationEntryType, body: String) =
+        error("Offline mutation repository unavailable")
+    override suspend fun createConversationReply(experience: Experience, root: ConversationEntry, body: String) =
+        error("Offline mutation repository unavailable")
+    override suspend fun editConversationEntry(entry: ConversationEntry, body: String) =
+        error("Offline mutation repository unavailable")
+    override suspend fun deleteConversationEntry(entry: ConversationEntry) =
+        error("Offline mutation repository unavailable")
     override suspend fun retry(mutationId: String) = Unit
     override suspend fun recoverFailedVisitForEditing(mutationId: String, replaceExisting: Boolean) =
         RecoverFailedVisitResult.NOT_FOUND
@@ -110,6 +129,7 @@ class RoomOfflineMutationRepository @Inject constructor(
     private val scheduler: MutationSyncScheduler,
     private val mediaStore: VisitMediaStore,
     private val experienceMilestones: ExperienceMilestoneDao,
+    private val conversations: ConversationDao = database.conversationDao(),
 ) : OfflineMutationRepository {
     override suspend fun commitVisit(visit: Visit): String {
         val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
@@ -325,8 +345,121 @@ class RoomOfflineMutationRepository @Inject constructor(
         return pendingId
     }
 
+    override suspend fun createConversationRoot(
+        experience: Experience,
+        type: ConversationEntryType,
+        body: String,
+    ): String {
+        require(type == ConversationEntryType.QUESTION || type == ConversationEntryType.COMMENT)
+        val normalized = conversationBody(body)
+        val user = (session.state.value as? AuthState.Authenticated)?.user
+            ?: error("Authenticated user required")
+        val mutationId = UUID.randomUUID().toString()
+        val now = clock.nowMillis()
+        database.withTransaction {
+            mutations.insertMutation(PendingMutationEntity(
+                mutationId, user.id, MutationTypeValue.CREATE_CONVERSATION_ROOT, mutationId,
+                MutationStateValue.PENDING, 1, null, 0, now, now, null,
+            ))
+            conversations.upsertPayload(PendingConversationPayloadEntity(
+                mutationId, experience.id, null, null, type.name, normalized, mutationId,
+            ))
+            conversations.upsertEntry(ConversationEntryEntity(
+                ownerUserId = user.id, id = mutationId, experienceId = experience.id,
+                parentEntryId = null, type = type.name, body = normalized,
+                authorId = user.id, authorUsername = user.username,
+                authorDisplayName = user.displayName, authorAvatarUrl = user.avatarUrl,
+                createdAt = Instant.ofEpochMilli(now).toString(),
+                updatedAt = Instant.ofEpochMilli(now).toString(), edited = false,
+                experienceAuthor = user.id == experience.author.id, ownedByViewer = true,
+                reportableByViewer = false, syncState = ConversationSyncState.PENDING.name,
+                clientMutationId = mutationId,
+            ))
+        }
+        scheduler.schedule()
+        return mutationId
+    }
+
+    override suspend fun createConversationReply(
+        experience: Experience,
+        root: ConversationEntry,
+        body: String,
+    ): String {
+        require(root.type != ConversationEntryType.REPLY && root.syncState == ConversationSyncState.SYNCED) {
+            "Reply is available after the root finishes sending"
+        }
+        val normalized = conversationBody(body)
+        val user = (session.state.value as? AuthState.Authenticated)?.user
+            ?: error("Authenticated user required")
+        val mutationId = UUID.randomUUID().toString()
+        val now = clock.nowMillis()
+        database.withTransaction {
+            mutations.insertMutation(PendingMutationEntity(
+                mutationId, user.id, MutationTypeValue.CREATE_CONVERSATION_REPLY, mutationId,
+                MutationStateValue.PENDING, 1, null, 0, now, now, null,
+            ))
+            conversations.upsertPayload(PendingConversationPayloadEntity(
+                mutationId, experience.id, null, root.id, ConversationEntryType.REPLY.name,
+                normalized, mutationId,
+            ))
+            conversations.upsertEntry(ConversationEntryEntity(
+                ownerUserId = user.id, id = mutationId, experienceId = experience.id,
+                parentEntryId = root.id, type = ConversationEntryType.REPLY.name, body = normalized,
+                authorId = user.id, authorUsername = user.username,
+                authorDisplayName = user.displayName, authorAvatarUrl = user.avatarUrl,
+                createdAt = Instant.ofEpochMilli(now).toString(),
+                updatedAt = Instant.ofEpochMilli(now).toString(), edited = false,
+                experienceAuthor = user.id == experience.author.id, ownedByViewer = true,
+                reportableByViewer = false, syncState = ConversationSyncState.PENDING.name,
+                clientMutationId = mutationId,
+            ))
+        }
+        scheduler.schedule()
+        return mutationId
+    }
+
+    override suspend fun editConversationEntry(entry: ConversationEntry, body: String) {
+        require(entry.ownedByViewer && entry.syncState == ConversationSyncState.SYNCED)
+        val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
+        val normalized = conversationBody(body)
+        val mutationId = UUID.randomUUID().toString()
+        val now = clock.nowMillis()
+        database.withTransaction {
+            mutations.insertMutation(PendingMutationEntity(
+                mutationId, userId, MutationTypeValue.EDIT_CONVERSATION_ENTRY, entry.id,
+                MutationStateValue.PENDING, 1, null, 0, now, now, null,
+            ))
+            conversations.upsertPayload(PendingConversationPayloadEntity(
+                mutationId, entry.experienceId, entry.id, null, null, normalized, entry.id,
+            ))
+            conversations.updateBody(userId, entry.id, normalized,
+                Instant.ofEpochMilli(now).toString(), ConversationSyncState.PENDING.name)
+        }
+        scheduler.schedule()
+    }
+
+    override suspend fun deleteConversationEntry(entry: ConversationEntry) {
+        require(entry.ownedByViewer && entry.syncState == ConversationSyncState.SYNCED)
+        val userId = requireNotNull(session.currentUserId()) { "Authenticated user required" }
+        val mutationId = UUID.randomUUID().toString()
+        val now = clock.nowMillis()
+        database.withTransaction {
+            mutations.insertMutation(PendingMutationEntity(
+                mutationId, userId, MutationTypeValue.DELETE_CONVERSATION_ENTRY, entry.id,
+                MutationStateValue.PENDING, 1, null, 0, now, now, null,
+            ))
+            conversations.upsertPayload(PendingConversationPayloadEntity(
+                mutationId, entry.experienceId, entry.id, null, null, null, entry.id,
+            ))
+            conversations.markEntryState(userId, entry.id, mutationId, ConversationSyncState.PENDING.name)
+        }
+        scheduler.schedule()
+    }
+
     override suspend fun retry(mutationId: String) {
         mutations.retry(mutationId, clock.nowMillis())
+        val userId = session.currentUserId()
+        if (userId != null) conversations.markState(userId, mutationId, ConversationSyncState.PENDING.name)
         scheduler.schedule()
     }
 
@@ -506,4 +639,8 @@ class RoomOfflineMutationRepository @Inject constructor(
                 }
             }
         }
+}
+
+private fun conversationBody(value: String): String = value.trim().also {
+    require(it.isNotEmpty() && it.length <= 1000) { "Conversation body must be between 1 and 1000 characters" }
 }

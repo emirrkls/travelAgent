@@ -318,6 +318,53 @@ class TravelDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration9To10PreservesExistingStateAndAddsAccountScopedConversationQueue() {
+        val userId = "20000000-0000-4000-8000-000000000002"
+        val experienceId = "10000000-0000-4000-8000-000000000001"
+        helper.createDatabase(TEST_DATABASE, 9).apply {
+            execSQL(
+                """INSERT INTO planned_experiences
+                    (ownerUserId,experienceId,title,placeId,placeName,primaryExperienceCode,
+                     feelingCode,authorName,imageUrl,plannedAtEpochMillis)
+                   VALUES (?,?,'Sunset','p1','Harbour','GUN_BATIMI','BAYILDIM','Ada',NULL,1)""",
+                arrayOf<Any>(userId, experienceId),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DATABASE, 10, true, MIGRATION_9_10).apply {
+            assertEquals(1, rowCount("planned_experiences"))
+            assertEquals(0, rowCount("conversation_entries"))
+            assertEquals(0, rowCount("pending_conversation_payloads"))
+            execSQL(
+                """INSERT INTO pending_mutations
+                    (mutationId,userId,type,resourceKey,state,generation,desiredSaved,attemptCount,
+                     createdAtEpochMillis,updatedAtEpochMillis,lastErrorCategory,payloadVersion)
+                   VALUES ('m-conversation',?,'CREATE_CONVERSATION_ROOT',?,'PENDING',1,NULL,0,1,1,NULL,1)""",
+                arrayOf<Any>(userId, experienceId),
+            )
+            execSQL(
+                """INSERT INTO pending_conversation_payloads
+                    (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                   VALUES ('m-conversation',?,NULL,NULL,'QUESTION','When is it quiet?','local-1')""",
+                arrayOf<Any>(experienceId),
+            )
+            execSQL(
+                """INSERT INTO conversation_entries
+                    (ownerUserId,id,experienceId,parentEntryId,type,body,authorId,authorUsername,
+                     authorDisplayName,authorAvatarUrl,createdAt,updatedAt,edited,experienceAuthor,
+                     ownedByViewer,reportableByViewer,syncState,clientMutationId)
+                   VALUES (?,'local-1',?,NULL,'QUESTION','When is it quiet?',?,'ada','Ada',NULL,
+                           '2026-09-20T10:00:00Z','2026-09-20T10:00:00Z',0,0,1,0,'PENDING','m-conversation')""",
+                arrayOf<Any>(userId, experienceId, userId),
+            )
+            assertEquals(1, rowCount("pending_conversation_payloads"))
+            assertEquals(1, rowCount("conversation_entries"))
+            close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.insertPrototypeState() {
         execSQL(
             """INSERT INTO visits

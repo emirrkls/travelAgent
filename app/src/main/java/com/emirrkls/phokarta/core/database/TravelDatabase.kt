@@ -27,6 +27,9 @@ import com.emirrkls.phokarta.core.database.entity.PendingExperienceV2DimensionEn
 import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
 import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
 import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
+import com.emirrkls.phokarta.core.database.dao.ConversationDao
+import com.emirrkls.phokarta.core.database.entity.ConversationEntryEntity
+import com.emirrkls.phokarta.core.database.entity.PendingConversationPayloadEntity
 
 @Database(
     entities = [
@@ -48,8 +51,10 @@ import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
         PendingExperienceV2DimensionEntity::class,
         PlannedExperienceEntity::class,
         ExperienceAcknowledgementEntity::class,
+        ConversationEntryEntity::class,
+        PendingConversationPayloadEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class TravelDatabase : RoomDatabase() {
@@ -60,6 +65,7 @@ abstract class TravelDatabase : RoomDatabase() {
     abstract fun cachedPlaceDao(): CachedPlaceDao
     abstract fun pendingMutationDao(): PendingMutationDao
     abstract fun experienceMilestoneDao(): ExperienceMilestoneDao
+    abstract fun conversationDao(): ConversationDao
 
     companion object {
         const val NAME = "travel-agent.db"

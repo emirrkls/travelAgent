@@ -88,4 +88,20 @@ class SafetyActionViewModelTest {
         assertEquals(SafetyEvent.ReportSubmitted, viewModel.uiState.value.event)
         assertEquals(userId, viewModel.uiState.value.offerBlockUserId)
     }
+
+    @Test
+    fun conversationEntryUsesExistingReportFlowAndOffersAuthorBlock() = runTest(dispatcher) {
+        val repository = TestTravelRepository()
+        val viewModel = SafetyActionViewModel(repository)
+        viewModel.openReportConversationEntry("entry-1", userId)
+        viewModel.selectReason(ReportReason.SPAM)
+        viewModel.submitReport()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(Triple(ReportTargetType.CONVERSATION_ENTRY, "entry-1", ReportReason.SPAM)),
+            repository.reportCalls,
+        )
+        assertEquals(userId, viewModel.uiState.value.offerBlockUserId)
+    }
 }

@@ -72,6 +72,16 @@ class SafetyActionViewModel @Inject constructor(
         }
     }
 
+    fun openReportConversationEntry(entryId: String, authorUserId: String) {
+        _uiState.update {
+            SafetyActionUiState(
+                reportTargetType = ReportTargetType.CONVERSATION_ENTRY,
+                reportTargetId = entryId,
+                reportAuthorUserId = authorUserId,
+            )
+        }
+    }
+
     fun dismissReport() {
         if (_uiState.value.submitting) return
         _uiState.update {

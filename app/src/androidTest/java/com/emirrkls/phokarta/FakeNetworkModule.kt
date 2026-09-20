@@ -12,6 +12,10 @@ import com.emirrkls.phokarta.core.network.model.CollectionDetailDto
 import com.emirrkls.phokarta.core.network.model.CollectionPlaceDto
 import com.emirrkls.phokarta.core.network.model.CollectionSummaryDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
+import com.emirrkls.phokarta.core.network.model.ConversationAuthorDto
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationReplyDto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.DeleteAccountRequestDto
@@ -53,6 +57,7 @@ import com.emirrkls.phokarta.core.network.model.ReportResponseDto
 import com.emirrkls.phokarta.core.network.model.ReportTargetTypeDto
 import com.emirrkls.phokarta.core.network.model.SavedPlaceDto
 import com.emirrkls.phokarta.core.network.model.TokenPairDto
+import com.emirrkls.phokarta.core.network.model.UpdateConversationEntryDto
 import com.emirrkls.phokarta.core.network.model.UserProfileDto
 import com.emirrkls.phokarta.core.network.model.UserSummaryDto
 import com.emirrkls.phokarta.core.network.model.VerificationStatusDto
@@ -97,6 +102,7 @@ private const val FOURTH_USER_ID = "44444444-4444-4444-4444-444444444444"
 private const val PLACE_ID = "20000000-0000-0000-0000-000000000003"
 private const val OTHER_PLACE_ID = "20000000-0000-0000-0000-000000000099"
 private const val FRIEND_ONLY_PLACE_ID = "20000000-0000-0000-0000-000000000088"
+private const val EXPERIENCE_ID = "30000000-0000-0000-0000-000000000501"
 private const val TIMESTAMP = "2026-08-22T10:00:00Z"
 private const val POLICY_VERSION = "2026-08-beta"
 private const val EXPERIENCE_MEDIA_ID = "40000000-0000-0000-0000-000000000501"
@@ -299,6 +305,68 @@ private fun ExperienceSummaryV2Dto.toDetailDto(): ExperienceV2Dto {
     )
 }
 
+private fun milestone5Conversation(): List<ConversationEntryDto> {
+    val viewer = ConversationAuthorDto(USER_ID, "emir_demo", "Emir Kaya")
+    val experienceAuthor = ConversationAuthorDto(OTHER_USER_ID, "ahmetgoes", "Ahmet Deniz")
+    val privateProfileParticipant = ConversationAuthorDto(THIRD_USER_ID, "eceeats", "Ece Aksoy")
+    return listOf(
+        ConversationEntryDto(
+            id = "50000000-0000-0000-0000-000000000601",
+            experienceId = EXPERIENCE_ID,
+            type = "QUESTION",
+            body = "Is the cove quiet near sunset?",
+            author = viewer,
+            createdAt = "2026-09-20T11:00:00Z",
+            updatedAt = "2026-09-20T11:04:00Z",
+            edited = true,
+            experienceAuthor = false,
+            ownedByViewer = true,
+            reportableByViewer = false,
+            replies = listOf(
+                ConversationEntryDto(
+                    id = "50000000-0000-0000-0000-000000000611",
+                    experienceId = EXPERIENCE_ID,
+                    type = "REPLY",
+                    body = "Yes — arrive before 18:30 for the calmest part.",
+                    author = experienceAuthor,
+                    createdAt = "2026-09-20T11:05:00Z",
+                    updatedAt = "2026-09-20T11:05:00Z",
+                    edited = false,
+                    experienceAuthor = true,
+                    ownedByViewer = false,
+                    reportableByViewer = true,
+                ),
+                ConversationEntryDto(
+                    id = "50000000-0000-0000-0000-000000000612",
+                    experienceId = EXPERIENCE_ID,
+                    type = "REPLY",
+                    body = "It was still peaceful when I visited last week.",
+                    author = privateProfileParticipant,
+                    createdAt = "2026-09-20T11:06:00Z",
+                    updatedAt = "2026-09-20T11:06:00Z",
+                    edited = false,
+                    experienceAuthor = false,
+                    ownedByViewer = false,
+                    reportableByViewer = true,
+                ),
+            ),
+        ),
+        ConversationEntryDto(
+            id = "50000000-0000-0000-0000-000000000602",
+            experienceId = EXPERIENCE_ID,
+            type = "COMMENT",
+            body = "Private-profile participant: bring water; the nearest kiosk closes early.",
+            author = privateProfileParticipant,
+            createdAt = "2026-09-20T10:00:00Z",
+            updatedAt = "2026-09-20T10:00:00Z",
+            edited = false,
+            experienceAuthor = false,
+            ownedByViewer = false,
+            reportableByViewer = true,
+        ),
+    )
+}
+
 private fun <T> page(values: List<T>) = PageResponseDto(values, 0, 100, values.size.toLong(), 1, false)
 
 private class FakePlaces : PlaceRemoteDataSource {
@@ -369,6 +437,9 @@ class FakeVisits(
     val recordedClientMutationIds = mutableListOf<String>()
     private val plannedExperienceIds = linkedSetOf<String>()
     private val acknowledgements = linkedMapOf<String, ExperienceAcknowledgementV2Dto>()
+    private val conversations = linkedMapOf<String, MutableList<ConversationEntryDto>>()
+    @Volatile var failConversationMutations: Boolean = false
+    @Volatile var lastConversationEntryId: String? = null
 
     fun resetMilestone4() {
         plannedExperienceIds.clear()
@@ -377,6 +448,13 @@ class FakeVisits(
 
     fun resetRecordedClientMutationIds() {
         recordedClientMutationIds.clear()
+    }
+
+    fun resetMilestone5(seed: Boolean = true) {
+        conversations.clear()
+        failConversationMutations = false
+        lastConversationEntryId = null
+        if (seed) conversations[EXPERIENCE_ID] = milestone5Conversation().toMutableList()
     }
 
     init {
@@ -513,6 +591,7 @@ class FakeVisits(
         )
         communityReviews.sortByDescending { it.visitedAt }
         friendReadableReviews.sortByDescending { it.visitedAt }
+        resetMilestone5()
     }
 
     override suspend fun experienceFeed(
@@ -542,14 +621,138 @@ class FakeVisits(
             ).any { it.contains(query, ignoreCase = true) }) &&
                 (primary == null || item.primaryExperience.code == primary) &&
                 (vibe == null || vibe in item.vibes)
-        }.take(size)
+        }.take(size).map { item ->
+            item.copy(conversationCount = conversations[item.id]?.size?.toLong() ?: 0L)
+        }
         return RemoteResult.Success(CursorPageDto(filtered, nextCursor = null, hasMore = false))
     }
 
     override suspend fun experience(id: String): RemoteResult<ExperienceV2Dto> =
         experienceSummaries.firstOrNull { it.id == id }
-            ?.let { RemoteResult.Success(it.toDetailDto()) }
+            ?.let { RemoteResult.Success(it.toDetailDto().copy(
+                conversationCount = conversations[id]?.size?.toLong() ?: 0L,
+            )) }
             ?: RemoteResult.Failure(NetworkError.NotFound(null))
+
+    override suspend fun conversation(
+        experienceId: String,
+        cursor: String?,
+        size: Int,
+    ): RemoteResult<CursorPageDto<ConversationEntryDto>> = RemoteResult.Success(
+        CursorPageDto(
+            items = conversations[experienceId].orEmpty()
+                .filter { social.isVisibleToViewer(it.author.id) }
+                .map { root ->
+                    root.copy(replies = root.replies.filter { social.isVisibleToViewer(it.author.id) })
+                }
+                .take(size),
+            nextCursor = null,
+            hasMore = false,
+        ),
+    )
+
+    override suspend fun createConversationRoot(
+        experienceId: String,
+        request: CreateConversationEntryDto,
+    ): RemoteResult<ConversationEntryDto> {
+        if (failConversationMutations) return RemoteResult.Failure(NetworkError.Server(500, null))
+        val entries = conversations.getOrPut(experienceId) { mutableListOf() }
+        entries.firstOrNull { it.id.equals(request.clientMutationId, ignoreCase = true) }?.let {
+            return RemoteResult.Success(it)
+        }
+        val entry = ConversationEntryDto(
+            id = request.clientMutationId,
+            experienceId = experienceId,
+            type = request.type,
+            body = request.body.trim(),
+            author = ConversationAuthorDto(USER_ID, "emir_demo", "Emir Kaya"),
+            createdAt = TIMESTAMP,
+            updatedAt = TIMESTAMP,
+            edited = false,
+            experienceAuthor = experienceSummaries.firstOrNull { it.id == experienceId }?.author?.id == USER_ID,
+            ownedByViewer = true,
+            reportableByViewer = false,
+        )
+        entries.add(0, entry)
+        lastConversationEntryId = entry.id
+        return RemoteResult.Success(entry)
+    }
+
+    override suspend fun createConversationReply(
+        rootId: String,
+        request: CreateConversationReplyDto,
+    ): RemoteResult<ConversationEntryDto> {
+        if (failConversationMutations) return RemoteResult.Failure(NetworkError.Server(500, null))
+        conversations.values.forEach { entries ->
+            val index = entries.indexOfFirst { it.id == rootId }
+            if (index >= 0) {
+                entries[index].replies.firstOrNull {
+                    it.id.equals(request.clientMutationId, ignoreCase = true)
+                }?.let { return RemoteResult.Success(it) }
+                val root = entries[index]
+                val reply = ConversationEntryDto(
+                    id = request.clientMutationId,
+                    experienceId = root.experienceId,
+                    type = "REPLY",
+                    body = request.body.trim(),
+                    author = ConversationAuthorDto(USER_ID, "emir_demo", "Emir Kaya"),
+                    createdAt = TIMESTAMP,
+                    updatedAt = TIMESTAMP,
+                    edited = false,
+                    experienceAuthor = experienceSummaries.firstOrNull { it.id == root.experienceId }?.author?.id == USER_ID,
+                    ownedByViewer = true,
+                    reportableByViewer = false,
+                )
+                entries[index] = root.copy(replies = root.replies + reply)
+                lastConversationEntryId = reply.id
+                return RemoteResult.Success(reply)
+            }
+        }
+        return RemoteResult.Failure(NetworkError.NotFound(null))
+    }
+
+    override suspend fun editConversationEntry(
+        entryId: String,
+        request: UpdateConversationEntryDto,
+    ): RemoteResult<ConversationEntryDto> {
+        if (failConversationMutations) return RemoteResult.Failure(NetworkError.Server(500, null))
+        conversations.values.forEach { entries ->
+            val rootIndex = entries.indexOfFirst { it.id == entryId && it.ownedByViewer }
+            if (rootIndex >= 0) {
+                val edited = entries[rootIndex].copy(body = request.body.trim(), edited = true)
+                entries[rootIndex] = edited
+                return RemoteResult.Success(edited)
+            }
+            entries.forEachIndexed { index, root ->
+                val replyIndex = root.replies.indexOfFirst { it.id == entryId && it.ownedByViewer }
+                if (replyIndex >= 0) {
+                    val edited = root.replies[replyIndex].copy(body = request.body.trim(), edited = true)
+                    entries[index] = root.copy(replies = root.replies.toMutableList().also { it[replyIndex] = edited })
+                    return RemoteResult.Success(edited)
+                }
+            }
+        }
+        return RemoteResult.Failure(NetworkError.Forbidden(null))
+    }
+
+    override suspend fun deleteConversationEntry(entryId: String): RemoteResult<Unit> {
+        if (failConversationMutations) return RemoteResult.Failure(NetworkError.Server(500, null))
+        conversations.values.forEach { entries ->
+            val rootIndex = entries.indexOfFirst { it.id == entryId && it.ownedByViewer }
+            if (rootIndex >= 0) {
+                entries.removeAt(rootIndex)
+                return RemoteResult.Success(Unit)
+            }
+            entries.forEachIndexed { index, root ->
+                val replyIndex = root.replies.indexOfFirst { it.id == entryId && it.ownedByViewer }
+                if (replyIndex >= 0) {
+                    entries[index] = root.copy(replies = root.replies.toMutableList().also { it.removeAt(replyIndex) })
+                    return RemoteResult.Success(Unit)
+                }
+            }
+        }
+        return RemoteResult.Failure(NetworkError.Forbidden(null))
+    }
 
     override suspend fun plannedExperiences(): RemoteResult<PageResponseDto<PlannedExperienceV2Dto>> =
         RemoteResult.Success(page(plannedExperienceIds.mapNotNull { id ->

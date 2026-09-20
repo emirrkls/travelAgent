@@ -235,3 +235,12 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_experience_acknowledgements_ownerUserId_sourceExperienceId` ON `experience_acknowledgements` (`ownerUserId`, `sourceExperienceId`)")
     }
 }
+
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `conversation_entries` (`ownerUserId` TEXT NOT NULL, `id` TEXT NOT NULL, `experienceId` TEXT NOT NULL, `parentEntryId` TEXT, `type` TEXT NOT NULL, `body` TEXT NOT NULL, `authorId` TEXT NOT NULL, `authorUsername` TEXT NOT NULL, `authorDisplayName` TEXT NOT NULL, `authorAvatarUrl` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `edited` INTEGER NOT NULL, `experienceAuthor` INTEGER NOT NULL, `ownedByViewer` INTEGER NOT NULL, `reportableByViewer` INTEGER NOT NULL, `syncState` TEXT NOT NULL, `clientMutationId` TEXT, PRIMARY KEY(`ownerUserId`, `id`))""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_entries_ownerUserId_experienceId_parentEntryId_createdAt` ON `conversation_entries` (`ownerUserId`, `experienceId`, `parentEntryId`, `createdAt`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_entries_ownerUserId_clientMutationId` ON `conversation_entries` (`ownerUserId`, `clientMutationId`)")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_conversation_payloads` (`mutationId` TEXT NOT NULL, `experienceId` TEXT NOT NULL, `targetEntryId` TEXT, `parentEntryId` TEXT, `entryType` TEXT, `body` TEXT, `localEntryId` TEXT, PRIMARY KEY(`mutationId`), FOREIGN KEY(`mutationId`) REFERENCES `pending_mutations`(`mutationId`) ON UPDATE NO ACTION ON DELETE CASCADE)""")
+    }
+}

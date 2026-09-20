@@ -5,6 +5,7 @@ import coil.imageLoader
 import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.dao.CollectionDao
 import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
+import com.emirrkls.phokarta.core.database.dao.ConversationDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.VisitDao
 import com.emirrkls.phokarta.core.database.dao.VisitDraftDao
@@ -48,6 +49,7 @@ class RoomLocalAccountPurger @Inject constructor(
     private val pendingMutationDao: PendingMutationDao,
     private val visitMediaStore: VisitMediaStore,
     private val experienceMilestoneDao: ExperienceMilestoneDao,
+    private val conversationDao: ConversationDao = database.conversationDao(),
 ) : LocalAccountPurger {
 
     override suspend fun purge(userId: String) {
@@ -58,6 +60,7 @@ class RoomLocalAccountPurger @Inject constructor(
         database.withTransaction {
             visitDraftDao.deleteDraftsForUser(userId)
             pendingMutationDao.deleteMutationsForUser(userId)
+            conversationDao.deleteEntriesForUser(userId)
             visitDao.deleteVisitsForUser(userId)
             savedPlaceDao.deleteSavedPlacesForOwner(userId)
             collectionDao.deleteCollectionPlacesForOwner(userId)

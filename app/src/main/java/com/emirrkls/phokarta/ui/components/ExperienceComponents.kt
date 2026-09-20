@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import coil.compose.AsyncImage
 import com.emirrkls.phokarta.R
@@ -275,6 +276,29 @@ fun ExperienceCard(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                if (experience.conversationCount > 0) {
+                    Row(
+                        Modifier.padding(top = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.ChatBubbleOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            androidx.compose.ui.res.pluralStringResource(
+                                R.plurals.conversation_count,
+                                experience.conversationCount.toInt(),
+                                experience.conversationCount,
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 5.dp),
                         )
                     }
                 }

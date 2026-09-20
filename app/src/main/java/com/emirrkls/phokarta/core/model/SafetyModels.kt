@@ -3,6 +3,7 @@ package com.emirrkls.phokarta.core.model
 enum class ReportTargetType {
     USER,
     VISIT,
+    CONVERSATION_ENTRY,
 }
 
 enum class ReportReason {

@@ -8,6 +8,10 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.model.CompanionCode
 import com.emirrkls.phokarta.core.model.DimensionStateCode
 import com.emirrkls.phokarta.core.model.Experience
+import com.emirrkls.phokarta.core.model.ConversationAuthor
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
+import com.emirrkls.phokarta.core.model.ConversationPage
 import com.emirrkls.phokarta.core.model.ExperiencePage
 import com.emirrkls.phokarta.core.model.ExperienceSummary
 import com.emirrkls.phokarta.core.model.ExperienceAuthor
@@ -64,6 +68,7 @@ import com.emirrkls.phokarta.core.network.model.BlockedUserDto
 import com.emirrkls.phokarta.core.network.model.CreateCollectionDto
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.ExperienceV2Dto
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
 import com.emirrkls.phokarta.core.network.model.ExperienceSummaryV2Dto
 import com.emirrkls.phokarta.core.network.model.CursorPageDto
 import com.emirrkls.phokarta.core.network.model.FriendMetricsDto
@@ -242,6 +247,7 @@ fun ExperienceV2Dto.toDomain(): Experience = Experience(
     plannedByViewer = plannedByViewer,
     acknowledgedByViewer = acknowledgedByViewer,
     acknowledgementCount = acknowledgementCount,
+    conversationCount = conversationCount,
 )
 
 fun CursorPageDto<ExperienceSummaryV2Dto>.toExperiencePage(): ExperiencePage = ExperiencePage(
@@ -300,6 +306,29 @@ fun ExperienceSummaryV2Dto.toDomain(): ExperienceSummary = ExperienceSummary(
     plannedByViewer = plannedByViewer,
     acknowledgedByViewer = acknowledgedByViewer,
     acknowledgementCount = acknowledgementCount,
+    conversationCount = conversationCount,
+)
+
+fun ConversationEntryDto.toDomain(): ConversationEntry = ConversationEntry(
+    id = id.toCanonicalUuid(),
+    experienceId = experienceId.toCanonicalUuid(),
+    type = ConversationEntryType.fromWire(type),
+    body = body,
+    author = ConversationAuthor(
+        id = author.id.toCanonicalUuid(), username = author.username,
+        displayName = author.displayName, avatarUrl = author.avatarUrl,
+    ),
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    edited = edited,
+    experienceAuthor = experienceAuthor,
+    ownedByViewer = ownedByViewer,
+    reportableByViewer = reportableByViewer,
+    replies = replies.map { it.toDomain() },
+)
+
+fun CursorPageDto<ConversationEntryDto>.toConversationPage(): ConversationPage = ConversationPage(
+    items = items.map { it.toDomain() }, nextCursor = nextCursor, hasMore = hasMore,
 )
 
 fun PublicVisitDto.toPublicReview(): PublicReview = PublicReview(

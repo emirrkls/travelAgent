@@ -686,4 +686,30 @@
     <string name="dimension_select">Select</string>
     <string name="past_ratings">Past ratings</string>
     <string name="share_experience_at_place">Share experience</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="conversation_title">Questions &amp; comments</string>
+    <string name="conversation_subtitle">Ask about this experience or add something useful.</string>
+    <string name="conversation_question">Question</string>
+    <string name="conversation_comment">Comment</string>
+    <string name="conversation_question_hint">What would you like to know?</string>
+    <string name="conversation_comment_hint">Add a helpful comment</string>
+    <string name="conversation_send">Send</string>
+    <string name="conversation_empty">No questions or comments yet. Start the conversation.</string>
+    <string name="conversation_reply">Reply</string>
+    <string name="conversation_reply_title">Write a reply</string>
+    <string name="conversation_edit_title">Edit entry</string>
+    <string name="conversation_delete_title">Delete entry?</string>
+    <string name="conversation_delete_body">This entry will be removed.</string>
+    <string name="conversation_delete_root_body">This entry and all of its replies will be removed.</string>
+    <string name="conversation_author_answer">Author answer</string>
+    <string name="conversation_author_badge">Author</string>
+    <string name="conversation_edited">Edited</string>
+    <string name="conversation_pending">Sending…</string>
+    <string name="conversation_failed">Not sent</string>
+    <string name="conversation_actions">Conversation actions</string>
+    <plurals name="conversation_count">
+        <item quantity="one">%d question or comment</item>
+        <item quantity="other">%d questions and comments</item>
+    </plurals>
 </resources>

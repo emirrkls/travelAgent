@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,24 +25,34 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +64,9 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.emirrkls.phokarta.R
 import com.emirrkls.phokarta.core.model.RelationshipActionState
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
+import com.emirrkls.phokarta.core.model.ConversationSyncState
 import com.emirrkls.phokarta.ui.components.UserAvatar
 import com.emirrkls.phokarta.ui.localization.ExperienceLabels
 import com.emirrkls.phokarta.ui.localization.appLocale
@@ -65,6 +79,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.rounded.FolderCopy
 import com.emirrkls.phokarta.ui.components.AcknowledgementControl
+import com.emirrkls.phokarta.feature.social.SafetyActionHost
+import com.emirrkls.phokarta.feature.social.SafetyActionViewModel
 
 @Composable
 fun ExperienceDetailScreen(
@@ -72,11 +88,16 @@ fun ExperienceDetailScreen(
     onPlace: (String) -> Unit,
     onAuthor: (String) -> Unit,
     viewModel: ExperienceDetailViewModel = hiltViewModel(),
+    safetyViewModel: SafetyActionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val experience = state.experience
     val language = displayLanguage(appLocale())
     var showCollectionPicker by remember { mutableStateOf(false) }
+    SafetyActionHost(
+        viewModel = safetyViewModel,
+        onUserBlocked = viewModel::refreshConversation,
+    )
     if (showCollectionPicker) {
         ExperienceCollectionPickerSheet(
             collections = state.collections,
@@ -348,6 +369,20 @@ fun ExperienceDetailScreen(
                         }
                     }
                 }
+                ConversationSection(
+                    entries = state.conversation,
+                    loading = state.conversationLoading,
+                    busy = state.conversationBusy,
+                    onCreate = viewModel::createConversation,
+                    onReply = viewModel::reply,
+                    onEdit = viewModel::editConversation,
+                    onDelete = viewModel::deleteConversation,
+                    onRetry = viewModel::retryConversation,
+                    onReport = { entry ->
+                        safetyViewModel.openReportConversationEntry(entry.id, entry.author.id)
+                    },
+                    onBlock = { entry -> safetyViewModel.openBlock(entry.author.id) },
+                )
                 Surface(
                     Modifier.fillMaxWidth().padding(top = 22.dp).clickable { onPlace(experience.place.id) },
                     shape = MaterialTheme.shapes.large,
@@ -371,3 +406,335 @@ fun ExperienceDetailScreen(
         }
     }
 }
+
+@Composable
+private fun ConversationSection(
+    entries: List<ConversationEntry>,
+    loading: Boolean,
+    busy: Boolean,
+    onCreate: (ConversationEntryType, String) -> Unit,
+    onReply: (ConversationEntry, String) -> Unit,
+    onEdit: (ConversationEntry, String) -> Unit,
+    onDelete: (ConversationEntry) -> Unit,
+    onRetry: (ConversationEntry) -> Unit,
+    onReport: (ConversationEntry) -> Unit,
+    onBlock: (ConversationEntry) -> Unit,
+) {
+    var selectedType by rememberSaveable { mutableStateOf(ConversationEntryType.QUESTION) }
+    var body by rememberSaveable { mutableStateOf("") }
+    var replyRoot by remember { mutableStateOf<ConversationEntry?>(null) }
+    var editEntry by remember { mutableStateOf<ConversationEntry?>(null) }
+    var deleteEntry by remember { mutableStateOf<ConversationEntry?>(null) }
+    var modalBody by rememberSaveable { mutableStateOf("") }
+
+    deleteEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) deleteEntry = null },
+            title = { Text(stringResource(R.string.conversation_delete_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (entry.replies.isNotEmpty()) R.string.conversation_delete_root_body
+                        else R.string.conversation_delete_body,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { onDelete(entry); deleteEntry = null },
+                    modifier = Modifier.testTag("conversation_delete_confirm"),
+                ) { Text(stringResource(R.string.action_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteEntry = null }, enabled = !busy) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+    (replyRoot ?: editEntry)?.let { target ->
+        val editing = editEntry != null
+        AlertDialog(
+            onDismissRequest = {
+                if (!busy) {
+                    replyRoot = null
+                    editEntry = null
+                    modalBody = ""
+                }
+            },
+            title = {
+                Text(stringResource(if (editing) R.string.conversation_edit_title else R.string.conversation_reply_title))
+            },
+            text = {
+                OutlinedTextField(
+                    value = modalBody,
+                    onValueChange = { modalBody = it.take(CONVERSATION_BODY_MAX) },
+                    modifier = Modifier.fillMaxWidth().testTag("conversation_modal_body"),
+                    minLines = 3,
+                    maxLines = 6,
+                    supportingText = { Text("${modalBody.length}/$CONVERSATION_BODY_MAX") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = modalBody.isNotBlank() && !busy,
+                    onClick = {
+                        if (editing) onEdit(target, modalBody) else onReply(target, modalBody)
+                        replyRoot = null
+                        editEntry = null
+                        modalBody = ""
+                    },
+                    modifier = Modifier.testTag("conversation_modal_confirm"),
+                ) { Text(stringResource(if (editing) R.string.action_save else R.string.conversation_reply)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { replyRoot = null; editEntry = null; modalBody = "" },
+                ) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    Column(Modifier.fillMaxWidth().padding(top = 22.dp).testTag("conversation_section")) {
+        Text(
+            stringResource(R.string.conversation_title),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            stringResource(R.string.conversation_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedType == ConversationEntryType.QUESTION,
+                onClick = { selectedType = ConversationEntryType.QUESTION },
+                label = { Text(stringResource(R.string.conversation_question)) },
+            )
+            FilterChip(
+                selected = selectedType == ConversationEntryType.COMMENT,
+                onClick = { selectedType = ConversationEntryType.COMMENT },
+                label = { Text(stringResource(R.string.conversation_comment)) },
+            )
+        }
+        val sendDescription = stringResource(R.string.conversation_send)
+        OutlinedTextField(
+            value = body,
+            onValueChange = { body = it.take(CONVERSATION_BODY_MAX) },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("conversation_composer"),
+            placeholder = {
+                Text(stringResource(
+                    if (selectedType == ConversationEntryType.QUESTION) R.string.conversation_question_hint
+                    else R.string.conversation_comment_hint,
+                ))
+            },
+            minLines = 2,
+            maxLines = 5,
+            trailingIcon = {
+                IconButton(
+                    enabled = body.isNotBlank() && !busy,
+                    onClick = { onCreate(selectedType, body); body = "" },
+                    modifier = Modifier.testTag("conversation_send")
+                        .semantics { contentDescription = sendDescription },
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null)
+                }
+            },
+            supportingText = { Text("${body.length}/$CONVERSATION_BODY_MAX") },
+        )
+        when {
+            loading && entries.isEmpty() -> CircularProgressIndicator(
+                Modifier.align(Alignment.CenterHorizontally).padding(20.dp).size(24.dp),
+                strokeWidth = 2.dp,
+            )
+            entries.isEmpty() -> Text(
+                stringResource(R.string.conversation_empty),
+                Modifier.padding(vertical = 18.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> entries.forEach { entry ->
+                ConversationEntryCard(
+                    entry = entry,
+                    rootType = entry.type,
+                    allowReply = true,
+                    busy = busy,
+                    onReply = {
+                        replyRoot = entry
+                        editEntry = null
+                        modalBody = ""
+                    },
+                    onEdit = { selected ->
+                        editEntry = selected
+                        replyRoot = null
+                        modalBody = selected.body
+                    },
+                    onDelete = { deleteEntry = it },
+                    onRetry = onRetry,
+                    onReport = onReport,
+                    onBlock = onBlock,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationEntryCard(
+    entry: ConversationEntry,
+    rootType: ConversationEntryType,
+    allowReply: Boolean,
+    busy: Boolean,
+    onReply: () -> Unit,
+    onEdit: (ConversationEntry) -> Unit,
+    onDelete: (ConversationEntry) -> Unit,
+    onRetry: (ConversationEntry) -> Unit,
+    onReport: (ConversationEntry) -> Unit,
+    onBlock: (ConversationEntry) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val authorLabel = entry.author.displayName.ifBlank { entry.author.username }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+            .testTag("conversation_entry_${entry.id}"),
+        shape = MaterialTheme.shapes.medium,
+        color = if (allowReply) MaterialTheme.colorScheme.surfaceContainerLow
+        else MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UserAvatar(entry.author.avatarUrl.orEmpty(), if (allowReply) 34 else 28)
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(authorLabel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        if (entry.experienceAuthor) {
+                            Surface(
+                                modifier = Modifier.padding(start = 6.dp),
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Text(
+                                    stringResource(
+                                        if (!allowReply && rootType == ConversationEntryType.QUESTION) R.string.conversation_author_answer
+                                        else R.string.conversation_author_badge,
+                                    ),
+                                    Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (allowReply) {
+                            Text(
+                                stringResource(
+                                    if (entry.type == ConversationEntryType.QUESTION) R.string.conversation_question
+                                    else R.string.conversation_comment,
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (entry.edited) Text(
+                            stringResource(R.string.conversation_edited),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        when (entry.syncState) {
+                            ConversationSyncState.PENDING -> Text(
+                                stringResource(R.string.conversation_pending),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                            ConversationSyncState.FAILED -> Text(
+                                stringResource(R.string.conversation_failed),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            ConversationSyncState.SYNCED -> Unit
+                        }
+                    }
+                }
+                Box(Modifier.wrapContentSize(Alignment.TopEnd)) {
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        enabled = !busy,
+                        modifier = Modifier.size(48.dp).testTag("conversation_actions_${entry.id}"),
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.conversation_actions))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (entry.ownedByViewer) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_edit)) },
+                                onClick = { menuOpen = false; onEdit(entry) },
+                                modifier = Modifier.testTag("conversation_edit_${entry.id}"),
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_delete)) },
+                                onClick = { menuOpen = false; onDelete(entry) },
+                                modifier = Modifier.testTag("conversation_delete_${entry.id}"),
+                            )
+                        } else {
+                            if (entry.reportableByViewer) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_report)) },
+                                    onClick = { menuOpen = false; onReport(entry) },
+                                    modifier = Modifier.testTag("conversation_report_${entry.id}"),
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_block_user)) },
+                                onClick = { menuOpen = false; onBlock(entry) },
+                                modifier = Modifier.testTag("conversation_block_${entry.id}"),
+                            )
+                        }
+                    }
+                }
+            }
+            Text(entry.body, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (entry.syncState == ConversationSyncState.FAILED) {
+                    TextButton(
+                        onClick = { onRetry(entry) },
+                        modifier = Modifier.testTag("conversation_retry_${entry.id}"),
+                    ) { Text(stringResource(R.string.action_retry)) }
+                }
+                if (allowReply && entry.syncState == ConversationSyncState.SYNCED) {
+                    TextButton(
+                        onClick = onReply,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("conversation_reply_${entry.id}"),
+                    ) {
+                        Text(stringResource(R.string.conversation_reply))
+                    }
+                }
+            }
+            entry.replies.forEach { reply ->
+                Box(Modifier.padding(start = 18.dp)) {
+                    ConversationEntryCard(
+                        entry = reply,
+                        rootType = rootType,
+                        allowReply = false,
+                        busy = busy,
+                        onReply = {},
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                        onRetry = onRetry,
+                        onReport = onReport,
+                        onBlock = onBlock,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val CONVERSATION_BODY_MAX = 1000

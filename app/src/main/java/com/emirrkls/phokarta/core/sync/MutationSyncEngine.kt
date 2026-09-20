@@ -8,12 +8,14 @@ import com.emirrkls.phokarta.core.database.TravelDatabase
 import com.emirrkls.phokarta.core.database.dao.PendingMutationDao
 import com.emirrkls.phokarta.core.database.dao.SavedPlaceDao
 import com.emirrkls.phokarta.core.database.dao.ExperienceMilestoneDao
+import com.emirrkls.phokarta.core.database.dao.ConversationDao
 import com.emirrkls.phokarta.core.database.entity.MutationStateValue
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
 import com.emirrkls.phokarta.core.database.entity.PendingMutationEntity
 import com.emirrkls.phokarta.core.database.entity.SavedPlaceEntity
 import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
 import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
+import com.emirrkls.phokarta.core.database.entity.ConversationEntryEntity
 import com.emirrkls.phokarta.core.network.NetworkError
 import com.emirrkls.phokarta.core.network.RemoteResult
 import com.emirrkls.phokarta.core.data.POLICY_ACCEPTANCE_REQUIRED_CODE
@@ -22,6 +24,10 @@ import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
 import com.emirrkls.phokarta.core.network.model.CreateVisitDto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2Dto
 import com.emirrkls.phokarta.core.network.model.CreateExperienceV2DimensionDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.CreateConversationReplyDto
+import com.emirrkls.phokarta.core.network.model.UpdateConversationEntryDto
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
 import com.emirrkls.phokarta.core.network.model.DimensionScoreDto
 import com.emirrkls.phokarta.core.network.model.RatingDimensionDto
 import com.emirrkls.phokarta.core.network.model.VisibilityDto
@@ -60,6 +66,7 @@ class MutationSyncEngine @Inject constructor(
     private val mediaUploader: DirectMediaUploader,
     private val mediaStore: VisitMediaStore,
     private val experienceMilestones: ExperienceMilestoneDao,
+    private val conversations: ConversationDao = database.conversationDao(),
 ) {
     private val drainMutex = Mutex()
 
@@ -82,6 +89,10 @@ class MutationSyncEngine @Inject constructor(
                 MutationTypeValue.SET_SAVED_STATE -> syncSaved(mutation)
                 MutationTypeValue.SET_PLANNED_EXPERIENCE_STATE -> syncPlannedExperience(mutation)
                 MutationTypeValue.ACKNOWLEDGE_EXPERIENCE -> syncAcknowledgement(mutation)
+                MutationTypeValue.CREATE_CONVERSATION_ROOT -> syncConversationRoot(mutation)
+                MutationTypeValue.CREATE_CONVERSATION_REPLY -> syncConversationReply(mutation)
+                MutationTypeValue.EDIT_CONVERSATION_ENTRY -> syncConversationEdit(mutation)
+                MutationTypeValue.DELETE_CONVERSATION_ENTRY -> syncConversationDelete(mutation)
                 else -> Failure(false, "UNKNOWN_TYPE")
             }
             processed++
@@ -92,6 +103,12 @@ class MutationSyncEngine @Inject constructor(
                     if (outcome.retryable) MutationStateValue.FAILED_RETRYABLE else MutationStateValue.FAILED_PERMANENT,
                     outcome.category, clock.nowMillis(),
                 )
+                if (mutation.type in CONVERSATION_TYPES) {
+                    conversations.markState(
+                        mutation.userId, mutation.mutationId,
+                        com.emirrkls.phokarta.core.model.ConversationSyncState.FAILED.name,
+                    )
+                }
                 if (outcome.category == POLICY_ACCEPTANCE_REQUIRED_CODE &&
                     mutation.type in PUBLISH_TYPES
                 ) {
@@ -445,6 +462,81 @@ class MutationSyncEngine @Inject constructor(
         }
     }
 
+    private suspend fun syncConversationRoot(mutation: PendingMutationEntity): Outcome {
+        val payload = conversations.payload(mutation.mutationId)
+            ?: return Failure(false, "MISSING_PAYLOAD")
+        val type = payload.entryType ?: return Failure(false, "MISSING_PAYLOAD")
+        val body = payload.body ?: return Failure(false, "MISSING_PAYLOAD")
+        return reconcileConversation(
+            mutation, payload.localEntryId, null,
+            visitsRemote.createConversationRoot(
+                payload.experienceId,
+                CreateConversationEntryDto(mutation.mutationId, type, body),
+            ),
+        )
+    }
+
+    private suspend fun syncConversationReply(mutation: PendingMutationEntity): Outcome {
+        val payload = conversations.payload(mutation.mutationId)
+            ?: return Failure(false, "MISSING_PAYLOAD")
+        val rootId = payload.parentEntryId ?: return Failure(false, "MISSING_PAYLOAD")
+        val body = payload.body ?: return Failure(false, "MISSING_PAYLOAD")
+        return reconcileConversation(
+            mutation, payload.localEntryId, rootId,
+            visitsRemote.createConversationReply(
+                rootId, CreateConversationReplyDto(mutation.mutationId, body),
+            ),
+        )
+    }
+
+    private suspend fun syncConversationEdit(mutation: PendingMutationEntity): Outcome {
+        val payload = conversations.payload(mutation.mutationId)
+            ?: return Failure(false, "MISSING_PAYLOAD")
+        val targetId = payload.targetEntryId ?: return Failure(false, "MISSING_PAYLOAD")
+        val body = payload.body ?: return Failure(false, "MISSING_PAYLOAD")
+        val local = conversations.entry(mutation.userId, targetId)
+        return reconcileConversation(
+            mutation, targetId, local?.parentEntryId,
+            visitsRemote.editConversationEntry(targetId, UpdateConversationEntryDto(body)),
+        )
+    }
+
+    private suspend fun syncConversationDelete(mutation: PendingMutationEntity): Outcome {
+        val payload = conversations.payload(mutation.mutationId)
+            ?: return Failure(false, "MISSING_PAYLOAD")
+        val targetId = payload.targetEntryId ?: return Failure(false, "MISSING_PAYLOAD")
+        return when (val result = visitsRemote.deleteConversationEntry(targetId)) {
+            is RemoteResult.Failure -> result.error.toOutcome()
+            is RemoteResult.Success -> {
+                database.withTransaction {
+                    conversations.deleteThread(mutation.userId, targetId)
+                    check(mutations.deleteIfGeneration(mutation.mutationId, mutation.generation) == 1)
+                }
+                Success
+            }
+        }
+    }
+
+    private suspend fun reconcileConversation(
+        mutation: PendingMutationEntity,
+        localEntryId: String?,
+        parentEntryId: String?,
+        result: RemoteResult<ConversationEntryDto>,
+    ): Outcome = when (result) {
+        is RemoteResult.Failure -> result.error.toOutcome()
+        is RemoteResult.Success -> {
+            val dto = result.value
+            val canonical = runCatching { dto.toEntity(mutation.userId, parentEntryId) }
+                .getOrElse { return Failure(false, "INVALID_RESPONSE") }
+            database.withTransaction {
+                localEntryId?.let { conversations.deleteEntry(mutation.userId, it) }
+                conversations.upsertEntry(canonical)
+                check(mutations.deleteIfGeneration(mutation.mutationId, mutation.generation) == 1)
+            }
+            Success
+        }
+    }
+
     private sealed interface Outcome
     private data object Success : Outcome
     private data class Failure(
@@ -483,6 +575,25 @@ class MutationSyncEngine @Inject constructor(
             MutationTypeValue.PUBLISH_VISIT,
             MutationTypeValue.PUBLISH_EXPERIENCE_V2,
         )
+        private val CONVERSATION_TYPES = setOf(
+            MutationTypeValue.CREATE_CONVERSATION_ROOT,
+            MutationTypeValue.CREATE_CONVERSATION_REPLY,
+            MutationTypeValue.EDIT_CONVERSATION_ENTRY,
+            MutationTypeValue.DELETE_CONVERSATION_ENTRY,
+        )
     }
 
 }
+
+private fun ConversationEntryDto.toEntity(ownerUserId: String, parentEntryId: String?): ConversationEntryEntity =
+    ConversationEntryEntity(
+        ownerUserId = ownerUserId, id = id, experienceId = experienceId,
+        parentEntryId = parentEntryId, type = type, body = body,
+        authorId = author.id, authorUsername = author.username,
+        authorDisplayName = author.displayName, authorAvatarUrl = author.avatarUrl,
+        createdAt = createdAt, updatedAt = updatedAt, edited = edited,
+        experienceAuthor = experienceAuthor, ownedByViewer = ownedByViewer,
+        reportableByViewer = reportableByViewer,
+        syncState = com.emirrkls.phokarta.core.model.ConversationSyncState.SYNCED.name,
+        clientMutationId = null,
+    )

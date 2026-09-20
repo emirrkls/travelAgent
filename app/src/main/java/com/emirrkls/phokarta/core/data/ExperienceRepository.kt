@@ -25,6 +25,14 @@ import com.emirrkls.phokarta.core.network.mapper.toEpochMillisSafely
 import com.emirrkls.phokarta.core.database.entity.PlannedExperienceEntity
 import com.emirrkls.phokarta.core.database.entity.ExperienceAcknowledgementEntity
 import com.emirrkls.phokarta.core.database.entity.MutationTypeValue
+import com.emirrkls.phokarta.core.database.dao.ConversationDao
+import com.emirrkls.phokarta.core.database.entity.ConversationEntryEntity
+import com.emirrkls.phokarta.core.model.ConversationAuthor
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
+import com.emirrkls.phokarta.core.model.ConversationSyncState
+import com.emirrkls.phokarta.core.network.mapper.toConversationPage
+import com.emirrkls.phokarta.core.network.model.ConversationEntryDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
@@ -67,6 +75,7 @@ class ExperienceRepository @Inject constructor(
     private val session: SessionManager,
     private val database: TravelDatabase,
     private val collectionsRemote: CollectionRemoteDataSource,
+    private val conversationDao: ConversationDao,
 ) : ExperienceFeedGateway {
     override suspend fun feed(
         lens: ExperienceFeedLens,
@@ -99,6 +108,56 @@ class ExperienceRepository @Inject constructor(
         request = { visits.experience(id.toCanonicalUuid()) },
         transform = { it.toDomain() },
     )
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun conversation(experienceId: String): Flow<List<ConversationEntry>> = session.state.flatMapLatest { state ->
+        val userId = (state as? com.emirrkls.phokarta.core.auth.AuthState.Authenticated)?.user?.id
+            ?: return@flatMapLatest flowOf(emptyList())
+        conversationDao.observe(userId, experienceId).map(::assembleConversation)
+    }
+
+    suspend fun refreshConversation(experienceId: String): RepositoryResult<List<ConversationEntry>> {
+        val userId = session.currentUserId()
+            ?: return RepositoryResult.Failure(TravelError.Unknown("Authentication required"))
+        return when (val result = visits.conversation(experienceId.toCanonicalUuid(), null, 30)) {
+            is RemoteResult.Failure -> {
+                val cached = conversationDao.entries(userId, experienceId)
+                if (cached.isNotEmpty()) RepositoryResult.Success(assembleConversation(cached))
+                else RepositoryResult.Failure(result.error.toTravelError())
+            }
+            is RemoteResult.Success -> {
+                database.withTransaction {
+                    conversationDao.deleteSyncedSnapshot(userId, experienceId)
+                    conversationDao.upsertEntries(result.value.items.flatMap { it.flatten(userId) })
+                }
+                RepositoryResult.Success(assembleConversation(conversationDao.entries(userId, experienceId)))
+            }
+        }
+    }
+
+    suspend fun createConversationRoot(
+        experience: Experience, type: ConversationEntryType, body: String,
+    ): RepositoryResult<String> = runCatching {
+        offline.createConversationRoot(experience, type, body)
+    }.fold({ RepositoryResult.Success(it) }, { RepositoryResult.Failure(TravelError.Validation(it.message)) })
+
+    suspend fun createConversationReply(
+        experience: Experience, root: ConversationEntry, body: String,
+    ): RepositoryResult<String> = runCatching {
+        offline.createConversationReply(experience, root, body)
+    }.fold({ RepositoryResult.Success(it) }, { RepositoryResult.Failure(TravelError.Validation(it.message)) })
+
+    suspend fun editConversationEntry(entry: ConversationEntry, body: String): RepositoryResult<Unit> =
+        runCatching { offline.editConversationEntry(entry, body) }
+            .fold({ RepositoryResult.Success(Unit) }, { RepositoryResult.Failure(TravelError.Validation(it.message)) })
+
+    suspend fun deleteConversationEntry(entry: ConversationEntry): RepositoryResult<Unit> =
+        runCatching { offline.deleteConversationEntry(entry) }
+            .fold({ RepositoryResult.Success(Unit) }, { RepositoryResult.Failure(TravelError.Validation(it.message)) })
+
+    suspend fun retryConversation(mutationId: String): RepositoryResult<Unit> = runCatching {
+        offline.retry(mutationId)
+    }.fold({ RepositoryResult.Success(Unit) }, { RepositoryResult.Failure(TravelError.Validation(it.message)) })
 
     override suspend fun togglePlan(id: String): RepositoryResult<Boolean> = when (val loaded = detail(id)) {
         is RepositoryResult.Failure -> loaded
@@ -243,3 +302,36 @@ class ExperienceRepository @Inject constructor(
         is RemoteResult.Failure -> RepositoryResult.Failure(result.error.toTravelError())
     }
 }
+
+private fun ConversationEntryDto.flatten(ownerUserId: String, parentId: String? = null): List<ConversationEntryEntity> {
+    val current = ConversationEntryEntity(
+        ownerUserId = ownerUserId, id = id, experienceId = experienceId,
+        parentEntryId = parentId, type = type, body = body,
+        authorId = author.id, authorUsername = author.username,
+        authorDisplayName = author.displayName, authorAvatarUrl = author.avatarUrl,
+        createdAt = createdAt, updatedAt = updatedAt, edited = edited,
+        experienceAuthor = experienceAuthor, ownedByViewer = ownedByViewer,
+        reportableByViewer = reportableByViewer, syncState = ConversationSyncState.SYNCED.name,
+        clientMutationId = null,
+    )
+    return listOf(current) + replies.flatMap { it.flatten(ownerUserId, id) }
+}
+
+private fun assembleConversation(rows: List<ConversationEntryEntity>): List<ConversationEntry> {
+    val replies = rows.filter { it.parentEntryId != null }.groupBy { it.parentEntryId }
+    return rows.filter { it.parentEntryId == null }
+        .sortedWith(compareByDescending<ConversationEntryEntity> { it.createdAt }.thenByDescending { it.id })
+        .map { root -> root.toDomain(replies[root.id].orEmpty().sortedWith(
+            compareBy<ConversationEntryEntity> { it.createdAt }.thenBy { it.id },
+        ).map { it.toDomain() }) }
+}
+
+private fun ConversationEntryEntity.toDomain(replies: List<ConversationEntry> = emptyList()) = ConversationEntry(
+    id = id, experienceId = experienceId, type = ConversationEntryType.fromWire(type), body = body,
+    author = ConversationAuthor(authorId, authorUsername, authorDisplayName, authorAvatarUrl),
+    createdAt = createdAt, updatedAt = updatedAt, edited = edited,
+    experienceAuthor = experienceAuthor, ownedByViewer = ownedByViewer,
+    reportableByViewer = reportableByViewer, replies = replies,
+    syncState = runCatching { ConversationSyncState.valueOf(syncState) }.getOrDefault(ConversationSyncState.FAILED),
+    clientMutationId = clientMutationId,
+)

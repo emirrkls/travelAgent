@@ -238,6 +238,7 @@ data class ExperienceV2Dto(
     val plannedByViewer: Boolean = false,
     val acknowledgedByViewer: Boolean = false,
     val acknowledgementCount: Long = 0,
+    val conversationCount: Long = 0,
 )
 
 @Serializable
@@ -291,6 +292,47 @@ data class ExperienceSummaryV2Dto(
     val plannedByViewer: Boolean = false,
     val acknowledgedByViewer: Boolean = false,
     val acknowledgementCount: Long = 0,
+    val conversationCount: Long = 0,
+)
+
+@Serializable
+data class CreateConversationEntryDto(
+    val clientMutationId: String,
+    val type: String,
+    val body: String,
+)
+
+@Serializable
+data class CreateConversationReplyDto(
+    val clientMutationId: String,
+    val body: String,
+)
+
+@Serializable
+data class UpdateConversationEntryDto(val body: String)
+
+@Serializable
+data class ConversationAuthorDto(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarUrl: String? = null,
+)
+
+@Serializable
+data class ConversationEntryDto(
+    val id: String,
+    val experienceId: String,
+    val type: String,
+    val body: String,
+    val author: ConversationAuthorDto,
+    val createdAt: String,
+    val updatedAt: String,
+    val edited: Boolean,
+    val experienceAuthor: Boolean,
+    val ownedByViewer: Boolean,
+    val reportableByViewer: Boolean,
+    val replies: List<ConversationEntryDto> = emptyList(),
 )
 
 @Serializable
@@ -677,7 +719,7 @@ data class UserSummaryDto(
 
 @Serializable
 enum class ReportTargetTypeDto {
-    USER, VISIT,
+    USER, VISIT, CONVERSATION_ENTRY,
 }
 
 @Serializable

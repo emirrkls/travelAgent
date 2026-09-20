@@ -9,6 +9,8 @@ import com.emirrkls.phokarta.core.model.Collection
 import com.emirrkls.phokarta.core.data.RepositoryResult
 import com.emirrkls.phokarta.core.model.Experience
 import com.emirrkls.phokarta.core.model.ExperienceMediaKind
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
 import com.emirrkls.phokarta.core.model.RelationshipActionState
 import com.emirrkls.phokarta.ui.presentation.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +30,9 @@ data class ExperienceDetailUiState(
     val acknowledgementBusy: Boolean = false,
     val collections: List<Collection> = emptyList(),
     val collectionBusy: Boolean = false,
+    val conversation: List<ConversationEntry> = emptyList(),
+    val conversationLoading: Boolean = true,
+    val conversationBusy: Boolean = false,
     val errorMessage: Int? = null,
 )
 
@@ -49,6 +54,16 @@ class ExperienceDetailViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { travelRepository.refreshCollections() }
+        viewModelScope.launch {
+            repository.conversation(experienceId).collect { entries ->
+                _uiState.update { state ->
+                    state.copy(
+                        conversation = entries,
+                        experience = state.experience?.copy(conversationCount = entries.size.toLong()),
+                    )
+                }
+            }
+        }
     }
 
     fun retry() = load()
@@ -126,6 +141,88 @@ class ExperienceDetailViewModel @Inject constructor(
         }
     }
 
+    fun refreshConversation() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(conversationLoading = true) }
+            when (val result = repository.refreshConversation(experienceId)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(conversationLoading = false, errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> _uiState.update { it.copy(conversationLoading = false) }
+            }
+        }
+    }
+
+    fun createConversation(type: ConversationEntryType, body: String) {
+        val experience = _uiState.value.experience ?: return
+        if (_uiState.value.conversationBusy || body.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(conversationBusy = true, errorMessage = null) }
+            when (val result = repository.createConversationRoot(experience, type, body)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> Unit
+            }
+            _uiState.update { it.copy(conversationBusy = false) }
+        }
+    }
+
+    fun reply(root: ConversationEntry, body: String) {
+        val experience = _uiState.value.experience ?: return
+        if (_uiState.value.conversationBusy || body.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(conversationBusy = true, errorMessage = null) }
+            when (val result = repository.createConversationReply(experience, root, body)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> Unit
+            }
+            _uiState.update { it.copy(conversationBusy = false) }
+        }
+    }
+
+    fun editConversation(entry: ConversationEntry, body: String) {
+        if (_uiState.value.conversationBusy || body.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(conversationBusy = true, errorMessage = null) }
+            when (val result = repository.editConversationEntry(entry, body)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> Unit
+            }
+            _uiState.update { it.copy(conversationBusy = false) }
+        }
+    }
+
+    fun deleteConversation(entry: ConversationEntry) {
+        if (_uiState.value.conversationBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(conversationBusy = true, errorMessage = null) }
+            when (val result = repository.deleteConversationEntry(entry)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> Unit
+            }
+            _uiState.update { it.copy(conversationBusy = false) }
+        }
+    }
+
+    fun retryConversation(entry: ConversationEntry) {
+        val mutationId = entry.clientMutationId ?: return
+        viewModelScope.launch {
+            when (val result = repository.retryConversation(mutationId)) {
+                is RepositoryResult.Failure -> _uiState.update {
+                    it.copy(errorMessage = result.error.toUserMessageRes())
+                }
+                is RepositoryResult.Success -> Unit
+            }
+        }
+    }
+
     private fun load() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -133,6 +230,7 @@ class ExperienceDetailViewModel @Inject constructor(
                 is RepositoryResult.Success -> {
                     _uiState.value = ExperienceDetailUiState(experience = result.value, isLoading = false)
                     renewExpiringMedia(result.value)
+                    refreshConversation()
                 }
                 is RepositoryResult.Failure -> _uiState.value = ExperienceDetailUiState(
                     isLoading = false,

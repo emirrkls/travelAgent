@@ -31,6 +31,10 @@ import com.emirrkls.phokarta.core.model.ExperiencePlace
 import com.emirrkls.phokarta.core.model.ExperiencePrimary
 import com.emirrkls.phokarta.core.model.ExperienceVisibility
 import com.emirrkls.phokarta.core.model.FeelingProvenance
+import com.emirrkls.phokarta.core.model.ConversationAuthor
+import com.emirrkls.phokarta.core.model.ConversationEntry
+import com.emirrkls.phokarta.core.model.ConversationEntryType
+import com.emirrkls.phokarta.core.model.ConversationSyncState
 import com.emirrkls.phokarta.feature.rating.VisitDraft
 import com.emirrkls.phokarta.core.time.EpochClock
 import com.emirrkls.phokarta.core.media.MediaFileMutationLock
@@ -211,6 +215,64 @@ class OfflineMutationRepositoryInstrumentedTest {
         assertEquals(first, database.experienceMilestoneDao()
             .observeUnconvertedAcknowledgements(USER_A).first().single().id)
     }
+
+    @Test fun conversationRootIsOptimisticDurableAndAccountScoped() = runTest {
+        val mutationId = repository.createConversationRoot(
+            experience(), ConversationEntryType.QUESTION, "  Is it quiet in the morning?  ",
+        )
+
+        val local = database.conversationDao().entry(USER_A, mutationId)!!
+        val payload = database.conversationDao().payload(mutationId)!!
+        assertEquals("Is it quiet in the morning?", local.body)
+        assertEquals("QUESTION", local.type)
+        assertEquals(ConversationSyncState.PENDING.name, local.syncState)
+        assertEquals(mutationId, local.clientMutationId)
+        assertEquals(EXPERIENCE, payload.experienceId)
+        assertEquals(MutationTypeValue.CREATE_CONVERSATION_ROOT,
+            database.pendingMutationDao().get(mutationId)!!.type)
+
+        session.clearSession()
+        login(USER_B)
+        assertTrue(database.conversationDao().entries(USER_B, EXPERIENCE).isEmpty())
+        assertEquals(1, database.conversationDao().entries(USER_A, EXPERIENCE).size)
+    }
+
+    @Test fun conversationReplyRequiresSyncedRootAndOwnedEntriesQueueEditAndDelete() = runTest {
+        val pendingId = repository.createConversationRoot(
+            experience(), ConversationEntryType.COMMENT, "Local comment",
+        )
+        val pendingRoot = conversationEntry(pendingId, ConversationSyncState.PENDING)
+        val replyFailure = runCatching {
+            repository.createConversationReply(experience(), pendingRoot, "Too early")
+        }
+        assertTrue(replyFailure.isFailure)
+
+        val synced = conversationEntry("server-root", ConversationSyncState.SYNCED)
+        database.conversationDao().upsertEntry(com.emirrkls.phokarta.core.database.entity.ConversationEntryEntity(
+            ownerUserId = USER_A, id = synced.id, experienceId = EXPERIENCE, parentEntryId = null,
+            type = synced.type.name, body = synced.body, authorId = USER_A, authorUsername = "ada",
+            authorDisplayName = "Ada", authorAvatarUrl = null,
+            createdAt = synced.createdAt, updatedAt = synced.updatedAt, edited = false,
+            experienceAuthor = false, ownedByViewer = true, reportableByViewer = false,
+            syncState = ConversationSyncState.SYNCED.name, clientMutationId = null,
+        ))
+
+        val replyId = repository.createConversationReply(experience(), synced, "A reply")
+        assertEquals("server-root", database.conversationDao().entry(USER_A, replyId)!!.parentEntryId)
+        repository.editConversationEntry(synced, "Edited comment")
+        val edited = database.conversationDao().entry(USER_A, synced.id)!!
+        assertEquals("Edited comment", edited.body)
+        assertEquals(ConversationSyncState.PENDING.name, edited.syncState)
+        assertTrue(scheduler.calls >= 3)
+    }
+
+    private fun conversationEntry(id: String, syncState: ConversationSyncState) = ConversationEntry(
+        id = id, experienceId = EXPERIENCE, type = ConversationEntryType.COMMENT, body = "Comment",
+        author = ConversationAuthor(USER_A, "ada", "Ada", null),
+        createdAt = "2026-09-20T10:00:00Z", updatedAt = "2026-09-20T10:00:00Z",
+        edited = false, experienceAuthor = false, ownedByViewer = true,
+        reportableByViewer = false, syncState = syncState,
+    )
 
     private fun experience() = Experience(
         id = EXPERIENCE,

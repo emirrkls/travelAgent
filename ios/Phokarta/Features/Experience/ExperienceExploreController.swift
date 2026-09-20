@@ -115,8 +115,7 @@ final class ExperienceExploreController {
         Task {
             defer { planBusy.remove(experienceId) }
             do {
-                if desired { _ = try await service.plan(experienceId: experienceId) }
-                else { try await service.unplan(experienceId: experienceId) }
+                _ = try await service.setPlanned(experienceId: experienceId, desired: desired)
                 items = items.map { $0.id == experienceId ? $0.replacingMilestone(
                     planned: desired,
                     acknowledged: $0.acknowledgedByViewer ?? false,

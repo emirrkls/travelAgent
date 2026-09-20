@@ -715,7 +715,7 @@ private struct ExperienceConversationSection: View {
     let onReport: (ConversationEntry) -> Void
     let onBlock: (ConversationEntry) -> Void
     @State private var type: ConversationEntryType = .question
-    @State private var body = ""
+    @State private var rootBody = ""
     @State private var replyingTo: ConversationEntry?
     @State private var editingEntry: ConversationEntry?
     @State private var deletingEntry: ConversationEntry?
@@ -735,23 +735,23 @@ private struct ExperienceConversationSection: View {
                 type == .question
                     ? String(localized: "conversation.question.placeholder")
                     : String(localized: "conversation.comment.placeholder"),
-                text: $body,
+                text: $rootBody,
                 axis: .vertical
             )
             .lineLimit(2...5)
-            .onChange(of: body) { _, value in body = String(value.prefix(Self.bodyLimit)) }
+            .onChange(of: rootBody) { _, value in rootBody = String(value.prefix(Self.bodyLimit)) }
             HStack {
-                Text("\(body.count)/\(Self.bodyLimit)").font(.caption).foregroundStyle(.secondary)
+                Text("\(rootBody.count)/\(Self.bodyLimit)").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button {
-                    let submitted = body
-                    body = ""
+                    let submitted = rootBody
+                    rootBody = ""
                     Task { await controller.createConversation(type: type, body: submitted) }
                 } label: {
                     Label("conversation.send", systemImage: "paperplane.fill")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
+                .disabled(rootBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
             }
             if controller.conversationLoading && controller.conversation.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding()

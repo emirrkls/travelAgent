@@ -262,15 +262,19 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 resourceKey: entry.id.uuidString, now: nowMillis, db: db
             )
             try db.execute(
-                """INSERT INTO pending_conversation_payloads
-                   (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
-                   VALUES (?,?,?,?,?,?,?);""",
+                """
+                INSERT INTO pending_conversation_payloads
+                (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                VALUES (?,?,?,?,?,?,?);
+                """,
                 params: [mutationId.uuidString, entry.experienceId.uuidString, entry.id.uuidString,
                          parentId?.uuidString, entry.type.rawValue, normalized, entry.id.uuidString]
             )
             try db.execute(
-                """UPDATE conversation_entries SET body=?,updatedAt=?,edited=1,syncState='PENDING',
-                   clientMutationId=? WHERE userId=? AND entryId=?;""",
+                """
+                UPDATE conversation_entries SET body=?,updatedAt=?,edited=1,syncState='PENDING',
+                clientMutationId=? WHERE userId=? AND entryId=?;
+                """,
                 params: [normalized, timestamp, mutationId.uuidString, userId.uuidString, entry.id.uuidString]
             )
         }
@@ -286,9 +290,11 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
                 resourceKey: entry.id.uuidString, now: nowMillis, db: db
             )
             try db.execute(
-                """INSERT INTO pending_conversation_payloads
-                   (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
-                   VALUES (?,?,?,NULL,NULL,NULL,?);""",
+                """
+                INSERT INTO pending_conversation_payloads
+                (mutationId,experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId)
+                VALUES (?,?,?,NULL,NULL,NULL,?);
+                """,
                 params: [mutationId.uuidString, entry.experienceId.uuidString,
                          entry.id.uuidString, entry.id.uuidString]
             )
@@ -327,8 +333,10 @@ final class SQLiteOfflineMutationRepository: OfflineMutationRepository, Sendable
         }.compactMap { $0 }
         guard let mutation = mutations.first else { return nil }
         let payloads = try await database.query(
-            """SELECT experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId
-               FROM pending_conversation_payloads WHERE mutationId=?;""",
+            """
+            SELECT experienceId,targetEntryId,parentEntryId,entryType,body,localEntryId
+            FROM pending_conversation_payloads WHERE mutationId=?;
+            """,
             params: [mutationId.uuidString]
         ) { statement in
             DurablePendingConversationPayload(

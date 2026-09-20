@@ -159,7 +159,7 @@ class Milestone4LifecycleIntegrationTest {
 
         var published = writes.create(PLANNER, publication(UUID.randomUUID(), acknowledgement.id()));
         assertThat(published.place().id()).isEqualTo(PLACE);
-        assertThat(published.primaryExperience().code()).isEqualTo(PrimaryExperienceCode.GUN_BATIMI);
+        assertThat(published.primaryExperience().code()).isEqualTo(PrimaryExperienceCode.GUN_BATIMI.name());
         assertThat(acknowledgements.listUnconverted(PLANNER, PLANNER, 0, 20).content()).isEmpty();
 
         jdbc.update("delete from users where id = ?", PLANNER);

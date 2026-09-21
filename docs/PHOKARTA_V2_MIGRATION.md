@@ -465,4 +465,14 @@ Both native detail surfaces provide root type selection, a bounded composer, one
 - Real-beta acceptance passes with temporary accounts across root/reply creation, create idempotency, stable cursor pagination, author-answer context, private-profile participation, owner permission denial, reporting and duplicate reports, symmetric block filtering and viewer-relative counts, Reply-author deletion, root cascade deletion, account deletion, and source deletion. Cleanup leaves zero synthetic accounts and zero rows for the acceptance Experience; post-run backend error count is zero.
 - The design-review package is external to Git under `C:\Users\Emir\Documents\Phokarta_Design_Review\Milestone_5\20260920_202811` and contains 19 PNGs, a manifest, a labeled contact sheet, and `Phokarta_M5_Design_Review.zip`.
 
-Milestone 5 does not begin a later milestone. Its next gate after engineering closure is `PHOKARTA V2 DESIGN / PRODUCT REVIEW — MILESTONE 5`.
+### Milestone 5 design-review final punch list
+
+The accepted conversation design receives a bounded presentation-only closure pass. The existing API already exposes canonical `createdAt` and `updatedAt` values, so Android and iOS now format the original creation time as localized, restrained metadata on Questions, Comments, and Replies. The separate `Edited` / `Düzenlendi` state remains visible and does not replace creation time; the established Experience-author badge remains unchanged.
+
+An empty conversation keeps the full Question/Comment composer. A populated conversation now starts with an inline compact `Ask a question or add a comment` / `Soru sor veya yorum ekle` affordance and expands into the existing composer without changing root type selection, Reply creation, draft identity, pending persistence, or offline mutation behavior. Unsent text keeps the composer expanded and is never discarded by the presentation state. Experience Cards reduce a positive conversation count to a neutral conversation icon plus number, retain the full localized accessibility label, and omit the zero-count affordance.
+
+The Turkish section subtitle is finalized as `Bu deneyim hakkında soru sor veya yararlı bir yorum ekle.` on both native clients. Light, deep-ocean Dark, 120% text, timestamp metadata, Author-answer coexistence, compact/expanded composer semantics, and TalkBack/VoiceOver labels are covered by focused presentation tests and connected visual acceptance. The final local Android gate records 249/249 unit tests, six conversation-flow device tests, and six screenshot scenarios passing with zero lint errors; debug assembly and release Kotlin compilation also pass.
+
+This closure changes no backend source, API contract, Flyway migration, Product Contract, conversation visibility, one-level reply rule, permissions, block/report behavior, viewer-relative count semantics, account deletion, idempotency, or Android Room/iOS SQLite queue architecture. The existing healthy Milestone 5 beta deployment remains authoritative and is not redeployed.
+
+Milestone 5 does not begin a later milestone. After this final design-review closure, control returns to the product owner.

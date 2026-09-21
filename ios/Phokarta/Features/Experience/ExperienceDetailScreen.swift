@@ -111,7 +111,15 @@ enum ConversationPresentation {
     }
 
     private static func localized(_ key: String, locale: Locale) -> String {
-        String(localized: String.LocalizationValue(key), locale: locale)
+        let turkish = locale.identifier.lowercased().hasPrefix("tr")
+        switch key {
+        case "conversation.time.just_now":
+            return turkish ? "Az önce" : "Just now"
+        case "conversation.time.yesterday":
+            return turkish ? "Dün" : "Yesterday"
+        default:
+            return String(localized: String.LocalizationValue(key), locale: locale)
+        }
     }
 }
 

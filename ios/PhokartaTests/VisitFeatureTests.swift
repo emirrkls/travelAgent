@@ -612,6 +612,102 @@ final class ExperienceV2FoundationTests: XCTestCase {
         XCTAssertTrue(ConversationPresentation.canReply(to: try XCTUnwrap(page.items.first)))
     }
 
+    func testConversationTimestampFormattingInEnglishAndTurkish() throws {
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-22T12:00:00Z"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let english = Locale(identifier: "en_US")
+        let turkish = Locale(identifier: "tr_TR")
+
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T11:59:30Z", now: now, calendar: calendar, locale: english
+        ), "Just now")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T11:55:00Z", now: now, calendar: calendar, locale: english
+        ), "5m")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T10:00:00Z", now: now, calendar: calendar, locale: english
+        ), "2h")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-21T18:00:00Z", now: now, calendar: calendar, locale: english
+        ), "Yesterday")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-08-21T10:00:00Z", now: now, calendar: calendar, locale: english
+        ), "Aug 21")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2025-08-21T10:00:00Z", now: now, calendar: calendar, locale: english
+        ), "Aug 21, 2025")
+
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T11:59:30Z", now: now, calendar: calendar, locale: turkish
+        ), "Az önce")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T11:55:00Z", now: now, calendar: calendar, locale: turkish
+        ), "5 dk")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-22T10:00:00Z", now: now, calendar: calendar, locale: turkish
+        ), "2 sa")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-09-21T18:00:00Z", now: now, calendar: calendar, locale: turkish
+        ), "Dün")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2026-08-21T10:00:00Z", now: now, calendar: calendar, locale: turkish
+        ), "21 Ağu")
+        XCTAssertEqual(ConversationPresentation.timestamp(
+            createdAt: "2025-08-21T10:00:00Z", now: now, calendar: calendar, locale: turkish
+        ), "21 Ağu 2025")
+    }
+
+    func testConversationMetadataComposerModesAndCompactCount() {
+        XCTAssertEqual(
+            ConversationPresentation.metadata(
+                typeLabel: "Question", timestamp: "2h", edited: true, editedLabel: "Edited"
+            ),
+            "Question · 2h · Edited"
+        )
+        XCTAssertEqual(
+            ConversationPresentation.metadata(
+                typeLabel: nil, timestamp: "1h", edited: true, editedLabel: "Edited"
+            ),
+            "1h · Edited"
+        )
+        XCTAssertEqual(
+            ConversationPresentation.metadata(
+                typeLabel: "Yorum", timestamp: "21 Eyl", edited: false, editedLabel: "Düzenlendi"
+            ),
+            "Yorum · 21 Eyl"
+        )
+        XCTAssertEqual(ConversationPresentation.composerMode(
+            visibleRootCount: 0, expansionRequested: false, draft: ""
+        ), .expanded)
+        XCTAssertEqual(ConversationPresentation.composerMode(
+            visibleRootCount: 2, expansionRequested: false, draft: ""
+        ), .compact)
+        XCTAssertEqual(ConversationPresentation.composerMode(
+            visibleRootCount: 2, expansionRequested: true, draft: ""
+        ), .expanded)
+        XCTAssertEqual(ConversationPresentation.composerMode(
+            visibleRootCount: 2, expansionRequested: false, draft: "Unsent draft"
+        ), .expanded)
+        XCTAssertNil(ConversationPresentation.count(0, locale: Locale(identifier: "en")))
+        XCTAssertEqual(
+            ConversationPresentation.count(1, locale: Locale(identifier: "en")),
+            ConversationCountPresentation(visual: "1", accessibilityLabel: "1 question or comment")
+        )
+        XCTAssertEqual(
+            ConversationPresentation.count(2, locale: Locale(identifier: "en")),
+            ConversationCountPresentation(visual: "2", accessibilityLabel: "2 questions and comments")
+        )
+        XCTAssertEqual(
+            ConversationPresentation.count(1, locale: Locale(identifier: "tr")),
+            ConversationCountPresentation(visual: "1", accessibilityLabel: "1 soru veya yorum")
+        )
+        XCTAssertEqual(
+            ConversationPresentation.count(2, locale: Locale(identifier: "tr")),
+            ConversationCountPresentation(visual: "2", accessibilityLabel: "2 soru ve yorum")
+        )
+    }
+
     func testConversationReportTargetUsesExistingModerationWireType() throws {
         let encoded = try APIJSON.encoder.encode(CreateReportRequestDTO(
             targetType: .conversationEntry,
@@ -629,9 +725,17 @@ final class ExperienceV2FoundationTests: XCTestCase {
         XCTAssertEqual(phokartaString("conversation.title", locale: english), "Questions & Comments")
         XCTAssertEqual(phokartaString("conversation.author_answer", locale: english), "Author answer")
         XCTAssertEqual(phokartaString("conversation.pending", locale: english), "Sending…")
+        XCTAssertEqual(phokartaString("conversation.composer.compact", locale: english), "Ask a question or add a comment")
+        XCTAssertEqual(phokartaString("conversation.time.just_now", locale: english), "Just now")
         XCTAssertEqual(phokartaString("conversation.title", locale: turkish), "Sorular ve Yorumlar")
+        XCTAssertEqual(
+            phokartaString("conversation.subtitle", locale: turkish),
+            "Bu deneyim hakkında soru sor veya yararlı bir yorum ekle."
+        )
         XCTAssertEqual(phokartaString("conversation.author_answer", locale: turkish), "Deneyim sahibinin yanıtı")
         XCTAssertEqual(phokartaString("conversation.pending", locale: turkish), "Gönderiliyor…")
+        XCTAssertEqual(phokartaString("conversation.composer.compact", locale: turkish), "Soru sor veya yorum ekle")
+        XCTAssertEqual(phokartaString("conversation.time.just_now", locale: turkish), "Az önce")
     }
 
     private static let fixture = """

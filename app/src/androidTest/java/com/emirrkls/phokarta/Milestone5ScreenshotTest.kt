@@ -57,15 +57,19 @@ class Milestone5ScreenshotTest {
         setLight()
         openExploreEnglish()
         capture("01_experience_card_conversation.png")
+        capture("06_experience_card_count.png")
         openConversationEnglish()
+        capture("02_conversation_populated_compact.png")
 
         scrollTo("Is the cove quiet near sunset?")
         capture("03_conversation_question.png")
+        capture("04_question_timestamp.png")
         scrollTo("Private-profile participant: bring water; the nearest kiosk closes early.")
         capture("04_conversation_comment.png")
         capture("19_private_profile_public_comment.png")
         scrollTo("Author answer")
         capture("05_author_answer.png")
+        capture("05_author_answer_timestamp.png")
         capture("06_multiple_replies.png")
 
         composeRule.onNodeWithTag("conversation_actions_$QUESTION_ID").performScrollTo().performClick()
@@ -89,6 +93,7 @@ class Milestone5ScreenshotTest {
         openConversationEnglish()
         scrollTo("No questions or comments yet. Start the conversation.")
         capture("02_conversation_empty.png")
+        capture("01_conversation_empty_expanded.png")
     }
 
     @Test
@@ -100,6 +105,7 @@ class Milestone5ScreenshotTest {
         composeRule.onNodeWithTag("conversation_section").performScrollTo()
         composeRule.onNodeWithTag("conversation_composer").performTextInput("Is parking available after sunset?")
         capture("07_create_question.png")
+        capture("03_conversation_composer_expanded.png")
         composeRule.onNodeWithTag("conversation_composer").performTextClearance()
         composeRule.onNodeWithText("Comment").performClick()
         composeRule.onNodeWithTag("conversation_composer").performTextInput("The western path has a beautiful view.")
@@ -114,6 +120,7 @@ class Milestone5ScreenshotTest {
         openExploreEnglish()
         openConversationEnglish()
         capture("12_conversation_dark.png")
+        capture("07_conversation_dark.png")
         scrollTo("Author answer")
         capture("13_author_answer_dark.png")
     }
@@ -124,6 +131,8 @@ class Milestone5ScreenshotTest {
         openExploreLocalized()
         openConversationLocalized()
         capture("14_conversation_tr.png")
+        capture("08_conversation_tr.png")
+        composeRule.onNodeWithTag("conversation_compact_composer").performClick()
         composeRule.onNodeWithTag("conversation_composer").performTextInput("Gün batımında sakin mi?")
         capture("15_question_composer_tr.png")
         scrollTo("Deneyim sahibinin yanıtı")
@@ -136,6 +145,8 @@ class Milestone5ScreenshotTest {
         openExploreEnglish()
         openConversationEnglish()
         capture("17_conversation_120.png")
+        capture("09_conversation_120.png")
+        composeRule.onNodeWithTag("conversation_compact_composer").performClick()
         composeRule.onNodeWithTag("conversation_composer").performTextInput("Is the path accessible?")
         capture("18_question_composer_120.png")
     }

@@ -16,6 +16,16 @@ enum AcknowledgementPresentation: Equatable {
     static func resolve(acknowledged: Bool) -> Self { acknowledged ? .confirmed : .action }
 }
 
+enum ConversationComposerPresentation: Equatable {
+    case expanded
+    case compact
+}
+
+struct ConversationCountPresentation: Equatable {
+    let visual: String
+    let accessibilityLabel: String
+}
+
 enum ConversationPresentation {
     static func authorBadgeKey(
         experienceAuthor: Bool, rootType: ConversationEntryType, isReply: Bool
@@ -27,6 +37,81 @@ enum ConversationPresentation {
 
     static func canReply(to entry: ConversationEntry) -> Bool {
         entry.type != .reply && entry.syncState == .synced
+    }
+
+    static func timestamp(
+        createdAt: String,
+        now: Date = Date(),
+        calendar inputCalendar: Calendar = .current,
+        locale: Locale = .current
+    ) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let created = formatter.date(from: createdAt) ?? ISO8601DateFormatter().date(from: createdAt)
+        guard let created else { return localized("conversation.time.just_now", locale: locale) }
+
+        var calendar = inputCalendar
+        calendar.locale = locale
+        let elapsed = max(0, Int(now.timeIntervalSince(created)))
+        let turkish = locale.identifier.lowercased().hasPrefix("tr")
+        if elapsed < 60 { return localized("conversation.time.just_now", locale: locale) }
+        if elapsed < 3_600 {
+            let minutes = elapsed / 60
+            return turkish ? "\(minutes) dk" : "\(minutes)m"
+        }
+        if calendar.isDate(created, inSameDayAs: now) {
+            let hours = elapsed / 3_600
+            return turkish ? "\(hours) sa" : "\(hours)h"
+        }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(created, inSameDayAs: yesterday) {
+            return localized("conversation.time.yesterday", locale: locale)
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = locale
+        dateFormatter.calendar = calendar
+        dateFormatter.timeZone = calendar.timeZone
+        let createdYear = calendar.component(.year, from: created)
+        let currentYear = calendar.component(.year, from: now)
+        dateFormatter.dateFormat = if createdYear == currentYear {
+            turkish ? "d MMM" : "MMM d"
+        } else {
+            turkish ? "d MMM yyyy" : "MMM d, yyyy"
+        }
+        return dateFormatter.string(from: created)
+    }
+
+    static func metadata(
+        typeLabel: String?, timestamp: String, edited: Bool, editedLabel: String
+    ) -> String {
+        var parts = [String]()
+        if let typeLabel, !typeLabel.isEmpty { parts.append(typeLabel) }
+        parts.append(timestamp)
+        if edited { parts.append(editedLabel) }
+        return parts.joined(separator: " · ")
+    }
+
+    static func composerMode(
+        visibleRootCount: Int, expansionRequested: Bool, draft: String
+    ) -> ConversationComposerPresentation {
+        visibleRootCount == 0 || expansionRequested || !draft.isEmpty ? .expanded : .compact
+    }
+
+    static func count(_ count: Int, locale: Locale = .current) -> ConversationCountPresentation? {
+        guard count > 0 else { return nil }
+        let turkish = locale.identifier.lowercased().hasPrefix("tr")
+        let label: String
+        if turkish {
+            label = count == 1 ? "1 soru veya yorum" : "\(count) soru ve yorum"
+        } else {
+            label = count == 1 ? "1 question or comment" : "\(count) questions and comments"
+        }
+        return ConversationCountPresentation(visual: String(count), accessibilityLabel: label)
+    }
+
+    private static func localized(_ key: String, locale: Locale) -> String {
+        String(localized: String.LocalizationValue(key), locale: locale)
     }
 }
 
@@ -716,42 +801,67 @@ private struct ExperienceConversationSection: View {
     let onBlock: (ConversationEntry) -> Void
     @State private var type: ConversationEntryType = .question
     @State private var rootBody = ""
+    @State private var composerExpanded = false
     @State private var replyingTo: ConversationEntry?
     @State private var editingEntry: ConversationEntry?
     @State private var deletingEntry: ConversationEntry?
     @State private var modalBody = ""
+    @FocusState private var rootComposerFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
 
     var bodyView: some View {
         VStack(alignment: .leading, spacing: PhokartaSpacing.sm) {
             Text("conversation.title").font(.title2.bold())
             Text("conversation.subtitle").font(.subheadline).foregroundStyle(.secondary)
-            Picker("conversation.type", selection: $type) {
-                Text("conversation.question").tag(ConversationEntryType.question)
-                Text("conversation.comment").tag(ConversationEntryType.comment)
-            }
-            .pickerStyle(.segmented)
-            TextField(
-                type == .question
-                    ? String(localized: "conversation.question.placeholder")
-                    : String(localized: "conversation.comment.placeholder"),
-                text: $rootBody,
-                axis: .vertical
-            )
-            .lineLimit(2...5)
-            .onChange(of: rootBody) { _, value in rootBody = String(value.prefix(Self.bodyLimit)) }
-            HStack {
-                Text("\(rootBody.count)/\(Self.bodyLimit)").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+            if composerMode == .compact {
                 Button {
-                    let submitted = rootBody
-                    rootBody = ""
-                    Task { await controller.createConversation(type: type, body: submitted) }
+                    composerExpanded = true
+                    DispatchQueue.main.async { rootComposerFocused = true }
                 } label: {
-                    Label("conversation.send", systemImage: "paperplane.fill")
+                    Label("conversation.composer.compact", systemImage: "square.and.pencil")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(rootBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
+                .buttonStyle(.bordered)
+                .accessibilityLabel(Text("conversation.composer.compact"))
+                .accessibilityHint(Text("conversation.composer.expand_hint"))
+            } else {
+                Picker("conversation.type", selection: $type) {
+                    Text("conversation.question").tag(ConversationEntryType.question)
+                    Text("conversation.comment").tag(ConversationEntryType.comment)
+                }
+                .pickerStyle(.segmented)
+                TextField(
+                    type == .question
+                        ? String(localized: "conversation.question.placeholder")
+                        : String(localized: "conversation.comment.placeholder"),
+                    text: $rootBody,
+                    axis: .vertical
+                )
+                .lineLimit(2...5)
+                .focused($rootComposerFocused)
+                .onChange(of: rootBody) { _, value in rootBody = String(value.prefix(Self.bodyLimit)) }
+                HStack {
+                    Text("\(rootBody.count)/\(Self.bodyLimit)").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if !controller.conversation.isEmpty && rootBody.isEmpty {
+                        Button("action.cancel") {
+                            composerExpanded = false
+                            rootComposerFocused = false
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    Button {
+                        let submitted = rootBody
+                        rootBody = ""
+                        composerExpanded = false
+                        rootComposerFocused = false
+                        Task { await controller.createConversation(type: type, body: submitted) }
+                    } label: {
+                        Label("conversation.send", systemImage: "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(rootBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.conversationBusy)
+                }
             }
             if controller.conversationLoading && controller.conversation.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding()
@@ -855,6 +965,13 @@ private struct ExperienceConversationSection: View {
     }
 
     var body: some View { bodyView }
+    private var composerMode: ConversationComposerPresentation {
+        ConversationPresentation.composerMode(
+            visibleRootCount: controller.conversation.count,
+            expansionRequested: composerExpanded,
+            draft: rootBody
+        )
+    }
     private static let bodyLimit = 1_000
 }
 
@@ -871,6 +988,7 @@ private struct ConversationEntryCard: View {
     let onReport: (ConversationEntry) -> Void
     let onBlock: (ConversationEntry) -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -892,14 +1010,8 @@ private struct ConversationEntryCard: View {
                                 .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
                         }
                     }
-                    HStack(spacing: 6) {
-                        if allowReply {
-                            Text(entry.type == .question
-                                 ? String(localized: "conversation.question")
-                                 : String(localized: "conversation.comment"))
-                                .font(.caption).foregroundStyle(.tint)
-                        }
-                        if entry.edited { Text("conversation.edited").font(.caption).foregroundStyle(.secondary) }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(metadata).font(.caption).foregroundStyle(.secondary)
                         if entry.syncState == .pending {
                             Text("conversation.pending").font(.caption).foregroundStyle(.orange)
                         } else if entry.syncState == .failed {
@@ -955,6 +1067,20 @@ private struct ConversationEntryCard: View {
         return entry.author.displayName.isEmpty ? entry.author.username : entry.author.displayName
     }
 
+    private var metadata: String {
+        let typeLabel: String? = if allowReply {
+            entry.type == .question
+                ? String(localized: "conversation.question", locale: locale)
+                : String(localized: "conversation.comment", locale: locale)
+        } else { nil }
+        return ConversationPresentation.metadata(
+            typeLabel: typeLabel,
+            timestamp: ConversationPresentation.timestamp(createdAt: entry.createdAt, locale: locale),
+            edited: entry.edited,
+            editedLabel: String(localized: "conversation.edited", locale: locale)
+        )
+    }
+
     private var authorBadge: LocalizedStringKey {
         LocalizedStringKey(ConversationPresentation.authorBadgeKey(
             experienceAuthor: entry.experienceAuthor,
@@ -975,6 +1101,7 @@ private struct ConversationReplyCard: View {
     let onReport: (ConversationEntry) -> Void
     let onBlock: (ConversationEntry) -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -996,8 +1123,8 @@ private struct ConversationReplyCard: View {
                                 .background(PhokartaColor.selected(for: colorScheme), in: Capsule())
                         }
                     }
-                    HStack(spacing: 6) {
-                        if entry.edited { Text("conversation.edited").font(.caption).foregroundStyle(.secondary) }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(metadata).font(.caption).foregroundStyle(.secondary)
                         if entry.syncState == .pending {
                             Text("conversation.pending").font(.caption).foregroundStyle(.orange)
                         } else if entry.syncState == .failed {
@@ -1039,6 +1166,15 @@ private struct ConversationReplyCard: View {
     private var authorName: String {
         if entry.author.id == currentUserId { return String(localized: "conversation.you") }
         return entry.author.displayName.isEmpty ? entry.author.username : entry.author.displayName
+    }
+
+    private var metadata: String {
+        ConversationPresentation.metadata(
+            typeLabel: nil,
+            timestamp: ConversationPresentation.timestamp(createdAt: entry.createdAt, locale: locale),
+            edited: entry.edited,
+            editedLabel: String(localized: "conversation.edited", locale: locale)
+        )
     }
 
     private var authorBadge: LocalizedStringKey {

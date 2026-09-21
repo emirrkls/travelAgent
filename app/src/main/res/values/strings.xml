@@ -690,6 +690,8 @@
     <string name="action_delete">Delete</string>
     <string name="conversation_title">Questions &amp; comments</string>
     <string name="conversation_subtitle">Ask about this experience or add something useful.</string>
+    <string name="conversation_composer_compact">Ask a question or add a comment</string>
+    <string name="conversation_composer_compact_accessibility">Ask a question or add a comment. Expands the conversation composer.</string>
     <string name="conversation_question">Question</string>
     <string name="conversation_comment">Comment</string>
     <string name="conversation_question_hint">What would you like to know?</string>

@@ -1,8 +1,11 @@
 package com.emirrkls.phokarta
 
+import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.emirrkls.phokarta.core.sync.MutationSyncEngine
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -22,6 +26,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.util.Locale
 
 @HiltAndroidTest
 class Milestone5ConversationFlowTest {
@@ -48,6 +53,7 @@ class Milestone5ConversationFlowTest {
 
         composeRule.onNodeWithText("Is the cove quiet near sunset?").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Author answer").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("Yesterday", substring = true).onFirst().performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(
             "Private-profile participant: bring water; the nearest kiosk closes early.",
         ).performScrollTo().assertIsDisplayed()
@@ -81,7 +87,7 @@ class Milestone5ConversationFlowTest {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText("Can I reach it without a car or taxi?").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Edited").assertIsDisplayed()
+        composeRule.onNodeWithText("Edited", substring = true).performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithTag("conversation_reply_$questionId").performScrollTo().performClick()
         composeRule.onNodeWithTag("conversation_modal_body").performTextInput("The local minibus stops nearby.")
@@ -157,6 +163,32 @@ class Milestone5ConversationFlowTest {
         }
     }
 
+    @Test
+    fun populatedConversationStartsCompactAndExpansionPreservesUnsentDraft() {
+        openConversation()
+
+        composeRule.onNodeWithTag("conversation_compact_composer").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("conversation_composer").assertDoesNotExist()
+        composeRule.onNodeWithTag("conversation_compact_composer").performClick()
+        composeRule.onNodeWithTag("conversation_composer").assertIsDisplayed()
+        composeRule.onNodeWithTag("conversation_composer").performTextInput("Unsent draft")
+        composeRule.onNodeWithTag("conversation_composer_collapse").assertDoesNotExist()
+        composeRule.onNodeWithTag("conversation_composer").assertTextContains("Unsent draft")
+    }
+
+    @Test
+    fun turkishSectionSubtitleMatchesAcceptedCopy() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val configuration = Configuration(context.resources.configuration)
+        configuration.setLocale(Locale.forLanguageTag("tr-TR"))
+        val localized = context.createConfigurationContext(configuration)
+
+        assertEquals(
+            "Bu deneyim hakkında soru sor veya yararlı bir yorum ekle.",
+            localized.getString(R.string.conversation_subtitle),
+        )
+    }
+
     private fun openConversation() {
         composeRule.skipOnboardingIfNeeded()
         composeRule.signInIfNeeded()
@@ -176,6 +208,9 @@ class Milestone5ConversationFlowTest {
     }
 
     private fun createRoot(text: String, comment: Boolean) {
+        if (composeRule.onAllNodesWithTag("conversation_compact_composer").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithTag("conversation_compact_composer").performClick()
+        }
         if (comment) composeRule.onNodeWithText("Comment").performClick()
         composeRule.onNodeWithTag("conversation_composer").performTextInput(text)
         composeRule.onNodeWithTag("conversation_send").performClick()

@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +63,7 @@ import com.emirrkls.phokarta.ui.localization.appLocale
 import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.formatMediumDateLocalized
 import com.emirrkls.phokarta.ui.localization.shouldShowExperienceTitle
+import com.emirrkls.phokarta.ui.presentation.ConversationPresentation
 
 @Composable
 fun ExperienceCard(
@@ -74,7 +77,8 @@ fun ExperienceCard(
     onAcknowledge: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val language = displayLanguage(appLocale())
+    val locale = appLocale()
+    val language = displayLanguage(locale)
     val showTitle = shouldShowExperienceTitle(experience.title, experience.place.name, experience.classification)
     val primaryLabel = experience.primaryExperience.rawLabel?.takeIf(String::isNotBlank)
         ?: ExperienceLabels.primary(experience.primaryExperience.code, language)
@@ -279,9 +283,16 @@ fun ExperienceCard(
                         )
                     }
                 }
-                if (experience.conversationCount > 0) {
+                ConversationPresentation.count(experience.conversationCount, locale)?.let { conversationCount ->
+                    val countAccessibility = androidx.compose.ui.res.pluralStringResource(
+                        R.plurals.conversation_count,
+                        experience.conversationCount.toInt(),
+                        experience.conversationCount,
+                    )
                     Row(
-                        Modifier.padding(top = 7.dp),
+                        Modifier.padding(top = 7.dp).clearAndSetSemantics {
+                            contentDescription = countAccessibility
+                        },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -291,11 +302,7 @@ fun ExperienceCard(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            androidx.compose.ui.res.pluralStringResource(
-                                R.plurals.conversation_count,
-                                experience.conversationCount.toInt(),
-                                experience.conversationCount,
-                            ),
+                            conversationCount.visual,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(start = 5.dp),

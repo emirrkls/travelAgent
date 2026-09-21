@@ -648,7 +648,9 @@
     <string name="action_edit">Düzenle</string>
     <string name="action_delete">Sil</string>
     <string name="conversation_title">Sorular ve yorumlar</string>
-    <string name="conversation_subtitle">Bu deneyim hakkında sor veya yararlı bir bilgi ekle.</string>
+    <string name="conversation_subtitle">Bu deneyim hakkında soru sor veya yararlı bir yorum ekle.</string>
+    <string name="conversation_composer_compact">Soru sor veya yorum ekle</string>
+    <string name="conversation_composer_compact_accessibility">Soru sor veya yorum ekle. Konuşma oluşturucusunu genişletir.</string>
     <string name="conversation_question">Soru</string>
     <string name="conversation_comment">Yorum</string>
     <string name="conversation_question_hint">Neyi merak ediyorsun?</string>

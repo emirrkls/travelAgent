@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -47,11 +48,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +78,9 @@ import com.emirrkls.phokarta.ui.localization.appLocale
 import com.emirrkls.phokarta.ui.localization.displayLanguage
 import com.emirrkls.phokarta.ui.localization.formatLongDateLocalized
 import com.emirrkls.phokarta.ui.localization.shouldShowExperienceTitle
+import com.emirrkls.phokarta.ui.presentation.ConversationComposerMode
+import com.emirrkls.phokarta.ui.presentation.ConversationAuthorBadge
+import com.emirrkls.phokarta.ui.presentation.ConversationPresentation
 import com.emirrkls.phokarta.feature.collections.ExperienceCollectionPickerSheet
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -422,10 +430,24 @@ private fun ConversationSection(
 ) {
     var selectedType by rememberSaveable { mutableStateOf(ConversationEntryType.QUESTION) }
     var body by rememberSaveable { mutableStateOf("") }
+    var composerExpanded by rememberSaveable { mutableStateOf(false) }
     var replyRoot by remember { mutableStateOf<ConversationEntry?>(null) }
     var editEntry by remember { mutableStateOf<ConversationEntry?>(null) }
     var deleteEntry by remember { mutableStateOf<ConversationEntry?>(null) }
     var modalBody by rememberSaveable { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val composerMode = ConversationPresentation.composerMode(
+        visibleRootCount = entries.size,
+        expansionRequested = composerExpanded,
+        draft = body,
+    )
+
+    LaunchedEffect(composerMode, composerExpanded) {
+        if (composerMode == ConversationComposerMode.EXPANDED && composerExpanded) {
+            focusRequester.requestFocus()
+        }
+    }
 
     deleteEntry?.let { entry ->
         AlertDialog(
@@ -508,46 +530,77 @@ private fun ConversationSection(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            Modifier.fillMaxWidth().padding(top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                selected = selectedType == ConversationEntryType.QUESTION,
-                onClick = { selectedType = ConversationEntryType.QUESTION },
-                label = { Text(stringResource(R.string.conversation_question)) },
+        if (composerMode == ConversationComposerMode.COMPACT) {
+            val compactAccessibility = stringResource(R.string.conversation_composer_compact_accessibility)
+            OutlinedButton(
+                onClick = { composerExpanded = true },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    .testTag("conversation_compact_composer")
+                    .semantics { contentDescription = compactAccessibility },
+            ) {
+                Icon(Icons.Rounded.AddComment, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    stringResource(R.string.conversation_composer_compact),
+                    Modifier.padding(start = 8.dp).weight(1f),
+                )
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedType == ConversationEntryType.QUESTION,
+                    onClick = { selectedType = ConversationEntryType.QUESTION },
+                    label = { Text(stringResource(R.string.conversation_question)) },
+                )
+                FilterChip(
+                    selected = selectedType == ConversationEntryType.COMMENT,
+                    onClick = { selectedType = ConversationEntryType.COMMENT },
+                    label = { Text(stringResource(R.string.conversation_comment)) },
+                )
+            }
+            val sendDescription = stringResource(R.string.conversation_send)
+            OutlinedTextField(
+                value = body,
+                onValueChange = { body = it.take(CONVERSATION_BODY_MAX) },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                    .focusRequester(focusRequester).testTag("conversation_composer"),
+                placeholder = {
+                    Text(stringResource(
+                        if (selectedType == ConversationEntryType.QUESTION) R.string.conversation_question_hint
+                        else R.string.conversation_comment_hint,
+                    ))
+                },
+                minLines = 2,
+                maxLines = 5,
+                trailingIcon = {
+                    IconButton(
+                        enabled = body.isNotBlank() && !busy,
+                        onClick = {
+                            onCreate(selectedType, body)
+                            body = ""
+                            composerExpanded = false
+                            focusManager.clearFocus()
+                        },
+                        modifier = Modifier.testTag("conversation_send")
+                            .semantics { contentDescription = sendDescription },
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null)
+                    }
+                },
+                supportingText = { Text("${body.length}/$CONVERSATION_BODY_MAX") },
             )
-            FilterChip(
-                selected = selectedType == ConversationEntryType.COMMENT,
-                onClick = { selectedType = ConversationEntryType.COMMENT },
-                label = { Text(stringResource(R.string.conversation_comment)) },
-            )
+            if (entries.isNotEmpty() && body.isBlank()) {
+                TextButton(
+                    onClick = {
+                        composerExpanded = false
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier.align(Alignment.End).testTag("conversation_composer_collapse"),
+                ) { Text(stringResource(R.string.action_cancel)) }
+            }
         }
-        val sendDescription = stringResource(R.string.conversation_send)
-        OutlinedTextField(
-            value = body,
-            onValueChange = { body = it.take(CONVERSATION_BODY_MAX) },
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("conversation_composer"),
-            placeholder = {
-                Text(stringResource(
-                    if (selectedType == ConversationEntryType.QUESTION) R.string.conversation_question_hint
-                    else R.string.conversation_comment_hint,
-                ))
-            },
-            minLines = 2,
-            maxLines = 5,
-            trailingIcon = {
-                IconButton(
-                    enabled = body.isNotBlank() && !busy,
-                    onClick = { onCreate(selectedType, body); body = "" },
-                    modifier = Modifier.testTag("conversation_send")
-                        .semantics { contentDescription = sendDescription },
-                ) {
-                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null)
-                }
-            },
-            supportingText = { Text("${body.length}/$CONVERSATION_BODY_MAX") },
-        )
         when {
             loading && entries.isEmpty() -> CircularProgressIndicator(
                 Modifier.align(Alignment.CenterHorizontally).padding(20.dp).size(24.dp),
@@ -599,6 +652,25 @@ private fun ConversationEntryCard(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val authorLabel = entry.author.displayName.ifBlank { entry.author.username }
+    val locale = appLocale()
+    val timestamp = ConversationPresentation.timestamp(entry.createdAt, locale = locale)
+    val typeLabel = if (allowReply) {
+        stringResource(
+            if (entry.type == ConversationEntryType.QUESTION) R.string.conversation_question
+            else R.string.conversation_comment,
+        )
+    } else null
+    val metadata = ConversationPresentation.metadata(
+        typeLabel = typeLabel,
+        timestamp = timestamp,
+        edited = entry.edited,
+        editedLabel = stringResource(R.string.conversation_edited),
+    )
+    val authorBadge = ConversationPresentation.authorBadge(
+        experienceAuthor = entry.experienceAuthor,
+        rootType = rootType,
+        isReply = !allowReply,
+    )
     Surface(
         modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
             .testTag("conversation_entry_${entry.id}"),
@@ -613,7 +685,7 @@ private fun ConversationEntryCard(
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(authorLabel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        if (entry.experienceAuthor) {
+                        if (authorBadge != null) {
                             Surface(
                                 modifier = Modifier.padding(start = 6.dp),
                                 shape = RoundedCornerShape(50),
@@ -621,8 +693,11 @@ private fun ConversationEntryCard(
                             ) {
                                 Text(
                                     stringResource(
-                                        if (!allowReply && rootType == ConversationEntryType.QUESTION) R.string.conversation_author_answer
-                                        else R.string.conversation_author_badge,
+                                        if (authorBadge == ConversationAuthorBadge.AUTHOR_ANSWER) {
+                                            R.string.conversation_author_answer
+                                        } else {
+                                            R.string.conversation_author_badge
+                                        },
                                     ),
                                     Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall,
@@ -631,19 +706,9 @@ private fun ConversationEntryCard(
                             }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (allowReply) {
-                            Text(
-                                stringResource(
-                                    if (entry.type == ConversationEntryType.QUESTION) R.string.conversation_question
-                                    else R.string.conversation_comment,
-                                ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        if (entry.edited) Text(
-                            stringResource(R.string.conversation_edited),
+                    Column {
+                        Text(
+                            metadata,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

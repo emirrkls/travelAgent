@@ -1,0 +1,47 @@
+{
+  "geometry_method": "WGS84 center coordinate plus geodesic radius; provider queries use a bbox prefilter and exact Haversine inclusion",
+  "areas": [
+    {
+      "key": "didim",
+      "display_name": "Didim",
+      "center": {"latitude": 37.3751, "longitude": 27.2678},
+      "radius_meters": 12000,
+      "reasoning": "Covers central Didim, Altınkum, the Apollo sanctuary and the principal coastal Place cluster without claiming an administrative boundary."
+    },
+    {
+      "key": "foca",
+      "display_name": "Foça",
+      "center": {"latitude": 38.6703, "longitude": 26.7566},
+      "radius_meters": 10000,
+      "reasoning": "Covers Old and New Foça's main coastal, hospitality and heritage clusters with a provider-neutral circle."
+    },
+    {
+      "key": "bodrum",
+      "display_name": "Bodrum",
+      "center": {"latitude": 37.0344, "longitude": 27.4305},
+      "radius_meters": 15000,
+      "reasoning": "Covers Bodrum center and nearby Gümbet/Bitez tourism clusters while avoiding provider-specific district polygons."
+    },
+    {
+      "key": "cesme",
+      "display_name": "Çeşme",
+      "center": {"latitude": 38.3240, "longitude": 26.3030},
+      "radius_meters": 14000,
+      "reasoning": "Covers Çeşme center, Ilıca, Alaçatı and the peninsula's principal beach and hospitality clusters."
+    },
+    {
+      "key": "kadikoy",
+      "display_name": "Kadıköy",
+      "center": {"latitude": 40.9917, "longitude": 29.0277},
+      "radius_meters": 8000,
+      "reasoning": "Covers the dense Kadıköy urban Place market, including Moda, Fenerbahçe, Caddebostan and Göztepe."
+    },
+    {
+      "key": "antalya_kaleici",
+      "display_name": "Antalya Kaleiçi",
+      "center": {"latitude": 36.8854, "longitude": 30.7048},
+      "radius_meters": 4000,
+      "reasoning": "A compact circle centered on Kaleiçi that includes the old town, harbor and adjacent museum/park cluster."
+    }
+  ]
+}

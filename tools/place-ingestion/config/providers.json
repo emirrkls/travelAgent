@@ -1,0 +1,35 @@
+{
+  "registry_version": 1,
+  "metadata_retrieved_at": "2026-09-24T22:40:08Z",
+  "legal_status": "Architecture metadata only; not legal advice. Human review is required before production use.",
+  "providers": [
+    {
+      "key": "overture",
+      "dataset_name": "Overture Maps Places",
+      "official_documentation": "https://docs.overturemaps.org/guides/places/",
+      "release_discovery": "https://stac.overturemaps.org/catalog.json",
+      "license_documentation": "https://docs.overturemaps.org/attribution/",
+      "license_identifier": "CDLA-Permissive-2.0 OR Apache-2.0 OR CC0-1.0 (source-dependent)",
+      "documented_release": "2026-09-23.0",
+      "documented_schema": "v2.0.0",
+      "attribution_requirement": "Preserve per-record source/license metadata and review source-specific official attribution.",
+      "authentication": "None for official public S3/Azure release data",
+      "delta_support": "Monthly data changelog, GERS registry and bridge files",
+      "stable_id_behavior": "GERS ID is an external identity only and may be reconciled through bridge artifacts"
+    },
+    {
+      "key": "fsq",
+      "dataset_name": "Foursquare Open Source Places",
+      "official_documentation": "https://docs.foursquare.com/data-products/docs/access-fsq-os-places",
+      "release_discovery": "Authenticated Places Portal Iceberg catalog snapshot",
+      "license_documentation": "https://docs.foursquare.com/data-products/docs/fsq-places-open-source",
+      "license_identifier": "Apache-2.0",
+      "documented_release": "September 2026 monthly release",
+      "documented_schema": "FSQ OS Places current schema",
+      "attribution_requirement": "Retain the Apache-2.0 license and applicable notices.",
+      "authentication": "FSQ Places Portal access token",
+      "delta_support": "Monthly delta actions: add, update, merge with redirect, remove",
+      "stable_id_behavior": "FSQ Place ID is an external identity only; merge redirects must not replace a Phokarta UUID"
+    }
+  ]
+}

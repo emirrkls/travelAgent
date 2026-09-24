@@ -1,0 +1,2 @@
+# Runtime dependency used for predicate-pushed GeoParquet and Iceberg queries.
+duckdb==1.4.0

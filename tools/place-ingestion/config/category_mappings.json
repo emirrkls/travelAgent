@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "principle": "Neutral benchmark buckets only; these mappings do not define Phokarta Place or Experience taxonomy. First unambiguous match wins; uncertainty remains UNMAPPED.",
+  "providers": {
+    "overture": {
+      "exact": {
+        "restaurant": "RESTAURANT",
+        "cafe": "CAFE",
+        "coffee_shop": "CAFE",
+        "bar": "BAR_NIGHTLIFE",
+        "pub": "BAR_NIGHTLIFE",
+        "nightclub": "BAR_NIGHTLIFE",
+        "hotel": "HOTEL_LODGING",
+        "hostel": "HOTEL_LODGING",
+        "resort": "HOTEL_LODGING",
+        "beach": "BEACH",
+        "museum": "MUSEUM",
+        "historic_site": "HISTORIC_PLACE",
+        "archaeological_site": "HISTORIC_PLACE",
+        "monument": "HISTORIC_PLACE",
+        "castle": "HISTORIC_PLACE",
+        "park": "PARK",
+        "garden": "PARK",
+        "viewpoint": "VIEWPOINT",
+        "scenic_lookout": "VIEWPOINT",
+        "market": "MARKET",
+        "marketplace": "MARKET",
+        "bazaar": "MARKET"
+      },
+      "contains": [
+        {"token": "restaurant", "category": "RESTAURANT"},
+        {"token": "cafe", "category": "CAFE"},
+        {"token": "coffee", "category": "CAFE"},
+        {"token": "bar", "category": "BAR_NIGHTLIFE"},
+        {"token": "nightclub", "category": "BAR_NIGHTLIFE"},
+        {"token": "hotel", "category": "HOTEL_LODGING"},
+        {"token": "lodging", "category": "HOTEL_LODGING"},
+        {"token": "guest_house", "category": "HOTEL_LODGING"},
+        {"token": "beach", "category": "BEACH"},
+        {"token": "museum", "category": "MUSEUM"},
+        {"token": "historic", "category": "HISTORIC_PLACE"},
+        {"token": "archaeological", "category": "HISTORIC_PLACE"},
+        {"token": "fortress", "category": "HISTORIC_PLACE"},
+        {"token": "ruins", "category": "HISTORIC_PLACE"},
+        {"token": "park", "category": "PARK"},
+        {"token": "garden", "category": "PARK"},
+        {"token": "viewpoint", "category": "VIEWPOINT"},
+        {"token": "lookout", "category": "VIEWPOINT"},
+        {"token": "market", "category": "MARKET"},
+        {"token": "bazaar", "category": "MARKET"}
+      ]
+    },
+    "fsq": {
+      "exact": {
+        "4bf58dd8d48988d1c4941735": "RESTAURANT",
+        "4bf58dd8d48988d16d941735": "CAFE",
+        "4bf58dd8d48988d116941735": "BAR_NIGHTLIFE",
+        "4bf58dd8d48988d1fa931735": "HOTEL_LODGING",
+        "4bf58dd8d48988d1e2941735": "BEACH",
+        "4bf58dd8d48988d181941735": "MUSEUM",
+        "4deefb944765f83613cdba6e": "HISTORIC_PLACE",
+        "4bf58dd8d48988d163941735": "PARK",
+        "4bf58dd8d48988d165941735": "VIEWPOINT",
+        "50be8ee891d4fa8dcc7199a7": "MARKET",
+        "63be6904847c3692a84b9bb8": "MARKET"
+      },
+      "contains": [
+        {"token": "restaurant", "category": "RESTAURANT"},
+        {"token": "cafe", "category": "CAFE"},
+        {"token": "coffee", "category": "CAFE"},
+        {"token": "bar", "category": "BAR_NIGHTLIFE"},
+        {"token": "nightlife", "category": "BAR_NIGHTLIFE"},
+        {"token": "night_club", "category": "BAR_NIGHTLIFE"},
+        {"token": "hotel", "category": "HOTEL_LODGING"},
+        {"token": "hostel", "category": "HOTEL_LODGING"},
+        {"token": "resort", "category": "HOTEL_LODGING"},
+        {"token": "bed_and_breakfast", "category": "HOTEL_LODGING"},
+        {"token": "beach", "category": "BEACH"},
+        {"token": "museum", "category": "MUSEUM"},
+        {"token": "historic", "category": "HISTORIC_PLACE"},
+        {"token": "archaeological", "category": "HISTORIC_PLACE"},
+        {"token": "monument", "category": "HISTORIC_PLACE"},
+        {"token": "castle", "category": "HISTORIC_PLACE"},
+        {"token": "park", "category": "PARK"},
+        {"token": "garden", "category": "PARK"},
+        {"token": "scenic_lookout", "category": "VIEWPOINT"},
+        {"token": "viewpoint", "category": "VIEWPOINT"},
+        {"token": "market", "category": "MARKET"},
+        {"token": "bazaar", "category": "MARKET"}
+      ]
+    }
+  }
+}

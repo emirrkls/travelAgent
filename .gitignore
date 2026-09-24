@@ -32,6 +32,14 @@ backups/
 *.dump.managed-by-phokarta-backup
 backend/boot-*.log
 
+# Isolated Place benchmark: generated/provider data stays outside Git.
+tools/place-ingestion/.venv/
+tools/place-ingestion/.pytest_cache/
+tools/place-ingestion/**/__pycache__/
+tools/place-ingestion/output/
+tools/place-ingestion/**/*.parquet
+tools/place-ingestion/**/*.csv
+
 # iOS (XcodeGen source is tracked; the Xcode project is generated on a Mac)
 ios/Config/Local.xcconfig
 ios/DerivedData/

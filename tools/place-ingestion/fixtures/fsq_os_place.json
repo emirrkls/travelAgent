@@ -1,0 +1,20 @@
+{
+  "fsq_place_id": "4examplefsqid",
+  "name": "İnci Kafe",
+  "latitude": 40.99171,
+  "longitude": 29.02771,
+  "address": "Moda Cad. 1",
+  "locality": "Kadıköy",
+  "region": "İstanbul",
+  "postcode": "34710",
+  "country": "TR",
+  "date_created": "2018-04-01",
+  "date_refreshed": "2026-08-20",
+  "date_closed": null,
+  "tel": "+90 212 000 00 00",
+  "website": "https://example.test",
+  "fsq_category_ids": ["4bf58dd8d48988d16d941735"],
+  "fsq_category_labels": ["Café"],
+  "unresolved_flags": [],
+  "_area": "kadikoy"
+}

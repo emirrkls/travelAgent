@@ -1,0 +1,7 @@
+{
+  "id": "legacy-example",
+  "names": {"primary": "Legacy Cafe"},
+  "categories": {"primary": "cafe", "alternate": []},
+  "longitude": 29.0,
+  "latitude": 41.0
+}

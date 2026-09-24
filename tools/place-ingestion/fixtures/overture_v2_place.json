@@ -1,0 +1,16 @@
+{
+  "id": "08f2a107-7b19-4d3c-a386-example000001",
+  "version": 3,
+  "names": {"primary": "İnci Kafe", "common": {"tr": "İnci Kafe"}},
+  "basic_category": "cafe",
+  "taxonomy": {"primary": "coffee_shop", "hierarchy": ["cafe", "food_and_drink"], "alternates": []},
+  "confidence": 0.91,
+  "operating_status": "open",
+  "websites": ["https://example.test"],
+  "phones": ["+90 212 000 00 00"],
+  "addresses": [{"freeform": "Moda Cad. 1", "locality": "Kadıköy", "region": "İstanbul", "country": "TR", "postcode": "34710"}],
+  "sources": [{"dataset": "example", "license": "CDLA-Permissive-2.0", "update_time": "2026-09-01T00:00:00Z"}],
+  "longitude": 29.0277,
+  "latitude": 40.9917,
+  "_area": "kadikoy"
+}

@@ -476,3 +476,13 @@ The Turkish section subtitle is finalized as `Bu deneyim hakkında soru sor veya
 This closure changes no backend source, API contract, Flyway migration, Product Contract, conversation visibility, one-level reply rule, permissions, block/report behavior, viewer-relative count semantics, account deletion, idempotency, or Android Room/iOS SQLite queue architecture. The existing healthy Milestone 5 beta deployment remains authoritative and is not redeployed.
 
 Milestone 5 does not begin a later milestone. After this final design-review closure, control returns to the product owner.
+
+## Milestone 5.5A: Place Data Foundation — Provider Benchmark + Ingestion Architecture
+
+Milestone 5.5A is an isolated tooling and evidence milestone. It changes no backend runtime source, mobile source, public contract, Flyway schema, beta data or deployment. The canonical Place invariant remains `places.id` as the only Phokarta Place identity; Overture GERS and FSQ Place IDs are removable external aliases/provenance only.
+
+`tools/place-ingestion/` adds a standalone Python/DuckDB benchmark with a provider interface, current Overture schema-v2 adapter, Places Portal/Iceberg FSQ adapter, normalized source model, machine-readable license registry, fixed public pilot circles, neutral category mappings, deterministic Turkish-safe name normalization, quality filters, duplicate candidates, cross-provider matching, known-place recall, fixed-seed review sampling and report generation. Offline tests require no provider network or credential.
+
+The Overture benchmark pins release `2026-09-23.0` / schema `v2.0.0` after supporting STAC latest-release discovery. It uses `basic_category` and `taxonomy`; legacy `categories` input fails closed. The six scoped queries returned 152,723 raw and 142,874 usable rows. Detailed coverage, quality, recall, category, duplicate, performance and provenance results are stored outside Git at `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A\20260925_013702` and summarized in `PHOKARTA_PLACE_DATA_FOUNDATION.md`.
+
+No `FSQ_PLACES_TOKEN` was configured. The FSQ benchmark and cross-provider comparison were therefore not run, no FSQ result was fabricated, and no provider winner was selected. Milestone status is **B. PARTIAL — WAITING FOR FSQ ACCESS**. The minimal next action is to create a Foursquare Places Portal access token, set it as `FSQ_PLACES_TOKEN`, and rerun the same benchmark. Milestone 5.5B remains blocked on human approval of provider strategy, persistence design and Turkey pilot scope.

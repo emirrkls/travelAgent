@@ -74,10 +74,9 @@ class AccountDeletionMinioIntegrationTest {
 
     @Container
     static final GenericContainer<?> MINIO = new GenericContainer<>(
-            DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z"))
+            DockerImageName.parse("bitnamilegacy/minio:2025.7.23-debian-12-r5"))
             .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
             .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
-            .withCommand("server", "/data")
             .withExposedPorts(9000)
             .waitingFor(Wait.forHttp("/minio/health/live").forPort(9000).forStatusCode(200));
 

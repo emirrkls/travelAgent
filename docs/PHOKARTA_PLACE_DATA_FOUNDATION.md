@@ -412,8 +412,20 @@ the approved Phase B manifest and has not run the importer against beta.
 
 ### Live Didim dry run
 
-The authoritative package is
-`C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\20260925_1742`.
+The first package at
+`C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\20260925_1742`
+is superseded and must not be ingested. Human review found that unrestricted
+substring category rules mapped `barber` to `BAR`,
+`hardware_home_and_garden_store` to `NATURE`, `public_*` to `BAR`, and
+parking/amusement/trailer concepts to `NATURE`. The same audit found related
+collisions for restaurant equipment, supermarket, retail garden center,
+cafeteria/gaming/internet café, and ski-resort concepts. Generic retail
+market/marketplace/bazaar values were also removed from the `ATTRACTION` mapping;
+they remain unmapped because the production Place taxonomy has no safe retail
+equivalent.
+
+The corrected authoritative package is
+`C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\20260925_2145_category_fix`.
 It pins Overture release `2026-09-23.0` / schema `v2.0.0` and FSQ snapshot
 `2325979374271449319` resolved at `2026-09-15 20:07:45.157000`.
 
@@ -424,10 +436,17 @@ It pins Overture release `2026-09-23.0` / schema `v2.0.0` and FSQ snapshot
 | Rejected observations | 161 | 1,133 | 1,294 |
 
 The 17,630 usable observations produce 16,135 canonical candidate groups:
-`AUTO_LINK 0`, `REVIEW_REQUIRED 12,527`, and `CREATE_NEW 3,608`. The current beta
+`AUTO_LINK 0`, `REVIEW_REQUIRED 13,111`, and `CREATE_NEW 3,024`. The current beta
 Place feed contains zero canonical Places in Didim Core, so existing matches and
 genuine AUTO_LINK candidates are both zero. Cross-provider agreement can group
 source observations but cannot manufacture a pre-existing canonical UUID.
+
+Compared with the superseded package, 584 candidates moved from `CREATE_NEW` to
+`REVIEW_REQUIRED`; no candidate moved in the less conservative direction.
+Production category proposals changed for 462 candidates. Website proposals
+changed for 509 candidates, including 484 values removed from canonical proposals
+while their raw provider values remain in source provenance. The corrected package
+contains the complete row-level audit and before/after category counts.
 
 All candidate geometries are within the frozen radius (maximum `5,999.996 m`). The
 30-row physical-validation sample is geographically distributed and contains 15
@@ -443,7 +462,12 @@ Matching is deterministic and staged: trusted existing external reference,
 provider redirect/crosswalk, high-confidence cross-provider grouping, then
 multi-signal comparison with an existing canonical Place. Distance or name alone
 never authorizes a merge. Overture proposes canonical fields first and FSQ may fill
-gaps; geometry is selected by provenance rather than averaged. Category conflict,
+gaps; geometry is selected by provenance rather than averaged. Production category
+mapping uses only exact values, whole-token sets, and bounded provider-taxonomy
+prefixes. Unknown and partially unmapped provider categories require review.
+Canonical websites require a public HTTP(S) domain and deterministic Place-name
+identity evidence; parseable but identity-unverified values and social-handle-like
+values are retained only in provenance. Category conflict,
 tourism nesting, same-provider duplicates, branch ambiguity, and weak evidence stay
 `REVIEW_REQUIRED`. Clearly unusable observations alone are `REJECT`.
 

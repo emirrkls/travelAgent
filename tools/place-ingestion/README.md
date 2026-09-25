@@ -114,7 +114,16 @@ The first canonicalization pilot is frozen to **Didim Core**, centered at
 circle is future expansion scope and is deliberately excluded. Production
 category proposals map into the existing `PlaceCategory` enum through
 `config/production_category_mappings.json`; the benchmark taxonomy is not reused
-as a production taxonomy.
+as a production taxonomy. Production mappings are limited to exact values,
+whole-token sets, and bounded provider-taxonomy prefixes. Raw substring matching
+is forbidden, so concepts such as `barber`, `public_plaza`, `parking`, and
+`hardware_home_and_garden_store` cannot inherit categories from embedded words.
+Unknown categories stay unmapped and require review.
+
+Canonical website proposals must use a public HTTP(S) host and have a meaningful
+identity token in common with the provider Place name. Bare/social-handle-like,
+social-profile, malformed, and identity-unverified values remain in source
+provenance but are excluded from the canonical proposal and require review.
 
 Run the read-only planner against both pinned providers and the current canonical
 Place feed:
@@ -125,6 +134,19 @@ python -m phokarta_place_ingestion didim-dry-run `
   --release latest `
   --output "C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\<timestamp>"
 ```
+
+To reproduce the complete plan from the exact preserved observations, provider
+versions, source hashes, and original retrieval metadata in an earlier package:
+
+```powershell
+python -m phokarta_place_ingestion didim-dry-run `
+  --source-package <prior-dry-run-package> `
+  --output <new-empty-output-directory>
+```
+
+The replay verifies every normalized source hash, provider count, candidate
+identity set, and the 6 km geometry. It also writes before/after category counts
+and a row-level candidate-change audit.
 
 The planner performs no database writes. It retains source observations, produces
 one decision per candidate (`AUTO_LINK`, `REVIEW_REQUIRED`, or `CREATE_NEW`),

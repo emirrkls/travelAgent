@@ -55,6 +55,16 @@ class ConfigurationTest(unittest.TestCase):
         self.assertEqual(mapper.map("overture", ["italian_restaurant"]), BenchmarkCategory.RESTAURANT)
         self.assertEqual(mapper.map("fsq", ["Café"]), BenchmarkCategory.CAFE)
 
+    def test_production_category_mapping_has_no_substring_rules(self):
+        mapping = read_json(DEFAULT_CONFIG_DIR / "production_category_mappings.json")
+        self.assertEqual(mapping["version"], 2)
+        for provider, rules in mapping["providers"].items():
+            with self.subTest(provider=provider):
+                self.assertNotIn("contains", rules)
+                self.assertEqual(
+                    set(rules), {"exact", "token_sets", "taxonomy_prefixes"}
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

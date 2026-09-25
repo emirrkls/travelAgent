@@ -6,6 +6,7 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
+from .canonical_attributes import canonical_website_domain, validate_canonical_website
 from .matching import (
     LinkSignals,
     categories_compatible,
@@ -13,7 +14,6 @@ from .matching import (
     cross_provider_matches,
     duplicate_candidates,
     name_similarity,
-    website_domain,
 )
 from .models import NormalizedPlace
 from .normalization import haversine_meters, normalize_name, valid_coordinate
@@ -21,7 +21,7 @@ from .production_categories import ProductionCategoryMapper
 from .quality import assess_quality
 
 
-CANONICALIZATION_METHOD_VERSION = "didim-canonicalization-v1"
+CANONICALIZATION_METHOD_VERSION = "didim-canonicalization-v2"
 _PHONE_DIGITS = re.compile(r"\D+")
 
 
@@ -111,7 +111,12 @@ def _first(values: Iterable[str | None]) -> str | None:
 
 
 def _source_row(place: NormalizedPlace, category: str | None) -> dict[str, Any]:
+    website_decision = validate_canonical_website(
+        place.website,
+        identity_names=(place.name, *place.name_variants),
+    )
     return {
+        **place.to_dict(),
         "provider": place.provider,
         "external_id": place.external_id,
         "source_release": place.source_release,
@@ -127,7 +132,11 @@ def _source_row(place: NormalizedPlace, category: str | None) -> dict[str, Any]:
         "provider_categories": list(place.categories),
         "proposed_place_category": category,
         "phone": place.phone,
+        # The source website stays byte-for-byte visible for provenance even when it is
+        # too weak or malformed to become a canonical proposal.
         "website": place.website,
+        "canonical_website_eligible": bool(website_decision.canonical_value),
+        "website_validation_reason": website_decision.reason,
         "operating_status": place.operating_status,
         "observed_at": place.refreshed_date or place.created_date,
         "provenance": place.source_metadata,
@@ -146,11 +155,12 @@ def _proposal(
     if not mapped:
         risks.append("CATEGORY_UNMAPPED")
         category = None
-    elif len(set(mapped)) > 1:
-        risks.append("CATEGORY_CONFLICT")
-        category = mapped[0]
     else:
         category = mapped[0]
+        if any(decision.category is None for decision in category_decisions):
+            risks.append("CATEGORY_SOURCE_UNMAPPED")
+        if len(set(mapped)) > 1:
+            risks.append("CATEGORY_CONFLICT")
     if len(ordered) == 2:
         distance = haversine_meters(
             float(ordered[0].latitude), float(ordered[0].longitude),
@@ -158,6 +168,29 @@ def _proposal(
         )
         if distance > 30:
             risks.append("COORDINATE_DISAGREEMENT")
+    website_decisions = []
+    for row in ordered:
+        peer_websites = [peer.website for peer in ordered if peer is not row and peer.website]
+        decision = validate_canonical_website(
+            row.website,
+            identity_names=(row.name, *row.name_variants),
+            corroborating_values=peer_websites,
+        )
+        if row.website:
+            website_decisions.append((row, decision))
+            if not decision.canonical_value:
+                if decision.reason == "social_profile_not_canonical_website":
+                    risks.append("WEBSITE_SOCIAL_PROFILE")
+                elif decision.reason == "identity_unverified":
+                    risks.append("WEBSITE_IDENTITY_UNVERIFIED")
+                else:
+                    risks.append("WEBSITE_INVALID")
+    accepted_websites = [
+        decision for _, decision in website_decisions if decision.canonical_value
+    ]
+    if len({decision.domain for decision in accepted_websites}) > 1:
+        risks.append("WEBSITE_PROVIDER_CONFLICT")
+
     primary = overture or fsq
     assert primary is not None
     return {
@@ -170,7 +203,7 @@ def _proposal(
         "region": _first(row.region for row in ordered) or "Aydın",
         "country": _first(row.country_code for row in ordered) or "TR",
         "phone": _first(row.phone for row in ordered),
-        "website": _first(row.website for row in ordered),
+        "website": _first(decision.canonical_value for decision in accepted_websites),
     }, risks
 
 
@@ -209,8 +242,9 @@ def _existing_evidence(
             and _phone_key(proposal.get("phone")) == _phone_key(existing.phone)
         ),
         website_domain_exact=bool(
-            website_domain(proposal.get("website"))
-            and website_domain(proposal.get("website")) == website_domain(existing.website)
+            canonical_website_domain(proposal.get("website"))
+            and canonical_website_domain(proposal.get("website"))
+            == canonical_website_domain(existing.website)
         ),
         address_similarity=name_similarity(proposal.get("address"), existing.address),
         category_compatible=proposal.get("category") == existing.category,
@@ -281,9 +315,11 @@ def build_canonicalization_plan(
     usable: dict[str, list[NormalizedPlace]] = {"overture": [], "fsq": []}
     source_records: list[dict[str, Any]] = []
     for provider, rows in (("overture", overture), ("fsq", fsq)):
-        for row in rows:
+        for source_sequence, row in enumerate(rows):
             category = mapper.map(provider, row.categories).category
-            source_records.append(_source_row(row, category))
+            source_record = _source_row(row, category)
+            source_record["source_sequence"] = source_sequence
+            source_records.append(source_record)
             decision = assess_quality(row)
             if decision.usable:
                 usable[provider].append(row)

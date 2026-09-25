@@ -42,13 +42,34 @@ class ProductionCategoryMapper:
             if category:
                 self._validate(category)
                 return ProductionCategoryDecision(category, value, "exact")
+
         for value in normalized:
-            for row in provider_map.get("contains", []):
-                token = normalize_name(row["token"]).replace(" ", "_")
-                if token and token in value:
+            tokens = frozenset(token for token in value.split("_") if token)
+            for row in provider_map.get("token_sets", []):
+                required = frozenset(
+                    normalize_name(token).replace(" ", "_")
+                    for token in row.get("all", [])
+                )
+                forbidden = frozenset(
+                    normalize_name(token).replace(" ", "_")
+                    for token in row.get("none", [])
+                )
+                if required and required.issubset(tokens) and not forbidden.intersection(tokens):
                     category = row["category"]
                     self._validate(category)
-                    return ProductionCategoryDecision(category, value, f"contains:{token}")
+                    return ProductionCategoryDecision(
+                        category, value, f"token_set:{'+'.join(sorted(required))}"
+                    )
+
+        for value in normalized:
+            for row in provider_map.get("taxonomy_prefixes", []):
+                prefix = normalize_name(row["prefix"]).replace(" ", "_")
+                if prefix and (value == prefix or value.startswith(prefix + "_")):
+                    category = row["category"]
+                    self._validate(category)
+                    return ProductionCategoryDecision(
+                        category, value, f"taxonomy_prefix:{prefix}"
+                    )
         return ProductionCategoryDecision(None, None, "unmapped")
 
     @staticmethod

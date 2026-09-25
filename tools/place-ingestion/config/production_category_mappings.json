@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "principle": "Provider categories map directly to the existing Phokarta PlaceCategory values. Missing or ambiguous mappings require review; they never become Experience taxonomy.",
+  "version": 2,
+  "principle": "Provider categories map directly to the existing Phokarta PlaceCategory values only through exact values, whole-token sets, or provider-taxonomy prefixes. Missing or ambiguous mappings require review; raw substring matches are forbidden and categories never become Experience taxonomy.",
   "providers": {
     "overture": {
       "exact": {
@@ -21,34 +21,17 @@
         "castle": "ATTRACTION",
         "viewpoint": "ATTRACTION",
         "scenic_lookout": "ATTRACTION",
-        "market": "ATTRACTION",
-        "marketplace": "ATTRACTION",
-        "bazaar": "ATTRACTION",
         "park": "NATURE",
         "garden": "NATURE"
       },
-      "contains": [
-        {"token":"restaurant","category":"RESTAURANT"},
-        {"token":"cafe","category":"CAFE"},
-        {"token":"coffee","category":"CAFE"},
-        {"token":"nightclub","category":"NIGHTLIFE"},
-        {"token":"nightlife","category":"NIGHTLIFE"},
-        {"token":"bar","category":"BAR"},
-        {"token":"pub","category":"BAR"},
-        {"token":"hotel","category":"HOTEL"},
-        {"token":"hostel","category":"HOTEL"},
-        {"token":"resort","category":"HOTEL"},
-        {"token":"beach","category":"BEACH"},
-        {"token":"museum","category":"ATTRACTION"},
-        {"token":"historic","category":"ATTRACTION"},
-        {"token":"archaeological","category":"ATTRACTION"},
-        {"token":"monument","category":"ATTRACTION"},
-        {"token":"viewpoint","category":"ATTRACTION"},
-        {"token":"lookout","category":"ATTRACTION"},
-        {"token":"market","category":"ATTRACTION"},
-        {"token":"bazaar","category":"ATTRACTION"},
-        {"token":"park","category":"NATURE"},
-        {"token":"garden","category":"NATURE"}
+      "token_sets": [
+        {"all":["fast","food","restaurant"],"none":["equipment","supply"],"category":"RESTAURANT"},
+        {"all":["nightlife","venue"],"category":"NIGHTLIFE"},
+        {"all":["cultural","historic"],"category":"ATTRACTION"},
+        {"all":["amusement","park"],"category":"ATTRACTION"},
+        {"all":["beer","garden"],"category":"BAR"}
+      ],
+      "taxonomy_prefixes": [
       ]
     },
     "fsq": {
@@ -62,30 +45,23 @@
         "4deefb944765f83613cdba6e": "ATTRACTION",
         "4bf58dd8d48988d163941735": "NATURE",
         "4bf58dd8d48988d165941735": "ATTRACTION",
-        "50be8ee891d4fa8dcc7199a7": "ATTRACTION",
         "63be6904847c3692a84b9bb8": "ATTRACTION"
       },
-      "contains": [
-        {"token":"restaurant","category":"RESTAURANT"},
-        {"token":"cafe","category":"CAFE"},
-        {"token":"coffee","category":"CAFE"},
-        {"token":"night_club","category":"NIGHTLIFE"},
-        {"token":"nightlife","category":"NIGHTLIFE"},
-        {"token":"bar","category":"BAR"},
-        {"token":"pub","category":"BAR"},
-        {"token":"hotel","category":"HOTEL"},
-        {"token":"hostel","category":"HOTEL"},
-        {"token":"resort","category":"HOTEL"},
-        {"token":"beach","category":"BEACH"},
-        {"token":"museum","category":"ATTRACTION"},
-        {"token":"historic","category":"ATTRACTION"},
-        {"token":"archaeological","category":"ATTRACTION"},
-        {"token":"monument","category":"ATTRACTION"},
-        {"token":"viewpoint","category":"ATTRACTION"},
-        {"token":"lookout","category":"ATTRACTION"},
-        {"token":"market","category":"ATTRACTION"},
-        {"token":"park","category":"NATURE"},
-        {"token":"garden","category":"NATURE"}
+      "token_sets": [],
+      "taxonomy_prefixes": [
+        {"prefix":"dining_and_drinking_restaurant","category":"RESTAURANT"},
+        {"prefix":"dining_and_drinking_cafe_coffee_and_tea_house","category":"CAFE"},
+        {"prefix":"dining_and_drinking_bar","category":"BAR"},
+        {"prefix":"arts_and_entertainment_night_club","category":"NIGHTLIFE"},
+        {"prefix":"travel_and_transportation_lodging_hotel","category":"HOTEL"},
+        {"prefix":"travel_and_transportation_lodging_hostel","category":"HOTEL"},
+        {"prefix":"travel_and_transportation_lodging_resort","category":"HOTEL"},
+        {"prefix":"landmarks_and_outdoors_nudist_beach","category":"BEACH"},
+        {"prefix":"arts_and_entertainment_museum","category":"ATTRACTION"},
+        {"prefix":"landmarks_and_outdoors_garden","category":"NATURE"},
+        {"prefix":"landmarks_and_outdoors_botanical_garden","category":"NATURE"},
+        {"prefix":"landmarks_and_outdoors_sculpture_garden","category":"NATURE"},
+        {"prefix":"landmarks_and_outdoors_park","category":"NATURE"}
       ]
     }
   }

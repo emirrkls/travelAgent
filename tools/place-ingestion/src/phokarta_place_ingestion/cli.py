@@ -30,6 +30,11 @@ def _parser() -> argparse.ArgumentParser:
     pilot.add_argument("--output", required=True, type=Path)
     pilot.add_argument("--existing-places-url", default=DEFAULT_EXISTING_PLACES_URL)
     pilot.add_argument("--existing-places-file", type=Path)
+    pilot.add_argument(
+        "--source-package",
+        type=Path,
+        help="replay the exact source records and provider versions from a prior Didim package",
+    )
     sample = subparsers.add_parser(
         "rebuild-didim-review-sample",
         help="rebuild only the field-review sample from an existing dry-run package",
@@ -81,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             fsq_release=args.fsq_release,
             existing_places_url=None if args.existing_places_file else args.existing_places_url,
             existing_places_file=args.existing_places_file,
+            source_package=args.source_package,
         )
         print(json.dumps({
             "status": result["summary"]["status"],

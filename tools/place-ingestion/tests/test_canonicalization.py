@@ -57,6 +57,39 @@ class ProductionCategoryTest(unittest.TestCase):
     def test_uncertain_category_stays_unmapped(self):
         self.assertIsNone(ProductionCategoryMapper().map("overture", ["unknown_thing"]).category)
 
+    def test_whole_token_rules_do_not_match_substrings(self):
+        mapper = ProductionCategoryMapper()
+        for provider, value in (
+            ("overture", "barber"),
+            ("overture", "hardware_home_and_garden_store"),
+            ("overture", "public_plaza"),
+            ("overture", "parking"),
+            ("overture", "restaurant_equipment_and_supply"),
+            ("overture", "market"),
+            ("fsq", "Travel and Transportation > Parking"),
+            ("fsq", "Retail > Food and Beverage Retail > Supermarket"),
+            ("fsq", "Retail > Garden Center"),
+            ("fsq", "50be8ee891d4fa8dcc7199a7"),
+            ("fsq", "Retail > Flea Market"),
+        ):
+            with self.subTest(provider=provider, value=value):
+                self.assertIsNone(mapper.map(provider, [value]).category)
+
+    def test_provider_taxonomy_prefixes_are_bounded(self):
+        mapper = ProductionCategoryMapper()
+        self.assertEqual(
+            mapper.map(
+                "fsq",
+                ["Dining and Drinking > Restaurant > Turkish Restaurant > Meyhane"],
+            ).category,
+            "RESTAURANT",
+        )
+        self.assertEqual(
+            mapper.map("fsq", ["Landmarks and Outdoors > Park > National Park"]).category,
+            "NATURE",
+        )
+        self.assertEqual(mapper.map("overture", ["beer_garden"]).category, "BAR")
+
 
 class CanonicalizationTest(unittest.TestCase):
     def test_exact_external_ref_auto_links_without_overwriting_canonical(self):
@@ -73,7 +106,10 @@ class CanonicalizationTest(unittest.TestCase):
     def test_high_confidence_overture_and_fsq_form_one_create_group(self):
         plan = build_canonicalization_plan(
             [source("overture", "o-1")],
-            [source("fsq", "f-1", latitude=37.37511, longitude=27.26781)],
+            [source(
+                "fsq", "f-1", latitude=37.37511, longitude=27.26781,
+                categories=("4bf58dd8d48988d16d941735",),
+            )],
             [],
         )
         self.assertEqual(len(plan.candidates), 1)
@@ -123,6 +159,22 @@ class CanonicalizationTest(unittest.TestCase):
         self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
         self.assertIn("CATEGORY_UNMAPPED", plan.candidates[0].risk_flags)
 
+    def test_one_unmapped_provider_category_keeps_group_in_review(self):
+        plan = build_canonicalization_plan(
+            [source("overture", "o-1", categories=("restaurant",))],
+            [
+                source(
+                    "fsq", "f-1", categories=("unfamiliar_service",),
+                    latitude=37.37511, longitude=27.26781,
+                    category=BenchmarkCategory.UNMAPPED,
+                )
+            ],
+            [],
+        )
+        self.assertEqual(plan.candidates[0].proposed_category, "RESTAURANT")
+        self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
+        self.assertIn("CATEGORY_SOURCE_UNMAPPED", plan.candidates[0].risk_flags)
+
     def test_unusable_record_is_rejected(self):
         plan = build_canonicalization_plan([source("overture", "o-1", name=None)], [], [])
         self.assertEqual(plan.candidates, ())
@@ -133,13 +185,56 @@ class CanonicalizationTest(unittest.TestCase):
         overture = source("overture", "o-1", name="Overture Name", phone=None, website=None)
         fsq = source(
             "fsq", "f-1", name="Overture Name", latitude=37.37511, longitude=27.26781,
-            phone="+90 256 000 00 00", website="https://example.test",
+            phone="+90 256 000 00 00", website="https://overturename.com",
         )
         candidate = build_canonicalization_plan([overture], [fsq], []).candidates[0]
         self.assertEqual(candidate.proposed_name, "Overture Name")
         self.assertEqual(candidate.phone, "+90 256 000 00 00")
-        self.assertEqual(candidate.website, "https://example.test")
+        self.assertEqual(candidate.website, "https://overturename.com")
         self.assertEqual(candidate.latitude, overture.latitude)
+
+    def test_social_handle_like_website_is_excluded_but_preserved_in_provenance(self):
+        raw_website = "http://@vetturcafebar"
+        plan = build_canonicalization_plan([
+            source(
+                "overture", "o-1", name="Vettur Cafe and Bar",
+                categories=("bar",), website=raw_website,
+            )
+        ], [], [])
+        candidate = plan.candidates[0]
+        self.assertIsNone(candidate.website)
+        self.assertIn("WEBSITE_INVALID", candidate.risk_flags)
+        self.assertEqual(candidate.classification, "REVIEW_REQUIRED")
+        self.assertEqual(plan.source_records[0]["website"], raw_website)
+        self.assertFalse(plan.source_records[0]["canonical_website_eligible"])
+
+    def test_unrelated_valid_website_is_excluded_but_preserved_in_provenance(self):
+        raw_website = "http://www.altinkumrentacar.com"
+        plan = build_canonicalization_plan(
+            [
+                source(
+                    "overture", "o-1", name="Didim Denizlililer Lokali",
+                    categories=("restaurant",), website=raw_website,
+                )
+            ],
+            [
+                source(
+                    "fsq", "f-1", name="Didim Denizlililer Lokali",
+                    categories=("4bf58dd8d48988d16d941735",), website=raw_website,
+                    latitude=37.37511, longitude=27.26781,
+                )
+            ],
+            [],
+        )
+        candidate = plan.candidates[0]
+        self.assertIsNone(candidate.website)
+        self.assertIn("WEBSITE_IDENTITY_UNVERIFIED", candidate.risk_flags)
+        self.assertEqual(candidate.classification, "REVIEW_REQUIRED")
+        self.assertTrue(all(row["website"] == raw_website for row in plan.source_records))
+        self.assertTrue(all(
+            row["website_validation_reason"] == "identity_unverified"
+            for row in plan.source_records
+        ))
 
     def test_source_hash_and_candidate_identity_are_deterministic(self):
         row = source("overture", "o-1")

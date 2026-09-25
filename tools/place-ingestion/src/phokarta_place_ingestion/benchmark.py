@@ -68,7 +68,7 @@ def calculate_metrics(
             for category in (place.categories or ("<NO_CATEGORY>",))
         )
         distribution = Counter(place.benchmark_category.value for place in usable)
-        status_supported = provider == "fsq"
+        status_supported = provider in {"overture", "fsq"}
         freshness_supported = provider == "fsq" or any(place.refreshed_date for place in raw)
         metric_rows.append({
             "provider": provider,

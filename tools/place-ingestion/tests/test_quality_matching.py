@@ -79,10 +79,12 @@ class QualityTest(unittest.TestCase):
     def test_explicit_closed_is_filtered(self):
         self.assertFalse(assess_quality(place("fsq", "a", status="CLOSED", quality=None)).usable)
 
-    def test_unsupported_overture_status_is_not_reported_as_zero(self):
+    def test_supported_overture_status_reports_actual_population(self):
         area = PilotArea("kadikoy", "Kadıköy", 41.0, 29.0, 8000, "fixture")
-        metrics, _, _ = calculate_metrics("overture", [area], [place("overture", "a")])
-        self.assertEqual(metrics[0]["operating_status_coverage_pct"], "NOT AVAILABLE")
+        metrics, _, _ = calculate_metrics(
+            "overture", [area], [place("overture", "a", status=None)]
+        )
+        self.assertEqual(metrics[0]["operating_status_coverage_pct"], 0.0)
 
     def test_review_sample_includes_phone_and_cross_provider_classification(self):
         candidate = place(

@@ -1,6 +1,8 @@
 package com.emirrkls.phokarta.backend.domain.entity;
 
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
+import com.emirrkls.phokarta.backend.domain.model.PlaceCatalogStatus;
+import com.emirrkls.phokarta.backend.domain.model.PlaceOrigin;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -8,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 
@@ -18,6 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "places")
+@SQLRestriction("catalog_status = 'ACTIVE'")
 public class Place {
 
     @Id
@@ -62,6 +66,14 @@ public class Place {
     @Column(name = "price_level", nullable = false)
     private int priceLevel;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 24)
+    private PlaceOrigin origin = PlaceOrigin.MANUAL_COMMUNITY;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "catalog_status", nullable = false, length = 16)
+    private PlaceCatalogStatus catalogStatus = PlaceCatalogStatus.ACTIVE;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -84,6 +96,8 @@ public class Place {
     public String getCoverImage() { return coverImage; }
     public List<String> getPhotos() { return List.copyOf(photos); }
     public int getPriceLevel() { return priceLevel; }
+    public PlaceOrigin getOrigin() { return origin; }
+    public PlaceCatalogStatus getCatalogStatus() { return catalogStatus; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

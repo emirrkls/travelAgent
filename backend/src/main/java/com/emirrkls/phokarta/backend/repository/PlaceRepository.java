@@ -48,6 +48,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
             FROM places p
             LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
+              AND p.catalog_status = 'ACTIVE'
               AND (CAST(:city AS varchar) IS NULL OR LOWER(p.city) = LOWER(CAST(:city AS varchar)))
               AND (CAST(:search AS varchar) IS NULL
                    OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS varchar), '%'))
@@ -68,7 +69,8 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
             """,
             countQuery = """
             SELECT COUNT(*) FROM places p
-            WHERE (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
+            WHERE p.catalog_status = 'ACTIVE'
+              AND (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
               AND (CAST(:city AS varchar) IS NULL OR LOWER(p.city) = LOWER(CAST(:city AS varchar)))
               AND (CAST(:search AS varchar) IS NULL
                    OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS varchar), '%'))
@@ -93,6 +95,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
             LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE ST_DWithin(p.location::geography,
                      ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+              AND p.catalog_status = 'ACTIVE'
               AND (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
             GROUP BY p.id
             HAVING (CAST(:minRating AS double precision) IS NULL
@@ -114,6 +117,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
             LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
             WHERE p.location && ST_MakeEnvelope(:west, :south, :east, :north, 4326)
               AND ST_Intersects(p.location, ST_MakeEnvelope(:west, :south, :east, :north, 4326))
+              AND p.catalog_status = 'ACTIVE'
               AND (CAST(:category AS varchar) IS NULL OR p.category = CAST(:category AS varchar))
             GROUP BY p.id
             HAVING (CAST(:minRating AS double precision) IS NULL
@@ -131,7 +135,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
             SELECT p.id, AVG(v.overall_rating) AS "averageScore", COUNT(v.id) AS "ratingCount"
             FROM places p
             LEFT JOIN visits v ON v.place_id = p.id AND v.visibility = 'PUBLIC'
-            WHERE p.id IN :ids GROUP BY p.id
+            WHERE p.id IN :ids AND p.catalog_status = 'ACTIVE' GROUP BY p.id
             """, nativeQuery = true)
     List<RatingAggregate> aggregateByIds(@Param("ids") List<UUID> ids);
 }

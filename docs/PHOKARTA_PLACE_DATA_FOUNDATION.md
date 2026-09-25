@@ -1,6 +1,6 @@
 # Phokarta Place Data Foundation
 
-Status: Milestone 5.5A complete — ready for human provider decision
+Status: Milestone 5.5B Phase A complete — waiting for physical / human review
 Date: 2026-09-25
 Benchmark output: `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A_Final\20260925_1514`
 
@@ -8,7 +8,7 @@ Benchmark output: `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A_Final\
 
 Milestone 5.5A builds provider-neutral ingestion and measures external Place data. It does not import a provider into the production database, alter a canonical Place UUID, change a public API or mobile contract, deploy data, or begin Milestone 5.5B.
 
-The final result is **C. COMPLETE**. Overture and Foursquare Open Source Places were queried live with benchmark lock `1.0.2`, over the same six circles and the same frozen gold set, mappings, normalization, thresholds and sample seed. No provider data was imported and Milestone 5.5B was not started.
+The M5.5A result is **C. COMPLETE**. Overture and Foursquare Open Source Places were queried live with benchmark lock `1.0.3`, over the same six circles and the same frozen gold set, mappings, normalization, thresholds and sample seed. M5.5B Phase A has since implemented and CI-targeted the additive schema, private importer, and Didim Core dry run, but no provider data has been imported and no beta migration has been deployed.
 
 ## 2. Locked canonical invariant
 
@@ -376,3 +376,91 @@ The generated optional composite ranks FSQ `0.6249` and Overture `0.4840`, prima
 Recommended first M5.5B pilot: **Foça, the frozen 12 km circle centered at 38.6703, 26.7566**. It is the smallest representative scope: 1,202 usable Overture rows plus 5,141 usable FSQ rows, with 580 raw high-confidence/possible overlaps. Expect approximately **5,800 canonical Place candidates** before manual exclusions and usable-only overlap reconciliation. The exact import count must be a dry-run output, not a quota.
 
 Human approval is still required for the multi-source strategy, revised persistence DDL, legal/attribution handling, and pilot execution. Do not start M5.5B automatically.
+
+## 21. M5.5B Phase A — Didim Core human checkpoint
+
+The product owner selected a smaller first pilot after M5.5A. **Didim Core** is
+frozen at `37.3751, 27.2678`, radius `6,000 m`; the previous Didim `12,000 m`
+benchmark circle is explicitly excluded and remains future expansion scope.
+
+### Persistence and operational boundary
+
+Additive migration `V17__external_place_provenance.sql` introduces:
+
+- explicit canonical Place `origin` (`MANUAL_COMMUNITY` or `EXTERNAL_IMPORT`) and
+  active/retired catalog status;
+- versioned provider sync runs and append-only source observations with release,
+  snapshot, method, source hash, bounded provenance, and observed/retrieved time;
+- external aliases with provider-ID uniqueness, active/tombstoned state, merge
+  redirect lineage, plus append-only alias events;
+- field-level canonical overrides preserving prior/new values, actor, reason, and
+  originating source linkage.
+
+Active-catalog filters are applied to existing Place list, search, nearby, bounds,
+and aggregate queries. Provider removal retires only an imported-only Place with no
+active source reference and no Phokarta-owned graph. Visits, saved Places,
+Collection membership, acknowledgements, and all visit-dependent Planım,
+Experience Collection, and conversation relationships protect the canonical UUID.
+A merge may connect aliases only when both resolve to the same Phokarta UUID.
+
+The importer is a disabled-by-default operational job, not a public endpoint. It
+accepts only a bounded, hash-verified, `APPROVED` non-secret manifest for the exact
+6 km scope and pinned provider versions. Candidate transactions are isolated and
+idempotent; unresolved review and rejected rows cannot create canonical Places.
+Trusted canonical overrides win over provider refreshes. Phase A does not produce
+the approved Phase B manifest and has not run the importer against beta.
+
+### Live Didim dry run
+
+The authoritative package is
+`C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\20260925_1742`.
+It pins Overture release `2026-09-23.0` / schema `v2.0.0` and FSQ snapshot
+`2325979374271449319` resolved at `2026-09-15 20:07:45.157000`.
+
+| Measure | Overture | FSQ | Total |
+|---|---:|---:|---:|
+| Source observations | 3,799 | 15,125 | 18,924 |
+| Usable observations | 3,638 | 13,992 | 17,630 |
+| Rejected observations | 161 | 1,133 | 1,294 |
+
+The 17,630 usable observations produce 16,135 canonical candidate groups:
+`AUTO_LINK 0`, `REVIEW_REQUIRED 12,527`, and `CREATE_NEW 3,608`. The current beta
+Place feed contains zero canonical Places in Didim Core, so existing matches and
+genuine AUTO_LINK candidates are both zero. Cross-provider agreement can group
+source observations but cannot manufacture a pre-existing canonical UUID.
+
+All candidate geometries are within the frozen radius (maximum `5,999.996 m`). The
+30-row physical-validation sample is geographically distributed and contains 15
+review cases, 10 create-new cases, and 5 explicit conflict cases. Its
+`review_decision` and `review_notes` fields are blank for human completion. Exact
+source observations were preserved from the matching pinned M5.5A normalized
+files after the live query; reconciliation found 18,924 expected and actual unique
+hashes, with zero missing or unexpected hashes.
+
+### Canonicalization and deferred acceptance
+
+Matching is deterministic and staged: trusted existing external reference,
+provider redirect/crosswalk, high-confidence cross-provider grouping, then
+multi-signal comparison with an existing canonical Place. Distance or name alone
+never authorizes a merge. Overture proposes canonical fields first and FSQ may fill
+gaps; geometry is selected by provenance rather than averaged. Category conflict,
+tourism nesting, same-provider duplicates, branch ambiguity, and weak evidence stay
+`REVIEW_REQUIRED`. Clearly unusable observations alone are `REJECT`.
+
+Search, Map, Place detail, Composer, and both mobile clients were audited. Their
+public identity remains the Phokarta UUID, and existing empty-Place behavior needs
+no Phase A source change. Real-beta search/map acceptance and import counts are
+deferred until after the human checkpoint because beta has neither V17 nor imported
+Didim candidates.
+
+Rollback is separated into source-link rollback and canonical Place retirement.
+Aliases and observations retain audit history; a Place that acquires user-owned
+graph data is never deleted or retired automatically. No ad-hoc destructive delete
+is part of the plan.
+
+Provider/license provenance is retained, but this is not legal approval. **Human
+legal review is still recommended before broader public or national rollout.**
+
+Phase A stops at `WAITING FOR PHYSICAL / HUMAN REVIEW`. V17 is committed for test
+and review only, the beta migration is not deployed, canonical beta writes are not
+performed, and the 6 km → 12 km expansion is not authorized.

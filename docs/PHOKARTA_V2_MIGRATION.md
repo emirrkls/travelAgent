@@ -487,4 +487,51 @@ The final benchmark pins Overture release `2026-09-23.0` / schema `v2.0.0` and r
 
 The authoritative output is `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A_Final\20260925_1514`. Overture returned 153,073 raw / 143,211 usable rows; FSQ returned 561,466 / 504,062. Conservative gold recall was 50.000% for Overture and 46.667% for FSQ. Overture had materially stronger address, locality, phone, website and one-year recency coverage and 0.318 duplicate pairs per 100 usable rows; FSQ had much larger coverage but 3.332 duplicate pairs per 100. Cross-provider output contains 44,417 high-confidence matches, 15,710 possible matches, 92,946 Overture-only rows and 501,339 FSQ-only rows. Provider-only does not imply bad data or unique canonical identity.
 
-The M5.5A recommendation is **MULTI-SOURCE CANONICALIZATION**: prefer Overture when proposing canonical attributes and use FSQ as a secondary coverage/enrichment feed, while retaining both as versioned source observations behind the Phokarta Place UUID. Persistence review is **REVISE**: before implementation, add explicit snapshot/method identity, external-ref redirect/tombstone history, durable license/provenance pointers and hashes, complete sync-run checkpoints/counters, and field-level canonical override audit. The recommended first M5.5B geography is the frozen Foça 12 km circle at `38.6703, 26.7566`, with approximately 5,800 canonical candidates before manual exclusions and usable-only overlap reconciliation. Milestone status is **C. COMPLETE — READY FOR HUMAN PROVIDER DECISION**. M5.5B remains blocked on product-owner approval and was not started.
+The M5.5A recommendation is **MULTI-SOURCE CANONICALIZATION**: prefer Overture when proposing canonical attributes and use FSQ as a secondary coverage/enrichment feed, while retaining both as versioned source observations behind the Phokarta Place UUID. Persistence review is **REVISE**: before implementation, add explicit snapshot/method identity, external-ref redirect/tombstone history, durable license/provenance pointers and hashes, complete sync-run checkpoints/counters, and field-level canonical override audit. The recommended first M5.5B geography was initially the frozen Foça 12 km circle at `38.6703, 26.7566`, with approximately 5,800 canonical candidates before manual exclusions and usable-only overlap reconciliation. Milestone status was **C. COMPLETE — READY FOR HUMAN PROVIDER DECISION**; the product owner subsequently authorized the bounded M5.5B Phase A described below.
+
+## Milestone 5.5B Phase A: Didim Canonical Place Pilot — Human Checkpoint
+
+Phase A freezes Didim Core at `37.3751, 27.2678`, radius `6,000 m`. The prior
+Didim `12,000 m` benchmark scope remains future expansion and is not eligible for
+this pilot.
+
+Additive Flyway migration `V17__external_place_provenance.sql` defines Place
+origin/catalog state, provider sync runs, append-only source observations,
+provider-external aliases, tombstone/redirect event history, and field-level
+canonical overrides. Existing canonical UUIDs remain authoritative. Active Place
+queries exclude retired imported-only catalog entries, while user graph references
+protect Places from automatic retirement or deletion. Provider merge handling may
+preserve redirects but never rewrites one canonical UUID into another.
+
+The backend includes a private, disabled-by-default one-shot importer for a future
+hash-verified `APPROVED` manifest. It has no HTTP endpoint, rejects the wrong scope
+or provider metadata, processes candidates transactionally, excludes unresolved
+review, and is idempotent. The approved manifest itself is a Phase B artifact and
+has not been generated or run against beta.
+
+The live dry run at
+`C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\20260925_1742`
+uses Overture `2026-09-23.0` / schema `v2.0.0` and FSQ snapshot
+`2325979374271449319` (`2026-09-15 20:07:45.157000`). It records 18,924 source
+observations (3,799 Overture, 15,125 FSQ), 17,630 usable observations, and 1,294
+rejects. The result is 16,135 canonical candidate groups: 0 `AUTO_LINK`, 12,527
+`REVIEW_REQUIRED`, and 3,608 `CREATE_NEW`. The beta Place feed returns zero
+existing Didim Core Places, so existing canonical matches are zero. All candidate
+points are within 6 km.
+
+The package contains a deterministic, blank 30-row physical-validation sample and
+GeoJSON plus the dry-run report. Overture proposes canonical attributes and FSQ
+fills gaps; ambiguous identity, conflicting categories or geometry, tourism
+nesting, and weak evidence stay in review. Search/Map and both mobile clients need
+no Phase A code change because they already consume only canonical Phokarta UUIDs.
+
+Phase A validation includes deterministic Python coverage and backend compilation,
+packaging, migration/importer Testcontainers coverage prepared for CI. Local
+PostgreSQL/PostGIS execution is unavailable because the Docker engine is not
+running; CI is authoritative. V17 has not been deployed, no canonical beta Place
+has been written, real-beta acceptance and rollback execution remain Phase B, and
+human legal review remains recommended before broader rollout.
+
+Status: **WAITING FOR PHYSICAL / HUMAN REVIEW**. Do not start Phase B, deploy V17,
+generate the approved import manifest, or expand to 12 km until the product owner
+returns the reviewed sample and explicitly says `CONTINUE`.

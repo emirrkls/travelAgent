@@ -1,4 +1,4 @@
-# Phokarta Place ingestion benchmark
+# Phokarta Place ingestion and canonicalization tooling
 
 This isolated Python tool benchmarks external Place providers without starting the
 Spring backend, changing the production database, or exposing provider IDs through
@@ -106,3 +106,61 @@ doctor          report only whether an FSQ credential is configured
 
 `fetch_delta()` is an explicit provider extension point. M5.5A records release and
 delta capabilities but does not schedule or apply production synchronization.
+
+## M5.5B Didim Core dry run
+
+The first canonicalization pilot is frozen to **Didim Core**, centered at
+`37.3751, 27.2678` with a `6,000 m` radius. The earlier `12,000 m` benchmark
+circle is future expansion scope and is deliberately excluded. Production
+category proposals map into the existing `PlaceCategory` enum through
+`config/production_category_mappings.json`; the benchmark taxonomy is not reused
+as a production taxonomy.
+
+Run the read-only planner against both pinned providers and the current canonical
+Place feed:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m phokarta_place_ingestion didim-dry-run `
+  --release latest `
+  --output "C:\Users\Emir\Documents\Phokarta_Place_Pilot\M5_5B_Didim_DryRun\<timestamp>"
+```
+
+The planner performs no database writes. It retains source observations, produces
+one decision per candidate (`AUTO_LINK`, `REVIEW_REQUIRED`, or `CREATE_NEW`),
+records unusable inputs separately as `REJECT`, and emits CSV, JSON, and GeoJSON
+evidence outside Git. Overture is the preferred proposal source; FSQ fills missing
+fields. Coordinates are never averaged, external IDs remain aliases, and ambiguous
+or conflicting records require review.
+
+To rebuild only the deterministic field-review sample without re-querying a
+provider:
+
+```powershell
+python -m phokarta_place_ingestion rebuild-didim-review-sample --package <dry-run-package>
+```
+
+If an exact pinned M5.5A package must be used to recover source observations, the
+tool verifies release/snapshot compatibility and reconciles source hashes:
+
+```powershell
+python -m phokarta_place_ingestion restore-didim-source-records `
+  --package <dry-run-package> `
+  --benchmark <matching-m5.5a-package>
+```
+
+The backend contains a disabled-by-default, private one-shot import job for a
+future human-approved manifest. It has no controller and requires both the
+`place-import` Spring profile and `PHOKARTA_PLACE_IMPORT_ENABLED=true`; normal API
+processes cannot invoke it. Run it only in Phase B with
+`--spring.main.web-application-type=none` and an immutable manifest path. The
+current Phase A checkpoint does not generate an approved manifest, deploy V17, or
+write canonical Places.
+
+Additional commands:
+
+```text
+didim-dry-run                 fetch and build the read-only Didim Core plan
+rebuild-didim-review-sample   rebuild the deterministic physical-review sample
+restore-didim-source-records  recover hash-matched observations from M5.5A
+```

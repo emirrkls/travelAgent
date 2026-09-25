@@ -1,7 +1,8 @@
 {
-  "benchmark_method_version": "1.0.0",
-  "created_at": "2026-09-25T10:29:42.4172034Z",
-  "git_commit": "c05f6bc5cbb9d51a2582a0f4f01cf044097592b1",
+  "benchmark_method_version": "1.0.1",
+  "created_at": "2026-09-25T10:56:29.7989104Z",
+  "git_commit": "ca2d9feecce8e2098c4176c398ca2e7b1b4d6c11",
+  "change_note": "Objective FSQ access fix: use DuckDB's attached-catalog iceberg_snapshots(table) syntax and timestamp_ms column; scoring, sampling, mappings, pilot areas, thresholds, and gold set are unchanged.",
   "pinned_overture_release": "2026-09-23.0",
   "pinned_overture_schema": "v2.0.0",
   "pilot_config_hash": "94029c6742bb07b1905a4dcef4f97c595fad4e892327ef3fffa2ce56bb7d1ed7",
@@ -31,7 +32,7 @@
     "src/phokarta_place_ingestion/models.py": "0ea6b43eedfb3056aa4254d7f2d34ff3240995abb7a4ebcb4be7105a44648e1d",
     "src/phokarta_place_ingestion/normalization.py": "3d136ce1a6908c50d1bf4e43a92c77cb5aa76ad430f305eadc4856ac0c5c5c52",
     "src/phokarta_place_ingestion/pipeline.py": "49f32d47f0bb89c61b198d23210e74f47871366bdb1dae715669719a9ed5203b",
-    "src/phokarta_place_ingestion/providers/foursquare.py": "e957ad0786bf5bf6205c92d0fa14a355ae15d95636b774aa5d02c4a13f17db8c",
+    "src/phokarta_place_ingestion/providers/foursquare.py": "8c34b1a35152f1bc0197f18d60250e09705e7eb948f5f5ba2a21870dd6003776",
     "src/phokarta_place_ingestion/providers/overture.py": "3782ccdb9430129422f8491a9d212b9861a5dd8d5f0d4f6f9438d4ae5a82afb0",
     "src/phokarta_place_ingestion/quality.py": "97d2dfdd594cbb01f7d1a0aee11485202f821a888d2801b81d6aacaed7435c55",
     "src/phokarta_place_ingestion/reporting.py": "5ae8f12c66622d6ae217f1226755c39eef88a1da995be14687fd9a4eb6d3c5f4"

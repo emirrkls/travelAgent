@@ -18,7 +18,7 @@ from phokarta_place_ingestion.models import BenchmarkCategory
 class ConfigurationTest(unittest.TestCase):
     def test_benchmark_lock_matches_current_inputs(self):
         lock = verify_benchmark_lock()
-        self.assertEqual(lock["benchmark_method_version"], "1.0.0")
+        self.assertEqual(lock["benchmark_method_version"], "1.0.1")
         self.assertEqual(lock["sampling_seed"], 5501)
 
     def test_configuration_schema_is_versioned(self):

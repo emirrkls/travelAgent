@@ -38,6 +38,9 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
 
+      - name: Pre-pull pinned MinIO test image
+        run: docker pull quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+
       - name: Test and package backend
         run: mvn --batch-mode --no-transfer-progress verify
 

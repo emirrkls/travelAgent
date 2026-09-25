@@ -229,8 +229,16 @@ def run_benchmark(
             "classification": "NOT RUN",
         })
 
+    cross_classifications: dict[tuple[str, str], str] = {}
+    for row in cross_rows:
+        classification = str(row.get("classification") or "NOT AVAILABLE")
+        if row.get("overture_id"):
+            cross_classifications[("overture", str(row["overture_id"]))] = classification
+        if row.get("fsq_id"):
+            cross_classifications[("fsq", str(row["fsq_id"]))] = classification
+
     scorecard, decision = _scorecard(metrics, recall_summary, category_rows, provider_metadata)
-    sample = review_sample(normalized_by_provider)
+    sample = review_sample(normalized_by_provider, cross_classifications)
     completed_at = datetime.now(timezone.utc).isoformat()
     partial = not {"overture", "fsq"}.issubset(normalized_by_provider)
     assessment = "B. PARTIAL" if partial else "C. COMPLETE"

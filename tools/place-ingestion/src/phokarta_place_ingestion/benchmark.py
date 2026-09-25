@@ -68,7 +68,7 @@ def calculate_metrics(
             for category in (place.categories or ("<NO_CATEGORY>",))
         )
         distribution = Counter(place.benchmark_category.value for place in usable)
-        status_supported = provider in {"overture", "fsq"}
+        status_supported = provider == "fsq"
         freshness_supported = provider == "fsq" or any(place.refreshed_date for place in raw)
         metric_rows.append({
             "provider": provider,
@@ -182,9 +182,12 @@ def known_place_recall(
 
 
 def review_sample(
-    providers: dict[str, list[NormalizedPlace]], per_stratum: int = 2
+    providers: dict[str, list[NormalizedPlace]],
+    match_classifications: dict[tuple[str, str], str] | None = None,
+    per_stratum: int = 2,
 ) -> list[dict[str, Any]]:
     rng = random.Random(FIXED_SAMPLE_SEED)
+    classifications = match_classifications or {}
     result: list[dict[str, Any]] = []
     for provider, places in sorted(providers.items()):
         strata: dict[tuple[str, str], list[NormalizedPlace]] = defaultdict(list)
@@ -203,9 +206,12 @@ def review_sample(
                     "latitude": place.latitude,
                     "longitude": place.longitude,
                     "address": place.address,
+                    "phone": place.phone,
                     "website": place.website,
                     "quality_or_confidence": place.confidence_or_quality,
-                    "match_notes": "",
+                    "cross_provider_classification": classifications.get(
+                        (provider, place.external_id), "NOT AVAILABLE"
+                    ),
                     "sample_seed": FIXED_SAMPLE_SEED,
                 })
     return result

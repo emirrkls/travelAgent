@@ -9,8 +9,13 @@ from phokarta_place_ingestion.matching import (
     duplicate_candidates,
     name_similarity,
 )
-from phokarta_place_ingestion.benchmark import known_place_recall
-from phokarta_place_ingestion.models import BenchmarkCategory, GoldPlace, NormalizedPlace
+from phokarta_place_ingestion.benchmark import calculate_metrics, known_place_recall, review_sample
+from phokarta_place_ingestion.models import (
+    BenchmarkCategory,
+    GoldPlace,
+    NormalizedPlace,
+    PilotArea,
+)
 from phokarta_place_ingestion.quality import assess_quality
 
 
@@ -25,6 +30,8 @@ def place(
     quality=0.9,
     flags=(),
     name_variants=(),
+    phone=None,
+    website=None,
 ) -> NormalizedPlace:
     return NormalizedPlace(
         provider=provider,
@@ -41,8 +48,8 @@ def place(
         categories=("cafe",),
         primary_category="cafe",
         benchmark_category=category,
-        phone=None,
-        website=None,
+        phone=phone,
+        website=website,
         operating_status=status,
         confidence_or_quality=quality,
         name_variants=tuple(name_variants),
@@ -71,6 +78,22 @@ class QualityTest(unittest.TestCase):
 
     def test_explicit_closed_is_filtered(self):
         self.assertFalse(assess_quality(place("fsq", "a", status="CLOSED", quality=None)).usable)
+
+    def test_unsupported_overture_status_is_not_reported_as_zero(self):
+        area = PilotArea("kadikoy", "Kadıköy", 41.0, 29.0, 8000, "fixture")
+        metrics, _, _ = calculate_metrics("overture", [area], [place("overture", "a")])
+        self.assertEqual(metrics[0]["operating_status_coverage_pct"], "NOT AVAILABLE")
+
+    def test_review_sample_includes_phone_and_cross_provider_classification(self):
+        candidate = place(
+            "overture", "a", phone="+90 212 000 00 00", website="https://example.test"
+        )
+        sample = review_sample(
+            {"overture": [candidate]},
+            {("overture", "a"): "HIGH_CONFIDENCE_MATCH"},
+        )
+        self.assertEqual(sample[0]["phone"], "+90 212 000 00 00")
+        self.assertEqual(sample[0]["cross_provider_classification"], "HIGH_CONFIDENCE_MATCH")
 
 
 class MatchingTest(unittest.TestCase):

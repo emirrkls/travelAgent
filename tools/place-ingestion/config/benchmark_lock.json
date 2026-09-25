@@ -1,0 +1,39 @@
+{
+  "benchmark_method_version": "1.0.0",
+  "created_at": "2026-09-25T10:29:42.4172034Z",
+  "git_commit": "c05f6bc5cbb9d51a2582a0f4f01cf044097592b1",
+  "pinned_overture_release": "2026-09-23.0",
+  "pinned_overture_schema": "v2.0.0",
+  "pilot_config_hash": "94029c6742bb07b1905a4dcef4f97c595fad4e892327ef3fffa2ce56bb7d1ed7",
+  "gold_set_hash": "731a965a640a3e364e3f89aabe5279eed07b6263f144bec61fad5e050f090026",
+  "category_mapping_hash": "a848ae2b6298720e7245b14cded09ecd852c43337d9a595eb4d8a7fe61e85584",
+  "matcher_config_hash": "4027c28f6b1f86e36aef3fac13284c0d3cb49727aaf0800d216408b5b32b4aff",
+  "normalization_version": "unicode-nfkd-casefold-turkish-i-v1",
+  "sampling_seed": 5501,
+  "thresholds": {
+    "gold_distance_meters": 250.0,
+    "gold_exact_or_near_name_similarity": 0.95,
+    "gold_category_compatible_name_similarity": 0.88,
+    "gold_ambiguity_similarity_delta": 0.03,
+    "duplicate_distance_meters": 30.0,
+    "duplicate_name_similarity": 0.82,
+    "cross_provider_distance_meters": 50.0,
+    "cross_provider_name_similarity": 0.80
+  },
+  "files": {
+    "config/category_mappings.json": "a848ae2b6298720e7245b14cded09ecd852c43337d9a595eb4d8a7fe61e85584",
+    "config/pilot_areas.json": "94029c6742bb07b1905a4dcef4f97c595fad4e892327ef3fffa2ce56bb7d1ed7",
+    "config/providers.json": "7386d92877afc6d6a932f9fa0ba69df7820f0e132d355597bd1ddbbc7bd71132",
+    "fixtures/known_places.json": "731a965a640a3e364e3f89aabe5279eed07b6263f144bec61fad5e050f090026",
+    "src/phokarta_place_ingestion/benchmark.py": "c7a21952b21f0004c9dc15b987cc863b4679e6c145178d5bc3e2ac0162a48057",
+    "src/phokarta_place_ingestion/config.py": "44e5ea79aa06fd47621dddf0ba6823163f42b8cd1c3204b684ed4af26e1e716f",
+    "src/phokarta_place_ingestion/matching.py": "4027c28f6b1f86e36aef3fac13284c0d3cb49727aaf0800d216408b5b32b4aff",
+    "src/phokarta_place_ingestion/models.py": "0ea6b43eedfb3056aa4254d7f2d34ff3240995abb7a4ebcb4be7105a44648e1d",
+    "src/phokarta_place_ingestion/normalization.py": "3d136ce1a6908c50d1bf4e43a92c77cb5aa76ad430f305eadc4856ac0c5c5c52",
+    "src/phokarta_place_ingestion/pipeline.py": "49f32d47f0bb89c61b198d23210e74f47871366bdb1dae715669719a9ed5203b",
+    "src/phokarta_place_ingestion/providers/foursquare.py": "e957ad0786bf5bf6205c92d0fa14a355ae15d95636b774aa5d02c4a13f17db8c",
+    "src/phokarta_place_ingestion/providers/overture.py": "3782ccdb9430129422f8491a9d212b9861a5dd8d5f0d4f6f9438d4ae5a82afb0",
+    "src/phokarta_place_ingestion/quality.py": "97d2dfdd594cbb01f7d1a0aee11485202f821a888d2801b81d6aacaed7435c55",
+    "src/phokarta_place_ingestion/reporting.py": "5ae8f12c66622d6ae217f1226755c39eef88a1da995be14687fd9a4eb6d3c5f4"
+  }
+}

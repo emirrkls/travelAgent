@@ -1,14 +1,14 @@
 # Phokarta Place Data Foundation
 
-Status: Milestone 5.5A foundation and partial provider benchmark
+Status: Milestone 5.5A complete — ready for human provider decision
 Date: 2026-09-25
-Benchmark output: `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A\20260925_013702`
+Benchmark output: `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A_Final\20260925_1514`
 
 ## 1. Decision boundary
 
 Milestone 5.5A builds provider-neutral ingestion and measures external Place data. It does not import a provider into the production database, alter a canonical Place UUID, change a public API or mobile contract, deploy data, or begin Milestone 5.5B.
 
-The current result is **B. PARTIAL — FSQ DATA ACCESS REQUIRED**. Overture was measured. The FSQ adapter and offline tests are complete, but no Places Portal token was available, so no FSQ metric, overlap figure, comparative score, or winner is claimed.
+The final result is **C. COMPLETE**. Overture and Foursquare Open Source Places were queried live with benchmark lock `1.0.2`, over the same six circles and the same frozen gold set, mappings, normalization, thresholds and sample seed. No provider data was imported and Milestone 5.5B was not started.
 
 ## 2. Locked canonical invariant
 
@@ -124,12 +124,13 @@ The query projects only benchmark columns and pushes a bbox predicate into GeoPa
 
 - September 2026 published dataset size: 109,440,828 global Places.
 - Current access: Places Portal token and Iceberg REST catalog.
+- Actual snapshot: `2325979374271449319`, timestamp `2026-09-15 20:07:45.157000`, schema marker `FSQ_OS_CURRENT`.
 - Adapter target: current OS fields only, including `fsq_place_id`, name, WGS84 coordinates, address components, dates, `tel`, `website`, category IDs/labels and unresolved flags.
 - Pro/Premium ratings, popularity and other paid attributes are not part of the model or benchmark.
 - The adapter does not use the retired anonymous public S3 delivery.
 - Monthly delta semantics are add, update, merge with redirect, and remove.
 
-No `FSQ_PLACES_TOKEN` was present. Minimal action: create a token in the Foursquare Places Portal and set it as the process environment variable `FSQ_PLACES_TOKEN`, then rerun the tool. Current Portal endpoint, warehouse and table defaults are built in; non-secret overrides exist if the Portal snippet changes.
+Live token authentication, catalog attachment, snapshot discovery and Places-table access succeeded. Current Portal endpoint, warehouse and table defaults are built in; non-secret overrides exist if the Portal contract changes.
 
 The token is used only in an in-memory DuckDB secret. It is never printed, logged, written to SQL artifacts, included in reports, or committed.
 
@@ -140,7 +141,7 @@ Both providers use the same public WGS84 center/radius circles. Provider-defined
 | Area | Latitude | Longitude | Radius |
 |---|---:|---:|---:|
 | Didim | 37.3751 | 27.2678 | 12,000 m |
-| Foça | 38.6703 | 26.7566 | 10,000 m |
+| Foça | 38.6703 | 26.7566 | 12,000 m |
 | Bodrum | 37.0344 | 27.4305 | 15,000 m |
 | Çeşme | 38.3240 | 26.3030 | 14,000 m |
 | Kadıköy | 40.9917 | 29.0277 | 8,000 m |
@@ -169,38 +170,44 @@ Overture confidence below 0.30 is a severe exclusion. FSQ severe exclusions are 
 
 Unsupported attributes are `NOT AVAILABLE`, not silently zero. Overture freshness is derived only from upstream-source timestamps; the release-time Overture confidence-calculation timestamp is excluded.
 
-## 9. Overture benchmark result
+## 9. Final comparative benchmark
 
-| Area | Raw | Usable | Neutral category mapped | Address | Locality | Phone | Website | Operating status | Refreshed ≤365d | Duplicate pairs | Obvious junk |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Didim | 4,085 | 3,919 | 37.013% | 73.121% | 98.091% | 61.542% | 32.827% | 0.000% | 97.821% | 7 | 4.064% |
-| Foça | 888 | 865 | 44.032% | 70.495% | 97.297% | 55.518% | 32.320% | 0.000% | 96.959% | 3 | 2.590% |
-| Bodrum | 12,652 | 12,081 | 40.215% | 78.383% | 98.459% | 68.543% | 45.068% | 0.008% | 95.463% | 37 | 4.513% |
-| Çeşme | 5,008 | 4,795 | 55.871% | 81.430% | 98.762% | 71.865% | 46.266% | 0.000% | 95.787% | 14 | 4.253% |
-| Kadıköy | 107,667 | 100,100 | 25.116% | 88.953% | 99.022% | 79.590% | 59.287% | 0.009% | 95.044% | 343 | 7.028% |
-| Antalya Kaleiçi | 22,423 | 21,114 | 23.083% | 85.381% | 99.318% | 74.071% | 43.710% | 0.009% | 96.642% | 47 | 5.838% |
+| Area | Overture raw | Overture usable | FSQ raw | FSQ usable |
+|---|---:|---:|---:|---:|
+| Didim | 4,085 | 3,919 | 17,093 | 15,850 |
+| Foça | 1,238 | 1,202 | 5,542 | 5,141 |
+| Bodrum | 12,652 | 12,081 | 45,958 | 42,211 |
+| Çeşme | 5,008 | 4,795 | 18,733 | 16,542 |
+| Kadıköy | 107,667 | 100,100 | 375,865 | 334,377 |
+| Antalya Kaleiçi | 22,423 | 21,114 | 98,275 | 89,941 |
+| **Total** | **153,073** | **143,211** | **561,466** | **504,062** |
 
-Total: 152,723 raw and 142,874 usable (93.551%). Names and coordinates are 100% complete in the scoped release. Upstream timestamp coverage is 100%, but it is only a source refresh indicator, not proof that the real-world Place is current. Operating-status coverage is effectively absent.
+| Provider | Usable rate | Address | Locality | Phone | Website | Refreshed ≤365d | Query time |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Overture | 93.557% | 86.755% | 98.974% | 76.943% | 54.472% | 95.428% | 148.328 s |
+| FSQ | 89.776% | 43.873% | 42.650% | 18.370% | 8.550% | 12.847% | 371.462 s |
 
-The six queries took 165.421 seconds in total. DuckDB did not expose reliable bytes-scanned/downloaded metrics, so they remain unavailable.
+Both providers had 100% name and coordinate completeness in the scoped rows. Overture v2 exposes `operating_status`, but scoped population is only 0%–0.009%; FSQ's closed-date-derived status coverage ranges from 3.926% to 8.739% by area. Freshness coverage is 100% for both, but recency differs sharply as shown above. DuckDB did not expose reliable bytes-scanned/downloaded metrics.
 
-## 10. Known-place recall
+The area-balanced neutral-category mapping rate is 37.553% for Overture and 29.036% for FSQ; row-weighted rates are 27.542% and 23.093%. Low rates are expected because the source populations include many concepts outside the ten benchmark categories. No post-result mapping changes were made.
+
+## 10. Known-place recall and Overture miss audit
 
 The compact truth fixture contains 60 factual records: ten per area, across beaches, museums, historic sites, parks, viewpoints and markets. It stores only name, approximate coordinate, neutral category and public/official reference.
 
 Matching is intentionally conservative: within 250 m, with at least 0.95 normalized-name similarity regardless of category, or at least 0.88 with a compatible mapped category. A close second within 0.03 similarity becomes ambiguous.
 
-| Area | Matched | Missing | Ambiguous | Recall |
+| Area | Overture M/Miss/Amb | Overture recall | FSQ M/Miss/Amb | FSQ recall |
 |---|---:|---:|---:|---:|
-| Didim | 1 | 9 | 0 | 10% |
-| Foça | 3 | 7 | 0 | 30% |
-| Bodrum | 3 | 7 | 0 | 30% |
-| Çeşme | 0 | 10 | 0 | 0% |
-| Kadıköy | 1 | 9 | 0 | 10% |
-| Antalya Kaleiçi | 5 | 5 | 0 | 50% |
-| **Total** | **13** | **47** | **0** | **21.667%** |
+| Didim | 5 / 4 / 1 | 50% | 4 / 6 / 0 | 40% |
+| Foça | 5 / 5 / 0 | 50% | 4 / 6 / 0 | 40% |
+| Bodrum | 3 / 7 / 0 | 30% | 5 / 5 / 0 | 50% |
+| Çeşme | 3 / 7 / 0 | 30% | 3 / 7 / 0 | 30% |
+| Kadıköy | 6 / 4 / 0 | 60% | 5 / 5 / 0 | 50% |
+| Antalya Kaleiçi | 8 / 1 / 1 | 80% | 7 / 3 / 0 | 70% |
+| **Total** | **30 / 28 / 2** | **50.000%** | **28 / 32 / 0** | **46.667%** |
 
-Provider-only records are not classified as wrong. Missing truth matches require human inspection: causes may include provider absence, incorrect coordinate, alternate/localized naming, taxonomy incompatibility, or truth-fixture error.
+The pre-FSQ audit of the original 47 Overture misses classified them as: `TRUE_PROVIDER_MISSING=1`, `MATCHER_FALSE_NEGATIVE=3`, `GOLD_FIXTURE_ISSUE=11`, `AMBIGUOUS_ENTITY=1`, `ENTITY_GRANULARITY_DIFFERENCE=11`, `CATEGORY_MAPPING_EFFECT=1`, `COORDINATE_THRESHOLD_EFFECT=6`, `NAME_VARIANT_EFFECT=12`, and `OTHER_VERIFIED_REASON=1`. Objective fixture corrections and factual aliases were frozen before FSQ was queried. No adjusted or post-hoc provider score is claimed.
 
 ## 11. Duplicate candidates and human sample
 
@@ -213,15 +220,25 @@ Internal duplicate candidate thresholds:
 - high confidence when the normalized name is exact, or distance is at most 15 m and similarity is at least 0.94;
 - every other candidate is ambiguous.
 
-Overture produced 451 candidate pairs: 123 high-confidence and 328 ambiguous. This is an estimate, not an automatic merge list.
+Overture produced 456 candidate pairs: 128 high-confidence and 328 ambiguous, or 0.318 pairs per 100 usable rows. FSQ produced 16,796: 7,489 high-confidence and 9,307 ambiguous, or 3.332 per 100 usable rows. These are estimates, not automatic merge lists; FSQ's substantially higher rate strengthens the case for source-record isolation and conservative canonical linking.
 
-`review_sample.csv` uses fixed seed 5501 and samples usable rows across every available area/category stratum. No recommendation should depend only on automated metrics.
+`review_sample.csv` uses fixed seed 5501 and samples usable rows across every available area/category stratum: 120 Overture and 132 FSQ rows. It includes name, neutral category, coordinate, address, phone, website, provider quality/confidence, and cross-provider classification. No recommendation should depend only on automated metrics.
 
 ## 12. Cross-provider matching
 
 When both providers are present, candidates use at most 50 m plus normalized-name similarity of at least 0.80. At most 25 m, similarity at least 0.93 and compatible categories yields `HIGH_CONFIDENCE_MATCH`; other candidate pairs are `POSSIBLE_MATCH`. Unpaired rows are `OVERTURE_ONLY` or `FSQ_ONLY`, never automatically “missing” or “incorrect.”
 
-Cross-provider overlap is **not run** because FSQ access is unavailable.
+| Area | High confidence | Possible | Overture-only | FSQ-only |
+|---|---:|---:|---:|---:|
+| Didim | 1,255 | 488 | 2,342 | 15,350 |
+| Foça | 410 | 170 | 658 | 4,962 |
+| Bodrum | 4,032 | 1,246 | 7,374 | 40,680 |
+| Çeşme | 1,514 | 658 | 2,836 | 16,561 |
+| Kadıköy | 30,345 | 10,645 | 66,677 | 334,875 |
+| Antalya Kaleiçi | 6,861 | 2,503 | 13,059 | 88,911 |
+| **Total** | **44,417** | **15,710** | **92,946** | **501,339** |
+
+Provider-only means unmatched under the frozen conservative rule, not wrong or necessarily unique. The large provider-only populations and 60,127 matched/possible pairs demonstrate both meaningful complementarity and material canonicalization risk.
 
 ## 13. License and provenance
 
@@ -236,6 +253,8 @@ Human legal review is required before production persistence, export, attributio
 ## 14. Proposed M5.5B persistence model
 
 No migration was applied in M5.5A. The following is proposed for review only:
+
+Persistence review verdict: **REVISE** before implementation. The table separation is approved in principle, but M5.5B must add explicit snapshot/method identity to source rows, redirect lineage and tombstone history to external refs, source-license/provenance fields or durable object pointers with hashes, full sync-run counters/checkpoints, and field-level canonical override history with actor, reason and timestamp. Provider observations must remain independently replayable and may never overwrite a trusted canonical/community override merely because they are newer.
 
 ```sql
 CREATE TABLE place_external_refs (
@@ -335,7 +354,7 @@ Scheduled production sync is not implemented.
 
 ## 19. Security and repository hygiene
 
-- No provider token was available, printed, logged or committed.
+- The local provider token was detected and used only through the ignored `.env.local`/in-memory DuckDB secret path; it was not printed, logged, copied into artifacts or committed.
 - Provider IDs are absent from public mobile/backend contracts.
 - Environment-derived table identifiers are validated before SQL interpolation.
 - Query values use parameters; token SQL is in-memory and error propagation is redacted.
@@ -344,16 +363,16 @@ Scheduled production sync is not implemented.
 - Large provider extracts and generated CSV/Parquet files are ignored and live outside Git.
 - No beta/production database, VPS, Flyway history or mobile app was touched.
 
-## 20. Human decision gate
+## 20. Recommendation and human decision gate
 
-Primary provider: **UNDECIDED**.
-Secondary/enrichment provider: **UNDECIDED**.
+Recommended strategy: **MULTI-SOURCE CANONICALIZATION**.
 
-Overture has measured Turkey strengths and weaknesses, but choosing it because FSQ credentials are absent would violate the benchmark design. After an FSQ token is configured, rerun the identical six circles, review the cross-provider and human samples, confirm license persistence with counsel, then ask the product owner to approve:
+The generated optional composite ranks FSQ `0.6249` and Overture `0.4840`, primarily because FSQ's record volume dominates that diagnostic. It is not the provider-strategy decision; the generated report itself keeps raw measurements authoritative. The recommendation below weighs recall, recency, attribute completeness, duplicate risk, operations and provenance alongside coverage.
 
-- primary provider;
-- secondary/enrichment provider;
-- final persistence DDL;
-- Turkey pilot import scope.
+- Use Overture as the preferred canonical-attribute proposal source: it has higher gold recall (50.000% vs 46.667%), far better address/locality/phone/website completeness, much stronger one-year recency, lower duplicate risk, and simpler unauthenticated access.
+- Use FSQ as a secondary coverage and enrichment source: it contributes 504,062 usable scoped rows and 501,339 conservative provider-only rows, but those rows must pass quality filtering, dedupe and false-merge-safe linking before they can influence a canonical Place.
+- Never let either external ID replace a Phokarta UUID. Conflicting or weak records remain source observations or enter review.
 
-Do not start M5.5B automatically.
+Recommended first M5.5B pilot: **Foça, the frozen 12 km circle centered at 38.6703, 26.7566**. It is the smallest representative scope: 1,202 usable Overture rows plus 5,141 usable FSQ rows, with 580 raw high-confidence/possible overlaps. Expect approximately **5,800 canonical Place candidates** before manual exclusions and usable-only overlap reconciliation. The exact import count must be a dry-run output, not a quota.
+
+Human approval is still required for the multi-source strategy, revised persistence DDL, legal/attribution handling, and pilot execution. Do not start M5.5B automatically.

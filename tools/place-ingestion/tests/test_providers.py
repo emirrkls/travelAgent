@@ -106,14 +106,46 @@ class FoursquareAdapterTest(unittest.TestCase):
             self.provider.normalize(row, self.release)
 
     def test_credential_gate_fails_without_token(self):
-        with patch.dict(os.environ, {}, clear=True):
-            provider = FoursquareOsPlaceProvider()
-            self.assertFalse(provider.credential_available())
-            with self.assertRaisesRegex(ProviderAccessError, "FSQ DATA ACCESS REQUIRED"):
-                provider.describe_release()
+        with patch(
+            "phokarta_place_ingestion.providers.foursquare.load_local_environment",
+            return_value={},
+        ), patch(
+            "phokarta_place_ingestion.providers.foursquare.fsq_credential_available",
+            return_value=False,
+        ):
+            with patch.dict(os.environ, {}, clear=True):
+                provider = FoursquareOsPlaceProvider()
+                self.assertFalse(provider.credential_available())
+                with self.assertRaisesRegex(ProviderAccessError, "FSQ DATA ACCESS REQUIRED"):
+                    provider.describe_release()
 
     def test_license_is_apache(self):
         self.assertEqual(self.provider.license_metadata(self.release).license_identifier, "Apache-2.0")
+
+    def test_discovers_attached_catalog_snapshot_with_current_duckdb_syntax(self):
+        class FakeConnection:
+            def __init__(self):
+                self.sql = ""
+
+            def execute(self, sql):
+                self.sql = sql
+                return self
+
+            def fetchone(self):
+                return (987654321, "2026-09-24 12:34:56+00:00")
+
+            def close(self):
+                pass
+
+        connection = FakeConnection()
+        with patch.object(self.provider, "_connect", return_value=connection):
+            release = self.provider.describe_release()
+
+        self.assertIn("iceberg_snapshots(places.datasets.places_os)", connection.sql)
+        self.assertIn("timestamp_ms", connection.sql)
+        self.assertNotIn("?", connection.sql)
+        self.assertEqual(release.snapshot_id, "987654321")
+        self.assertEqual(release.resolved_release, "2026-09-24 12:34:56+00:00")
 
     def test_access_errors_are_categorized_without_secret_context(self):
         marker = "super-secret-token-value"

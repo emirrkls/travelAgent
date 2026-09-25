@@ -85,6 +85,7 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
             raise ProviderAccessError("duckdb 1.4.0 is required for FSQ Iceberg access") from exc
         connection = duckdb.connect(":memory:")
         try:
+            connection.execute("SET enable_progress_bar = false")
             connection.execute("INSTALL httpfs")
             connection.execute("LOAD httpfs")
             connection.execute("INSTALL iceberg")
@@ -111,9 +112,8 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
             resolved = requested_release or "current-catalog-snapshot"
             try:
                 row = connection.execute(
-                    "SELECT snapshot_id, committed_at FROM iceberg_snapshots(?) "
-                    "ORDER BY committed_at DESC LIMIT 1",
-                    [self.table],
+                    f"SELECT snapshot_id, timestamp_ms FROM iceberg_snapshots({self.table}) "
+                    "ORDER BY timestamp_ms DESC LIMIT 1"
                 ).fetchone()
                 if row:
                     snapshot_id = str(row[0])

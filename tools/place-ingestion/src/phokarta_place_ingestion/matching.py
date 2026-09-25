@@ -19,6 +19,30 @@ def name_similarity(left: str | None, right: str | None) -> float:
     return SequenceMatcher(None, left_normalized, right_normalized, autojunk=False).ratio()
 
 
+def place_name_similarity(left: NormalizedPlace, right: NormalizedPlace) -> float:
+    return max(
+        name_similarity(left_name, right_name)
+        for left_name in (left.name, *left.name_variants)
+        for right_name in (right.name, *right.name_variants)
+    )
+
+
+def known_name_similarity(
+    known_name: str,
+    place: NormalizedPlace,
+    known_name_variants: tuple[str, ...] = (),
+) -> tuple[float, str | None]:
+    known_names = (known_name, *known_name_variants)
+    candidates = [place.name, *place.name_variants]
+    scored = [
+        (name_similarity(candidate_known_name, candidate), candidate)
+        for candidate_known_name in known_names
+        for candidate in candidates
+        if candidate
+    ]
+    return max(scored, default=(0.0, None), key=lambda row: row[0])
+
+
 PILOT_GRID_CELL_DEGREES = 0.0007
 
 
@@ -50,7 +74,7 @@ def duplicate_candidates(
                     )
                     if distance > 30.0:
                         continue
-                    similarity = name_similarity(place.name, other.name)
+                    similarity = place_name_similarity(place, other)
                     if similarity < 0.82:
                         continue
                     classification = (
@@ -104,7 +128,7 @@ def cross_provider_matches(
                     )
                     if distance > 50.0:
                         continue
-                    similarity = name_similarity(left.name, right.name)
+                    similarity = place_name_similarity(left, right)
                     compatible = categories_compatible(left, right)
                     if similarity >= 0.80:
                         possible.append(

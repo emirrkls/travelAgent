@@ -1,7 +1,11 @@
 {
   "id": "08f2a107-7b19-4d3c-a386-example000001",
   "version": 3,
-  "names": {"primary": "İnci Kafe", "common": {"tr": "İnci Kafe"}},
+  "names": {
+    "primary": "İnci Kafe",
+    "common": {"tr": "İnci Kafe", "en": "Inci Cafe"},
+    "rules": [{"value": "İnci Kahvesi", "variant": "alternate", "language": "tr"}]
+  },
   "basic_category": "cafe",
   "taxonomy": {"primary": "coffee_shop", "hierarchy": ["cafe", "food_and_drink"], "alternates": []},
   "confidence": 0.91,

@@ -12,8 +12,8 @@
       "key": "foca",
       "display_name": "Foça",
       "center": {"latitude": 38.6703, "longitude": 26.7566},
-      "radius_meters": 10000,
-      "reasoning": "Covers Old and New Foça's main coastal, hospitality and heritage clusters with a provider-neutral circle."
+      "radius_meters": 12000,
+      "reasoning": "Covers Old and New Foça's main coastal, hospitality and heritage clusters with a provider-neutral circle; 12 km is the smallest round-kilometer radius that contains the pre-existing New Foça truth fixture."
     },
     {
       "key": "bodrum",

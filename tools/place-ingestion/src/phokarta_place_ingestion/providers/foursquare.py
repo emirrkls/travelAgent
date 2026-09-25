@@ -9,6 +9,7 @@ from typing import Any, Iterable
 
 from ..categories import CategoryMapper
 from ..config import load_category_mappings
+from ..environment import fsq_credential_available, load_local_environment
 from ..models import FetchResult, FetchStats, LicenseMetadata, NormalizedPlace, PilotArea, ReleaseDescriptor
 from ..normalization import circle_bbox, first_nonblank, haversine_meters
 from .base import ExternalPlaceProvider, ProviderAccessError, ProviderSchemaError
@@ -18,6 +19,23 @@ DEFAULT_ENDPOINT = "https://catalog.h3-hub.foursquare.com/iceberg"
 DEFAULT_WAREHOUSE = "places"
 DEFAULT_TABLE = "places.datasets.places_os"
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*){2}$")
+
+
+def _safe_error_category(exc: Exception) -> str:
+    message = str(exc).casefold()
+    if any(value in message for value in ("401", "unauthorized", "authentication", "invalid token")):
+        return "UNAUTHORIZED"
+    if any(value in message for value in ("403", "forbidden")):
+        return "FORBIDDEN"
+    if any(value in message for value in ("table not found", "dataset", "permission denied")):
+        return "DATASET_NOT_GRANTED"
+    if any(value in message for value in ("network", "dns", "socket", "timeout", "connection refused")):
+        return "NETWORK_FAILURE"
+    return "CATALOG_UNAVAILABLE"
+
+
+def _safe_access_error(operation: str, exc: Exception) -> ProviderAccessError:
+    return ProviderAccessError(f"FSQ {operation} failed: {_safe_error_category(exc)}")
 
 
 def _sql_string(value: str) -> str:
@@ -43,6 +61,7 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
     key = "fsq"
 
     def __init__(self, category_mapper: CategoryMapper | None = None):
+        load_local_environment()
         self.category_mapper = category_mapper or CategoryMapper(load_category_mappings())
         self.endpoint = os.environ.get("FSQ_ICEBERG_CATALOG_URI", DEFAULT_ENDPOINT)
         self.warehouse = os.environ.get("FSQ_ICEBERG_WAREHOUSE", DEFAULT_WAREHOUSE)
@@ -52,7 +71,7 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
 
     @staticmethod
     def credential_available() -> bool:
-        return bool(os.environ.get("FSQ_PLACES_TOKEN", "").strip())
+        return fsq_credential_available()
 
     def _connect(self):
         token = os.environ.get("FSQ_PLACES_TOKEN", "").strip()
@@ -81,12 +100,9 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
                 + _sql_string(self.endpoint) + ")"
             )
             return connection
-        except Exception:
+        except Exception as exc:
             connection.close()
-            # Never propagate a driver error that might echo the secret-creation SQL.
-            raise ProviderAccessError(
-                "FSQ Places Portal connection failed; verify the token and current Portal connection settings"
-            ) from None
+            raise _safe_access_error("connection", exc) from None
 
     def describe_release(self, requested_release: str | None = None) -> ReleaseDescriptor:
         connection = self._connect()
@@ -102,15 +118,12 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
                 if row:
                     snapshot_id = str(row[0])
                     resolved = str(row[1])
-            except Exception:
+            except Exception as exc:
                 # Some REST catalogs do not expose metadata-table functions. The
                 # benchmark remains blocked from claiming reproducibility unless a
                 # snapshot identity can be recorded.
                 if not requested_release:
-                    raise ProviderAccessError(
-                        "FSQ catalog did not expose a snapshot identity; provide a verified "
-                        "release label with --fsq-release before benchmarking"
-                    )
+                    raise _safe_access_error("snapshot discovery", exc) from None
             return ReleaseDescriptor(
                 self.key, requested_release, resolved, "FSQ_OS_CURRENT", snapshot_id=snapshot_id
             )
@@ -167,7 +180,7 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
         except ProviderAccessError:
             raise
         except Exception as exc:
-            raise ProviderAccessError(f"FSQ Places Portal scoped query failed: {exc}") from exc
+            raise _safe_access_error("scoped query", exc) from None
         finally:
             connection.close()
 
@@ -185,7 +198,7 @@ class FoursquareOsPlaceProvider(ExternalPlaceProvider):
         category_labels = _list(raw.get("fsq_category_labels"))
         categories = [*category_ids, *category_labels]
         flags = _list(raw.get("unresolved_flags"))
-        status = "CLOSED" if raw.get("date_closed") else "OPEN"
+        status = "CLOSED" if raw.get("date_closed") else None
         return NormalizedPlace(
             provider=self.key,
             external_id=external_id,

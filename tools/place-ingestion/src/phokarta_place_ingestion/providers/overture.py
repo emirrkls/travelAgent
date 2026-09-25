@@ -59,6 +59,24 @@ def _string_list(value: Any) -> list[str]:
     return []
 
 
+def _name_variants(names: Any) -> tuple[str, ...]:
+    if not isinstance(names, dict):
+        return ()
+    primary = str(names.get("primary") or "").strip()
+    values: list[str] = []
+    common = names.get("common")
+    if isinstance(common, dict):
+        values.extend(str(value).strip() for value in common.values() if str(value).strip())
+    rules = names.get("rules")
+    if isinstance(rules, list):
+        values.extend(
+            str(rule.get("value")).strip()
+            for rule in rules
+            if isinstance(rule, dict) and str(rule.get("value") or "").strip()
+        )
+    return tuple(dict.fromkeys(value for value in values if value != primary))
+
+
 class OverturePlaceProvider(ExternalPlaceProvider):
     key = "overture"
 
@@ -236,6 +254,7 @@ class OverturePlaceProvider(ExternalPlaceProvider):
             operating_status=first_nonblank([raw.get("operating_status")]),
             confidence_or_quality=float(raw["confidence"])
             if raw.get("confidence") is not None else None,
+            name_variants=_name_variants(names),
             refreshed_date=max(source_times) if source_times else None,
             source_metadata={
                 "area": raw.get("_area"),

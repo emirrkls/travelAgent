@@ -57,6 +57,7 @@ def load_gold_places(path: Path | None = None) -> list[GoldPlace]:
             longitude=float(row["longitude"]),
             category=BenchmarkCategory(row["category"]),
             source_reference=row["source_reference"],
+            name_variants=tuple(row.get("name_variants", [])),
         )
         for row in payload["places"]
     ]

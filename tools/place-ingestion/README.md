@@ -37,11 +37,27 @@ python -m phokarta_place_ingestion benchmark `
   --output "C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A\<timestamp>"
 ```
 
-For an FSQ run, create a Places Portal account and generate an access token. The
-minimal required configuration is:
+## Foursquare Open Source Places access
+
+1. Open the official [Foursquare Places Portal documentation](https://docs.foursquare.com/data-products/docs/access-fsq-os-places).
+2. Obtain access to Open Source Places and create a programmatic Places Portal token.
+3. Do not paste the token into source code, chat, logs, screenshots, or committed files.
+4. Open `tools/place-ingestion/.env.local`.
+5. Set `FSQ_PLACES_TOKEN=<your token>` and save the file.
+6. Return to the same Codex task and say `CONTINUE`.
+
+The repository contains a safe `.env.example`; `.env.local` and local variants are
+ignored by Git. The loader uses this precedence without overwriting process state:
+
+1. explicit `FSQ_PLACES_TOKEN` process environment variable;
+2. `tools/place-ingestion/.env.local`;
+3. missing credential.
+
+Check presence safely (the command reports only `YES` or `NO`):
 
 ```powershell
-$env:FSQ_PLACES_TOKEN = "<token>"
+$env:PYTHONPATH = "src"
+python -m phokarta_place_ingestion doctor
 ```
 
 The adapter defaults to the current Portal connection (`places` warehouse,
@@ -55,10 +71,11 @@ Then request both providers:
 python -m phokarta_place_ingestion benchmark --providers overture,fsq --output <path>
 ```
 
-The token is read only at connection time. It is never printed, logged, included
-in SQL text, or written to benchmark artifacts. FSQ fails closed if any required
-Portal connection setting is missing. The adapter does not fall back to the retired
-anonymous S3 dataset.
+The token is read only for the in-memory connection secret. It is never printed,
+logged, included in benchmark artifacts, or returned in errors. FSQ failures expose
+only a safe category such as `UNAUTHORIZED`, `FORBIDDEN`, `CATALOG_UNAVAILABLE`,
+`DATASET_NOT_GRANTED`, or `NETWORK_FAILURE`. The adapter does not fall back to the
+retired anonymous S3 dataset.
 
 ## Reproducibility and scope
 
@@ -68,6 +85,9 @@ anonymous S3 dataset.
 - Provider taxonomies map into neutral benchmark concepts using
   `config/category_mappings.json`; uncertain values stay `UNMAPPED`.
 - A fixed seed controls the human-review sample.
+- `config/benchmark_lock.json` cryptographically freezes all fair-comparison inputs.
+- Provider-supplied common, translated, official, alternate, and short names are
+  evaluated without changing the conservative distance or similarity thresholds.
 - `RAW` means every fetched row inside the exact circle.
 - `USABLE` requires a valid coordinate, non-empty name, no reliable closed signal,
   and no documented severe provider-quality exclusion.
@@ -81,6 +101,7 @@ anonymous S3 dataset.
 ```text
 benchmark       fetch, normalize, measure, sample, and write reports
 validate-config validate pilot, registry, mapping, and gold-set fixtures
+doctor          report only whether an FSQ credential is configured
 ```
 
 `fetch_delta()` is an explicit provider extension point. M5.5A records release and

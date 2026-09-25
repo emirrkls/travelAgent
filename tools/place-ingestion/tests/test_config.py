@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from phokarta_place_ingestion.benchmark_lock import verify_benchmark_lock
 from phokarta_place_ingestion.categories import CategoryMapper
 from phokarta_place_ingestion.config import (
     DEFAULT_CONFIG_DIR,
@@ -15,6 +16,11 @@ from phokarta_place_ingestion.models import BenchmarkCategory
 
 
 class ConfigurationTest(unittest.TestCase):
+    def test_benchmark_lock_matches_current_inputs(self):
+        lock = verify_benchmark_lock()
+        self.assertEqual(lock["benchmark_method_version"], "1.0.0")
+        self.assertEqual(lock["sampling_seed"], 5501)
+
     def test_configuration_schema_is_versioned(self):
         schema = read_json(DEFAULT_CONFIG_DIR / "config.schema.json")
         self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")

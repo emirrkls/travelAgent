@@ -91,6 +91,7 @@ class NormalizedPlace:
     website: str | None
     operating_status: str | None
     confidence_or_quality: float | str | None
+    name_variants: tuple[str, ...] = ()
     created_date: str | None = None
     refreshed_date: str | None = None
     source_metadata: dict[str, Any] = field(default_factory=dict)
@@ -109,6 +110,7 @@ class GoldPlace:
     longitude: float
     category: BenchmarkCategory
     source_reference: str
+    name_variants: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

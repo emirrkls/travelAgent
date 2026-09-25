@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import date, datetime
 from typing import Any, Iterable
 
-from .matching import duplicate_candidates, haversine_meters, name_similarity
+from .matching import duplicate_candidates, haversine_meters, known_name_similarity
 from .models import BenchmarkCategory, GoldPlace, NormalizedPlace, PilotArea
 from .normalization import valid_coordinate
 from .quality import assess_quality
@@ -131,7 +131,7 @@ def known_place_recall(
         candidates = [place for place in grouped.get(area, []) if assess_quality(place).usable]
         matched = missing = ambiguous = 0
         for known in area_gold:
-            possible: list[tuple[float, float, NormalizedPlace]] = []
+            possible: list[tuple[float, float, NormalizedPlace, str | None]] = []
             for place in candidates:
                 if not valid_coordinate(place.latitude, place.longitude):
                     continue
@@ -140,14 +140,16 @@ def known_place_recall(
                 )
                 if distance > 250.0:
                     continue
-                similarity = name_similarity(known.name, place.name)
+                similarity, matched_variant = known_name_similarity(
+                    known.name, place, known.name_variants
+                )
                 category_ok = place.benchmark_category == known.category
                 # Exact/near-exact names may recover a Place whose provider taxonomy
                 # is missing or wrong. Looser aliases require compatible mapped
                 # categories; this prevents pairs such as "Hıdırlık Kulesi" and
                 # "Hıdırlık Taksi" from becoming false recall matches.
                 if similarity >= 0.95 or (similarity >= 0.88 and category_ok):
-                    possible.append((similarity, distance, place))
+                    possible.append((similarity, distance, place, matched_variant))
             possible.sort(key=lambda row: (-row[0], row[1]))
             if not possible:
                 status = "MISSING"; missing += 1; chosen = None
@@ -162,7 +164,7 @@ def known_place_recall(
                 "known_category": known.category.value,
                 "status": status,
                 "matched_external_id": chosen[2].external_id if chosen else "",
-                "matched_name": chosen[2].name if chosen else "",
+                "matched_name": chosen[3] if chosen else "",
                 "distance_meters": round(chosen[1], 3) if chosen else "",
                 "name_similarity": round(chosen[0], 6) if chosen else "",
                 "source_reference": known.source_reference,

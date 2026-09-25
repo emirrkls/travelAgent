@@ -24,6 +24,7 @@ def place(
     status: str | None = "OPEN",
     quality=0.9,
     flags=(),
+    name_variants=(),
 ) -> NormalizedPlace:
     return NormalizedPlace(
         provider=provider,
@@ -44,6 +45,7 @@ def place(
         website=None,
         operating_status=status,
         confidence_or_quality=quality,
+        name_variants=tuple(name_variants),
         source_metadata={"area": "kadikoy", "unresolved_flags": list(flags)},
     )
 
@@ -74,6 +76,35 @@ class QualityTest(unittest.TestCase):
 class MatchingTest(unittest.TestCase):
     def test_turkish_name_similarity(self):
         self.assertEqual(name_similarity("İNCİ KAFE", "İnci Kafe"), 1.0)
+
+    def test_known_recall_uses_provider_supplied_name_variants(self):
+        gold = [GoldPlace(
+            "kadikoy", "Haydarpaşa Garı", 41.0, 29.0,
+            BenchmarkCategory.HISTORIC_PLACE, "https://example.test/source",
+        )]
+        candidates = [place(
+            "overture", "station", name="Haydarpasa Train Station",
+            name_variants=("Haydarpaşa Garı",), lat=41.00001, lon=29.00001,
+            category=BenchmarkCategory.UNMAPPED,
+        )]
+        summary, detail = known_place_recall("overture", gold, candidates)
+        self.assertEqual(summary[0]["matched"], 1)
+        self.assertEqual(detail[0]["matched_name"], "Haydarpaşa Garı")
+
+    def test_known_recall_uses_frozen_gold_name_variants(self):
+        gold = [GoldPlace(
+            "kadikoy", "Hadrian Kapısı", 36.8856, 30.7087,
+            BenchmarkCategory.HISTORIC_PLACE, "https://example.test/source",
+            ("Hadrian's Gate", "Üçkapılar"),
+        )]
+        candidates = [place(
+            "overture", "gate", name="Hadrian's Gate",
+            lat=36.88561, lon=30.70871,
+            category=BenchmarkCategory.UNMAPPED,
+        )]
+        summary, detail = known_place_recall("overture", gold, candidates)
+        self.assertEqual(summary[0]["matched"], 1)
+        self.assertEqual(detail[0]["matched_name"], "Hadrian's Gate")
 
     def test_duplicate_candidate_generation(self):
         rows = [place("overture", "a"), place("overture", "b", lat=41.00005, lon=29.00005)]

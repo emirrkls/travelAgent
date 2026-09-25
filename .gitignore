@@ -39,6 +39,9 @@ tools/place-ingestion/**/__pycache__/
 tools/place-ingestion/output/
 tools/place-ingestion/**/*.parquet
 tools/place-ingestion/**/*.csv
+tools/place-ingestion/.env.local
+tools/place-ingestion/.env.*.local
+!tools/place-ingestion/.env.example
 
 # iOS (XcodeGen source is tracked; the Xcode project is generated on a Mac)
 ios/Config/Local.xcconfig

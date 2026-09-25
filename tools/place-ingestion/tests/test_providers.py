@@ -14,6 +14,7 @@ from phokarta_place_ingestion.providers import (
     ProviderAccessError,
     ProviderSchemaError,
 )
+from phokarta_place_ingestion.providers.foursquare import _safe_access_error
 
 
 def fixture(name: str):
@@ -32,6 +33,7 @@ class OvertureAdapterTest(unittest.TestCase):
         self.assertEqual(place.primary_category, "coffee_shop")
         self.assertEqual(place.benchmark_category, BenchmarkCategory.CAFE)
         self.assertIn("cafe", place.categories)
+        self.assertEqual(place.name_variants, ("Inci Cafe", "İnci Kahvesi"))
 
     def test_normalizes_address_contacts_and_provenance(self):
         place = self.provider.normalize(fixture("overture_v2_place.json"), self.release)
@@ -89,7 +91,7 @@ class FoursquareAdapterTest(unittest.TestCase):
         place = self.provider.normalize(fixture("fsq_os_place.json"), self.release)
         self.assertEqual(place.external_id, "4examplefsqid")
         self.assertEqual(place.benchmark_category, BenchmarkCategory.CAFE)
-        self.assertEqual(place.operating_status, "OPEN")
+        self.assertIsNone(place.operating_status)
         self.assertEqual(place.refreshed_date, "2026-08-20")
 
     def test_closed_date_maps_to_closed(self):
@@ -112,6 +114,17 @@ class FoursquareAdapterTest(unittest.TestCase):
 
     def test_license_is_apache(self):
         self.assertEqual(self.provider.license_metadata(self.release).license_identifier, "Apache-2.0")
+
+    def test_access_errors_are_categorized_without_secret_context(self):
+        marker = "super-secret-token-value"
+        error = _safe_access_error(
+            "connection",
+            RuntimeError(f"401 Authorization: Bearer {marker}; SQL CREATE SECRET"),
+        )
+        self.assertEqual(str(error), "FSQ connection failed: UNAUTHORIZED")
+        self.assertNotIn(marker, str(error))
+        self.assertNotIn("Bearer", str(error))
+        self.assertNotIn("SQL", str(error))
 
 
 if __name__ == "__main__":

@@ -43,7 +43,7 @@ class ProductionMigrationIntegrationTest {
                 "select count(*) from flyway_schema_history where success", Integer.class);
         Long userCount = jdbc.queryForObject("select count(*) from users", Long.class);
 
-        assertThat(migrationCount).isEqualTo(13);
+        assertThat(migrationCount).isEqualTo(14);
         assertThat(userCount).isZero();
         Integer emailColumn = jdbc.queryForObject("""
                 select count(*) from information_schema.columns
@@ -106,5 +106,25 @@ class ProductionMigrationIntegrationTest {
                 """, Integer.class);
         assertThat(profileVisibility).isEqualTo(1);
         assertThat(followRequests).isEqualTo(1);
+        Integer sourceRecords = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_source_records'
+                """, Integer.class);
+        Integer externalRefs = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_external_refs'
+                """, Integer.class);
+        Integer syncRuns = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_provider_sync_runs'
+                """, Integer.class);
+        Integer overrides = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_canonical_overrides'
+                """, Integer.class);
+        assertThat(sourceRecords).isEqualTo(1);
+        assertThat(externalRefs).isEqualTo(1);
+        assertThat(syncRuns).isEqualTo(1);
+        assertThat(overrides).isEqualTo(1);
     }
 }

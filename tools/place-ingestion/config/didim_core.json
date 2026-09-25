@@ -1,0 +1,12 @@
+{
+  "scope_version": 1,
+  "key": "didim_core",
+  "display_name": "Didim Core",
+  "center": {"latitude": 37.3751, "longitude": 27.2678},
+  "radius_meters": 6000,
+  "future_expansion_radius_meters": 12000,
+  "country": "Türkiye",
+  "region": "Aydın",
+  "default_locality": "Didim",
+  "policy": "M5.5B initial canonical pilot. The 12 km expansion is explicitly excluded."
+}

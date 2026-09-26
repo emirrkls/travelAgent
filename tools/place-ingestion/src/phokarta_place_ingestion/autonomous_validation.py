@@ -37,6 +37,7 @@ from .reporting import write_csv, write_json
 
 
 AUTONOMOUS_VALIDATION_METHOD_VERSION = "didim-autonomous-validation-v2"
+AUTONOMY_REPORTING_SCHEMA_VERSION = "didim-autonomy-accounting-v1"
 AUTONOMY_ARTIFACT_STATUS = "ARTIFACTS_VALIDATED_PENDING_FULL_RELEASE_GATE"
 DIDIM_CENTER = (37.3751, 27.2678)
 DIDIM_RADIUS_METERS = 6000.0
@@ -56,6 +57,10 @@ class AutonomousAction(StrEnum):
     AUTO_ENRICH = "AUTO_ENRICH"
     AUTO_REJECT = "AUTO_REJECT"
     QUARANTINE = "QUARANTINE"
+
+
+class SourceRecordState(StrEnum):
+    SOURCE_REJECTED = "SOURCE_REJECTED"
 
 
 class CatalogLifecycle(StrEnum):
@@ -196,13 +201,13 @@ class SourceRejectionDecision:
     external_id: str
     reason_codes: tuple[str, ...]
     source_hash: str | None
-    action: AutonomousAction = AutonomousAction.AUTO_REJECT
+    state: SourceRecordState = SourceRecordState.SOURCE_REJECTED
     method_version: str = AUTONOMOUS_VALIDATION_METHOD_VERSION
 
     def to_row(self) -> dict[str, Any]:
         return {
             "method_version": self.method_version,
-            "autonomous_decision": self.action.value,
+            "source_state": self.state.value,
             "provider": self.provider,
             "external_id": self.external_id,
             "decision_reason": "; ".join(self.reason_codes),
@@ -220,7 +225,7 @@ def decide_source_rejection(row: dict[str, Any]) -> SourceRejectionDecision:
         if reason.strip()
     )
     if not reasons:
-        raise ValueError("AUTO_REJECT requires an explicit source-quality reason")
+        raise ValueError("SOURCE_REJECTED requires an explicit source-quality reason")
     return SourceRejectionDecision(
         provider=str(row.get("provider") or ""),
         external_id=str(row.get("external_id") or ""),
@@ -1280,7 +1285,137 @@ def evaluate_candidates(
             external_evidence=external_evidence,
             reference_date=reference_date,
         ))
+    validate_decision_accounting(
+        [candidate.candidate_id for candidate in candidates],
+        [decision.to_row() for decision in decisions],
+    )
     return tuple(decisions)
+
+
+def validate_decision_accounting(
+    candidate_ids: Sequence[str], decision_rows: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Fail closed unless the candidate ledger is an exact, exclusive partition."""
+
+    expected = list(candidate_ids)
+    actual = [row.get("candidate_id") for row in decision_rows]
+    if any(not isinstance(value, str) or not value.strip() for value in expected):
+        raise ValueError("candidate population contains a missing candidate ID")
+    if len(set(expected)) != len(expected):
+        raise ValueError("candidate population contains duplicate candidate IDs")
+    if any(not isinstance(value, str) or not value.strip() for value in actual):
+        raise ValueError("decision ledger contains a missing candidate ID")
+    if len(set(actual)) != len(actual):
+        raise ValueError("candidate must have exactly one final decision: duplicate candidate ID")
+    if set(actual) != set(expected):
+        raise ValueError("decision ledger does not exactly cover candidate IDs")
+    actions: Counter[str] = Counter()
+    eligible_count = 0
+    for row in decision_rows:
+        try:
+            action = AutonomousAction(row["autonomous_decision"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("candidate must have one supported final autonomous decision") from error
+        actions[action.value] += 1
+        if not isinstance(row.get("canary_eligible"), bool):
+            raise ValueError("candidate canary_eligible must be a boolean")
+        if row["canary_eligible"]:
+            eligible_count += 1
+            if action != AutonomousAction.AUTO_CREATE:
+                raise ValueError("CANARY_ELIGIBLE must be a subset of AUTO_CREATE")
+            if not isinstance(row.get("hard_blockers"), (tuple, list)):
+                raise ValueError("canary eligible candidate lacks a valid hard blocker ledger")
+            if row["hard_blockers"]:
+                raise ValueError("canary eligible candidate has a hard blocker")
+    decision_total = sum(actions.get(action.value, 0) for action in AutonomousAction)
+    if decision_total != len(expected):
+        raise ValueError("candidate decision totals do not equal candidate group count")
+    return {
+        "status": "PASS",
+        "candidate_group_count": len(expected),
+        "decision_count": len(decision_rows),
+        "decision_total": decision_total,
+        "unique_candidate_count": len(set(actual)),
+        "exact_candidate_id_coverage": True,
+        "one_final_decision_per_candidate": True,
+        "candidate_decisions_mutually_exclusive_and_exhaustive": True,
+        "canary_eligible_count": eligible_count,
+        "canary_eligible_subset_auto_create": True,
+        "canary_eligible_hard_blocker_count": 0,
+    }
+
+
+def source_record_accounting(total: int, rejected_count: int) -> dict[str, int]:
+    """Source observations have their own unit, before canonical grouping."""
+
+    if total < 0 or rejected_count < 0 or rejected_count > total:
+        raise ValueError("invalid source-record accounting")
+    return {
+        "total": total,
+        "usable": total - rejected_count,
+        "rejected_before_canonical_grouping": rejected_count,
+    }
+
+
+def canary_eligible_breakdown(decision_rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Describe only eligible candidates, counting accepted canonical field evidence."""
+
+    eligible = [row for row in decision_rows if row["canary_eligible"]]
+    categories = Counter(str(row.get("category") or "UNMAPPED") for row in eligible)
+    providers = Counter(
+        "OVERTURE_AND_FSQ" if row.get("overture_id") and row.get("fsq_id")
+        else "OVERTURE_ONLY" if row.get("overture_id")
+        else "FSQ_ONLY" if row.get("fsq_id") else "NO_PROVIDER_ID"
+        for row in eligible
+    )
+    distance_bands: Counter[str] = Counter()
+    directions: Counter[str] = Counter()
+    distances: list[float] = []
+    evidence_fields: Counter[str] = Counter()
+    for row in eligible:
+        if row.get("latitude") is None or row.get("longitude") is None:
+            raise ValueError("eligible candidate lacks coordinates for geographic distribution")
+        latitude, longitude = float(row["latitude"]), float(row["longitude"])
+        distance = haversine_meters(*DIDIM_CENTER, latitude, longitude)
+        if not 0 <= distance <= DIDIM_RADIUS_METERS:
+            raise ValueError("eligible candidate is outside Didim Core 6 km")
+        distances.append(distance)
+        distance_bands[
+            "0_TO_2_KM" if distance < 2000
+            else "2_TO_4_KM" if distance < 4000 else "4_TO_6_KM"
+        ] += 1
+        directions[
+            ("N" if latitude >= DIDIM_CENTER[0] else "S")
+            + ("E" if longitude >= DIDIM_CENTER[1] else "W")
+        ] += 1
+        for field in ("phone", "website", "address"):
+            proposals = [proposal for proposal in row["field_proposals"] if proposal["field"] == field]
+            if any(
+                proposal["accepted"] and proposal["canonical_value"] not in (None, "")
+                and any(observation.get("accepted") for observation in proposal["source_observations"])
+                for proposal in proposals
+            ):
+                evidence_fields[field] += 1
+    return {
+        "count": len(eligible),
+        "category_counts": dict(sorted(categories.items())),
+        "provider_composition": {
+            key: providers.get(key, 0)
+            for key in ("OVERTURE_AND_FSQ", "OVERTURE_ONLY", "FSQ_ONLY", "NO_PROVIDER_ID")
+        },
+        "geographic_distribution": {
+            "center": {"latitude": DIDIM_CENTER[0], "longitude": DIDIM_CENTER[1]},
+            "radius_meters": DIDIM_RADIUS_METERS,
+            "distance_bands": {key: distance_bands.get(key, 0) for key in ("0_TO_2_KM", "2_TO_4_KM", "4_TO_6_KM")},
+            "quadrants": {key: directions.get(key, 0) for key in ("NE", "NW", "SE", "SW")},
+            "minimum_distance_meters": round(min(distances), 2) if distances else None,
+            "maximum_distance_meters": round(max(distances), 2) if distances else None,
+            "outside_scope_count": 0,
+        },
+        "accepted_evidence_counts": {field: evidence_fields.get(field, 0) for field in ("phone", "website", "address")},
+        "hard_blocker_count": sum(len(row["hard_blockers"]) for row in eligible),
+        "evidence_count_definition": "Accepted non-empty canonical field proposal with accepted provider source observation; counts overlap.",
+    }
 
 
 def canary_selection_order(
@@ -1883,12 +2018,20 @@ def _load_verified_prior_quarantine(
         raise ValueError("prior evidence count does not match autonomy summary")
     actual_actions = Counter(str(row["autonomous_decision"]) for row in evidence)
     for action in AutonomousAction:
-        if action == AutonomousAction.AUTO_REJECT:
-            continue
         if actual_actions[action.value] != int(
             prior_summary.get("actions", {}).get(action.value, 0)
         ):
             raise ValueError("prior evidence action counts do not match autonomy summary")
+    accounting = validate_decision_accounting(candidate_ids, evidence)
+    if prior_summary.get("reporting_schema_version"):
+        if prior_summary.get("reporting_schema_version") != AUTONOMY_REPORTING_SCHEMA_VERSION:
+            raise ValueError("prior autonomy package has unsupported reporting schema")
+        if prior_summary.get("accounting_invariants") != accounting:
+            raise ValueError("prior accounting invariants do not match candidate evidence")
+        if prior_summary.get("candidate_decisions") != {
+            action.value: actual_actions.get(action.value, 0) for action in AutonomousAction
+        }:
+            raise ValueError("prior candidate decision counts do not match candidate evidence")
 
     with quarantine_path.open("r", encoding="utf-8-sig", newline="") as handle:
         quarantine = [_decision_payload_from_csv(row) for row in csv.DictReader(handle)]
@@ -1978,25 +2121,56 @@ def _write_report(path: Path, summary: dict[str, Any]) -> None:
         "package. It performs no beta canonical writes, does not deploy Flyway V17, and "
         "does not start Stage 1. The former row-by-row review sample is calibration output "
         "only.\n\n",
-        "## Decisions\n\n",
+        f"Reporting schema: `{summary['reporting_schema_version']}`. Decision rules are unchanged.\n\n",
+        "Accounting correction: the prior report mislabeled source observations rejected "
+        "before grouping as candidate AUTO_REJECT decisions. Candidate decisions and the "
+        "decision digest are unchanged. `source_rejected.csv` contains only source rejections; "
+        "`auto_reject.csv` contains only canonical candidates whose final action is AUTO_REJECT.\n\n",
+        "## Source record states\n\n",
+        f"- Total: {summary['source_record_states']['total']}\n",
+        f"- Usable for canonical grouping: {summary['source_record_states']['usable']}\n",
+        f"- SOURCE_REJECTED before canonical grouping: {summary['source_record_states']['rejected_before_canonical_grouping']}\n\n",
+        "## Canonical candidate decisions\n\n",
         f"- Candidate groups: {summary['candidate_groups']}\n",
-        f"- Source records: {summary['source_records']}\n",
         *(
             f"- {action}: {actions.get(action, 0)}"
-            + (
-                f" ({action_rates[action] * 100:.3f}% of candidate groups)\n"
-                if action != "AUTO_REJECT" else
-                f" ({summary['source_rejection_rate'] * 100:.3f}% of source records)\n"
-            )
+            + f" ({action_rates[action] * 100:.3f}% of candidate groups)\n"
             for action in (
                 "AUTO_LINK", "AUTO_CREATE", "AUTO_ENRICH", "AUTO_REJECT", "QUARANTINE"
             )
         ),
         f"- Canary eligible: {summary['canary_eligible']}\n",
         f"- Stage 1 planned: {summary['stage_1_planned']}\n\n",
-        "AUTO_REJECT is source-record quality rejection; the other action counts describe "
-        "canonical candidate groups. Quarantine is a candidate/evidence state, has no catalog "
+        f"Accounting invariant: **{summary['accounting_invariants']['status']}**. "
+        f"The five candidate decisions total {summary['accounting_invariants']['decision_total']}; "
+        "every canonical candidate ID has exactly one final decision. SOURCE_REJECTED is a "
+        "separate source-record state and is excluded from candidate decision totals. "
+        "CANARY_ELIGIBLE is a subset of AUTO_CREATE with zero hard blockers. "
+        "Quarantine is a candidate/evidence state, has no catalog "
         "lifecycle, and is invisible to the public catalog.\n\n",
+        "## Canary eligible breakdown\n\n",
+        *(
+            f"- category {category}: {count}\n"
+            for category, count in summary["canary_eligible_breakdown"]["category_counts"].items()
+        ),
+        *(
+            f"- provider {provider}: {count}\n"
+            for provider, count in summary["canary_eligible_breakdown"]["provider_composition"].items()
+        ),
+        *(
+            f"- distance from Didim center {band}: {count}\n"
+            for band, count in summary["canary_eligible_breakdown"]["geographic_distribution"]["distance_bands"].items()
+        ),
+        *(
+            f"- geographic quadrant {quadrant}: {count}\n"
+            for quadrant, count in summary["canary_eligible_breakdown"]["geographic_distribution"]["quadrants"].items()
+        ),
+        *(
+            f"- accepted {field} evidence: {count}\n"
+            for field, count in summary["canary_eligible_breakdown"]["accepted_evidence_counts"].items()
+        ),
+        f"- eligible hard blocker count: {summary['canary_eligible_breakdown']['hard_blocker_count']}\n\n",
+        summary["canary_eligible_breakdown"]["evidence_count_definition"] + "\n\n",
         "## Safety policy\n\n",
         "Only blocker-free, high-confidence Overture/FSQ pairs with safe required fields "
         "are AUTO_CREATE and canary eligible. Single-provider observations remain quarantined "
@@ -2347,6 +2521,11 @@ def run_quarantine_re_evaluation(
             raise ValueError("re-evaluation produced conflicting current decision lineage")
         decision_payloads[candidate_id] = payload
     decision_rows = [decision_payloads[key] for key in sorted(decision_payloads)]
+    expected_decision_ids = sorted({
+        str(row["current_candidate_id"] or row["prior_candidate_id"])
+        for row in transitions
+    })
+    accounting = validate_decision_accounting(expected_decision_ids, decision_rows)
     quarantine_decisions = [
         row for row in decision_rows
         if row["autonomous_decision"] == AutonomousAction.QUARANTINE.value
@@ -2385,8 +2564,12 @@ def run_quarantine_re_evaluation(
     write_json(output / "re_evaluation_lineage.json", lineage_payload)
     transition_counts = Counter(row["transition"] for row in transitions)
     actions = Counter(str(row["autonomous_decision"]) for row in decision_rows)
+    source_counts = validated["provenance"].get("source_counts", {})
+    source_total = sum(int(count) for count in source_counts.values())
+    rejected_count = len(validated.get("rejected", ()))
     summary = {
         "method_version": AUTONOMOUS_VALIDATION_METHOD_VERSION,
+        "reporting_schema_version": AUTONOMY_REPORTING_SCHEMA_VERSION,
         "status": "RE_EVALUATION_ARTIFACTS_VALIDATED",
         "prior_method_version": prior_method,
         "source_package_provenance": validated["provenance"],
@@ -2401,10 +2584,21 @@ def run_quarantine_re_evaluation(
             for row in transitions
         ),
         "transition_counts": dict(sorted(transition_counts.items())),
+        "source_records": source_total,
+        "source_counts": source_counts,
+        "source_rejected": rejected_count,
+        "source_record_states": source_record_accounting(source_total, rejected_count),
+        "source_record_accounting_scope": "ENTIRE_CURRENT_SOURCE_SNAPSHOT",
+        "candidate_decision_accounting_scope": "PRIOR_QUARANTINE_RE_EVALUATION_LINEAGE",
         "candidate_groups": len(decision_rows),
         "actions": {
             action.value: int(actions.get(action.value, 0)) for action in AutonomousAction
         },
+        "candidate_decisions": {
+            action.value: int(actions.get(action.value, 0)) for action in AutonomousAction
+        },
+        "accounting_invariants": accounting,
+        "canary_eligible_breakdown": canary_eligible_breakdown(decision_rows),
         "decision_digest": _decision_payload_digest(decision_rows),
         "transition_digest": _decision_payload_digest(transitions),
         "quarantine_digest": _decision_payload_digest(quarantine_decisions),
@@ -2467,8 +2661,10 @@ def run_autonomous_didim(
     if len(selected) != expected_stage_one_count:
         raise ValueError("Stage 1 selection did not produce the exact required cardinality")
     decision_rows = [row.to_row() for row in decisions]
+    accounting = validate_decision_accounting(
+        [candidate.candidate_id for candidate in candidates], decision_rows
+    )
     actions = Counter(row.action.value for row in decisions)
-    actions[AutonomousAction.AUTO_REJECT.value] = len(rejected)
     reasons = Counter(row.reason_code for row in decisions)
     blockers = Counter(
         blocker.value for row in decisions for blocker in row.hard_blockers
@@ -2546,6 +2742,7 @@ def run_autonomous_didim(
     }
     summary = {
         "method_version": AUTONOMOUS_VALIDATION_METHOD_VERSION,
+        "reporting_schema_version": AUTONOMY_REPORTING_SCHEMA_VERSION,
         "run_id": f"didim-autonomy-{digest[:16]}",
         "decision_digest": digest,
         "status": AUTONOMY_ARTIFACT_STATUS,
@@ -2556,14 +2753,16 @@ def run_autonomous_didim(
         "freshness_reference_date": reference_date.isoformat(),
         "freshness_window_days": MAX_FRESHNESS_AGE_DAYS,
         "source_records": source_total,
+        "source_rejected": len(rejected),
+        "source_record_states": source_record_accounting(source_total, len(rejected)),
         "source_counts": summary_source_counts,
         "candidate_groups": len(decisions),
         "actions": {action.value: int(actions.get(action.value, 0)) for action in AutonomousAction},
+        "candidate_decisions": {action.value: int(actions.get(action.value, 0)) for action in AutonomousAction},
+        "accounting_invariants": accounting,
+        "canary_eligible_breakdown": canary_eligible_breakdown(decision_rows),
         "action_rates_over_candidate_groups": {
-            action.value: (
-                None if action == AutonomousAction.AUTO_REJECT
-                else round(actions.get(action.value, 0) / candidate_total, 8)
-            )
+            action.value: round(actions.get(action.value, 0) / candidate_total, 8)
             for action in AutonomousAction
         },
         "source_rejection_rate": round(len(rejected) / max(source_total, 1), 8),
@@ -2612,6 +2811,7 @@ def run_autonomous_didim(
         ("auto_link.csv", AutonomousAction.AUTO_LINK),
         ("auto_create.csv", AutonomousAction.AUTO_CREATE),
         ("auto_enrich.csv", AutonomousAction.AUTO_ENRICH),
+        ("auto_reject.csv", AutonomousAction.AUTO_REJECT),
     ):
         write_csv(
             output / filename,
@@ -2620,9 +2820,9 @@ def run_autonomous_didim(
         )
     reject_rows = [decide_source_rejection(row).to_row() for row in rejected]
     write_csv(
-        output / "auto_reject.csv",
+        output / "source_rejected.csv",
         reject_rows,
-        ["method_version", "autonomous_decision", "provider", "external_id"],
+        ["method_version", "source_state", "provider", "external_id"],
     )
     eligible_rows = []
     selection_rank = {
@@ -2651,6 +2851,19 @@ def run_autonomous_didim(
         output / "canary_eligible.csv",
         eligible_rows,
         ["method_version", "candidate_id", "selection_rank", "stage_1_selected"],
+    )
+    write_csv(
+        output / "candidate_decision_distribution.csv",
+        _distribution_rows(Counter(summary["candidate_decisions"]), "autonomous_decision"),
+        ["method_version", "autonomous_decision", "count"],
+    )
+    write_csv(
+        output / "source_record_state_distribution.csv",
+        _distribution_rows(Counter({
+            "USABLE_FOR_CANONICAL_GROUPING": source_total - len(rejected),
+            "SOURCE_REJECTED": len(rejected),
+        }), "source_state"),
+        ["method_version", "source_state", "count"],
     )
     write_csv(
         output / "decision_reason_distribution.csv",
@@ -2687,6 +2900,8 @@ def run_autonomous_didim(
         for filename in (
             "candidate_evidence.csv", "quarantine.csv", "auto_link.csv",
             "auto_create.csv", "auto_enrich.csv", "auto_reject.csv",
+            "source_rejected.csv", "candidate_decision_distribution.csv",
+            "source_record_state_distribution.csv",
             "canary_eligible.csv",
             "AUTONOMOUS_SAMPLE_DECISIONS.csv", "catalog_anomaly_baseline.json",
             "decision_reason_distribution.csv", "quarantine_reason_distribution.csv",

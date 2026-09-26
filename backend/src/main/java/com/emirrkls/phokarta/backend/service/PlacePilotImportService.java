@@ -55,6 +55,7 @@ public class PlacePilotImportService {
     private static final String EXPECTED_FSQ_RELEASE = "2026-09-15 20:07:45.157000";
     private static final String EXPECTED_FSQ_SNAPSHOT = "2325979374271449319";
     private static final String EXPECTED_METHOD_VERSION = "didim-autonomous-validation-v2";
+    private static final String EXPECTED_ACCOUNTING_SCHEMA_VERSION = "didim-autonomy-accounting-v1";
     private static final Set<String> APPROVED_SOURCE_METHOD_VERSIONS = Set.of(
             "didim-canonicalization-v2", "didim-canonicalization-v3");
     private static final UUID SOURCE_UUID_NAMESPACE =
@@ -371,7 +372,12 @@ public class PlacePilotImportService {
             validateOptionalScopedPoint(source, "source record");
         }
 
+        Set<UUID> usableSourceIds = new HashSet<>();
+        manifestSources.forEach((sourceId, source) -> {
+            if (source.usable()) usableSourceIds.add(sourceId);
+        });
         Set<UUID> assignedSourceIds = new HashSet<>();
+        Set<String> candidateIds = new HashSet<>();
         Set<UUID> selectedPlaceIds = new HashSet<>();
         Set<Integer> selectionRanks = new HashSet<>();
         Set<Integer> selectedRanks = new HashSet<>();
@@ -384,7 +390,9 @@ public class PlacePilotImportService {
                     .contains(decision)) {
                 throw new IllegalArgumentException("unsupported candidate decision: " + decision);
             }
-            requiredText(candidate, "candidate_id");
+            if (!candidateIds.add(requiredText(candidate, "candidate_id"))) {
+                throw new IllegalArgumentException("duplicate canonical candidate identity");
+            }
             requiredText(candidate, "decision_reason");
             requiredExistenceAssessment(candidate);
             String candidateHash = requiredText(candidate, "candidate_hash");
@@ -491,6 +499,10 @@ public class PlacePilotImportService {
                     throw new IllegalArgumentException("source record is assigned to multiple candidates");
                 }
                 ManifestSource manifestSource = manifestSources.get(sourceId);
+                if (!manifestSource.usable()) {
+                    throw new IllegalArgumentException(
+                            "rejected source cannot be assigned a candidate decision");
+                }
                 candidateProviders.add(manifestSource.provider());
                 candidateSourceHashes.add(manifestSource.sourceHash());
                 allCandidateSourcesUsable &= manifestSource.usable();
@@ -511,10 +523,11 @@ public class PlacePilotImportService {
                                 + "Overture and FSQ evidence");
             }
         }
-        if (!assignedSourceIds.equals(sourceIds)) {
+        if (!assignedSourceIds.equals(usableSourceIds)) {
             throw new IllegalArgumentException(
-                    "every source record must be assigned exactly once to a candidate decision");
+                    "every usable source record must be assigned exactly once to a candidate decision");
         }
+        validateAccountingPopulations(manifest);
         for (int rank = 1; rank <= selectionRanks.size(); rank++) {
             if (!selectionRanks.contains(rank)) {
                 throw new IllegalArgumentException(
@@ -522,6 +535,71 @@ public class PlacePilotImportService {
             }
         }
         requireExactStageSelection(canaryStage, selectionRanks.size(), selectedRanks);
+    }
+
+    static void validateAccountingPopulations(JsonNode manifest) {
+        if (!EXPECTED_ACCOUNTING_SCHEMA_VERSION.equals(
+                manifest.path("reporting_schema_version").asText())) {
+            throw new IllegalArgumentException("manifest accounting schema is invalid");
+        }
+        JsonNode sources = manifest.path("source_records");
+        JsonNode candidates = manifest.path("candidates");
+        if (!sources.isArray() || !candidates.isArray()) {
+            throw new IllegalArgumentException("manifest accounting populations must be arrays");
+        }
+        int usable = 0;
+        for (JsonNode source : sources) {
+            if (source.path("usable").asBoolean(false)) {
+                usable++;
+            } else if (!"SOURCE_REJECTED".equals(
+                    source.path("provenance").path("source_record_state").asText())
+                    || source.path("provenance").path("source_rejection_reason")
+                    .asText().isBlank()) {
+                throw new IllegalArgumentException("rejected source lacks source-state provenance");
+            }
+        }
+        JsonNode sourceStates = manifest.path("source_record_states");
+        requireAccountingCount(sourceStates, "total", sources.size());
+        requireAccountingCount(sourceStates, "usable", usable);
+        requireAccountingCount(sourceStates, "rejected_before_canonical_grouping",
+                sources.size() - usable);
+        if (!sourceStates.isObject() || sourceStates.size() != 3) {
+            throw new IllegalArgumentException("source record accounting must contain only source states");
+        }
+        requireAccountingCount(manifest, "candidate_group_count", candidates.size());
+        Map<String, Integer> decisionCounts = new HashMap<>();
+        Set<String> decisionStates = Set.of(
+                "AUTO_LINK", "AUTO_CREATE", "AUTO_ENRICH", "AUTO_REJECT", "QUARANTINE");
+        Set<String> identities = new HashSet<>();
+        for (JsonNode candidate : candidates) {
+            String identity = candidate.path("candidate_id").asText();
+            String decision = candidate.path("decision").asText();
+            if (identity.isBlank() || !identities.add(identity)
+                    || !decisionStates.contains(decision)) {
+                throw new IllegalArgumentException("candidate decisions must have one unique final state");
+            }
+            decisionCounts.merge(decision, 1, Integer::sum);
+            if (candidate.path("canary_eligible").asBoolean(false)
+                    && !"AUTO_CREATE".equals(decision)) {
+                throw new IllegalArgumentException("only AUTO_CREATE may be canary eligible");
+            }
+        }
+        JsonNode declaredDecisions = manifest.path("candidate_decisions");
+        for (String decision : decisionStates) {
+            requireAccountingCount(declaredDecisions, decision,
+                    decisionCounts.getOrDefault(decision, 0));
+        }
+        if (!declaredDecisions.isObject() || declaredDecisions.size() != decisionStates.size()) {
+            throw new IllegalArgumentException("candidate accounting must contain exactly five final states");
+        }
+    }
+
+    private static void requireAccountingCount(JsonNode node, String field, int expected) {
+        JsonNode count = node.get(field);
+        if (count == null || !count.isIntegralNumber() || !count.canConvertToInt()
+                || count.intValue() != expected) {
+            throw new IllegalArgumentException("manifest accounting count is inconsistent: " + field);
+        }
     }
 
     static boolean isApprovedSourceMethodVersion(String methodVersion) {

@@ -138,6 +138,67 @@ class PlacePilotImportManifestHashTest {
                 true, true, false, true)).isFalse();
     }
 
+    @Test
+    void accountingSeparatesRejectedSourcesFromCanonicalCandidateDecisions() {
+        ObjectNode manifest = accountingManifest();
+        PlacePilotImportService.validateAccountingPopulations(manifest);
+        ((ObjectNode) manifest.path("candidate_decisions")).put("AUTO_REJECT", 1);
+        assertThatThrownBy(() -> PlacePilotImportService.validateAccountingPopulations(manifest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("AUTO_REJECT");
+    }
+
+    @Test
+    void accountingFailsOldSchemaDuplicateCandidatesAndWrongCandidateTotals() {
+        ObjectNode oldManifest = accountingManifest();
+        oldManifest.remove("reporting_schema_version");
+        assertThatThrownBy(() -> PlacePilotImportService.validateAccountingPopulations(oldManifest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("accounting schema");
+
+        ObjectNode duplicate = accountingManifest();
+        ((ArrayNode) duplicate.path("candidates")).add(duplicate.path("candidates").get(0).deepCopy());
+        duplicate.put("candidate_group_count", 2);
+        assertThatThrownBy(() -> PlacePilotImportService.validateAccountingPopulations(duplicate))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("one unique final state");
+
+        ObjectNode badTotal = accountingManifest();
+        badTotal.put("candidate_group_count", 2);
+        assertThatThrownBy(() -> PlacePilotImportService.validateAccountingPopulations(badTotal))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("candidate_group_count");
+    }
+
+    @Test
+    void accountingRejectsCanaryEligibilityOutsideAutoCreate() {
+        ObjectNode manifest = accountingManifest();
+        ((ObjectNode) manifest.path("candidates").get(0)).put("canary_eligible", true);
+        assertThatThrownBy(() -> PlacePilotImportService.validateAccountingPopulations(manifest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only AUTO_CREATE");
+    }
+
+    private ObjectNode accountingManifest() {
+        ObjectNode manifest = mapper.createObjectNode();
+        manifest.put("reporting_schema_version", "didim-autonomy-accounting-v1");
+        ArrayNode sources = manifest.putArray("source_records");
+        sources.addObject().put("usable", true);
+        sources.addObject().put("usable", false).putObject("provenance")
+                .put("source_record_state", "SOURCE_REJECTED")
+                .put("source_rejection_reason", "explicitly_closed; unresolved_doesnt_exist");
+        manifest.putObject("source_record_states")
+                .put("total", 2).put("usable", 1).put("rejected_before_canonical_grouping", 1);
+        manifest.put("candidate_group_count", 1);
+        manifest.putArray("candidates").addObject()
+                .put("candidate_id", "canonical-group-1")
+                .put("decision", "QUARANTINE").put("canary_eligible", false);
+        manifest.putObject("candidate_decisions")
+                .put("AUTO_LINK", 0).put("AUTO_CREATE", 0).put("AUTO_ENRICH", 0)
+                .put("AUTO_REJECT", 0).put("QUARANTINE", 1);
+        return manifest;
+    }
+
     private ObjectNode planManifest(String stage, boolean selected, int rank) {
         ObjectNode manifest = mapper.createObjectNode();
         manifest.put("status", "AUTONOMOUS_CANARY_AUTHORIZED");

@@ -4,13 +4,18 @@ import unittest
 import uuid
 import copy
 import tempfile
+import json
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 from phokarta_place_ingestion.autonomous_validation import (
     AutonomousAction,
+    AUTONOMOUS_VALIDATION_METHOD_VERSION,
+    _decision_digest,
     decide_candidate,
+    validate_decision_accounting,
 )
 from phokarta_place_ingestion.canary_manifest import (
     AUTHORIZATION_CONFIRMATION,
@@ -21,6 +26,7 @@ from phokarta_place_ingestion.canary_manifest import (
     _assemble_manifest,
     _canonical_bytes,
     _finite_json_number,
+    _load_verified_autonomy,
     _sha256_json,
     _source_uuid,
     build_canary_manifest,
@@ -29,6 +35,7 @@ from phokarta_place_ingestion.canary_manifest import (
 )
 from phokarta_place_ingestion.canonicalization import CanonicalCandidate
 from phokarta_place_ingestion.canonicalization import CANONICALIZATION_METHOD_VERSION
+from phokarta_place_ingestion.reporting import write_csv
 
 
 def _fixture(count: int = 1):
@@ -304,7 +311,7 @@ class CanaryManifestContractTest(unittest.TestCase):
         self.assertIsNone(row["canonical"]["phone"])
         self.assertFalse(row["field_proposals"]["phone"]["accepted"])
 
-    def test_rejected_source_reason_is_db_safe_and_raw_reason_is_preserved(self):
+    def test_source_rejection_is_not_a_candidate_decision_and_raw_reason_is_preserved(self):
         validated, decisions, order = _fixture(1)
         raw_reason = "explicitly_closed; unresolved_doesnt_exist"
         rejected = {
@@ -342,22 +349,106 @@ class CanaryManifestContractTest(unittest.TestCase):
         envelope = {"manifest": manifest, "manifest_hash": _sha256_json(manifest)}
         counts = validate_canary_manifest_contract(envelope)
         self.assertEqual(counts["source_records"], 3)
-        self.assertEqual(counts["candidates"], 2)
-        row = next(item for item in manifest["candidates"] if item["decision"] == "AUTO_REJECT")
-        self.assertRegex(row["decision_reason"], r"^[A-Z][A-Z0-9_]{1,119}$")
+        self.assertEqual(counts["candidates"], 1)
+        self.assertEqual(manifest["candidate_group_count"], 1)
+        self.assertEqual(manifest["candidate_decisions"]["AUTO_REJECT"], 0)
+        self.assertEqual(manifest["source_record_states"], {
+            "total": 3, "usable": 2, "rejected_before_canonical_grouping": 1,
+        })
+        row = next(item for item in manifest["source_records"] if not item["usable"])
         self.assertEqual(
-            row["evidence"]["signals"][0]["detail"],
+            row["provenance"]["source_rejection_reason"],
             raw_reason,
         )
+        self.assertEqual(row["provenance"]["source_record_state"], "SOURCE_REJECTED")
+        self.assertFalse(any(
+            row["source_record_id"] in candidate["source_record_ids"]
+            for candidate in manifest["candidates"]
+        ))
 
-        row["decision_reason"] = "explicitly_closed"
-        row["candidate_hash"] = _sha256_json({
-            key: value for key, value in row.items()
-            if key not in {"candidate_hash", "selected_for_stage"}
-        })
+        row["provenance"].pop("source_rejection_reason")
         envelope["manifest_hash"] = _sha256_json(manifest)
-        with self.assertRaisesRegex(ValueError, "decision reason"):
+        with self.assertRaisesRegex(ValueError, "source-state provenance"):
             validate_canary_manifest_contract(envelope)
+
+    def test_assembly_requires_exactly_one_decision_per_canonical_candidate(self):
+        validated, decisions, order = _fixture(2)
+        for invalid in ((decisions[0],), (decisions[0], decisions[0])):
+            with self.subTest(decisions=invalid):
+                with self.assertRaisesRegex(ValueError, "exactly cover|exactly one"):
+                    _assemble_manifest(
+                        validated, invalid, order, stage="STAGE_1",
+                        run_id=str(uuid.uuid4()), pilot_run_key="didim-canary-test",
+                        authorization_reference="test-authorization-reference",
+                    )
+
+    def test_manifest_rejects_legacy_or_mixed_population_accounting(self):
+        for field in ("reporting_schema_version", "candidate_group_count", "source_record_states"):
+            with self.subTest(missing=field):
+                envelope = _envelope(1)
+                envelope["manifest"].pop(field)
+                envelope["manifest_hash"] = _sha256_json(envelope["manifest"])
+                with self.assertRaisesRegex(ValueError, "accounting"):
+                    validate_canary_manifest_contract(envelope)
+        envelope = _envelope(1)
+        envelope["manifest"]["candidate_decisions"]["AUTO_REJECT"] = 1294
+        envelope["manifest_hash"] = _sha256_json(envelope["manifest"])
+        with self.assertRaisesRegex(ValueError, "candidate decision accounting"):
+            validate_canary_manifest_contract(envelope)
+
+    def test_verified_package_rejects_source_counts_as_candidate_actions_and_typed_count_tampering(self):
+        validated, decisions, order = _fixture(1)
+        validated["rejected"] = ({"provider": "fsq", "external_id": "rejected"},)
+        validated["reproducible"]["source_context"][("fsq", "rejected")] = {}
+        counts = {action.value: int(action == AutonomousAction.AUTO_CREATE) for action in AutonomousAction}
+        summary = {
+            "method_version": AUTONOMOUS_VALIDATION_METHOD_VERSION,
+            "reporting_schema_version": "didim-autonomy-accounting-v1",
+            "external_evidence_provider": "NOOP", "candidate_groups": 1,
+            "source_records": 3, "source_rejected": 1,
+            "source_record_states": {
+                "total": 3, "usable": 2, "rejected_before_canonical_grouping": 1,
+            },
+            "actions": counts, "candidate_decisions": counts,
+            "accounting_invariants": validate_decision_accounting(
+                [decisions[0].candidate_id], [decisions[0].to_row()],
+            ),
+            "decision_digest": _decision_digest(decisions),
+            "canary_eligible": 1, "stage_1_planned": 1,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_csv(root / "candidate_evidence.csv", [decisions[0].to_row()], [])
+            write_csv(root / "canary_eligible.csv", [{
+                "candidate_id": order[0], "selection_rank": 1, "stage_1_selected": True,
+            }], [])
+            with patch("phokarta_place_ingestion.canary_manifest._verify_artifacts"), patch(
+                "phokarta_place_ingestion.canary_manifest.evaluate_candidates", return_value=decisions,
+            ), patch(
+                "phokarta_place_ingestion.canary_manifest._reference_date_from_provenance",
+                return_value=date(2026, 9, 23),
+            ):
+                (root / "autonomous_summary.json").write_text(json.dumps(summary), encoding="utf-8")
+                self.assertEqual(_load_verified_autonomy(root, validated), (decisions, order))
+                mutated = copy.deepcopy(summary)
+                mutated["actions"]["AUTO_REJECT"] = 1
+                mutated["candidate_decisions"]["AUTO_REJECT"] = 1
+                (root / "autonomous_summary.json").write_text(json.dumps(mutated), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "action counts"):
+                    _load_verified_autonomy(root, validated)
+                for field in ("candidate_groups", "source_records", "source_rejected", "canary_eligible", "stage_1_planned"):
+                    for value in (float(summary[field]), str(summary[field]), True):
+                        with self.subTest(field=field, value=value):
+                            mutated = copy.deepcopy(summary)
+                            mutated[field] = value
+                            (root / "autonomous_summary.json").write_text(json.dumps(mutated), encoding="utf-8")
+                            with self.assertRaises(ValueError):
+                                _load_verified_autonomy(root, validated)
+                mutated = copy.deepcopy(summary)
+                mutated["accounting_invariants"]["decision_total"] = True
+                (root / "autonomous_summary.json").write_text(json.dumps(mutated), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "action counts"):
+                    _load_verified_autonomy(root, validated)
 
     def test_noncanonical_inputs_are_emitted_as_backend_compatible_values(self):
         validated, decisions, order = _fixture(1)

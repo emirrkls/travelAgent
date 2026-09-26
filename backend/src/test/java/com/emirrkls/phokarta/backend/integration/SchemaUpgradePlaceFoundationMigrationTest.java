@@ -534,7 +534,7 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         unusableEvidence.put("manifest_hash", importer.hashManifest(unusableManifest));
         assertThatThrownBy(() -> importAuthorized(importer, unusableEvidence))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("usable independent Overture and FSQ evidence");
+                .hasMessageContaining("rejected source cannot be assigned a candidate decision");
 
         ObjectNode staleEvidence = stageTwoManifest(mapper, importer,
                 UUID.fromString("60000000-0000-0000-0000-000000000539"),
@@ -1267,6 +1267,35 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                 """, GRAPH_PLACE)).isEqualTo(2);
         assertThat(inTransaction(transactions, () -> rollback.retireRun(
                 successfulRun, now.plusSeconds(5))).alreadyRolledBack()).isTrue();
+
+        ObjectNode rejectedSourceEnvelope = stageTwoManifest(mapper, importer,
+                UUID.fromString("60000000-0000-0000-0000-000000000777"),
+                "didim-source-accounting-regression", 1);
+        ObjectNode rejectedSourceManifest = (ObjectNode) rejectedSourceEnvelope.path("manifest");
+        selectStage(rejectedSourceManifest, "STAGE_1");
+        ArrayNode accountingSources = (ArrayNode) rejectedSourceManifest.path("source_records");
+        source(accountingSources, "70000000-0000-0000-0000-000000000777", "fsq",
+                "f-accounting-rejected", "9".repeat(64));
+        ObjectNode rejectedSource = (ObjectNode) accountingSources.get(2);
+        rejectedSource.put("usable", false);
+        ((ObjectNode) rejectedSource.path("provenance"))
+                .put("source_record_state", "SOURCE_REJECTED")
+                .put("source_rejection_reason", "explicitly_closed; unresolved_doesnt_exist");
+        refreshDerivedManifest(importer, rejectedSourceManifest);
+        rejectedSourceEnvelope.put("manifest_hash", importer.hashManifest(rejectedSourceManifest));
+        PlacePilotImportService.ImportResult sourceAccountingResult =
+                importAuthorized(importer, rejectedSourceEnvelope);
+        assertThat(sourceAccountingResult.sourceCount()).isEqualTo(3);
+        assertThat(sourceAccountingResult.usableCount()).isEqualTo(2);
+        assertThat(sourceAccountingResult.sourceRejectedCount()).isEqualTo(1);
+        assertThat(sourceAccountingResult.autoRejectedCount()).isZero();
+        assertThat(count(jdbc, "select count(*) from place_validation_decisions where sync_run_id = ?",
+                sourceAccountingResult.runId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                select provenance->>'source_rejection_reason' from place_source_records
+                 where sync_run_id = ? and external_id = 'f-accounting-rejected'
+                """, String.class, sourceAccountingResult.runId()))
+                .isEqualTo("explicitly_closed; unresolved_doesnt_exist");
     }
 
     private <T> T inTransaction(
@@ -1686,12 +1715,36 @@ class SchemaUpgradePlaceFoundationMigrationTest {
             PlacePilotImportService importer,
             ObjectNode manifest
     ) {
+        refreshAccountingMetadata(manifest);
         for (JsonNode value : manifest.path("candidates")) {
             ObjectNode candidate = (ObjectNode) value;
             ObjectNode payload = candidate.deepCopy();
             payload.remove("candidate_hash");
             payload.remove("selected_for_stage");
             candidate.put("candidate_hash", importer.hashManifest(payload));
+        }
+    }
+
+    private void refreshAccountingMetadata(ObjectNode manifest) {
+        manifest.put("reporting_schema_version", "didim-autonomy-accounting-v1");
+        int usable = 0;
+        for (JsonNode source : manifest.path("source_records")) {
+            if (source.path("usable").asBoolean(false)) usable++;
+        }
+        manifest.putObject("source_record_states")
+                .put("total", manifest.path("source_records").size())
+                .put("usable", usable)
+                .put("rejected_before_canonical_grouping",
+                        manifest.path("source_records").size() - usable);
+        manifest.put("candidate_group_count", manifest.path("candidates").size());
+        ObjectNode decisions = manifest.putObject("candidate_decisions");
+        for (String decision : new String[]{"AUTO_LINK", "AUTO_CREATE", "AUTO_ENRICH",
+                "AUTO_REJECT", "QUARANTINE"}) {
+            int count = 0;
+            for (JsonNode candidate : manifest.path("candidates")) {
+                if (decision.equals(candidate.path("decision").asText())) count++;
+            }
+            decisions.put(decision, count);
         }
     }
 

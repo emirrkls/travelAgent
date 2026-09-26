@@ -27,6 +27,7 @@ from .autonomous_validation import (
     canary_selection_order,
     evaluate_candidates,
     load_validated_replay_package,
+    validate_decision_accounting,
 )
 from .canonicalization import CANONICALIZATION_METHOD_VERSION, CanonicalCandidate
 from .didim_pilot import REPOSITORY_ROOT
@@ -49,6 +50,7 @@ _PLACE_NAMESPACE = uuid.UUID("238147d6-fc89-5af3-8b78-559044fef2ad")
 _VALID_STAGES = frozenset({"STAGE_1", "STAGE_2", "STAGE_3"})
 _PILOT_RUN_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{7,159}$")
 _DECISION_REASON = re.compile(r"^[A-Z][A-Z0-9_]{1,119}$")
+ACCOUNTING_SCHEMA_VERSION = "didim-autonomy-accounting-v1"
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -60,6 +62,13 @@ def _canonical_bytes(value: Any) -> bytes:
 
 def _sha256_json(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _accounting_counts_match(value: Any, expected: dict[str, int]) -> bool:
+    return (
+        isinstance(value, dict) and set(value) == set(expected)
+        and all(type(value[key]) is int and value[key] == count for key, count in expected.items())
+    )
 
 
 def _finite_json_number(value: Any, field: str) -> float:
@@ -176,6 +185,8 @@ def _load_verified_autonomy(
     )
     if summary.get("method_version") != AUTONOMOUS_VALIDATION_METHOD_VERSION:
         raise ValueError("autonomy package method version is not importable")
+    if summary.get("reporting_schema_version") != ACCOUNTING_SCHEMA_VERSION:
+        raise ValueError("autonomy package accounting schema is not importable")
     if summary.get("external_evidence_provider") != "NOOP":
         raise ValueError("manifest replay cannot reproduce an external evidence provider")
     _verify_artifacts(root, summary)
@@ -187,7 +198,7 @@ def _load_verified_autonomy(
     stored_ids = [str(row["candidate_id"]) for row in stored]
     if stored_ids != sorted(stored_ids) or len(stored_ids) != len(set(stored_ids)):
         raise ValueError("autonomy evidence is not in unique deterministic order")
-    if len(stored) != int(summary.get("candidate_groups", -1)):
+    if type(summary.get("candidate_groups")) is not int or len(stored) != summary["candidate_groups"]:
         raise ValueError("autonomy evidence count differs from its summary")
 
     reproducible = validated["reproducible"]
@@ -197,15 +208,36 @@ def _load_verified_autonomy(
         reference_date=_reference_date_from_provenance(validated["provenance"]),
     )
     recomputed = [row.to_row() for row in decisions]
-    if stored != recomputed:
+    # CSV JSON arrays become lists while immutable in-memory evidence uses tuples.
+    # Compare their canonical JSON content without relaxing values or array order.
+    if _canonical_bytes(stored) != _canonical_bytes(recomputed):
         raise ValueError("autonomy evidence differs from deterministic replay")
     if _decision_digest(decisions) != str(summary.get("decision_digest") or ""):
         raise ValueError("autonomy decision digest differs from deterministic replay")
     actions = Counter(row.action.value for row in decisions)
-    actions[AutonomousAction.AUTO_REJECT.value] = len(validated["rejected"])
-    if any(
-        int(summary.get("actions", {}).get(action.value, -1)) != actions[action.value]
-        for action in AutonomousAction
+    action_counts = {action.value: actions[action.value] for action in AutonomousAction}
+    invariant = validate_decision_accounting(
+        [candidate.candidate_id for candidate in validated["candidates"]], recomputed,
+    )
+    source_count = len(reproducible["source_context"])
+    expected_sources = {
+        "total": source_count,
+        "usable": source_count - len(validated["rejected"]),
+        "rejected_before_canonical_grouping": len(validated["rejected"]),
+    }
+    if (
+        not _accounting_counts_match(summary.get("source_record_states"), expected_sources)
+        or type(summary.get("source_records")) is not int
+        or summary["source_records"] != source_count
+        or type(summary.get("source_rejected")) is not int
+        or summary["source_rejected"] != len(validated["rejected"])
+    ):
+        raise ValueError("autonomy source record states differ from deterministic replay")
+    if (
+        not _accounting_counts_match(summary.get("actions"), action_counts)
+        or not _accounting_counts_match(summary.get("candidate_decisions"), action_counts)
+        or not isinstance(summary.get("accounting_invariants"), dict)
+        or _canonical_bytes(summary["accounting_invariants"]) != _canonical_bytes(invariant)
     ):
         raise ValueError("autonomy action counts differ from deterministic replay")
 
@@ -233,14 +265,16 @@ def _load_verified_autonomy(
     expected_stage_one = set(order[:min(100, len(order))])
     if selected_ids != expected_stage_one:
         raise ValueError("autonomy Stage 1 selection is not exactly min(100, eligible)")
-    if int(summary.get("canary_eligible", -1)) != len(order):
+    if type(summary.get("canary_eligible")) is not int or summary["canary_eligible"] != len(order):
         raise ValueError("autonomy eligible count differs from deterministic replay")
-    if int(summary.get("stage_1_planned", -1)) != len(expected_stage_one):
+    if type(summary.get("stage_1_planned")) is not int or summary["stage_1_planned"] != len(expected_stage_one):
         raise ValueError("autonomy Stage 1 count differs from deterministic replay")
     return decisions, order
 
 
-def _manifest_source(row: dict[str, Any], *, usable: bool) -> dict[str, Any]:
+def _manifest_source(
+    row: dict[str, Any], *, usable: bool, rejection_reason: str | None = None,
+) -> dict[str, Any]:
     source_hash = str(row.get("source_hash") or "")
     if len(source_hash) != 64 or any(character not in "0123456789abcdef" for character in source_hash):
         raise ValueError("source row lacks a lowercase SHA-256 digest")
@@ -273,6 +307,11 @@ def _manifest_source(row: dict[str, Any], *, usable: bool) -> dict[str, Any]:
         "retrieved_at": retrieved_at,
         "usable": usable,
     }
+    if not usable:
+        if not rejection_reason:
+            raise ValueError("rejected source must retain its raw rejection reason")
+        result["provenance"]["source_record_state"] = "SOURCE_REJECTED"
+        result["provenance"]["source_rejection_reason"] = rejection_reason
     if not result["external_id"] or not result["license_identifier"]:
         raise ValueError("source row lacks import provenance")
     return result
@@ -283,23 +322,6 @@ def _candidate_payload_hash(candidate: dict[str, Any]) -> str:
     payload.pop("candidate_hash", None)
     payload.pop("selected_for_stage", None)
     return _sha256_json(payload)
-
-
-def _rejection_reason_code(value: Any) -> str:
-    """Encode source-quality reasons into the database's bounded reason-code form."""
-
-    raw = str(value or "").strip()
-    normalized = re.sub(r"[^A-Z0-9]+", "_", raw.upper()).strip("_")
-    if not normalized:
-        normalized = "SOURCE_QUALITY_REJECTED"
-    if not normalized[0].isalpha():
-        normalized = f"SOURCE_QUALITY_REJECTED_{normalized}"
-    if len(normalized) > 120:
-        suffix = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12].upper()
-        normalized = f"{normalized[:107].rstrip('_')}_{suffix}"
-    if not _DECISION_REASON.fullmatch(normalized):
-        raise ValueError("source-quality rejection reason cannot be encoded safely")
-    return normalized
 
 
 def _canonical_payload(
@@ -367,15 +389,24 @@ def _assemble_manifest(
         raise ValueError("pilot run key is invalid")
 
     context = validated["reproducible"]["source_context"]
-    rejected_keys = {
-        (str(row.get("provider") or ""), str(row.get("external_id") or ""))
+    validate_decision_accounting(
+        [candidate.candidate_id for candidate in validated["candidates"]],
+        [decision.to_row() for decision in decisions],
+    )
+    rejected_by_key = {
+        (str(row.get("provider") or ""), str(row.get("external_id") or "")): row
         for row in validated["rejected"]
     }
+    if len(rejected_by_key) != len(validated["rejected"]) or not set(rejected_by_key) <= set(context):
+        raise ValueError("rejected source identities are duplicated or lack provenance")
     ordered_source_rows = [context[key] for key in sorted(context)]
     source_records = [
         _manifest_source(
             row,
-            usable=(str(row.get("provider")), str(row.get("external_id"))) not in rejected_keys,
+            usable=(str(row.get("provider")), str(row.get("external_id"))) not in rejected_by_key,
+            rejection_reason=str(rejected_by_key.get(
+                (str(row.get("provider")), str(row.get("external_id"))), {}
+            ).get("reasons") or "SOURCE_QUALITY_REJECTED"),
         )
         for row in ordered_source_rows
     ]
@@ -433,40 +464,6 @@ def _assemble_manifest(
         row["candidate_hash"] = _candidate_payload_hash(row)
         manifest_candidates.append(row)
 
-    for rejected in sorted(
-        validated["rejected"],
-        key=lambda row: (str(row.get("provider") or ""), str(row.get("external_id") or "")),
-    ):
-        provider = str(rejected.get("provider") or "")
-        external_id = str(rejected.get("external_id") or "")
-        source_id = source_id_by_key[(provider, external_id)]
-        raw_reason = str(rejected.get("reasons") or "SOURCE_QUALITY_REJECTED")
-        candidate_id = "didim-reject-" + hashlib.sha256(
-            f"{provider}\n{external_id}".encode("utf-8")
-        ).hexdigest()[:24]
-        row = {
-            "candidate_id": candidate_id,
-            "decision": AutonomousAction.AUTO_REJECT.value,
-            "decision_reason": _rejection_reason_code(raw_reason),
-            "existence_assessment": "UNKNOWN",
-            "evidence": {"signals": [{
-                "dimension": "SOURCE_QUALITY",
-                "strength": "STRONG",
-                "reason_code": "SOURCE_QUALITY_REJECTED",
-                "detail": raw_reason,
-                "sources": [source_id],
-            }]},
-            "hard_blockers": [],
-            "field_proposals": {},
-            "source_record_ids": [source_id],
-            "canary_eligible": False,
-            "selected_for_stage": False,
-            "canonical_fields_valid": False,
-            "decided_at": decided_at,
-            "overrides": [],
-        }
-        row["candidate_hash"] = _candidate_payload_hash(row)
-        manifest_candidates.append(row)
     manifest_candidates.sort(key=lambda row: str(row["candidate_id"]))
 
     providers = validated["provenance"]["providers"]
@@ -477,6 +474,17 @@ def _assemble_manifest(
         "authorization_reference": authorization_reference,
         "status": AUTHORIZED_STATUS,
         "method_version": AUTONOMOUS_VALIDATION_METHOD_VERSION,
+        "reporting_schema_version": ACCOUNTING_SCHEMA_VERSION,
+        "source_record_states": {
+            "total": len(source_records),
+            "usable": len(source_records) - len(rejected_by_key),
+            "rejected_before_canonical_grouping": len(rejected_by_key),
+        },
+        "candidate_group_count": len(validated["candidates"]),
+        "candidate_decisions": {
+            action.value: sum(row.action == action for row in decisions)
+            for action in AutonomousAction
+        },
         "scope": {
             "name": "didim_core",
             "center_latitude": DIDIM_CENTER[0],
@@ -510,6 +518,8 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
         raise ValueError("manifest is not operationally authorized")
     if manifest.get("method_version") != AUTONOMOUS_VALIDATION_METHOD_VERSION:
         raise ValueError("manifest method version is invalid")
+    if manifest.get("reporting_schema_version") != ACCOUNTING_SCHEMA_VERSION:
+        raise ValueError("manifest accounting schema is invalid")
     if manifest.get("canary_stage") not in _VALID_STAGES:
         raise ValueError("manifest stage is invalid")
     run_id = str(manifest.get("run_id") or "")
@@ -598,6 +608,21 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
             and (date(2026, 9, 23) - observed.date()).days <= 730
         )
         source_by_id[source_id] = source
+        if not source["usable"] and (
+            source["provenance"].get("source_record_state") != "SOURCE_REJECTED"
+            or not str(source["provenance"].get("source_rejection_reason") or "").strip()
+        ):
+            raise ValueError("rejected source lacks source-state provenance")
+    usable_source_ids = {
+        source_id for source_id, source in source_by_id.items() if source["usable"]
+    }
+    if not _accounting_counts_match(manifest.get("source_record_states"), {
+        "total": len(sources), "usable": len(usable_source_ids),
+        "rejected_before_canonical_grouping": len(sources) - len(usable_source_ids),
+    }):
+        raise ValueError("manifest source record accounting is inconsistent")
+    if type(manifest.get("candidate_group_count")) is not int or manifest["candidate_group_count"] != len(candidates):
+        raise ValueError("manifest candidate group accounting is inconsistent")
     assigned: set[str] = set()
     ranks: set[int] = set()
     selected: set[int] = set()
@@ -635,6 +660,8 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
         for source_id in candidate_sources:
             if source_id not in source_ids or source_id in assigned:
                 raise ValueError("candidate source lineage is missing or duplicated")
+            if source_id not in usable_source_ids:
+                raise ValueError("rejected source cannot be assigned a candidate decision")
             assigned.add(source_id)
         if candidate.get("canary_eligible"):
             eligible += 1
@@ -700,7 +727,12 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
             raise ValueError("noneligible candidate has a selection rank")
         elif candidate.get("selected_for_stage") is not False:
             raise ValueError("noneligible candidate is selected")
-    if assigned != source_ids or ranks != set(range(1, eligible + 1)):
+    expected_actions = Counter(candidate["decision"] for candidate in candidates)
+    if not _accounting_counts_match(manifest.get("candidate_decisions"), {
+        action.value: expected_actions[action.value] for action in AutonomousAction
+    }):
+        raise ValueError("manifest candidate decision accounting is inconsistent")
+    if assigned != usable_source_ids or ranks != set(range(1, eligible + 1)):
         raise ValueError("manifest source coverage or selection ranks are incomplete")
     first, last = _stage_rank_bounds(str(manifest["canary_stage"]), eligible)
     if selected != set(range(first, last + 1)):

@@ -237,15 +237,15 @@ the immutable gate also compares the exact probed UUID set with the selected dat
 decisions before a stage can pass.
 
 Autonomy counts use explicit populations. `source_records` is every scoped provider
-observation; `candidate_groups` is only canonical candidate groups after unusable
-source rows are removed. `AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`, and `QUARANTINE`
-counts/rates use candidate groups as their denominator. `AUTO_REJECT` counts unusable
-source observations, has no candidate-group rate, and is reported separately as
-`source_rejection_rate / source_records`. `canary_eligible` and every stage count are
-subsets of candidate groups, never source rows.
-The package writes and hashes the full evidence ledger plus separate files for every
-action (`AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`, `AUTO_REJECT`, and `QUARANTINE`),
-including header-only files when an action has zero rows.
+observation; `SOURCE_REJECTED` is a pre-grouping source-record state, reported through
+`source_record_states` and `source_rejection_rate / source_records`. `candidate_groups`
+contains only canonical candidate groups after those unusable observations are removed.
+`AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`, `AUTO_REJECT`, and `QUARANTINE` are mutually
+exclusive candidate decisions, and their counts/rates use candidate groups as the
+denominator. `canary_eligible` and every stage count are subsets of candidate groups,
+never source rows. The package writes and hashes the full candidate evidence ledger,
+candidate-only action files (including header-only files for zero-row actions), and a
+separate `source_rejected.csv` provenance ledger.
 
 Quarantine re-evaluation is a separate, bounded replay. It verifies the prior
 autonomy package's artifact hashes, decision digest and quarantine subset, then
@@ -292,17 +292,33 @@ not authorization; without the exact confirmation it fails before loading either
 package and writes nothing. The output suffix is exactly lowercase `.json`; run IDs
 and timestamps are emitted in canonical backend-compatible form, authorization
 references are bounded to 200 characters, and raw source-rejection details remain in
-evidence while their database reason codes are safely normalized. A read-only
-in-memory assembly of the current validated
-Didim package produced 18,924 source records, 17,429 candidate decisions and 71
-eligible Stage 1 selections. The preceding freshness-only result was 76; bounded
+source provenance only; they are never converted into candidate or backend decision
+reason codes. A row-level audit of the superseded `20260926_170944` autonomy package
+found 18,924 unique source identities:
+1,294 are `SOURCE_REJECTED` before grouping and are absent from candidate decisions;
+the other 17,630 are each referenced exactly once by 16,135 unique candidate decisions.
+Candidate actions are `AUTO_LINK 0`, `AUTO_CREATE 71`, `AUTO_ENRICH 0`,
+`AUTO_REJECT 0`, and `QUARANTINE 16,064`. All 71 eligible candidates are unique,
+blocker-free, cross-provider `AUTO_CREATE` decisions and occupy the complete Stage 1
+rank range 1–71. Their accepted optional-field evidence counts are address 47, phone
+32, and website 5; counts overlap. That package's summary is not importable under the
+current accounting contract because it conflated the 1,294 source rejects with
+candidate `AUTO_REJECT` decisions.
+
+The corrected replay is `20260926_1855_accounting_fix`, reporting schema
+`didim-autonomy-accounting-v1`. Its accounting audit is `PASS` and enforces
+`18,924 = 17,630 usable + 1,294 SOURCE_REJECTED` and
+`16,135 candidate groups = 0 + 71 + 0 + 0 + 16,064` mutually exclusive decisions.
+Independent replay found zero changed classifications and zero changed eligible ranks;
+the decision digest remains
+`6746d690b2a22eac98080d88b9a5867a7e3f5a8c80a9022e15723e146ab900f3`.
+The previous 17,429-candidate/113,434,802-byte manifest estimate is withdrawn, and no
+replacement manifest was measured or written because operational authorization has not
+been given. The preceding freshness-only result was 76; bounded
 hostname identity, promotional-name rejection, and shared-source-lineage rejection
 removed five candidates: three hostname-only
 identity matches, the promotional Yılbaşı/Munzur record, and one record blocked by
-both hostname identity and shared Foursquare lineage. With the per-source
-canonicalization method included and bound into source IDs, the compact JSON envelope
-measured 113,434,802 bytes (84.516% of the 134,217,728-byte limit, leaving 20,782,926
-bytes); no manifest file was written. The taxonomy-only eligibility pass changed from
+both hostname identity and shared Foursquare lineage. The taxonomy-only eligibility pass changed from
 161 to 159 after unknown sibling categories began failing closed, and the
 backend-aligned requirement that every corroborating source be fresh reduced the
 intermediate eligible population to 76.

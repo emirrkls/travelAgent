@@ -14,6 +14,7 @@ import phokarta_place_ingestion.autonomous_validation as autonomous_validation
 
 from phokarta_place_ingestion.autonomous_validation import (
     AUTONOMY_ARTIFACT_STATUS,
+    AUTONOMY_REPORTING_SCHEMA_VERSION,
     AUTONOMOUS_VALIDATION_METHOD_VERSION,
     AutonomousAction,
     EvidenceDimension,
@@ -22,6 +23,8 @@ from phokarta_place_ingestion.autonomous_validation import (
     ExistenceConfidence,
     HardBlocker,
     NoopExternalEvidenceProvider,
+    SourceRecordState,
+    canary_eligible_breakdown,
     catalog_anomaly_baseline,
     decide_source_rejection,
     decide_candidate,
@@ -31,6 +34,8 @@ from phokarta_place_ingestion.autonomous_validation import (
     quarantine_transition_rows,
     run_quarantine_re_evaluation,
     select_stage_one,
+    source_record_accounting,
+    validate_decision_accounting,
     verify_corrected_source_package,
     _validated_package_provenance,
 )
@@ -203,13 +208,83 @@ class CanonicalAttributeValidationTest(unittest.TestCase):
 
 
 class AutonomousDecisionTest(unittest.TestCase):
-    def test_explicit_source_quality_failure_auto_rejects_without_lifecycle(self):
+    def test_explicit_source_quality_failure_is_source_rejected_without_candidate_action(self):
         decision = decide_source_rejection({
             "provider": "fsq", "external_id": "junk-1",
             "reasons": "invalid_coordinate; unresolved_duplicate", "source_hash": "abc",
         })
-        self.assertEqual(decision.action, AutonomousAction.AUTO_REJECT)
+        self.assertEqual(decision.state, SourceRecordState.SOURCE_REJECTED)
+        self.assertEqual(decision.to_row()["source_state"], "SOURCE_REJECTED")
+        self.assertNotIn("autonomous_decision", decision.to_row())
         self.assertIsNone(decision.to_row()["catalog_lifecycle"])
+
+    def test_candidate_accounting_all_five_actions_form_one_exact_partition(self):
+        base = decide_candidate(candidate(), sources(candidate()))
+        decisions = [
+            replace(base, candidate_id=f"candidate-{index}", action=action,
+                    canary_eligible=action == AutonomousAction.AUTO_CREATE)
+            for index, action in enumerate(AutonomousAction)
+        ]
+        result = validate_decision_accounting(
+            [row.candidate_id for row in decisions], [row.to_row() for row in decisions]
+        )
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["decision_total"], 5)
+        self.assertEqual(result["candidate_group_count"], 5)
+        self.assertEqual(result["unique_candidate_count"], 5)
+        self.assertEqual(result["canary_eligible_count"], 1)
+
+    def test_candidate_accounting_rejects_duplicate_missing_and_substituted_ids(self):
+        payload = decide_candidate(candidate(), sources(candidate())).to_row()
+        for candidate_ids, rows, reason in (
+            (["didim-1"], [payload, payload], "exactly one final decision"),
+            (["didim-1", "missing"], [payload], "exactly cover candidate IDs"),
+            (["didim-1"], [dict(payload, candidate_id="substitute")], "exactly cover candidate IDs"),
+            (["didim-1", "didim-1"], [payload], "duplicate candidate IDs"),
+            (["didim-1"], [dict(payload, candidate_id="")], "missing candidate ID"),
+            (["didim-1"], [dict(payload, autonomous_decision=["AUTO_CREATE", "QUARANTINE"])], "one supported final"),
+            (["didim-1"], [dict(payload, autonomous_decision="UNKNOWN")], "one supported final"),
+        ):
+            with self.subTest(reason=reason, candidate_ids=candidate_ids):
+                with self.assertRaisesRegex(ValueError, reason):
+                    validate_decision_accounting(candidate_ids, rows)
+
+    def test_candidate_accounting_rejects_eligible_non_create_or_blocked_candidate(self):
+        payload = decide_candidate(candidate(), sources(candidate())).to_row()
+        for altered, reason in (
+            (dict(payload, autonomous_decision="QUARANTINE"), "subset of AUTO_CREATE"),
+            (dict(payload, hard_blockers=["UNVERIFIED_IDENTITY"]), "hard blocker"),
+            (dict(payload, canary_eligible="false"), "must be a boolean"),
+        ):
+            with self.subTest(reason=reason):
+                with self.assertRaisesRegex(ValueError, reason):
+                    validate_decision_accounting(["didim-1"], [altered])
+
+    def test_eligible_breakdown_uses_only_eligible_accepted_source_evidence(self):
+        first = decide_candidate(candidate(), sources(candidate())).to_row()
+        second = decide_candidate(candidate("other"), sources(candidate("other"))).to_row()
+        second["canary_eligible"] = False
+        first["field_proposals"] = [
+            dict(proposal, accepted=False) if proposal["field"] == "phone" else proposal
+            for proposal in first["field_proposals"]
+        ]
+        result = canary_eligible_breakdown([first, second])
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["category_counts"], {"CAFE": 1})
+        self.assertEqual(result["provider_composition"]["OVERTURE_AND_FSQ"], 1)
+        self.assertEqual(result["provider_composition"]["OVERTURE_ONLY"], 0)
+        self.assertEqual(result["accepted_evidence_counts"], {"phone": 0, "website": 0, "address": 1})
+        self.assertEqual(result["geographic_distribution"]["distance_bands"]["0_TO_2_KM"], 1)
+        self.assertEqual(result["hard_blocker_count"], 0)
+        with self.assertRaisesRegex(ValueError, "outside Didim Core"):
+            canary_eligible_breakdown([dict(first, latitude=38.0)])
+
+    def test_source_record_accounting_is_a_separate_exhaustive_partition(self):
+        self.assertEqual(source_record_accounting(18924, 1294), {
+            "total": 18924, "usable": 17630, "rejected_before_canonical_grouping": 1294,
+        })
+        with self.assertRaisesRegex(ValueError, "invalid source-record accounting"):
+            source_record_accounting(1, 2)
 
     def test_safe_independent_pair_is_auto_create_and_canary_eligible(self):
         row = candidate()
@@ -577,6 +652,69 @@ class EntityAndReplaySafetyTest(unittest.TestCase):
             result["summary"]["frozen_input_hashes"]["source_records_sha256"],
             "a" * 64,
         )
+
+    def test_run_keeps_candidate_auto_reject_distinct_from_pre_grouping_source_rejects(self):
+        create = candidate()
+        rejected_candidate = candidate("rejected-candidate", overture_id="o-2", fsq_id=None)
+        create_decision = decide_candidate(create, sources(create))
+        reject_decision = replace(
+            decide_candidate(rejected_candidate, sources(rejected_candidate)),
+            action=AutonomousAction.AUTO_REJECT, canary_eligible=False,
+            reason_code="EXPLICIT_CANDIDATE_REJECTION",
+        )
+        source_reject = {
+            "provider": "fsq", "external_id": "f-rejected", "reasons": "invalid_coordinate",
+            "source_hash": "rejected-hash",
+        }
+        context = {
+            (str(source["provider"]), str(source["external_id"])): source
+            for row in (create, rejected_candidate) for source in sources(row)
+        }
+        validated = {
+            "provenance": {
+                "canonicalization_method_version": "didim-canonicalization-v3",
+                "scope": {"key": "didim_core"},
+                "source_counts": {"overture": 2, "fsq": 3},
+                "providers": {
+                    "overture": {"resolved_release": "2026-09-23.0"},
+                    "fsq": {"resolved_release": "2026-09-15 20:07:45.157000"},
+                },
+            },
+            "source_package_artifact_sha256": {},
+            "reproducible": {"source_context": context},
+            "candidates": (create, rejected_candidate),
+            "rejected": (source_reject, dict(source_reject, external_id="f-rejected-2")),
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with (
+                patch.object(autonomous_validation, "load_validated_replay_package", return_value=validated),
+                patch.object(autonomous_validation, "evaluate_candidates", return_value=(create_decision, reject_decision)),
+            ):
+                result = autonomous_validation.run_autonomous_didim(root, root / "artifacts")
+            summary = result["summary"]
+            self.assertEqual(summary["reporting_schema_version"], AUTONOMY_REPORTING_SCHEMA_VERSION)
+            self.assertEqual(summary["source_record_states"], {
+                "total": 5, "usable": 3, "rejected_before_canonical_grouping": 2,
+            })
+            self.assertEqual(summary["source_rejected"], 2)
+            self.assertEqual(summary["candidate_decisions"], {
+                "AUTO_LINK": 0, "AUTO_CREATE": 1, "AUTO_ENRICH": 0, "AUTO_REJECT": 1, "QUARANTINE": 0,
+            })
+            self.assertEqual(summary["actions"], summary["candidate_decisions"])
+            self.assertEqual(sum(summary["candidate_decisions"].values()), summary["candidate_groups"])
+            self.assertEqual(summary["action_rates_over_candidate_groups"]["AUTO_REJECT"], 0.5)
+            self.assertEqual(summary["accounting_invariants"]["status"], "PASS")
+            with (root / "artifacts" / "auto_reject.csv").open(encoding="utf-8-sig", newline="") as handle:
+                candidate_reject_rows = list(csv.DictReader(handle))
+            with (root / "artifacts" / "source_rejected.csv").open(encoding="utf-8-sig", newline="") as handle:
+                source_reject_rows = list(csv.DictReader(handle))
+            self.assertEqual([row["candidate_id"] for row in candidate_reject_rows], ["rejected-candidate"])
+            self.assertEqual([row["source_state"] for row in source_reject_rows], ["SOURCE_REJECTED", "SOURCE_REJECTED"])
+            self.assertNotIn("autonomous_decision", source_reject_rows[0])
+            self.assertIn("AUTO_REJECT: 1", (root / "artifacts" / "AUTONOMY_REPORT.md").read_text(encoding="utf-8"))
+            for filename in ("candidate_decision_distribution.csv", "source_record_state_distribution.csv", "source_rejected.csv"):
+                self.assertEqual(summary["artifact_sha256"][filename], autonomous_validation._file_sha256(root / "artifacts" / filename))
 
     def test_candidate_csv_reader_restores_formula_protected_phone(self):
         raw = candidate().to_row()
@@ -1128,6 +1266,9 @@ class EntityAndReplaySafetyTest(unittest.TestCase):
             )
             self.assertEqual(method, AUTONOMOUS_VALIDATION_METHOD_VERSION)
             self.assertEqual(len(rows), 1)
+            inconsistent = dict(summary, actions=dict(summary["actions"], AUTO_REJECT=1294))
+            with self.assertRaisesRegex(ValueError, "action counts do not match"):
+                autonomous_validation._load_verified_prior_quarantine(root, inconsistent)
             tampered = dict(payload, decision_reason="tampered")
             autonomous_validation.write_csv(
                 root / "quarantine.csv", [tampered], ["candidate_id"]

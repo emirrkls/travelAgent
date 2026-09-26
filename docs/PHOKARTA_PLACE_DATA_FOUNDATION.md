@@ -355,11 +355,16 @@ Action semantics are:
 - `AUTO_ENRICH`: fill an absent or explicitly externally managed field on an existing
   Place. A trusted manual/community value is never overwritten merely because an
   external observation is newer.
-- `AUTO_REJECT`: discard deterministic junk, invalid coordinates, unusable identity,
-  impossible representation, or a source duplicate already represented by the
-  candidate group. Incomplete evidence by itself is not rejection.
+- `AUTO_REJECT`: reject a grouped canonical candidate when deterministic evidence makes
+  the candidate itself unusable. It is a candidate decision, not a source-row count;
+  incomplete evidence by itself is not rejection.
 - `QUARANTINE`: persist the source, evidence and explanation but create no visible
   Place. Quarantine is a successful safe outcome, not a processing failure.
+
+`SOURCE_REJECTED` is a separate pre-grouping source-record state for deterministic
+junk, invalid coordinates, unusable identity, impossible representation, or a source
+duplicate already represented elsewhere. Such observations retain provenance but do
+not become synthetic candidate decisions.
 
 Hard blockers include `POSSIBLE_SUBVENUE`, `SAME_NAME_MULTIPLE_NEARBY`,
 `CATEGORY_CONFLICT`, `PROVIDER_GEOMETRY_CONFLICT`,
@@ -630,16 +635,22 @@ quarantine from selection, refuses output above the backend's 128 MiB ceiling,
 never overwrites an existing file, and performs no database or network operation.
 It emits only a lowercase `.json` path, canonical UUIDs and UTC timestamps, enforces
 the database's 200-character authorization-reference bound, and retains raw rejected-
-source reasons in evidence while using database-safe normalized decision reason codes.
+source reasons in provenance only; rejected-source reasons are never converted into
+candidate or backend decision reason codes.
 The generator and backend hash the same compact UTF-8 JSON contract: object keys use
 Unicode code-point order, arrays retain their order, and strings and finite floating
 point numbers use Python `json.dumps` spelling. Cross-language digest fixtures cover
 Unicode, control escapes, decimal values, exponent values and negative zero.
 This checkpoint has not invoked that command and has produced no authorized manifest.
-A read-only in-memory assembly against the corrected package produced 18,924 source
-records, 17,429 candidate decisions and 71 eligible Stage 1 selections. The exact
-compact envelope size was 113,434,802 bytes (84.516% of the 134,217,728-byte ceiling),
-leaving 20,782,926 bytes of headroom. The taxonomy-only eligibility population moved
+The corrected `20260926_1855_accounting_fix` replay uses reporting schema
+`didim-autonomy-accounting-v1`; its accounting audit is `PASS`. It enforces both
+population invariants: `18,924 source records = 17,630 usable + 1,294 SOURCE_REJECTED`
+and `16,135 candidate groups = 0 AUTO_LINK + 71 AUTO_CREATE + 0 AUTO_ENRICH +
+0 AUTO_REJECT + 16,064 QUARANTINE`. The superseded `20260926_170944` summary is not
+importable under this contract because it appended the 1,294 pre-grouping source
+rejects as synthetic candidate rejects. Its 17,429-candidate/113,434,802-byte manifest
+estimate is withdrawn; no replacement manifest was measured or written because
+operational authorization has not been given. The taxonomy-only eligibility population moved
 from 161 to 159 when unknown non-allowlisted category siblings began failing closed;
 requiring every corroborating source to pass the backend-aligned freshness gate then
 reduced the intermediate eligible population to 76. The final identity-safety pass
@@ -718,7 +729,38 @@ values are retained only in provenance. Valid website domains also participate i
 entity-hierarchy detection, so a restaurant-like record on a hotel/resort domain can
 be quarantined as a likely subvenue. Category conflict,
 tourism nesting, same-provider duplicates, branch ambiguity, and weak evidence stay
-`QUARANTINE`. Clearly unusable observations alone are `AUTO_REJECT`.
+`QUARANTINE`. Clearly unusable observations are `SOURCE_REJECTED` before grouping;
+`AUTO_REJECT` remains available only as a candidate decision.
+
+An independent row-level audit of the corrected `20260926_1855_accounting_fix` package found
+18,924 unique source identities and hashes. The 1,294 unique `SOURCE_REJECTED`
+identities (Overture 161; FSQ 1,133) have zero overlap with candidate source references.
+All 17,630 usable identities are referenced exactly once, with no missing or unexpected
+identity, by 16,135 sorted, unique candidate IDs. Candidate decisions are
+`AUTO_LINK 0`, `AUTO_CREATE 71`, `AUTO_ENRICH 0`, `AUTO_REJECT 0`, and
+`QUARANTINE 16,064`.
+
+Hard-blocker occurrences over the full candidate ledger overlap by design:
+`UNSUPPORTED_CATEGORY 13,263`, `UNSAFE_CANONICAL_ATTRIBUTE 12,088`,
+`POSSIBLE_SUBVENUE 1,317`, `TOURISM_NESTING 1,145`, `SUSPICIOUS_WEBSITE 1,022`,
+`SAME_NAME_MULTIPLE_NEARBY 737`, `SAME_PROVIDER_DUPLICATE_CONFLICT 667`,
+`POSSIBLE_BRANCH_CONFUSION 506`, `UNVERIFIED_IDENTITY 413`,
+`PROVIDER_GEOMETRY_CONFLICT 172`, `CATEGORY_CONFLICT 97`, and
+`SOURCE_LINEAGE_DEPENDENCY 63`.
+
+The 71 canary-eligible IDs exactly match `canary_eligible.csv`, have unique contiguous
+ranks 1–71, are all blocker-free cross-provider `AUTO_CREATE` decisions, and are all
+selected for Stage 1. Their category distribution is Restaurant 28, Beach 15, Cafe 15,
+Bar 8, Nature 3, Nightlife 1, and Attraction 1. Accepted optional-field evidence is
+present for address 47, phone 32, and website 5 candidates; these counts overlap and
+require both a non-empty accepted canonical proposal and an accepted provider
+observation. Geographic distribution is 28 candidates at 0–2 km, 26 at 2–4 km, and
+17 at 4–6 km; quadrants are NE 8, NW 17, SE 37, and SW 9. The nearest candidate is
+65.60 m from the frozen center, the farthest is 5,720.46 m, and none is outside 6 km.
+The replay preserved the exact candidate ledger and decision digest
+`6746d690b2a22eac98080d88b9a5867a7e3f5a8c80a9022e15723e146ab900f3` from the
+superseded package, with zero changed candidate classifications and zero changed
+eligible-selection ranks.
 
 Search, Map, Place detail, Composer, and both mobile clients were audited. Their
 public identity remains the Phokarta UUID, and existing empty-Place behavior needs
@@ -781,11 +823,13 @@ metrics are reported only when a labeled ground-truth fixture supports them; the
 pipeline must never manufacture a precision estimate from unlabeled provider data.
 
 Count populations are not mixed: `source_records` counts scoped provider
-observations, while `candidate_groups` counts grouped canonical candidates after
-source-quality rejection. Candidate action rates exclude source-level `AUTO_REJECT`;
-that action is reported as a count and as `source_rejection_rate` over source records.
-Canary eligibility and stage sizes are subsets of candidate groups. A count with no
-labeled ground-truth denominator is reported as unavailable rather than inferred.
+observations, and `source_record_states.rejected_before_canonical_grouping` counts
+`SOURCE_REJECTED` observations. `candidate_groups` counts grouped canonical candidates
+after that source-quality rejection. Every candidate decision—including candidate
+`AUTO_REJECT`—uses the candidate-group denominator; source rejection is reported
+separately as `source_rejection_rate` over source records. Canary eligibility and stage
+sizes are subsets of candidate groups. A count with no labeled ground-truth denominator
+is reported as unavailable rather than inferred.
 
 Canary order is deterministic. Candidates are ranked by a versioned safety tuple
 derived from evidence strength and completeness, then selected with bounded category

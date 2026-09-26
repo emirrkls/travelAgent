@@ -70,6 +70,8 @@ public class PlacePilotAutonomousCanaryService {
                     "autonomous canary authorization reference does not match the manifest");
         }
         UUID runId = UUID.fromString(requiredText(manifest, "run_id"));
+        PlacePilotSourceAccounting.Approved approved = importer.validateApprovedAccounting(
+                envelope, configuration.expectedManifestHash(), configuration.authorizationReference());
         List<PlacePilotHttpProbeService.ProbeTarget> selectedTargets = selectedTargets(manifest);
         // Refuse an unfinishable probe plan before any canary write becomes public. The same
         // derived budget is persisted as a renewed deadline immediately before the probes.
@@ -127,7 +129,7 @@ public class PlacePilotAutonomousCanaryService {
                     baselinePlaceId, selectedTargets);
             boolean measuredPass = diagnostics.path("measured_pass").asBoolean(false);
             PlacePilotCanaryGateService.GateResult gate = gates.record(
-                    imported.runId(), measuredPass, diagnostics, null);
+                    imported.runId(), measuredPass, diagnostics, null, approved);
             return new CanaryExecution(imported, gate, diagnostics);
         } catch (RuntimeException | IOException failure) {
             if (importCommitted && imported != null) {

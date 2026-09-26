@@ -40,21 +40,31 @@ public class PlacePilotCanaryGateService {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
+    /** Failure containment remains available without an approval receipt; PASS cannot bypass it. */
     public GateResult record(
             UUID syncRunId,
             boolean passed,
             JsonNode diagnostics,
             OffsetDateTime checkedAt
     ) {
+        return record(syncRunId, passed, diagnostics, checkedAt, null);
+    }
+
+    public GateResult record(UUID syncRunId, boolean passed, JsonNode diagnostics,
+                             OffsetDateTime checkedAt, PlacePilotSourceAccounting.Approved approved) {
+        if (passed && (approved == null || !syncRunId.equals(approved.runId()))) {
+            throw new IllegalArgumentException("passing canary gate requires verified sealed accounting");
+        }
         return transactions.execute(transaction ->
-                recordLocked(syncRunId, passed, diagnostics, checkedAt));
+                recordLocked(syncRunId, passed, diagnostics, checkedAt, approved));
     }
 
     private GateResult recordLocked(
             UUID syncRunId,
             boolean passed,
             JsonNode diagnostics,
-            OffsetDateTime checkedAt
+            OffsetDateTime checkedAt,
+            PlacePilotSourceAccounting.Approved approved
     ) {
         List<String> pilotKeys = jdbc.query(
                 "SELECT pilot_run_key FROM place_provider_sync_runs WHERE id = ?",
@@ -73,17 +83,20 @@ public class PlacePilotCanaryGateService {
         jdbc.query("SELECT pg_advisory_xact_lock(5517, 917)",
                 (rs, rowNum) -> rs.getObject(1));
         List<RunIdentity> runs = jdbc.query("""
-                SELECT pilot_run_key, canary_stage, status, completed_at, gate_deadline
+                SELECT pilot_run_key, canary_stage, status, completed_at, gate_deadline, manifest_hash
                   FROM place_provider_sync_runs WHERE id = ?
                 """, (rs, rowNum) -> new RunIdentity(
                 rs.getString("pilot_run_key"), rs.getString("canary_stage"),
                 rs.getString("status"), rs.getObject("completed_at", OffsetDateTime.class),
-                rs.getObject("gate_deadline", OffsetDateTime.class)),
+                rs.getObject("gate_deadline", OffsetDateTime.class), rs.getString("manifest_hash")),
                 syncRunId);
         if (runs.size() != 1 || !"SUCCEEDED".equals(runs.getFirst().status())) {
             throw new IllegalArgumentException("canary gate requires a successful import run");
         }
         RunIdentity run = runs.getFirst();
+        if (passed && !approved.manifestHash().equals(run.manifestHash())) {
+            throw new IllegalArgumentException("sealed accounting does not match the persisted run hash");
+        }
         OffsetDateTime databaseNow = jdbc.queryForObject(
                 "SELECT clock_timestamp()", OffsetDateTime.class);
         if (databaseNow == null) {
@@ -154,7 +167,7 @@ public class PlacePilotCanaryGateService {
                             "canary gate diagnostics exceed the 48 KiB limit");
                 }
                 validatePassingExternalDiagnostics(submittedDiagnostics);
-                verifiedDiagnostics = attachDatabaseSafety(syncRunId, submittedDiagnostics);
+                verifiedDiagnostics = attachDatabaseSafety(syncRunId, submittedDiagnostics, approved);
                 validateDatabaseSafety(verifiedDiagnostics);
             } catch (IllegalArgumentException unsafeGate) {
                 effectivePassed = false;
@@ -274,7 +287,8 @@ public class PlacePilotCanaryGateService {
      * Core catalog/provenance safety is measured from committed state. Callers still supply
      * search, map, API and latency probes, but cannot self-attest database invariants.
      */
-    private ObjectNode attachDatabaseSafety(UUID syncRunId, JsonNode diagnostics) {
+    private ObjectNode attachDatabaseSafety(UUID syncRunId, JsonNode diagnostics,
+                                           PlacePilotSourceAccounting.Approved approved) {
         long missingOrUnvalidatedConstraints = scalarLong("""
                 SELECT count(*)
                   FROM (VALUES
@@ -442,22 +456,7 @@ public class PlacePilotCanaryGateService {
                 """, syncRunId);
         long runCreatedCount = scalarLong(
                 "SELECT created_count FROM place_provider_sync_runs WHERE id = ?", syncRunId);
-        long runSourceCount = scalarLong(
-                "SELECT source_count FROM place_provider_sync_runs WHERE id = ?", syncRunId);
-        long runEligibleCount = scalarLong("""
-                SELECT canary_eligible_count FROM place_provider_sync_runs WHERE id = ?
-                """, syncRunId);
-        long decisionSourceCount = scalarLong("""
-                SELECT count(DISTINCT source_ids.source_id)
-                  FROM place_validation_decisions decision
-                  CROSS JOIN LATERAL unnest(decision.source_record_ids)
-                      AS source_ids(source_id)
-                 WHERE decision.sync_run_id = ?
-                """, syncRunId);
-        long eligibleDecisions = scalarLong("""
-                SELECT count(*) FROM place_validation_decisions
-                 WHERE sync_run_id = ? AND canary_eligible
-                """, syncRunId);
+        ObjectNode accounting = PlacePilotSourceAccounting.inspectPersisted(jdbc, approved);
         long selectedDecisions = scalarLong("""
                 SELECT count(*) FROM place_validation_decisions
                  WHERE sync_run_id = ? AND selected_for_stage
@@ -524,9 +523,7 @@ public class PlacePilotCanaryGateService {
         if (runCreatedCount != selectedDecisions || selectedDecisions != currentWrites) {
             databaseConstraintViolations++;
         }
-        if (runSourceCount != decisionSourceCount || runEligibleCount != eligibleDecisions) {
-            databaseConstraintViolations++;
-        }
+        databaseConstraintViolations += accounting.path("violations").asLong();
         long provenanceLinkageViolations = sourceOrphans
                 + canonicalWithoutProvenance + unlinkedDecisionSources
                 + providerIsolationViolations + sourceSnapshotMismatches;
@@ -548,6 +545,7 @@ public class PlacePilotCanaryGateService {
         verified.put("source_orphans", sourceOrphans);
         verified.put("canonical_without_provenance", canonicalWithoutProvenance);
         ObjectNode serverDerived = verified.putObject("server_derived");
+        serverDerived.set("source_candidate_accounting", accounting);
         serverDerived.put("database_constraint_violations", databaseConstraintViolations);
         serverDerived.put("missing_or_unvalidated_constraints",
                 missingOrUnvalidatedConstraints);
@@ -687,7 +685,8 @@ public class PlacePilotCanaryGateService {
             String canaryStage,
             String status,
             OffsetDateTime completedAt,
-            OffsetDateTime gateDeadline
+            OffsetDateTime gateDeadline,
+            String manifestHash
     ) {}
 
     private record ExistingGate(

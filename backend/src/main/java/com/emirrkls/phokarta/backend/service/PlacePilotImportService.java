@@ -130,6 +130,24 @@ public class PlacePilotImportService {
             String expectedManifestHash,
             String expectedAuthorizationReference
     ) {
+        PlacePilotSourceAccounting.Approved approved = validateApprovedAccounting(
+                envelope, expectedManifestHash, expectedAuthorizationReference);
+        JsonNode manifest = requiredObject(envelope, "manifest");
+        String actualHash = approved.manifestHash();
+        String planDigest = hashPlan(manifest);
+
+        ExistingRun existing = findRunByHash(actualHash);
+        if (existing != null && "SUCCEEDED".equals(existing.status())) {
+            return existing.toResult(true);
+        }
+
+        return executeApprovedImport(manifest, actualHash, planDigest);
+    }
+
+    /** Read-only validation, before a claim or observation write; hashing rules are unchanged. */
+    public PlacePilotSourceAccounting.Approved validateApprovedAccounting(
+            JsonNode envelope, String expectedManifestHash, String expectedAuthorizationReference
+    ) {
         JsonNode manifest = requiredObject(envelope, "manifest");
         String suppliedHash = requiredText(envelope, "manifest_hash");
         requireExpectedAuthorization(expectedManifestHash, expectedAuthorizationReference);
@@ -147,13 +165,10 @@ public class PlacePilotImportService {
             throw new IllegalArgumentException("approved import manifest hash does not match content");
         }
         validateManifest(manifest);
-        String planDigest = hashPlan(manifest);
+        return PlacePilotSourceAccounting.approved(manifest, actualHash);
+    }
 
-        ExistingRun existing = findRunByHash(actualHash);
-        if (existing != null && "SUCCEEDED".equals(existing.status())) {
-            return existing.toResult(true);
-        }
-
+    private ImportResult executeApprovedImport(JsonNode manifest, String actualHash, String planDigest) {
         UUID runId = UUID.fromString(requiredText(manifest, "run_id"));
         OffsetDateTime now = jdbc.queryForObject("SELECT clock_timestamp()", OffsetDateTime.class);
         if (now == null) {

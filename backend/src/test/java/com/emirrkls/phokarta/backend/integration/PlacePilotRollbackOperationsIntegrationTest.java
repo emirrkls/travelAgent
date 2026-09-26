@@ -79,6 +79,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
     private static DataSourceTransactionManager transactions;
     private static PlacePilotImportService importer;
     private static PlacePilotCanaryGateService gates;
+    private static final Map<UUID, com.emirrkls.phokarta.backend.service.PlacePilotSourceAccounting.Approved>
+            approvedAccounting = new HashMap<>();
     private static PlacePilotRollbackOperationsService operations;
 
     @BeforeAll
@@ -473,7 +475,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
 
         PilotFixture fixture = importEnvelope(envelope, false);
         assertThat(gates.record(fixture.runId(), true,
-                passingGateDiagnostics(fixture.runId()), null).status()).isEqualTo("PASSED");
+                passingGateDiagnostics(fixture.runId()), null,
+                approvedAccounting.get(fixture.runId())).status()).isEqualTo("PASSED");
         // Model the later product-acceptance anomaly after the immutable automated gate:
         // the reviewed AUTO_LINK provenance becomes externally visible without a CREATE journal.
         jdbc.update("""
@@ -491,11 +494,14 @@ class PlacePilotRollbackOperationsIntegrationTest {
         String manifestHash = envelope.path("manifest_hash").asText();
         String authorization = envelope.path("manifest")
                 .path("authorization_reference").asText();
+        approvedAccounting.put(runId,
+                importer.validateApprovedAccounting(envelope, manifestHash, authorization));
         PlacePilotImportService.ImportResult result = importer.importApproved(
                 envelope, manifestHash, authorization);
         assertThat(result.status()).isEqualTo("SUCCEEDED");
         if (passGate) {
-            assertThat(gates.record(runId, true, passingGateDiagnostics(runId), null).status())
+            assertThat(gates.record(runId, true, passingGateDiagnostics(runId), null,
+                    approvedAccounting.get(runId)).status())
                     .isEqualTo("PASSED");
         }
         List<UUID> placeIds = jdbc.query("""

@@ -27,6 +27,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class PlacePilotAutonomousCanaryServiceTest {
     private static final UUID RUN_ID =
@@ -59,7 +61,7 @@ class PlacePilotAutonomousCanaryServiceTest {
         PlacePilotCanaryGateService.GateResult passedGate =
                 new PlacePilotCanaryGateService.GateResult(
                         UUID.randomUUID(), RUN_ID, "didim-run", "STAGE_1", "PASSED", false);
-        when(fixture.gates().record(eq(RUN_ID), eq(true), any(), eq(null)))
+        when(fixture.gates().record(eq(RUN_ID), eq(true), any(), eq(null), any()))
                 .thenReturn(passedGate);
 
         PlacePilotAutonomousCanaryService.CanaryExecution result =
@@ -81,6 +83,7 @@ class PlacePilotAutonomousCanaryServiceTest {
 
         InOrder order = inOrder(fixture.anomalies(), fixture.probes(),
                 fixture.importer(), fixture.reconciliation(), fixture.gates());
+        order.verify(fixture.importer()).validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION));
         order.verify(fixture.anomalies()).captureDidimBaseline();
         order.verify(fixture.probes()).captureBaseline(any(), any());
         order.verify(fixture.importer(), times(2)).importApproved(
@@ -89,7 +92,18 @@ class PlacePilotAutonomousCanaryServiceTest {
                 RUN_ID, 1, 1, Duration.ofSeconds(2));
         order.verify(fixture.probes()).captureAfter(any(), any());
         order.verify(fixture.anomalies()).audit(eq(RUN_ID), any());
-        order.verify(fixture.gates()).record(eq(RUN_ID), eq(true), any(), eq(null));
+        order.verify(fixture.gates()).record(eq(RUN_ID), eq(true), any(), eq(null), any());
+    }
+
+    @Test
+    void accountingFailureStopsBeforeBaselineAndImport() throws Exception {
+        Fixture fixture = fixture();
+        when(fixture.importer().validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION)))
+                .thenThrow(new IllegalArgumentException("source accounting mismatch"));
+        assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("accounting");
+        verify(fixture.importer(), never()).importApproved(any(Path.class), anyString(), anyString());
+        verifyNoInteractions(fixture.probes(), fixture.anomalies(), fixture.gates(), fixture.reconciliation());
     }
 
     @Test
@@ -143,6 +157,8 @@ class PlacePilotAutonomousCanaryServiceTest {
                 mock(PlacePilotGateReconciliationService.class);
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(importer.hashManifest(any())).thenReturn(HASH);
+        when(importer.validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION)))
+                .thenReturn(mock(PlacePilotSourceAccounting.Approved.class));
         when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(BASELINE_ID)))
                 .thenReturn(1);
         return new Fixture(new PlacePilotAutonomousCanaryService(

@@ -279,14 +279,21 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         OffsetDateTime firstCompletedAt = jdbc.queryForObject("""
                 select completed_at from place_provider_sync_runs where id = ?
                 """, OffsetDateTime.class, first.runId());
-        assertThat(gates.record(first.runId(), true, diagnostics, firstCompletedAt).status())
+        ObjectNode wrongReceiptEnvelope = envelope.deepCopy();
+        ((ObjectNode) wrongReceiptEnvelope.path("manifest")).put("accounting_receipt_test", "different digest");
+        wrongReceiptEnvelope.put("manifest_hash", importer.hashManifest(wrongReceiptEnvelope.path("manifest")));
+        assertThatThrownBy(() -> gates.record(first.runId(), true, diagnostics, firstCompletedAt,
+                approvedAccounting(importer, wrongReceiptEnvelope)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("persisted run hash");
+        assertThat(gates.record(first.runId(), true, diagnostics, firstCompletedAt,
+                approvedAccounting(importer, envelope)).status())
                 .isEqualTo("PASSED");
         assertThat(jdbc.queryForObject("""
                 select diagnostics -> 'server_derived' ->> 'provider_isolation_violations'
                   from place_pilot_canary_gates where sync_run_id = ?
                 """, String.class, first.runId())).isEqualTo("0");
         assertThat(gates.record(first.runId(), true, diagnostics,
-                firstCompletedAt).alreadyRecorded()).isTrue();
+                firstCompletedAt, approvedAccounting(importer, envelope)).alreadyRecorded()).isTrue();
         assertThatThrownBy(() -> gates.record(first.runId(), false, diagnostics,
                 firstCompletedAt))
                 .isInstanceOf(IllegalStateException.class)
@@ -305,17 +312,19 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                 select completed_at from place_provider_sync_runs where id = ?
                 """, OffsetDateTime.class, rejectedGateRunId);
         assertThatThrownBy(() -> gates.record(rejectedGateRunId, true, diagnostics,
-                rejectedCompletedAt.minusNanos(1)))
+                rejectedCompletedAt.minusNanos(1), approvedAccounting(importer, rejectedGateEnvelope)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("precede run completion");
         assertThatThrownBy(() -> gates.record(rejectedGateRunId, true, diagnostics,
-                OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(10)))
+                OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(10),
+                approvedAccounting(importer, rejectedGateEnvelope)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("materially in the future");
         ObjectNode missingPlaceDetail = diagnostics.deepCopy();
         missingPlaceDetail.remove("place_detail_correctness");
         PlacePilotCanaryGateService.GateResult rejectedGate = gates.record(
-                rejectedGateRunId, true, missingPlaceDetail, null);
+                rejectedGateRunId, true, missingPlaceDetail, null,
+                approvedAccounting(importer, rejectedGateEnvelope));
         assertThat(rejectedGate.status()).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("""
                 select diagnostics ->> 'gate_failure_reason'
@@ -324,7 +333,8 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         assertThat(jdbc.queryForObject("""
                 select rollback_state from place_pilot_catalog_writes where sync_run_id = ?
                 """, String.class, rejectedGateRunId)).isEqualTo("RETIRED");
-        assertThat(gates.record(rejectedGateRunId, true, missingPlaceDetail, null)
+        assertThat(gates.record(rejectedGateRunId, true, missingPlaceDetail, null,
+                approvedAccounting(importer, rejectedGateEnvelope))
                 .alreadyRecorded()).isTrue();
 
         String incompleteCoveragePilot = "didim-core-incomplete-probe-coverage";
@@ -344,7 +354,8 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                 .set(0, mapper.getNodeFactory().textNode(
                         "20000000-0000-0000-0000-000000000564"));
         PlacePilotCanaryGateService.GateResult incompleteCoverageGate = gates.record(
-                incompleteCoverageRunId, true, incompleteCoverageDiagnostics, null);
+                incompleteCoverageRunId, true, incompleteCoverageDiagnostics, null,
+                approvedAccounting(importer, incompleteCoverageEnvelope));
         assertThat(incompleteCoverageGate.status()).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("""
                 select (diagnostics -> 'server_derived' ->>
@@ -375,7 +386,8 @@ class SchemaUpgradePlaceFoundationMigrationTest {
             ObjectNode unsafeDiagnostics = passingGateDiagnostics(
                     mapper, jdbc, unsafeDerivedRunId);
             PlacePilotCanaryGateService.GateResult unsafeDerived = gates.record(
-                    unsafeDerivedRunId, true, unsafeDiagnostics, null);
+                    unsafeDerivedRunId, true, unsafeDiagnostics, null,
+                    approvedAccounting(importer, unsafeDerivedEnvelope));
             assertThat(unsafeDerived.status()).isEqualTo("FAILED");
             assertThat(jdbc.queryForObject("""
                     select (diagnostics -> 'server_derived' ->>
@@ -991,7 +1003,8 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         assertThat(rankedStageOneResult.createdCount()).isEqualTo(100);
         ObjectNode rankedDiagnostics = passingGateDiagnostics(
                 mapper, jdbc, rankedStageOneRunId);
-        assertThat(gates.record(rankedStageOneRunId, true, rankedDiagnostics, null).status())
+        assertThat(gates.record(rankedStageOneRunId, true, rankedDiagnostics, null,
+                approvedAccounting(importer, rankedStageOne)).status())
                 .isEqualTo("PASSED");
 
         UUID stageTwoRunId = UUID.fromString("60000000-0000-0000-0000-000000000532");
@@ -1077,7 +1090,7 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         assertThat(gates.record(failedGateImport.runId(), false, failedDiagnostics,
                 failedGateCheckedAt).alreadyRecorded()).isTrue();
         assertThatThrownBy(() -> gates.record(failedGateImport.runId(), true, diagnostics,
-                failedGateCheckedAt.plusSeconds(1)))
+                failedGateCheckedAt.plusSeconds(1), approvedAccounting(importer, failedGateEnvelope)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("different final result");
 
@@ -1283,12 +1296,27 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                 .put("source_rejection_reason", "explicitly_closed; unresolved_doesnt_exist");
         refreshDerivedManifest(importer, rejectedSourceManifest);
         rejectedSourceEnvelope.put("manifest_hash", importer.hashManifest(rejectedSourceManifest));
+        ObjectNode invalidAccountingEnvelope = rejectedSourceEnvelope.deepCopy();
+        ObjectNode invalidAccountingManifest = (ObjectNode) invalidAccountingEnvelope.path("manifest");
+        ((ObjectNode) invalidAccountingManifest.path("source_record_states")).put("total", 2);
+        invalidAccountingEnvelope.put("manifest_hash", importer.hashManifest(invalidAccountingManifest));
+        long runsBeforeInvalidAccounting = count(jdbc, "select count(*) from place_provider_sync_runs");
+        long sourcesBeforeInvalidAccounting = count(jdbc, "select count(*) from place_source_records");
+        assertThatThrownBy(() -> importAuthorized(importer, invalidAccountingEnvelope))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("accounting count");
+        assertThat(count(jdbc, "select count(*) from place_provider_sync_runs"))
+                .isEqualTo(runsBeforeInvalidAccounting);
+        assertThat(count(jdbc, "select count(*) from place_source_records"))
+                .isEqualTo(sourcesBeforeInvalidAccounting);
         PlacePilotImportService.ImportResult sourceAccountingResult =
                 importAuthorized(importer, rejectedSourceEnvelope);
         assertThat(sourceAccountingResult.sourceCount()).isEqualTo(3);
         assertThat(sourceAccountingResult.usableCount()).isEqualTo(2);
         assertThat(sourceAccountingResult.sourceRejectedCount()).isEqualTo(1);
         assertThat(sourceAccountingResult.autoRejectedCount()).isZero();
+        assertThat(gates.record(sourceAccountingResult.runId(), true,
+                passingGateDiagnostics(mapper, jdbc, sourceAccountingResult.runId()), null,
+                approvedAccounting(importer, rejectedSourceEnvelope)).status()).isEqualTo("PASSED");
         assertThat(count(jdbc, "select count(*) from place_validation_decisions where sync_run_id = ?",
                 sourceAccountingResult.runId())).isEqualTo(1);
         assertThat(jdbc.queryForObject("""
@@ -1296,6 +1324,38 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                  where sync_run_id = ? and external_id = 'f-accounting-rejected'
                 """, String.class, sourceAccountingResult.runId()))
                 .isEqualTo("explicitly_closed; unresolved_doesnt_exist");
+
+        ObjectNode extraObservationEnvelope = stageTwoManifest(mapper, importer, UUID.randomUUID(),
+                "didim-source-extra-observation-regression", 1);
+        ObjectNode extraObservationManifest = (ObjectNode) extraObservationEnvelope.path("manifest");
+        selectStage(extraObservationManifest, "STAGE_1");
+        extraObservationEnvelope.put("manifest_hash", importer.hashManifest(extraObservationManifest));
+        var extraObservationRun = importAuthorized(importer, extraObservationEnvelope);
+        jdbc.update("""
+                INSERT INTO place_source_records (id, sync_run_id, provider, external_id,
+                    source_release, method_version, provider_categories, source_hash,
+                    license_identifier, provenance, observed_at, retrieved_at)
+                VALUES (?, ?, 'FSQ', 'unexpected-accounting-observation', 'synthetic',
+                    'didim-canonicalization-v3', '[]'::jsonb, ?, 'synthetic',
+                    '{"source_record_state":"SOURCE_REJECTED","source_rejection_reason":"synthetic"}'::jsonb,
+                    now(), now())
+                """, UUID.randomUUID(), extraObservationRun.runId(), "a".repeat(64));
+        assertThat(gates.record(extraObservationRun.runId(), true,
+                passingGateDiagnostics(mapper, jdbc, extraObservationRun.runId()), null,
+                approvedAccounting(importer, extraObservationEnvelope)).status()).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("""
+                SELECT diagnostics -> 'server_derived' -> 'source_candidate_accounting' ->> 'passed'
+                  FROM place_pilot_canary_gates WHERE sync_run_id = ?
+                """, String.class, extraObservationRun.runId())).isEqualTo("false");
+        assertThat(jdbc.queryForObject("""
+                SELECT rollback_state FROM place_pilot_catalog_writes WHERE sync_run_id = ?
+                """, String.class, extraObservationRun.runId())).isEqualTo("RETIRED");
+    }
+
+    private com.emirrkls.phokarta.backend.service.PlacePilotSourceAccounting.Approved approvedAccounting(
+            PlacePilotImportService importer, JsonNode envelope) {
+        return importer.validateApprovedAccounting(envelope, envelope.path("manifest_hash").asText(),
+                envelope.path("manifest").path("authorization_reference").asText());
     }
 
     private <T> T inTransaction(

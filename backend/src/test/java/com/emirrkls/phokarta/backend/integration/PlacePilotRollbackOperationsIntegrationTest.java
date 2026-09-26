@@ -447,6 +447,10 @@ class PlacePilotRollbackOperationsIntegrationTest {
         envelope.put("manifest_hash", importer.hashManifest(payload));
 
         PilotFixture fixture = importEnvelope(envelope, false);
+        assertThat(gates.record(fixture.runId(), true,
+                passingGateDiagnostics(fixture.runId()), null).status()).isEqualTo("PASSED");
+        // Model the later product-acceptance anomaly after the immutable automated gate:
+        // the reviewed AUTO_LINK provenance becomes externally visible without a CREATE journal.
         jdbc.update("""
                 insert into place_external_refs (
                     provider, external_id, place_id, current_source_record_id, source_release,
@@ -454,8 +458,6 @@ class PlacePilotRollbackOperationsIntegrationTest {
                 ) values ('FSQ', ?, ?, ?, '2026-09-15 20:07:45.157000',
                     '2325979374271449319', now(), now(), 'ACTIVE', ?, ?)
                 """, externalId, existingPlaceId, sourceId, sourceHash, fixture.runId());
-        assertThat(gates.record(fixture.runId(), true,
-                passingGateDiagnostics(fixture.runId()), null).status()).isEqualTo("PASSED");
         return fixture;
     }
 
@@ -842,8 +844,12 @@ class PlacePilotRollbackOperationsIntegrationTest {
         return new DatabaseSnapshot(
                 jdbc.queryForList("""
                         select id::text, catalog_status, origin, updated_at::text
-                          from places where id = any (?::uuid[]) order by id
-                        """, uuidArray(fixture.placeIds())),
+                          from places p
+                         where id = any (?::uuid[])
+                            or exists (select 1 from place_external_refs ref
+                                       where ref.place_id = p.id and ref.last_sync_run_id = ?)
+                         order by id
+                        """, uuidArray(fixture.placeIds()), fixture.runId()),
                 jdbc.queryForList("""
                         select id::text, source_hash, provenance::text
                           from place_source_records where sync_run_id = ? order by id
@@ -852,8 +858,9 @@ class PlacePilotRollbackOperationsIntegrationTest {
                         select provider, external_id, place_id::text, status,
                                current_source_record_id::text, last_sync_run_id::text
                           from place_external_refs
-                         where place_id = any (?::uuid[]) order by provider, external_id
-                        """, uuidArray(fixture.placeIds())),
+                         where place_id = any (?::uuid[]) or last_sync_run_id = ?
+                         order by provider, external_id
+                        """, uuidArray(fixture.placeIds()), fixture.runId()),
                 jdbc.queryForList("""
                         select id::text, rollback_state, rolled_back_at::text
                           from place_pilot_catalog_writes where sync_run_id = ? order by id

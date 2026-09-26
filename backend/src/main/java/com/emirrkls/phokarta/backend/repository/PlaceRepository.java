@@ -8,9 +8,29 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PlaceRepository extends JpaRepository<Place, UUID> {
+    /** Public/catalog lookup. Association traversal may still resolve a retired Place's history. */
+    @Override
+    @Query("""
+            SELECT p FROM Place p
+             WHERE p.id = :id
+               AND p.catalogStatus = com.emirrkls.phokarta.backend.domain.model.PlaceCatalogStatus.ACTIVE
+            """)
+    Optional<Place> findById(@Param("id") UUID id);
+
+    /** Public/catalog existence check used before creating new user-owned graph edges. */
+    @Override
+    @Query("""
+            SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END
+              FROM Place p
+             WHERE p.id = :id
+               AND p.catalogStatus = com.emirrkls.phokarta.backend.domain.model.PlaceCatalogStatus.ACTIVE
+            """)
+    boolean existsById(@Param("id") UUID id);
+
     interface SummaryRow {
         UUID getId();
         String getName();

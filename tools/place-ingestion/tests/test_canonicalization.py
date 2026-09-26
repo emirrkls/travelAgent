@@ -90,6 +90,30 @@ class ProductionCategoryTest(unittest.TestCase):
         )
         self.assertEqual(mapper.map("overture", ["beer_garden"]).category, "BAR")
 
+    def test_all_applicable_production_rules_are_visible_to_conflict_checks(self):
+        mapper = ProductionCategoryMapper()
+        self.assertEqual(
+            set(mapper.mapped_categories(
+                "overture", ["nightlife_venue_beer_garden"]
+            )),
+            {"BAR", "NIGHTLIFE"},
+        )
+
+    def test_generic_parent_is_ignored_but_unknown_sibling_fails_closed(self):
+        mapper = ProductionCategoryMapper()
+        self.assertEqual(
+            mapper.unmapped_non_ignored_values(
+                "overture", ["food_and_drink", "restaurant"]
+            ),
+            (),
+        )
+        self.assertEqual(
+            mapper.unmapped_non_ignored_values(
+                "overture", ["restaurant", "unreviewed_provider_kind"]
+            ),
+            ("unreviewed_provider_kind",),
+        )
+
 
 class CanonicalizationTest(unittest.TestCase):
     def test_exact_external_ref_auto_links_without_overwriting_canonical(self):
@@ -175,6 +199,46 @@ class CanonicalizationTest(unittest.TestCase):
         self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
         self.assertIn("CATEGORY_SOURCE_UNMAPPED", plan.candidates[0].risk_flags)
 
+    def test_one_provider_with_multiple_mapped_categories_requires_review(self):
+        row = source(
+            "overture", "o-1", categories=("cafe", "restaurant"),
+        )
+        plan = build_canonicalization_plan([row], [], [])
+        self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
+        self.assertIn("CATEGORY_CONFLICT", plan.candidates[0].risk_flags)
+
+    def test_mapped_category_with_unknown_sibling_requires_review(self):
+        row = source(
+            "overture", "o-1",
+            categories=("restaurant", "unreviewed_provider_kind"),
+        )
+        plan = build_canonicalization_plan([row], [], [])
+        self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
+        self.assertIn("CATEGORY_SOURCE_UNMAPPED", plan.candidates[0].risk_flags)
+
+    def test_mapped_category_with_explicit_generic_parent_remains_eligible(self):
+        row = source(
+            "overture", "o-1", categories=("food_and_drink", "restaurant"),
+        )
+        plan = build_canonicalization_plan([row], [], [])
+        self.assertEqual(plan.candidates[0].classification, "CREATE_NEW")
+        self.assertNotIn("CATEGORY_SOURCE_UNMAPPED", plan.candidates[0].risk_flags)
+
+    def test_bona_fide_hotel_is_not_mislabeled_as_a_subvenue(self):
+        row = source(
+            "overture", "o-1", name="Ege Resort Hotel", categories=("hotel",),
+        )
+        plan = build_canonicalization_plan([row], [], [])
+        self.assertNotIn("HOTEL_SUBVENUE_RISK", plan.candidates[0].risk_flags)
+
+    def test_hotel_child_business_still_requires_review(self):
+        row = source(
+            "overture", "o-1", name="Ege Resort Lobby Bar", categories=("bar",),
+        )
+        plan = build_canonicalization_plan([row], [], [])
+        self.assertIn("HOTEL_SUBVENUE_RISK", plan.candidates[0].risk_flags)
+        self.assertEqual(plan.candidates[0].classification, "REVIEW_REQUIRED")
+
     def test_unusable_record_is_rejected(self):
         plan = build_canonicalization_plan([source("overture", "o-1", name=None)], [], [])
         self.assertEqual(plan.candidates, ())
@@ -208,6 +272,23 @@ class CanonicalizationTest(unittest.TestCase):
         self.assertEqual(plan.source_records[0]["website"], raw_website)
         self.assertFalse(plan.source_records[0]["canonical_website_eligible"])
 
+    def test_undelegated_website_suffix_is_excluded_but_preserved_in_provenance(self):
+        raw_website = "http://Lolo.kunefe/"
+        plan = build_canonicalization_plan([
+            source(
+                "overture", "o-1", name="Lolo Künefe",
+                categories=("cafe",), website=raw_website,
+            )
+        ], [], [])
+        candidate = plan.candidates[0]
+        self.assertIsNone(candidate.website)
+        self.assertIn("WEBSITE_INVALID", candidate.risk_flags)
+        self.assertEqual(plan.source_records[0]["website"], raw_website)
+        self.assertEqual(
+            plan.source_records[0]["website_validation_reason"],
+            "invalid_public_suffix",
+        )
+
     def test_unrelated_valid_website_is_excluded_but_preserved_in_provenance(self):
         raw_website = "http://www.altinkumrentacar.com"
         plan = build_canonicalization_plan(
@@ -235,6 +316,25 @@ class CanonicalizationTest(unittest.TestCase):
             row["website_validation_reason"] == "identity_unverified"
             for row in plan.source_records
         ))
+
+    def test_location_token_alone_cannot_validate_unrelated_website(self):
+        for place_name, raw_website in (
+            ("Altınkum Cafe", "http://www.altinkumrentacar.com"),
+            ("Akbük Cafe", "https://akbukemlak.com"),
+            ("Mavişehir Restaurant", "https://mavisehirrentacar.com"),
+        ):
+            with self.subTest(place_name=place_name):
+                plan = build_canonicalization_plan([
+                    source(
+                        "overture", "o-1", name=place_name,
+                        categories=("cafe",), website=raw_website,
+                    )
+                ], [], [])
+                candidate = plan.candidates[0]
+                self.assertIsNone(candidate.website)
+                self.assertIn("WEBSITE_IDENTITY_UNVERIFIED", candidate.risk_flags)
+                self.assertEqual(plan.source_records[0]["website"], raw_website)
+
 
     def test_source_hash_and_candidate_identity_are_deterministic(self):
         row = source("overture", "o-1")

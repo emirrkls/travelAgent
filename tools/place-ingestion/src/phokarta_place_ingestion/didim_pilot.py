@@ -126,6 +126,17 @@ def _normalized_from_source_record(raw: dict[str, Any]) -> NormalizedPlace:
     )
 
 
+def _replay_integrity_hash(raw: dict[str, Any]) -> str:
+    """Bind the complete replay envelope, not only the normalized provider row."""
+
+    payload = {
+        key: value for key, value in raw.items() if key != "replay_integrity_hash"
+    }
+    return hashlib.sha256(json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+
+
 def _load_reproducible_inputs(package: Path) -> dict[str, Any]:
     resolved = package.expanduser().resolve()
     summary = json.loads((resolved / "didim_core_summary.json").read_text(encoding="utf-8"))
@@ -155,6 +166,17 @@ def _load_reproducible_inputs(package: Path) -> dict[str, Any]:
                 raise ValueError(
                     f"source hash mismatch for {place.provider}:{place.external_id}"
                 )
+            if raw.get("method_version") == CANONICALIZATION_METHOD_VERSION:
+                if raw.get("replay_integrity_hash") != _replay_integrity_hash(raw):
+                    raise ValueError(
+                        "replay envelope hash mismatch for "
+                        f"{place.provider}:{place.external_id}"
+                    )
+                if type(raw.get("source_sequence")) is not int:
+                    raise ValueError(
+                        "source_sequence must be an integer for "
+                        f"{place.provider}:{place.external_id}"
+                    )
             fallback_sequence = provider_sequences[place.provider]
             provider_sequences[place.provider] += 1
             ordered_normalized[place.provider].append((
@@ -166,8 +188,11 @@ def _load_reproducible_inputs(package: Path) -> dict[str, Any]:
             )] += 1
 
     for provider, rows in ordered_normalized.items():
-        if len({sequence for sequence, _ in rows}) != len(rows):
-            raise ValueError(f"duplicate source_sequence values for {provider}")
+        sequences = sorted(sequence for sequence, _ in rows)
+        if sequences != list(range(len(rows))):
+            raise ValueError(
+                f"source_sequence values for {provider} must be unique and contiguous from zero"
+            )
     normalized = {
         provider: [place for _, place in sorted(rows, key=lambda row: row[0])]
         for provider, rows in ordered_normalized.items()
@@ -340,7 +365,13 @@ def _physical_sample(candidates: list[CanonicalCandidate]) -> tuple[list[dict[st
 
 def _candidate_from_csv(row: dict[str, str]) -> CanonicalCandidate:
     def optional(value: str | None) -> str | None:
-        return value if value else None
+        if not value:
+            return None
+        # ``write_csv`` protects spreadsheet-formula-looking values with one
+        # apostrophe. Restore the original value before semantic replay.
+        if len(value) > 1 and value[0] == "'" and value[1] in "=+-@":
+            return value[1:]
+        return value
 
     def tuple_field(name: str) -> tuple[str, ...]:
         return tuple(value for value in row.get(name, "").split("; ") if value)
@@ -461,6 +492,7 @@ def restore_source_records_from_benchmark(package: Path, benchmark: Path) -> dic
                         "observed_at": row.get("refreshed_date") or row.get("created_date") or retrieved_at,
                         "retrieved_at": retrieved_at,
                     }
+                    record["replay_integrity_hash"] = _replay_integrity_hash(record)
                     destination.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
                     count += 1
             counts[provider] = count
@@ -725,7 +757,7 @@ def run_didim_dry_run(
         for row in plan.source_records:
             provider = row["provider"]
             previous = source_context.get((provider, row["external_id"]), {})
-            handle.write(json.dumps({
+            record = {
                 **row,
                 "snapshot_id": releases[provider].get("snapshot_id"),
                 "schema_version": releases[provider].get("schema_version"),
@@ -735,7 +767,9 @@ def run_didim_dry_run(
                     or completed_at.isoformat()
                 ),
                 "retrieved_at": previous.get("retrieved_at") or completed_at.isoformat(),
-            }, ensure_ascii=False, sort_keys=True) + "\n")
+            }
+            record["replay_integrity_hash"] = _replay_integrity_hash(record)
+            handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
     write_json(output / "didim_core.geojson", _geojson(candidates))
     sample_rows, sample_candidates = _physical_sample(candidates)
     write_csv(output / "PHYSICAL_VALIDATION_SAMPLE.csv", sample_rows, [

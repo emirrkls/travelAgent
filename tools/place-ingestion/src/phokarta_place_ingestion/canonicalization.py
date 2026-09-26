@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
-from .canonical_attributes import canonical_website_domain, validate_canonical_website
+from .canonical_attributes import (
+    canonical_website_domain,
+    normalize_turkish_phone,
+    validate_canonical_website,
+)
 from .matching import (
     LinkSignals,
     categories_compatible,
@@ -21,8 +24,7 @@ from .production_categories import ProductionCategoryMapper
 from .quality import assess_quality
 
 
-CANONICALIZATION_METHOD_VERSION = "didim-canonicalization-v2"
-_PHONE_DIGITS = re.compile(r"\D+")
+CANONICALIZATION_METHOD_VERSION = "didim-canonicalization-v3"
 
 
 @dataclass(frozen=True)
@@ -102,8 +104,8 @@ def _candidate_id(sources: Iterable[NormalizedPlace]) -> str:
 
 
 def _phone_key(value: str | None) -> str | None:
-    digits = _PHONE_DIGITS.sub("", value or "")
-    return digits[-10:] if len(digits) >= 10 else (digits or None)
+    decision = normalize_turkish_phone(value)
+    return str(decision.canonical_value) if decision.accepted else None
 
 
 def _first(values: Iterable[str | None]) -> str | None:
@@ -152,13 +154,18 @@ def _proposal(
     category_decisions = [mapper.map(row.provider, row.categories) for row in ordered]
     mapped = [decision.category for decision in category_decisions if decision.category]
     risks: list[str] = []
+    if any(len(mapper.mapped_categories(row.provider, row.categories)) > 1 for row in ordered):
+        risks.append("CATEGORY_CONFLICT")
+    if any(
+        mapper.unmapped_non_ignored_values(row.provider, row.categories)
+        for row in ordered
+    ):
+        risks.append("CATEGORY_SOURCE_UNMAPPED")
     if not mapped:
         risks.append("CATEGORY_UNMAPPED")
         category = None
     else:
         category = mapped[0]
-        if any(decision.category is None for decision in category_decisions):
-            risks.append("CATEGORY_SOURCE_UNMAPPED")
         if len(set(mapped)) > 1:
             risks.append("CATEGORY_CONFLICT")
     if len(ordered) == 2:
@@ -208,22 +215,39 @@ def _proposal(
 
 
 def _tourism_risks(sources: list[NormalizedPlace]) -> list[str]:
-    text = " ".join(
+    phrases = tuple(
         normalize_name(value)
         for row in sources
         for value in (row.name, *row.categories)
         if value
     )
-    risks: list[str] = []
-    checks = (
-        (("hotel", "resort", "pansiyon"), "HOTEL_SUBVENUE_RISK"),
-        (("marina", "liman"), "MARINA_SUB_BUSINESS_RISK"),
-        (("beach club", "plaj club", "plaj kulubu"), "BEACH_VS_BEACH_CLUB_RISK"),
-        (("mall", "avm", "shopping center"), "BUILDING_BUSINESS_NESTING_RISK"),
+
+    def contains_term(phrase: str, term: str) -> bool:
+        tokens = phrase.split()
+        expected = normalize_name(term).split()
+        return bool(expected) and any(
+            tokens[index:index + len(expected)] == expected
+            for index in range(0, len(tokens) - len(expected) + 1)
+        )
+
+    def has_any(tokens: tuple[str, ...]) -> bool:
+        return any(
+            contains_term(phrase, token) for phrase in phrases for token in tokens
+        )
+
+    child_business = (
+        "bar", "cafe", "coffee", "lobby", "nightclub", "pub", "restaurant",
+        "salon", "shop", "spa", "store",
     )
-    for tokens, flag in checks:
-        if any(token in text for token in tokens):
-            risks.append(flag)
+    risks: list[str] = []
+    if has_any(("hotel", "resort", "pansiyon")) and has_any(child_business):
+        risks.append("HOTEL_SUBVENUE_RISK")
+    if has_any(("marina", "liman")) and has_any(child_business):
+        risks.append("MARINA_SUB_BUSINESS_RISK")
+    if has_any(("beach club", "plaj club", "plaj kulubu")):
+        risks.append("BEACH_VS_BEACH_CLUB_RISK")
+    if has_any(("mall", "avm", "shopping center")) and has_any(child_business):
+        risks.append("BUILDING_BUSINESS_NESTING_RISK")
     return risks
 
 

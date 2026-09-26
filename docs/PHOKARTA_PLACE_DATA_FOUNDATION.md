@@ -1,7 +1,7 @@
 # Phokarta Place Data Foundation
 
-Status: Milestone 5.5B Phase A complete — waiting for physical / human review
-Date: 2026-09-25
+Status: Milestone 5.5B autonomous Didim pilot contract — pre-canary, no canonical writes
+Date: 2026-09-26
 Benchmark output: `C:\Users\Emir\Documents\Phokarta_Place_Benchmark\M5_5A_Final\20260925_1514`
 
 ## 1. Decision boundary
@@ -21,7 +21,9 @@ Normalized source record
         ↓
 Conservative candidate matching
         ↓
-AUTO_LINK | REVIEW_REQUIRED | CREATE_NEW
+Autonomous evidence and validation
+        ↓
+AUTO_LINK | AUTO_CREATE | AUTO_ENRICH | AUTO_REJECT | QUARANTINE
         ↓
 Phokarta places.id UUID
 ```
@@ -209,7 +211,7 @@ Matching is intentionally conservative: within 250 m, with at least 0.95 normali
 
 The pre-FSQ audit of the original 47 Overture misses classified them as: `TRUE_PROVIDER_MISSING=1`, `MATCHER_FALSE_NEGATIVE=3`, `GOLD_FIXTURE_ISSUE=11`, `AMBIGUOUS_ENTITY=1`, `ENTITY_GRANULARITY_DIFFERENCE=11`, `CATEGORY_MAPPING_EFFECT=1`, `COORDINATE_THRESHOLD_EFFECT=6`, `NAME_VARIANT_EFFECT=12`, and `OTHER_VERIFIED_REASON=1`. Objective fixture corrections and factual aliases were frozen before FSQ was queried. No adjusted or post-hoc provider score is claimed.
 
-## 11. Duplicate candidates and human sample
+## 11. Duplicate candidates and calibration sample
 
 Name normalization applies Unicode NFKD, Unicode casefolding, combining-mark removal, punctuation-to-space normalization and whitespace collapse. It preserves the Turkish dotless `ı` distinction instead of applying an English-only lowercase rule. Original names are retained.
 
@@ -222,7 +224,7 @@ Internal duplicate candidate thresholds:
 
 Overture produced 456 candidate pairs: 128 high-confidence and 328 ambiguous, or 0.318 pairs per 100 usable rows. FSQ produced 16,796: 7,489 high-confidence and 9,307 ambiguous, or 3.332 per 100 usable rows. These are estimates, not automatic merge lists; FSQ's substantially higher rate strengthens the case for source-record isolation and conservative canonical linking.
 
-`review_sample.csv` uses fixed seed 5501 and samples usable rows across every available area/category stratum: 120 Overture and 132 FSQ rows. It includes name, neutral category, coordinate, address, phone, website, provider quality/confidence, and cross-provider classification. No recommendation should depend only on automated metrics.
+`review_sample.csv` uses fixed seed 5501 and samples usable rows across every available area/category stratum: 120 Overture and 132 FSQ rows. It includes name, neutral category, coordinate, address, phone, website, provider quality/confidence, and cross-provider classification. Samples are calibration and audit evidence; they are not approval manifests and production processing never waits for a product owner to classify each row.
 
 ## 12. Cross-provider matching
 
@@ -250,9 +252,10 @@ Foursquare Open Source Places is documented under Apache-2.0. Pro/Premium datase
 
 Human legal review is required before production persistence, export, attribution presentation or provider combination.
 
-## 14. Proposed M5.5B persistence model
+## 14. M5.5B persistence model lineage
 
-No migration was applied in M5.5A. The following is proposed for review only:
+No migration was applied in M5.5A. The following is the historical design sketch that
+led to V17; it is retained for design lineage and is not executable migration text:
 
 Persistence review verdict: **REVISE** before implementation. The table separation is approved in principle, but M5.5B must add explicit snapshot/method identity to source rows, redirect lineage and tombstone history to external refs, source-license/provenance fields or durable object pointers with hashes, full sync-run counters/checkpoints, and field-level canonical override history with actor, reason and timestamp. Provider observations must remain independently replayable and may never overwrite a trusted canonical/community override merely because they are newer.
 
@@ -304,51 +307,201 @@ CREATE TABLE place_provider_sync_runs (
 );
 ```
 
-Before migration, names, indexes, retention and JSON payload bounds need PostgreSQL/operational review. Raw snapshots may belong in object storage with hashes and compact database indexes instead of unbounded JSONB history.
+V17 is the authoritative migration source. Its autonomous review additionally requires
+the smallest production-grade representation of pilot run identity, validation method
+version, final decision state and reason, bounded evidence/blockers, canary eligibility
+and quarantine/re-evaluation lifecycle. Old decisions remain append-only/auditable.
+Raw snapshots may belong in object storage with hashes and compact database indexes
+instead of unbounded JSONB history. V17 must pass PostgreSQL/PostGIS Testcontainers
+and Flyway validation but must not be deployed before the pre-canary gate completes.
 
-## 15. Future canonicalization and dedupe policy
+## 15. Autonomous canonicalization and dedupe policy
+
+The operating objective is precision-first catalog growth. Missing Place coverage is
+acceptable; a false canonical merge is not. Full autonomy means that the system can
+make a safe decision, refuse an unsafe decision, or quarantine uncertainty without
+creating a permanent row-by-row moderation job.
 
 Evaluation order:
 
-1. exact `(provider, external_id)` reference;
-2. verified provider crosswalk/merge redirect;
-3. candidate generation by distance;
-4. independently inspect normalized name, phone, website domain, address and category compatibility;
-5. classify `AUTO_LINK`, `REVIEW_REQUIRED`, or `CREATE_NEW`;
-6. attach/create only a Phokarta UUID.
+1. resolve an exact `(provider, external_id)` reference;
+2. resolve a verified provider crosswalk or merge redirect;
+3. generate nearby candidates without treating distance as identity;
+4. assemble independent evidence for identity, existence, location, name, category,
+   phone, website/domain, address, freshness, operating status, provider agreement,
+   source quality, duplicate risk and entity-hierarchy risk;
+5. detect hard blockers before considering an automatic action;
+6. independently validate each proposed canonical field;
+7. produce exactly one action: `AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`,
+   `AUTO_REJECT`, or `QUARANTINE`;
+8. attach or create only a Phokarta UUID when the selected action permits it.
 
-The transparent proposal gives strongest weight to exact external ref/crosswalk, then exact phone/domain, very close distance and exact name. A score of at least 10 with at least two strong independent corroborators is required for `AUTO_LINK`; 5–9 is `REVIEW_REQUIRED`; lower is `CREATE_NEW`. Exact external ref or an approved crosswalk can auto-link. One opaque similarity number must never decide a merge.
+Every evidence item has a dimension, source, normalized value, strength and reason.
+`VERY_STRONG` evidence includes an exact trusted external reference, approved
+crosswalk, exact valid normalized-phone match, or exact verified-domain match.
+`STRONG` evidence includes independent-provider agreement, very close coordinates
+combined with a near-identical normalized name, compatible categories, or a matching
+detailed address. Same category, same neighborhood, partial-name similarity, and
+proximity without identity evidence are `WEAK`. Weak evidence alone can never link
+or merge Places. No single unexplained numeric confidence is authoritative.
 
-False merges are more dangerous than duplicates. Borderline cases remain separate until reviewed.
+Action semantics are:
 
-## 16. User/community override safety
+- `AUTO_LINK`: connect external evidence to an existing Place only after an exact
+  trusted reference/crosswalk or multiple independent strong corroborators.
+- `AUTO_CREATE`: create a new canonical identity only when existence is high,
+  canonical fields are safe, no credible existing match exists, and no blocker is
+  unresolved. Optional phone or website data is not required.
+- `AUTO_ENRICH`: fill an absent or explicitly externally managed field on an existing
+  Place. A trusted manual/community value is never overwritten merely because an
+  external observation is newer.
+- `AUTO_REJECT`: discard deterministic junk, invalid coordinates, unusable identity,
+  impossible representation, or a source duplicate already represented by the
+  candidate group. Incomplete evidence by itself is not rejection.
+- `QUARANTINE`: persist the source, evidence and explanation but create no visible
+  Place. Quarantine is a successful safe outcome, not a processing failure.
 
-Source snapshots and canonical values are distinct:
+Hard blockers include `POSSIBLE_SUBVENUE`, `SAME_NAME_MULTIPLE_NEARBY`,
+`CATEGORY_CONFLICT`, `PROVIDER_GEOMETRY_CONFLICT`,
+`SAME_PROVIDER_DUPLICATE_CONFLICT`, `POSSIBLE_BRANCH_CONFUSION`,
+`TOURISM_NESTING`, `UNVERIFIED_IDENTITY`, `SUSPICIOUS_WEBSITE`, and
+`LARGE_COORDINATE_DISAGREEMENT`. A blocker produces `QUARANTINE` unless a stronger
+deterministic rule explicitly resolves and records it. A weighted score cannot
+override a blocker.
+
+Tourism entity hierarchy is evaluated separately from duplicate identity. Hotels,
+marinas, shopping centers and holiday resorts may contain restaurants, spas, beaches,
+beach clubs, pools, bars, clubs or tenant businesses at the same coordinate and with
+shared names, phones or domains. These relationships normally produce
+`POSSIBLE_SUBVENUE` or `TOURISM_NESTING`; parent and child are not merged merely
+because their evidence overlaps.
+
+False merges are more dangerous than duplicate or missing catalog rows. Borderline
+cases remain quarantined until stronger evidence arrives.
+
+## 16. Canonical attributes and override safety
+
+Source snapshots, field proposals and canonical values are distinct:
 
 ```text
 provider observation (immutable/versioned)
         +
-Phokarta canonical Place value
+validated field proposal with evidence
         +
-optional trusted override marker
+Phokarta canonical Place value and ownership
+        +
+optional trusted manual/community override marker
 ```
 
-M5.5B should initially support a compact override mask or per-field override table only for fields actually imported. A provider refresh may update its snapshot and proposed value, but may not overwrite a trusted Phokarta/community correction. Both values and their timestamps remain inspectable. This avoids prematurely building a giant provenance engine while preserving corrections.
+The reusable canonical-attribute policy validates name, website, phone, address,
+coordinates and category independently. Each accepted proposal records the chosen
+value, contributing source or sources, evidence strength, decision reason and raw
+source linkage. Rejected raw values remain in provenance. A compact field decision
+model is preferred over a speculative generic EAV system.
+
+Website proposals require HTTP(S), a syntactically valid public hostname and sane
+domain identity. The hostname's ASCII top-level label must occur in the frozen IANA
+root-zone snapshot `2026092600`; undelegated/private suffixes such as `.internal`,
+`.zz`, and `.kunefe`, plus the non-web infrastructure suffix `.arpa`, fail closed.
+Social-handle-shaped values masquerading as URLs,
+placeholder or local domains, malformed URLs, and values such as `http://@handle` are
+excluded from canonical fields without being removed from source evidence. Network
+reachability is not required. An exact domain is identity evidence only after the
+domain itself has passed validation. Place/domain identity uses bounded hostname
+labels or a complete normalized brand, never arbitrary substring containment:
+`Opera Cafe` does not match `operation.com`. Canonical names exclude embedded
+phone/contact text, prices or currencies, reservation/menu advertising and
+excessively promotional copy.
+
+Turkish phone normalization handles `+90`, a domestic leading `0`, whitespace and
+punctuation, and compares only valid normalized numbers. Malformed or implausible
+numbers are preserved as raw data but cannot corroborate identity. Turkish name
+normalization remains Unicode-aware and preserves distinctions needed for deterministic
+matching.
+
+A provider refresh may update its source snapshot and field proposal, but may not
+overwrite a trusted Phokarta/community correction. Both source and canonical values,
+their ownership, timestamps and reasons remain inspectable. An externally managed
+field may be refreshed only under its declared field policy.
 
 Existing seed/community Places with user graph data are matched more conservatively than newly imported records. A provider row does not gain authority merely because it is newer.
 
-## 17. Provider removal and merge
+## 17. Catalog lifecycle, operating state, provider removal and merge
 
-- Provider `REMOVED`: mark the external ref/source record inactive. Never hard-delete a canonical Place carrying an Experience, saved Place, Planım item, Collection item, acknowledgement, conversation or any other Phokarta-owned edge.
-- Provider `MERGED A → B`: retain the Phokarta UUID. Record the redirect, link the surviving external ID only after safe matching, and preserve history.
-- A purely imported Place with no Phokarta-owned graph may later be hidden/retired under approved M5.5B rules. It is not automatically hard-deleted.
-- Removing a provider removes/archives its snapshots and aliases according to retention rules; it does not rewrite user-owned identities.
+Canonical catalog lifecycle and candidate state are separate. A canonical Place is
+`ACTIVE`, `PROVISIONAL`, or `RETIRED`; a quarantined candidate is not a Place and is
+never discoverable. `ACTIVE` means high-confidence canonical identity.
+`PROVISIONAL` may be exposed only when existence is strong and identity is safe but
+corroboration is not yet complete; it must never mean “probably junk.” `RETIRED` is
+normally absent from discovery while identity and history remain stable.
 
-## 18. Future sync strategy
+Operating status is evidence independent of identity. An `OPEN`/`ACTIVE`, `CLOSED`,
+`MOVED`, or `UNKNOWN` assessment records its evidence and confidence. One provider's
+disappearance does not prove closure and cannot delete a Place.
 
-Each run records provider, requested/resolved release, schema/snapshot, timestamps, record counts, status and failure summary. Apply deltas idempotently after a successful checkpoint; never advance the checkpoint on partial failure.
+- Provider `REMOVED`: mark the source/reference state inactive and trigger
+  re-evaluation. Never hard-delete a canonical Place carrying an Experience, saved
+  Place, Planım item, Collection item, acknowledgement, conversation or any other
+  Phokarta-owned edge.
+- Provider `MERGED A → B`: retain the Phokarta UUID, record redirect lineage, regroup
+  sources and re-evaluate. The surviving provider ID is attached only after safe
+  identity validation.
+- A purely imported Place with no Phokarta-owned graph may be retired by a bounded,
+  audited pilot rollback policy. It is not automatically hard-deleted.
+- Removing a provider archives or removes its snapshots and aliases according to
+  retention rules; it does not rewrite user-owned identities.
 
-Overture uses release changelogs plus GERS registry/bridge artifacts. FSQ deltas must be processed in the documented add → update → merge → remove order. A full periodic reconciliation remains advisable because providers can change schemas and historical correction behavior.
+## 18. Sync, deterministic replay and external evidence
+
+Each run records provider, requested/resolved release, schema/snapshot, pilot run ID,
+validation method version, timestamps, record counts, action counts, status and
+failure summary. Apply deltas idempotently only after a successful checkpoint; never
+advance the checkpoint on partial failure.
+
+Every autonomous decision retains its method version, input snapshot identity,
+independent evidence, blockers, field proposals, final action and reason. Replaying
+the same inputs under the same method is deterministic. A rule change creates a new
+decision; it never silently rewrites historical evidence or every existing canonical
+Place.
+
+The bounded `re-evaluate-quarantine` operation replays persisted observations against
+the current method without requiring a new provider fetch. It is triggered by a new
+Overture release, new FSQ snapshot/delta, provider redirect/merge, new phone or domain,
+category change, future community evidence, approved official evidence, or a change
+in neighboring duplicate state. A rule update primarily handles new candidates and
+quarantine; a newly discovered conflict on an imported Place is flagged for the
+canonical-change policy instead of being silently applied.
+
+Replay inputs are verified structurally and semantically. The exact hash-frozen
+`didim-canonicalization-v2` package is the only historical compatibility exception;
+new packages must use the current canonicalization method and their candidate groups
+are rebuilt from the source observations before supplied candidate rows are accepted.
+Each current source row also binds its complete replay envelope—including
+`observed_at`, `retrieved_at`, `source_sequence`, provenance and license metadata—in
+a deterministic integrity hash; observation time, sequence and provenance are also
+recomputed where their normalized inputs permit it.
+Autonomy-package artifact hashes, decision digests and quarantine subsets are checked
+before re-evaluation. Candidate-ID changes caused by safe regrouping are reconciled
+through unique provider-reference lineage; missing or ambiguous lineage remains
+quarantined instead of being guessed or dropped. Re-evaluation persists those
+synthetic missing/ambiguous decisions with complete evidence and explicit rejected
+field proposals in both the quarantine ledger and canonical JSON lineage envelope,
+with transition/quarantine digests and per-artifact SHA-256 hashes. It also emits a
+hash-verified `candidate_evidence.csv` and compatible `autonomous_summary.json`, so
+the result can be used as the prior package for a second-generation re-evaluation.
+
+Overture uses release changelogs plus GERS registry/bridge artifacts. FSQ deltas are
+processed in documented add → update → merge → remove order. Periodic full
+reconciliation remains advisable because providers can change schemas and historical
+correction behavior.
+
+An `ExternalPlaceEvidenceProvider` extension may later add evidence from approved
+official business, municipality, tourism-authority, public-institutional or licensed
+search sources. M5.5B uses a `NOOP` implementation when no approved integration is
+configured; bulk web scraping and Google Maps as a bulk canonical dataset are outside
+scope. An LLM, if introduced later, may contribute evidence but may never be the sole
+authority for an action. Secrets or private community data are not sent to external
+models.
 
 Scheduled production sync is not implemented.
 
@@ -363,7 +516,7 @@ Scheduled production sync is not implemented.
 - Large provider extracts and generated CSV/Parquet files are ignored and live outside Git.
 - No beta/production database, VPS, Flyway history or mobile app was touched.
 
-## 20. Recommendation and human decision gate
+## 20. Provider strategy and operational authorization gate
 
 Recommended strategy: **MULTI-SOURCE CANONICALIZATION**.
 
@@ -371,13 +524,18 @@ The generated optional composite ranks FSQ `0.6249` and Overture `0.4840`, prima
 
 - Use Overture as the preferred canonical-attribute proposal source: it has higher gold recall (50.000% vs 46.667%), far better address/locality/phone/website completeness, much stronger one-year recency, lower duplicate risk, and simpler unauthenticated access.
 - Use FSQ as a secondary coverage and enrichment source: it contributes 504,062 usable scoped rows and 501,339 conservative provider-only rows, but those rows must pass quality filtering, dedupe and false-merge-safe linking before they can influence a canonical Place.
-- Never let either external ID replace a Phokarta UUID. Conflicting or weak records remain source observations or enter review.
+- Never let either external ID replace a Phokarta UUID. Conflicting or weak records
+  remain source observations or enter quarantine.
 
-Recommended first M5.5B pilot: **Foça, the frozen 12 km circle centered at 38.6703, 26.7566**. It is the smallest representative scope: 1,202 usable Overture rows plus 5,141 usable FSQ rows, with 580 raw high-confidence/possible overlaps. Expect approximately **5,800 canonical Place candidates** before manual exclusions and usable-only overlap reconciliation. The exact import count must be a dry-run output, not a quota.
+The product owner subsequently selected **Didim Core 6 km** as the first M5.5B
+pilot, superseding the earlier Foça recommendation. The pipeline requires no
+row-by-row approval. Because this is the first external canonical import, one
+operational authorization remains immediately before Stage 1. Authorization allows
+the deterministic staged system to proceed; it is not approval of individual Places.
+Legal/attribution review remains a separate prerequisite for broader public or
+national rollout.
 
-Human approval is still required for the multi-source strategy, revised persistence DDL, legal/attribution handling, and pilot execution. Do not start M5.5B automatically.
-
-## 21. M5.5B Phase A — Didim Core human checkpoint
+## 21. M5.5B — Didim Core autonomous pre-canary checkpoint
 
 The product owner selected a smaller first pilot after M5.5A. **Didim Core** is
 frozen at `37.3751, 27.2678`, radius `6,000 m`; the previous Didim `12,000 m`
@@ -388,13 +546,33 @@ benchmark circle is explicitly excluded and remains future expansion scope.
 Additive migration `V17__external_place_provenance.sql` introduces:
 
 - explicit canonical Place `origin` (`MANUAL_COMMUNITY` or `EXTERNAL_IMPORT`) and
-  active/retired catalog status;
+  provisional/active/retired catalog status;
 - versioned provider sync runs and append-only source observations with release,
-  snapshot, method, source hash, bounded provenance, and observed/retrieved time;
+  snapshot, source-transformation method, source hash, bounded provenance, and
+  observed/retrieved time. Source observations retain their validated historical
+  method (`didim-canonicalization-v2` for the frozen corrected package, or v3 for a
+  current package) separately from the decision's
+  `didim-autonomous-validation-v2` method;
 - external aliases with provider-ID uniqueness, active/tombstoned state, merge
   redirect lineage, plus append-only alias events;
 - field-level canonical overrides preserving prior/new values, actor, reason, and
   originating source linkage.
+- versioned autonomous decisions keyed to pilot run and candidate, with final action,
+  reason, bounded evidence, hard blockers, canary eligibility and quarantine replay
+  state.
+- immutable operational-authorization lineage per pilot, expiring import claim
+  leases for crash recovery, a server-derived frozen candidate/source-plan digest
+  shared by every stage, exact decision/run/Place write-journal foreign keys, and
+  monotonic stage/gate progression. A new authorization can supersede only the
+  contained leaf failed attempt for the same stage. External-reference redirect
+  mutations are serialized before deferred cycle, liveness and canonical-identity
+  checks.
+
+Checks added to the existing `places` table are installed `NOT VALID` and then
+validated, avoiding a strong add-constraint lock throughout the legacy-row scan.
+V17 remains one transactional Flyway migration, so its ordinary catalog indexes
+cannot safely use `CONCURRENTLY`; production rehearsal and a bounded maintenance
+window remain required for those index builds.
 
 Active-catalog filters are applied to existing Place list, search, nearby, bounds,
 and aggregate queries. Provider removal retires only an imported-only Place with no
@@ -404,11 +582,71 @@ Experience Collection, and conversation relationships protect the canonical UUID
 A merge may connect aliases only when both resolve to the same Phokarta UUID.
 
 The importer is a disabled-by-default operational job, not a public endpoint. It
-accepts only a bounded, hash-verified, `APPROVED` non-secret manifest for the exact
-6 km scope and pinned provider versions. Candidate transactions are isolated and
-idempotent; unresolved review and rejected rows cannot create canonical Places.
-Trusted canonical overrides win over provider refreshes. Phase A does not produce
-the approved Phase B manifest and has not run the importer against beta.
+accepts only a bounded, hash-verified, canary manifest for the exact 6 km scope,
+pinned provider versions, pilot run ID and validation method version. Candidate
+transactions are isolated and idempotent. Only `CANARY_ELIGIBLE` `AUTO_CREATE`
+candidates may be created; quarantine and rejection are structurally excluded.
+The importer recomputes each candidate hash without `candidate_hash` or
+`selected_for_stage`, requires Python-compatible UUIDv5 identities for every source
+and eligible Place, and requires/persists the exact provider-category array rather
+than manufacturing an empty fallback. The source UUID also binds provider, external
+ID, source transformation method and source hash.
+Selected Places remain `PROVISIONAL` and therefore absent from every public catalog
+query until all selected writes and the terminal `SUCCEEDED` transition commit in
+one transaction. Failure recording and graph-safe containment likewise commit in
+one transaction; if containment itself fails, the run remains recoverable and its
+partial Places remain non-public.
+The global redirect-graph lock is acquired before any selected Place row is created
+or reactivated and again before terminal activation, so provider redirects cannot
+race either exposure boundary.
+Every successful canary import also stores a server-timed gate deadline. The
+autonomous workflow renews that bounded lease immediately before post-import probes
+from the complete sequential request budget: five performance requests per configured
+sample plus four correctness requests per selected Place, each at the bounded timeout,
+with a completion margin. A plan requiring more than the 24-hour hard ceiling fails
+closed before any import; the default 65-minute lease covers the preparation interval.
+An always-on startup and scheduled reconciler serializes on the same pilot/redirect
+locks and records an immutable `FAILED` gate plus graph-safe containment when a
+deadline expires without a result. A new `PASSED` gate at or after the deadline is
+rejected by both the service and V17 trigger; an already committed timely PASS remains
+idempotent.
+Later stages must reproduce the Stage 1 source/candidate plan and may select only a
+candidate that already has a matching immutable eligible decision. Reused source
+UUIDs must match every persisted observation field, not merely provider identity.
+Eligibility is recomputed from source timestamps and negative operating-state or
+unresolved provider flags; a caller's `usable`/confidence labels cannot substitute
+for those checks. The backend also inspects preserved Overture provenance and rejects
+an otherwise eligible Overture/FSQ pair when Overture identifies Foursquare as an
+upstream source, so one upstream observation cannot masquerade as two independent
+providers during authorized manifest validation.
+Trusted canonical overrides win over provider refreshes. No autonomous canary
+manifest may run until the one pre-canary operational authorization is received.
+The companion `build-canary-manifest` command is likewise authorization-gated. It
+requires the exact `CONTINUE AUTONOMOUS CANARY` confirmation, revalidates and
+replays the source and autonomy packages, emits every source and decision in the
+backend's structured JSON envelope, assigns stable source/Place UUIDs, verifies the
+exact stage rank range, and computes the canonical content hash. It excludes
+quarantine from selection, refuses output above the backend's 128 MiB ceiling,
+never overwrites an existing file, and performs no database or network operation.
+It emits only a lowercase `.json` path, canonical UUIDs and UTC timestamps, enforces
+the database's 200-character authorization-reference bound, and retains raw rejected-
+source reasons in evidence while using database-safe normalized decision reason codes.
+The generator and backend hash the same compact UTF-8 JSON contract: object keys use
+Unicode code-point order, arrays retain their order, and strings and finite floating
+point numbers use Python `json.dumps` spelling. Cross-language digest fixtures cover
+Unicode, control escapes, decimal values, exponent values and negative zero.
+This checkpoint has not invoked that command and has produced no authorized manifest.
+A read-only in-memory assembly against the corrected package produced 18,924 source
+records, 17,429 candidate decisions and 71 eligible Stage 1 selections. The exact
+compact envelope size was 113,434,802 bytes (84.516% of the 134,217,728-byte ceiling),
+leaving 20,782,926 bytes of headroom. The taxonomy-only eligibility population moved
+from 161 to 159 when unknown non-allowlisted category siblings began failing closed;
+requiring every corroborating source to pass the backend-aligned freshness gate then
+reduced the intermediate eligible population to 76. The final identity-safety pass
+removed five more: three hostname-only identity matches, the promotional
+Yılbaşı/Munzur record, and one candidate with both hostname-identity and shared
+Foursquare-lineage blockers. This measurement did not write a file, authorize an
+import or start a stage.
 
 ### Live Didim dry run
 
@@ -450,13 +688,14 @@ contains the complete row-level audit and before/after category counts.
 
 All candidate geometries are within the frozen radius (maximum `5,999.996 m`). The
 30-row physical-validation sample is geographically distributed and contains 15
-review cases, 10 create-new cases, and 5 explicit conflict cases. Its
-`review_decision` and `review_notes` fields are blank for human completion. Exact
-source observations were preserved from the matching pinned M5.5A normalized
-files after the live query; reconciliation found 18,924 expected and actual unique
-hashes, with zero missing or unexpected hashes.
+historical review cases, 10 historical create-new cases, and 5 explicit conflict
+cases. It is retained only for calibration, regression fixtures, decision
+explanations and spot auditing. Its completion is not a prerequisite for canary or
+later autonomous operation. Exact source observations were preserved from the
+matching pinned M5.5A normalized files after the live query; reconciliation found
+18,924 expected and actual unique hashes, with zero missing or unexpected hashes.
 
-### Canonicalization and deferred acceptance
+### Autonomous validation and deferred acceptance
 
 Matching is deterministic and staged: trusted existing external reference,
 provider redirect/crosswalk, high-confidence cross-provider grouping, then
@@ -464,27 +703,302 @@ multi-signal comparison with an existing canonical Place. Distance or name alone
 never authorizes a merge. Overture proposes canonical fields first and FSQ may fill
 gaps; geometry is selected by provenance rather than averaged. Production category
 mapping uses only exact values, whole-token sets, and bounded provider-taxonomy
-prefixes. Unknown and partially unmapped provider categories require review.
+prefixes with explicit unsafe contexts. Generic token containment is not a taxonomy
+rule: equipment/supply, retail-garden, beer-garden, gaming/internet-cafe and similar
+contexts remain unmapped unless an explicit provider rule covers them. Every category
+value on one provider record is evaluated; multiple distinct mapped Place categories
+on that record are a `CATEGORY_CONFLICT`, even if another provider independently
+agrees with one of them. Unknown and partially unmapped provider categories require
+quarantine. Generic taxonomy parents such as `food_and_drink` are neutral only when
+listed in the versioned `ignored` allowlist; they cannot turn an unknown sibling into
+a mapped category and do not themselves invalidate a specific, safely mapped child.
 Canonical websites require a public HTTP(S) domain and deterministic Place-name
 identity evidence; parseable but identity-unverified values and social-handle-like
-values are retained only in provenance. Category conflict,
+values are retained only in provenance. Valid website domains also participate in
+entity-hierarchy detection, so a restaurant-like record on a hotel/resort domain can
+be quarantined as a likely subvenue. Category conflict,
 tourism nesting, same-provider duplicates, branch ambiguity, and weak evidence stay
-`REVIEW_REQUIRED`. Clearly unusable observations alone are `REJECT`.
+`QUARANTINE`. Clearly unusable observations alone are `AUTO_REJECT`.
 
 Search, Map, Place detail, Composer, and both mobile clients were audited. Their
 public identity remains the Phokarta UUID, and existing empty-Place behavior needs
-no Phase A source change. Real-beta search/map acceptance and import counts are
-deferred until after the human checkpoint because beta has neither V17 nor imported
-Didim candidates.
+no mobile/runtime source change. Real-beta search/map acceptance and import counts are
+deferred until after the one operational authorization because beta has neither V17
+nor imported Didim candidates.
 
 Rollback is separated into source-link rollback and canonical Place retirement.
-Aliases and observations retain audit history; a Place that acquires user-owned
-graph data is never deleted or retired automatically. No ad-hoc destructive delete
-is part of the plan.
+Aliases and observations retain audit history. A Place that acquires user-owned graph
+data is never hard-deleted: rollback preserves its UUID and graph edges while retiring
+public catalog/source exposure through the graph-safe path. No ad-hoc destructive
+delete or blind graph rewrite is part of the plan.
+Rollback computes the transitive redirect dependency closure before disabling owned
+aliases, so an unowned/newer `A → B → C` chain cannot be left pointing at an inactive
+target. Deterministic alias events are retryable only when the complete stored payload
+matches; a reused command identity with a different target or timestamp aborts the
+state change.
 
 Provider/license provenance is retained, but this is not legal approval. **Human
 legal review is still recommended before broader public or national rollout.**
 
-Phase A stops at `WAITING FOR PHYSICAL / HUMAN REVIEW`. V17 is committed for test
-and review only, the beta migration is not deployed, canonical beta writes are not
+The autonomous replay itself reports only
+`ARTIFACTS_VALIDATED_PENDING_FULL_RELEASE_GATE`; artifact generation cannot claim
+canary readiness. The release gate separately requires the eligibility report,
+backend/migration verification and operational checks. V17 remains test-only until
+authorization and deployment work is explicitly begun; canonical beta writes are not
 performed, and the 6 km → 12 km expansion is not authorized.
+
+## 22. Autonomous canary contract
+
+`CANARY_ELIGIBLE` is a derived property, not another decision action. A candidate is
+eligible only when it is `AUTO_CREATE`, has high explainable existence confidence,
+has no hard blocker, has a valid name and safe in-scope coordinate, has a compatible
+or explicitly approved category, has no unresolved duplicate or subvenue ambiguity,
+and retains complete provider and decision provenance. Phone and website may be null
+when the remaining identity evidence is strong.
+
+High existence confidence also requires every corroborating provider observation to
+be deterministically fresh and free of negative operating-status/safety signals.
+Freshness is evaluated against the latest pinned provider release date, not the
+package's latest observation or the replay machine's wall clock, so identical inputs
+remain reproducible. Every corroborating observation must fall within the freshness
+window; one missing, stale or future observation prevents high confidence. A legacy
+classification label cannot promote missing or stale evidence.
+Provider names alone do not establish independence. When an Overture observation's
+preserved source provenance identifies Foursquare upstream data, including the same
+FSQ record, the pair receives `SOURCE_LINEAGE_DEPENDENCY` and cannot be canary
+eligible. Each manifest source separately preserves its validated source
+`method_version` (`didim-canonicalization-v2` for the frozen corrected package or
+v3 for current packages); the manifest-level validation method remains
+`didim-autonomous-validation-v2`.
+
+The autonomous replay reports action counts and rates plus decision reasons, hard
+blockers, provider composition, category distribution, evidence strength,
+source-quality reasons and quarantine reasons. Safety diagnostics include
+cross-provider grouping conflict, same-provider duplicate risk, category and
+coordinate conflict, subvenue risk, invalid canonical websites, unmapped categories,
+quarantine rate and evidence sufficiency. Precision, false-merge and false-create
+metrics are reported only when a labeled ground-truth fixture supports them; the
+pipeline must never manufacture a precision estimate from unlabeled provider data.
+
+Count populations are not mixed: `source_records` counts scoped provider
+observations, while `candidate_groups` counts grouped canonical candidates after
+source-quality rejection. Candidate action rates exclude source-level `AUTO_REJECT`;
+that action is reported as a count and as `source_rejection_rate` over source records.
+Canary eligibility and stage sizes are subsets of candidate groups. A count with no
+labeled ground-truth denominator is reported as unavailable rather than inferred.
+
+Canary order is deterministic. Candidates are ranked by a versioned safety tuple
+derived from evidence strength and completeness, then selected with bounded category
+and geographic-cell diversity and a stable candidate-ID tie-breaker. It is never a
+random sample. The planned stages are:
+
+1. Stage 1: exactly ranks 1 through `min(100, eligible)`;
+2. Stage 2: exactly ranks 101 through `min(500, eligible)` after Stage 1 is green;
+3. Stage 3: exactly ranks 501 through the final eligible rank after Stage 2 is green.
+
+Every eligible candidate carries one positive, unique rank and the full set is
+contiguous from one. A stage with no remaining ranks is invalid; operators cannot
+shrink, skip, replace or hand-pick a stage.
+
+The product owner authorizes the autonomous system once before Stage 1 with
+`CONTINUE AUTONOMOUS CANARY`. No Place-by-Place decision follows. `QUARANTINE` is
+excluded from every stage by both manifest generation and importer validation.
+
+Before the first record, the disabled-by-default autonomous runner captures real,
+reproducible HTTP timing and result baselines for backend health, Place search,
+Didim nearby and bounds Map queries, and a stable active Place detail read. It then
+imports the exact authorized manifest, retries that same manifest to prove importer
+idempotency, and repeats sampled performance probes plus one Search, nearby Map,
+bounds Map, and Place Detail correctness probe for every selected canonical UUID.
+The gate compares the complete probed UUID set with the database-selected decision
+set, so unprobed tail rows cannot pass. The
+runner persists absolute before/after latency and error-rate measurements plus the
+computed relative changes. A material regression stops expansion; no blended score
+may hide an individual regression. Operator-supplied PASS values, zero values or
+relative-change labels are not accepted as measurements.
+
+After every stage the automated gate verifies:
+
+- database constraints and canonical UUID uniqueness;
+- external-reference uniqueness and provider-ID isolation;
+- source, field and decision-provenance linkage;
+- absence of quarantined or hard-blocked candidates in the batch;
+- same-manifest idempotency;
+- duplicate-canonical and same-coordinate diagnostics;
+- Search correctness and bounded Map behavior;
+- Place detail correctness, backend health and API error rate;
+- search, Map and Place-detail latency against the pre-import baseline.
+
+The database derives constraint, reference-collision, provider-isolation, UUID,
+provenance, quarantine and hard-blocker results directly from the committed run.
+The same autonomous process derives Search/Map/Place-detail/API correctness and
+performance results from its actual HTTP observations; reporting `PASS` or zero in
+an operator file cannot make an unsafe batch pass.
+External-reference provenance must match its current source record's hash, release
+and snapshot at both the database-write boundary and the gate. Run completion cannot
+precede start; gate time cannot precede completion or be materially future-dated.
+
+The success-capable operational entry point is only the disabled-by-default
+`place-import` one-shot profile/job. It requires both that profile and
+`PHOKARTA_PLACE_IMPORT_ENABLED=true`, plus the manifest path, exact SHA-256,
+authorization reference and a configured loopback base URL whose port must equal
+this process's actual local HTTP port and whose path must exactly equal
+`server.servlet.context-path`. Public Place probes use that application endpoint.
+The health endpoint is derived separately from this process's
+`local.management.port`, its configured management base paths, and the same
+loopback host; this supports the production split management port without allowing
+an arbitrary probe target. Redirects are not followed. The web servers remain active
+while these real endpoint probes run, and a passing one-shot closes its Spring
+application context so the job exits cleanly. A failed gate throws after durable
+containment so startup exits as a failure. Optional inputs select a stable baseline
+Place, sample count and bounded request timeout. Normal API
+processes never accept an import manifest, and the one-shot importer cannot report
+success until its autonomous probes, anomaly audit and gate have completed. A failed
+probe or invariant is durably recorded as `FAILED` with graph-safe containment; the
+batch is never left active merely because orchestration threw.
+
+The separate disabled-by-default `place-canary-gate` profile is an emergency
+failure-containment path only. It accepts a run UUID, a bounded JSON diagnostic
+record and optional audited checked time, but it can record only `FAILED`;
+`PHOKARTA_PLACE_CANARY_GATE_REQUESTED_PASS=true` is rejected. There is no HTTP
+controller and no operator-authored path to a passing gate.
+
+Any failed gate stops later stages automatically. The affected pilot batch is
+contained and the graph-safe rollback policy is applied; the operator receives a
+diagnostic report rather than a request to manually approve each failed row.
+
+## 23. Pilot rollback and catalog anomaly audit
+
+Every canary-created Place is traceable to a pilot run ID, manifest, autonomous
+decision and `EXTERNAL_IMPORT` origin. Rollback first disables its source links and
+catalog exposure. If the Place has no Experience, saved state, Collection membership,
+acknowledgement, conversation or other Phokarta-owned graph, the bounded pilot policy
+may retire it. Once any user graph exists, automatic hard deletion is forbidden;
+the UUID and historical relationships remain intact while catalog visibility and
+source state receive graph-safe treatment.
+
+A safely contained failed attempt may be reauthorized without replacing its stable
+Place UUID. The successor decision and write explicitly reference the retired
+predecessors, the canonical/community-owned fields and graph remain unchanged, and
+only `RETIRED` or `RETIRED_GRAPH_PROTECTED` rows can be reused.
+`CONTAINED_NEWER_REFERENCES` is never eligible for automatic reuse.
+
+The deterministic catalog anomaly audit runs before expansion and after each batch.
+Its compact report detects at least:
+
+- sudden same-coordinate clusters and unusually dense marker cells;
+- same-name, same-category near-duplicates;
+- impossible category spikes or distributions;
+- invalid or out-of-scope coordinates;
+- provider-reference collisions and source orphan records;
+- canonical Places without required provenance;
+- one external reference assigned to multiple canonical UUIDs, or duplicate
+  canonical UUID assignments in one decision set.
+
+The audit establishes a pre-import baseline so changes can be attributed to a batch.
+It is a bounded safety job, not a new observability platform.
+
+## 24. Community Place Corrections architecture
+
+Community corrections are future evidence inputs, not direct canonical writes. The
+contract is:
+
+```text
+account-bound suggestion
+        ↓
+normalized proposal + retained evidence
+        ↓
+deterministic evidence / blocker engine
+        ↓
+AUTO_ACCEPT | WAIT_FOR_EVIDENCE | REJECT | QUARANTINE
+        ↓
+audited canonical change only when safe
+```
+
+Supported suggestion concepts are `PLACE_CLOSED`, `PLACE_MOVED`, `WRONG_LOCATION`,
+`WRONG_NAME`, `WRONG_CATEGORY`, `DUPLICATE_PLACE`, `PLACE_DOES_NOT_EXIST`,
+`MISSING_INFORMATION`, and `OTHER`. A future missing-Place proposal follows the same
+evidence path and cannot create a Place directly.
+
+The future persistence contract is conceptually `place_change_suggestions` with a
+suggestion ID, optional Place ID, suggestion type, bounded proposed value,
+account-bound submitter reference, reason, optional evidence metadata, timestamps,
+status, resolution and decision method version. The final table design is deferred
+until the product and privacy review; M5.5B does not add a speculative moderation
+schema.
+
+Decision behavior is intentionally asymmetric:
+
+- `AUTO_ACCEPT` requires field-appropriate strong evidence, no blocker, and no
+  protected override conflict. The resulting canonical update records old/new value,
+  contributing evidence, actor class, method version and rollback linkage.
+- `WAIT_FOR_EVIDENCE` keeps a plausible but insufficient proposal pending for new
+  provider, official or independent community evidence.
+- `REJECT` records a deterministic invalid, contradictory or abusive proposal and
+  its reason without changing the Place.
+- `QUARANTINE` isolates ambiguous identity, duplicate, hierarchy or coordinate cases
+  for later automatic re-evaluation.
+
+Canonical field ownership remains authoritative. A normal user cannot bypass the
+evidence engine, and a provider refresh cannot erase an accepted trusted correction.
+Accepted changes are reversible through append-only decision history; rollback
+restores the prior value or catalog exposure without deleting the evidence trail.
+
+### Moved and duplicate semantics
+
+“Place moved” is not a blind coordinate edit. The recommended model preserves the
+old Place and its historical Experience context, records an operating assessment of
+`MOVED`, and may link `moved_to_place_id` to a newly validated canonical Place. This
+requires a separate audit of Place/Experience expectations before any migration is
+finalized.
+
+“These two Places are the same” creates duplicate evidence only. A canonical merge
+requires the same high-confidence autonomous identity policy as provider evidence.
+If canonical redirects are introduced later, both historical UUID resolution and
+all user graph edges must remain safe; bulk graph rewrites are forbidden.
+
+### Privacy, abuse and trust
+
+Suggestions are account-bound for rate limiting and investigation, while reports and
+provider-facing diagnostics expose the minimum contributor data necessary. Evidence
+metadata is bounded, retention is documented, free text is treated as untrusted, and
+access to submitter identity is restricted. The public Place never exposes a
+contributor's private evidence by default.
+
+The service must anticipate spam, coordinated or malicious closure reports,
+business-owner manipulation, duplicate attacks and coordinate vandalism. The future
+ingress therefore supports per-account and per-Place rate limits, duplicate-submission
+collapse, evidence requirements for high-impact changes, immutable audit history,
+reversal and abuse investigation. Trust may later weight a contributor's historical
+correction accuracy as one moderation-only signal. It cannot override hard blockers,
+and there are no public mapper levels, badges, leaderboards or gamified incentives.
+
+## 25. Future mobile correction UX contract
+
+No Android or iOS correction UI is part of M5.5B. A later approved milestone may add
+the following Place Detail overflow entry:
+
+| English | Turkish |
+|---|---|
+| Suggest an edit | Düzenleme öner |
+| Place is permanently closed | Mekan kalıcı olarak kapandı |
+| Place moved | Mekan taşındı |
+| Wrong location | Konum yanlış |
+| Wrong name | İsim yanlış |
+| Wrong category | Kategori yanlış |
+| Duplicate Place | Bu mekan başka bir mekanla aynı |
+| Place does not exist | Bu mekan burada yok |
+| Missing information | Eksik bilgi |
+| Other | Diğer |
+
+Search and Map may later add `Add missing Place / Eksik mekan ekle`. Submission copy
+must make clear that a suggestion is evidence awaiting automated validation, not an
+immediate edit.
+
+## 26. Current milestone boundary
+
+M5.5B ends at the autonomous Didim 6 km canary and its acceptance checks. It does
+not deploy V17 or write beta Places before authorization, does not bulk scrape web
+sources, does not implement mobile community-edit UI, and does not expand to Didim
+12 km. After a successful pilot, the next decision is separately authorized: expand
+6 km → 12 km, tune rules, or implement Community Place Corrections.

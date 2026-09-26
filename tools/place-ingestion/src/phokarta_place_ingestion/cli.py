@@ -14,6 +14,8 @@ from .didim_pilot import (
     restore_source_records_from_benchmark,
     run_didim_dry_run,
 )
+from .autonomous_validation import run_autonomous_didim, run_quarantine_re_evaluation
+from .canary_manifest import write_canary_manifest
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -46,6 +48,36 @@ def _parser() -> argparse.ArgumentParser:
     )
     restore.add_argument("--package", required=True, type=Path)
     restore.add_argument("--benchmark", required=True, type=Path)
+    autonomous = subparsers.add_parser(
+        "didim-autonomous",
+        help=(
+            "build deterministic autonomous-validation artifacts pending the full release gate"
+        ),
+    )
+    autonomous.add_argument("--source-package", required=True, type=Path)
+    autonomous.add_argument("--output", required=True, type=Path)
+    reevaluate = subparsers.add_parser(
+        "re-evaluate-quarantine",
+        help="deterministically re-evaluate quarantine after a rule/source version change",
+    )
+    reevaluate.add_argument("--source-package", required=True, type=Path)
+    reevaluate.add_argument("--prior-autonomy-package", required=True, type=Path)
+    reevaluate.add_argument("--output", required=True, type=Path)
+    manifest = subparsers.add_parser(
+        "build-canary-manifest",
+        help="build a backend-compatible manifest after explicit operational authorization",
+    )
+    manifest.add_argument("--source-package", required=True, type=Path)
+    manifest.add_argument("--autonomy-package", required=True, type=Path)
+    manifest.add_argument("--output", required=True, type=Path)
+    manifest.add_argument(
+        "--stage", required=True, choices=("STAGE_1", "STAGE_2", "STAGE_3")
+    )
+    manifest.add_argument("--run-id", required=True)
+    manifest.add_argument("--pilot-run-key", required=True)
+    manifest.add_argument("--authorization-reference", required=True)
+    manifest.add_argument("--authorization-confirmation", required=True)
+    manifest.add_argument("--reauthorizes-run-id")
     subparsers.add_parser("validate-config", help="validate repository fixtures")
     subparsers.add_parser("doctor", help="report only whether an FSQ credential is configured")
     return parser
@@ -101,6 +133,46 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "restore-didim-source-records":
         counts = restore_source_records_from_benchmark(args.package, args.benchmark)
         print(json.dumps({"source_counts": counts, "package": str(args.package)}, sort_keys=True))
+        return 0
+    if args.command == "didim-autonomous":
+        result = run_autonomous_didim(
+            args.source_package,
+            args.output,
+        )
+        print(json.dumps({
+            "status": result["summary"]["status"],
+            "output": result["output"],
+            "method_version": result["summary"]["method_version"],
+            "actions": result["summary"]["actions"],
+            "canary_eligible": result["summary"]["canary_eligible"],
+            "stage_1_planned": result["summary"]["stage_1_planned"],
+        }, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "re-evaluate-quarantine":
+        result = run_quarantine_re_evaluation(
+            args.source_package,
+            args.prior_autonomy_package,
+            args.output,
+        )
+        print(json.dumps({
+            "status": "RE_EVALUATED",
+            "output": result["output"],
+            **result["summary"],
+        }, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "build-canary-manifest":
+        result = write_canary_manifest(
+            args.source_package,
+            args.autonomy_package,
+            args.output,
+            stage=args.stage,
+            run_id=args.run_id,
+            pilot_run_key=args.pilot_run_key,
+            authorization_reference=args.authorization_reference,
+            authorization_confirmation=args.authorization_confirmation,
+            reauthorizes_run_id=args.reauthorizes_run_id,
+        )
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
     verify_benchmark_lock()
     providers = [value.strip().casefold() for value in args.providers.split(",") if value.strip()]

@@ -30,19 +30,23 @@ public class PlaceProviderStateService {
             UUID syncRunId,
             OffsetDateTime occurredAt
     ) {
+        lockRedirectGraph();
         ExternalRef ref = requireRef(provider, externalId);
-        jdbc.update("""
+        int updated = jdbc.update("""
                 UPDATE place_external_refs
                    SET status = 'INACTIVE', last_seen_at = ?, last_sync_run_id = ?,
                        redirected_provider = NULL, redirected_external_id = NULL
                  WHERE provider = ? AND external_id = ?
                 """, occurredAt, syncRunId, provider, externalId);
+        if (updated != 1) {
+            throw new IllegalStateException("provider external reference changed during removal");
+        }
         insertEvent(provider, externalId, ref.placeId(), "REMOVED", syncRunId, occurredAt,
                 null, null);
 
         Integer activeRefs = jdbc.queryForObject("""
                 SELECT count(*) FROM place_external_refs
-                 WHERE place_id = ? AND status = 'ACTIVE'
+                 WHERE place_id = ? AND status IN ('ACTIVE', 'MERGED')
                 """, Integer.class, ref.placeId());
         String origin = jdbc.queryForObject(
                 "SELECT origin FROM places WHERE id = ?", String.class, ref.placeId());
@@ -65,32 +69,46 @@ public class PlaceProviderStateService {
             UUID syncRunId,
             OffsetDateTime occurredAt
     ) {
+        lockRedirectGraph();
         ExternalRef source = requireRef(provider, externalId);
         ExternalRef target = requireRef(provider, survivingExternalId);
         if (!source.placeId().equals(target.placeId())) {
             throw new IllegalStateException(
                     "provider redirect crosses canonical Place UUIDs and requires human review");
         }
-        jdbc.update("""
+        if ("INACTIVE".equals(target.status())) {
+            throw new IllegalStateException("provider redirect target is inactive");
+        }
+        int updated = jdbc.update("""
                 UPDATE place_external_refs
                    SET status = 'MERGED', redirected_provider = ?, redirected_external_id = ?,
                        last_seen_at = ?, last_sync_run_id = ?
                  WHERE provider = ? AND external_id = ?
                 """, provider, survivingExternalId, occurredAt, syncRunId, provider, externalId);
+        if (updated != 1) {
+            throw new IllegalStateException("provider external reference changed during merge");
+        }
         insertEvent(provider, externalId, source.placeId(), "MERGED", syncRunId, occurredAt,
                 provider, survivingExternalId);
     }
 
     private ExternalRef requireRef(String provider, String externalId) {
         List<ExternalRef> refs = jdbc.query("""
-                SELECT place_id FROM place_external_refs
+                SELECT place_id, status FROM place_external_refs
                  WHERE provider = ? AND external_id = ?
-                """, (rs, rowNum) -> new ExternalRef(rs.getObject("place_id", UUID.class)),
+                 FOR UPDATE
+                """, (rs, rowNum) -> new ExternalRef(
+                rs.getObject("place_id", UUID.class), rs.getString("status")),
                 provider, externalId);
         if (refs.size() != 1) {
             throw new IllegalArgumentException("unknown provider external reference");
         }
         return refs.getFirst();
+    }
+
+    private void lockRedirectGraph() {
+        jdbc.query("SELECT pg_advisory_xact_lock(5517, 917)",
+                (rs, rowNum) -> rs.getObject(1));
     }
 
     private void insertEvent(
@@ -105,7 +123,7 @@ public class PlaceProviderStateService {
     ) {
         UUID eventId = UUID.nameUUIDFromBytes((syncRunId + "\n" + provider + "\n" + externalId
                 + "\n" + eventType).getBytes(StandardCharsets.UTF_8));
-        jdbc.update("""
+        int inserted = jdbc.update("""
                 INSERT INTO place_external_ref_events (
                     id, provider, external_id, place_id, event_type, sync_run_id,
                     redirected_provider, redirected_external_id, occurred_at
@@ -113,9 +131,24 @@ public class PlaceProviderStateService {
                 ON CONFLICT (id) DO NOTHING
                 """, eventId, provider, externalId, placeId, eventType, syncRunId,
                 redirectedProvider, redirectedExternalId, occurredAt);
+        if (inserted == 0) {
+            Integer same = jdbc.queryForObject("""
+                    SELECT count(*) FROM place_external_ref_events
+                     WHERE id = ? AND provider = ? AND external_id = ? AND place_id = ?
+                       AND event_type = ? AND source_record_id IS NULL
+                       AND sync_run_id = ?
+                       AND redirected_provider IS NOT DISTINCT FROM ?
+                       AND redirected_external_id IS NOT DISTINCT FROM ?
+                       AND occurred_at = ? AND details = '{}'::jsonb
+                    """, Integer.class, eventId, provider, externalId, placeId, eventType,
+                    syncRunId, redirectedProvider, redirectedExternalId, occurredAt);
+            if (!Integer.valueOf(1).equals(same)) {
+                throw new IllegalStateException("provider event UUID payload collision");
+            }
+        }
     }
 
-    private record ExternalRef(UUID placeId) {}
+    private record ExternalRef(UUID placeId, String status) {}
 
     public record RemovalResult(UUID placeId, boolean graphProtected, boolean retired) {}
 }

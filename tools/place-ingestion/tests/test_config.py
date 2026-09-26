@@ -12,6 +12,10 @@ from phokarta_place_ingestion.config import (
     load_provider_registry,
     read_json,
 )
+from phokarta_place_ingestion.delegated_tlds import (
+    DELEGATED_TOP_LEVEL_DOMAINS,
+    IANA_TLD_SNAPSHOT_VERSION,
+)
 from phokarta_place_ingestion.models import BenchmarkCategory
 
 
@@ -57,13 +61,19 @@ class ConfigurationTest(unittest.TestCase):
 
     def test_production_category_mapping_has_no_substring_rules(self):
         mapping = read_json(DEFAULT_CONFIG_DIR / "production_category_mappings.json")
-        self.assertEqual(mapping["version"], 2)
+        self.assertEqual(mapping["version"], 3)
         for provider, rules in mapping["providers"].items():
             with self.subTest(provider=provider):
                 self.assertNotIn("contains", rules)
                 self.assertEqual(
-                    set(rules), {"exact", "token_sets", "taxonomy_prefixes"}
+                    set(rules), {"exact", "ignored", "token_sets", "taxonomy_prefixes"}
                 )
+
+    def test_delegated_tld_snapshot_is_pinned(self):
+        self.assertEqual(IANA_TLD_SNAPSHOT_VERSION, "2026092600")
+        self.assertEqual(len(DELEGATED_TOP_LEVEL_DOMAINS), 1438)
+        self.assertTrue({"com", "tr", "istanbul"}.issubset(DELEGATED_TOP_LEVEL_DOMAINS))
+        self.assertTrue({"internal", "kunefe", "zz"}.isdisjoint(DELEGATED_TOP_LEVEL_DOMAINS))
 
 
 if __name__ == "__main__":

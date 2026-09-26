@@ -175,6 +175,24 @@ class PostgisIntegrationTest {
     }
 
     @Test
+    void retiredPlaceLeavesCatalogButRemainsReadableThroughHistoricalVisit() {
+        UUID placeId = insertPlace("Retired History", PlaceCategory.CAFE, 20.2, 20.2);
+        UUID visitId = UUID.randomUUID();
+        insertVisit(visitId, placeId, 8.0, Visibility.PUBLIC, "historical review", "");
+
+        jdbc.update("update places set catalog_status = 'RETIRED' where id = ?", placeId);
+        entityManager.clear();
+
+        assertThat(places.findById(placeId)).isEmpty();
+        assertThat(places.existsById(placeId)).isFalse();
+        assertThat(places.findNearby(20.2, 20.2, 1000, null, null, 10))
+                .extracting(PlaceRepository.DistanceRow::getId)
+                .doesNotContain(placeId);
+        assertThat(visits.findById(visitId).orElseThrow().getPlace().getName())
+                .isEqualTo("Retired History");
+    }
+
+    @Test
     void savedPlaceInsertIsAtomicAndPreservesOriginalTimestamp() {
         UUID placeId = insertPlace("Atomic Saved Place", PlaceCategory.CAFE, 22.0, 22.0);
         OffsetDateTime firstSavedAt = OffsetDateTime.parse("2026-01-01T10:00:00Z");

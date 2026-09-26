@@ -118,12 +118,23 @@ as a production taxonomy. Production mappings are limited to exact values,
 whole-token sets, and bounded provider-taxonomy prefixes. Raw substring matching
 is forbidden, so concepts such as `barber`, `public_plaza`, `parking`, and
 `hardware_home_and_garden_store` cannot inherit categories from embedded words.
-Unknown categories stay unmapped and require review.
+Unknown categories stay unmapped and require review. A provider row that contains
+one known category plus an unknown sibling also fails closed. Generic taxonomy
+parents such as `food_and_drink` are neutral only when they appear in the explicit
+`ignored` allowlist, so they do not conceal unknown provider meanings.
 
 Canonical website proposals must use a public HTTP(S) host and have a meaningful
 identity token in common with the provider Place name. Bare/social-handle-like,
 social-profile, malformed, and identity-unverified values remain in source
 provenance but are excluded from the canonical proposal and require review.
+Public-host validation is offline and deterministic: the ASCII top-level label must
+be present in the bundled IANA root-zone snapshot `2026092600`; undelegated/private
+suffixes and the non-web infrastructure suffix `.arpa` fail closed without requiring
+DNS or network reachability.
+Identity uses exact bounded hostname labels or a complete normalized brand, never
+arbitrary substring containment (`Opera Cafe` cannot validate `operation.com`).
+Canonical names reject embedded phone/contact text, prices or currencies,
+reservation/menu advertising, and excessively promotional copy.
 
 Run the read-only planner against both pinned providers and the current canonical
 Place feed:
@@ -144,9 +155,12 @@ python -m phokarta_place_ingestion didim-dry-run `
   --output <new-empty-output-directory>
 ```
 
-The replay verifies every normalized source hash, provider count, candidate
-identity set, and the 6 km geometry. It also writes before/after category counts
-and a row-level candidate-change audit.
+The replay verifies every normalized source hash, the complete replay-envelope
+hash (including observation/retrieval time, source sequence and provenance),
+provider count, candidate identity set, and the 6 km geometry. It also writes
+before/after category counts and a row-level candidate-change audit.
+Overture observations derived from Foursquare provenance are dependent lineage, not
+a second independent provider observation, and therefore remain quarantined.
 
 The planner performs no database writes. It retains source observations, produces
 one decision per candidate (`AUTO_LINK`, `REVIEW_REQUIRED`, or `CREATE_NEW`),
@@ -171,13 +185,17 @@ python -m phokarta_place_ingestion restore-didim-source-records `
   --benchmark <matching-m5.5a-package>
 ```
 
-The backend contains a disabled-by-default, private one-shot import job for a
-future human-approved manifest. It has no controller and requires both the
-`place-import` Spring profile and `PHOKARTA_PLACE_IMPORT_ENABLED=true`; normal API
-processes cannot invoke it. Run it only in Phase B with
-`--spring.main.web-application-type=none` and an immutable manifest path. The
-current Phase A checkpoint does not generate an approved manifest, deploy V17, or
-write canonical Places.
+The backend contains a disabled-by-default, private one-shot import job for an
+operationally authorized autonomous-canary manifest. It has no controller
+and requires the `place-import` Spring profile,
+`PHOKARTA_PLACE_IMPORT_ENABLED=true`, the exact out-of-band manifest SHA-256, and
+the matching authorization reference; normal API processes cannot invoke it.
+Run it only after the explicit `CONTINUE AUTONOMOUS CANARY` authorization with
+its web server active, a loopback base URL bound to that process's actual local
+HTTP port, and an immutable manifest path. Do not use
+`--spring.main.web-application-type=none`: the autonomous gate measures the real
+Search, Map, Place Detail, and health endpoints. This checkpoint has generated no
+authorized import manifest, deployed no migration, and written no canonical Places.
 
 Additional commands:
 
@@ -185,4 +203,109 @@ Additional commands:
 didim-dry-run                 fetch and build the read-only Didim Core plan
 rebuild-didim-review-sample   rebuild the deterministic physical-review sample
 restore-didim-source-records  recover hash-matched observations from M5.5A
+didim-autonomous              replay the corrected package through autonomous validation
+re-evaluate-quarantine        replay quarantined candidates under current validated rules
+build-canary-manifest         create the backend JSON envelope after explicit authorization
 ```
+
+## M5.5B autonomous validation replay
+
+The first autonomous run accepts only the corrected
+`20260925_2145_category_fix` package: the exact hash-frozen historical
+canonicalization v2 output, pinned Overture/FSQ releases and snapshot, exact source
+counts, and exact source/candidate hashes. It rejects the superseded 1742 package.
+New replay packages use the current canonicalization method and must reproduce their
+candidate grouping semantically from source observations. Output must be a new
+directory outside Git. The command does not deploy V17, write a canonical Place, or
+start a canary. The 30-row sample becomes calibration/audit output only and has no
+completion columns or approval role.
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m phokarta_place_ingestion didim-autonomous `
+  --source-package "<validated-source-package>" `
+  --output "<new-empty-directory-outside-git>"
+```
+
+Stage 1 is not operator-sized: it is exactly the first `min(100, eligible)` rows
+of one full, contiguous deterministic ranking. Stage 2 selects ranks 101–500 and
+Stage 3 selects the remainder from that same frozen plan.
+
+Operational correctness probes cover every selected Place through Search, nearby
+Map, bounds Map, and Place Detail. Performance timings remain reproducibly sampled;
+the immutable gate also compares the exact probed UUID set with the selected database
+decisions before a stage can pass.
+
+Autonomy counts use explicit populations. `source_records` is every scoped provider
+observation; `candidate_groups` is only canonical candidate groups after unusable
+source rows are removed. `AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`, and `QUARANTINE`
+counts/rates use candidate groups as their denominator. `AUTO_REJECT` counts unusable
+source observations, has no candidate-group rate, and is reported separately as
+`source_rejection_rate / source_records`. `canary_eligible` and every stage count are
+subsets of candidate groups, never source rows.
+The package writes and hashes the full evidence ledger plus separate files for every
+action (`AUTO_LINK`, `AUTO_CREATE`, `AUTO_ENRICH`, `AUTO_REJECT`, and `QUARANTINE`),
+including header-only files when an action has zero rows.
+
+Quarantine re-evaluation is a separate, bounded replay. It verifies the prior
+autonomy package's artifact hashes, decision digest and quarantine subset, then
+re-evaluates those records against a validated current source package and current
+versioned rules. Provider-reference lineage resolves deterministic regrouping; a
+missing or ambiguous mapping stays quarantined. The operation writes a deterministic
+prior-to-current transition audit, a JSON lineage envelope, preserved synthetic
+quarantine decisions for missing/ambiguous lineage, and SHA-256 hashes for every
+output. Its full current evidence and field-proposal ledger plus compatible
+`autonomous_summary.json` make the result directly chainable into a later bounded
+re-evaluation without discarding unresolved lineage.
+It performs no catalog write or deploy.
+
+```powershell
+python -m phokarta_place_ingestion re-evaluate-quarantine `
+  --source-package <corrected-2145-package> `
+  --prior-autonomy-package <prior-autonomy-package> `
+  --output <new-empty-directory-outside-git>
+```
+
+After—never before—the explicit operational authorization, build the importer's
+structured JSON envelope with the exact confirmation phrase. The generator
+revalidates both packages, recomputes every autonomous decision and rank, excludes
+quarantine from selection, assigns stable source/Place UUIDs, enforces the exact
+stage range, preserves each validated source's own canonicalization method (`v2` for
+the frozen correction package or `v3` for current replay packages) separately from
+the autonomous decision method, computes the backend-compatible canonical JSON hash, refuses files
+over 128 MiB, and never contacts the database:
+
+```powershell
+python -m phokarta_place_ingestion build-canary-manifest `
+  --source-package <validated-source-package> `
+  --autonomy-package <validated-autonomy-package> `
+  --output <new-manifest.json> `
+  --stage STAGE_1 `
+  --run-id <uuid> `
+  --pilot-run-key <stable-pilot-key> `
+  --authorization-reference <out-of-band-reference> `
+  --authorization-confirmation "CONTINUE AUTONOMOUS CANARY"
+```
+
+The output path must not already exist. Merely having this command available is
+not authorization; without the exact confirmation it fails before loading either
+package and writes nothing. The output suffix is exactly lowercase `.json`; run IDs
+and timestamps are emitted in canonical backend-compatible form, authorization
+references are bounded to 200 characters, and raw source-rejection details remain in
+evidence while their database reason codes are safely normalized. A read-only
+in-memory assembly of the current validated
+Didim package produced 18,924 source records, 17,429 candidate decisions and 71
+eligible Stage 1 selections. The preceding freshness-only result was 76; bounded
+hostname identity, promotional-name rejection, and shared-source-lineage rejection
+removed five candidates: three hostname-only
+identity matches, the promotional Yılbaşı/Munzur record, and one record blocked by
+both hostname identity and shared Foursquare lineage. With the per-source
+canonicalization method included and bound into source IDs, the compact JSON envelope
+measured 113,434,802 bytes (84.516% of the 134,217,728-byte limit, leaving 20,782,926
+bytes); no manifest file was written. The taxonomy-only eligibility pass changed from
+161 to 159 after unknown sibling categories began failing closed, and the
+backend-aligned requirement that every corroborating source be fresh reduced the
+intermediate eligible population to 76.
+Successful `didim-autonomous` output is labeled
+`ARTIFACTS_VALIDATED_PENDING_FULL_RELEASE_GATE`; it does not claim canary readiness
+before the backend, migration, and operational release gates complete.

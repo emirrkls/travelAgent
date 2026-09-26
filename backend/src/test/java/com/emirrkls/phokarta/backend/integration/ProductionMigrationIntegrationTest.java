@@ -122,9 +122,29 @@ class ProductionMigrationIntegrationTest {
                 select count(*) from information_schema.tables
                 where table_name = 'place_canonical_overrides'
                 """, Integer.class);
+        Integer validationDecisions = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_validation_decisions'
+                """, Integer.class);
+        Integer recheckQueue = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_validation_recheck_queue'
+                """, Integer.class);
+        Integer pilotWrites = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_pilot_catalog_writes'
+                """, Integer.class);
+        Integer canaryGates = jdbc.queryForObject("""
+                select count(*) from information_schema.tables
+                where table_name = 'place_pilot_canary_gates'
+                """, Integer.class);
         assertThat(sourceRecords).isEqualTo(1);
         assertThat(externalRefs).isEqualTo(1);
         assertThat(syncRuns).isEqualTo(1);
         assertThat(overrides).isEqualTo(1);
+        assertThat(validationDecisions).isEqualTo(1);
+        assertThat(recheckQueue).isEqualTo(1);
+        assertThat(pilotWrites).isEqualTo(1);
+        assertThat(canaryGates).isEqualTo(1);
     }
 }

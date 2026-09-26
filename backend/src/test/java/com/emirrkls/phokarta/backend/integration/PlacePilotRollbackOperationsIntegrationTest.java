@@ -329,14 +329,13 @@ class PlacePilotRollbackOperationsIntegrationTest {
     @Test
     void isolatedRunnerDryRunLoadsNoWebOrReconcilerAndLeavesExpiredRunUntouched() {
         PilotFixture target = importPilot("rollback-runner-dry-run", 1, false, true);
-        PilotFixture expiredUngated = importPilot("rollback-expired-ungated", 1, false, false);
-        jdbc.update("""
-                update place_provider_sync_runs
-                   set gate_deadline = completed_at + interval '1 millisecond'
-                 where id = ?
-                """, expiredUngated.runId());
+        PilotFixture expiredUngated = seedExpiredUngatedRun("rollback-expired-ungated");
         DatabaseSnapshot targetBefore = snapshot(target);
         DatabaseSnapshot expiredBefore = snapshot(expiredUngated);
+        List<Map<String, Object>> expiredRunBefore = jdbc.queryForList("""
+                select status, started_at, completed_at, gate_deadline, manifest_hash, plan_digest
+                  from place_provider_sync_runs where id = ?
+                """, expiredUngated.runId());
         AtomicBoolean isolatedContextInspected = new AtomicBoolean();
 
         SpringApplication application = rollbackApplication();
@@ -350,14 +349,15 @@ class PlacePilotRollbackOperationsIntegrationTest {
         assertThat(closed.isActive()).isFalse();
         assertThat(snapshot(target)).isEqualTo(targetBefore);
         assertThat(snapshot(expiredUngated)).isEqualTo(expiredBefore);
+        assertThat(jdbc.queryForList("""
+                select status, started_at, completed_at, gate_deadline, manifest_hash, plan_digest
+                  from place_provider_sync_runs where id = ?
+                """, expiredUngated.runId())).isEqualTo(expiredRunBefore);
         assertThat(count("select count(*) from place_pilot_canary_gates where sync_run_id = ?",
                 expiredUngated.runId())).isZero();
-        assertThat(jdbc.queryForObject("""
-                select rollback_state from place_pilot_catalog_writes where sync_run_id = ?
-                """, String.class, expiredUngated.runId())).isEqualTo("NONE");
-        assertThat(jdbc.queryForObject("""
-                select catalog_status from places where id = ?
-                """, String.class, expiredUngated.placeIds().getFirst())).isEqualTo("ACTIVE");
+        assertThat(count("""
+                select count(*) from place_pilot_catalog_writes where sync_run_id = ?
+                """, expiredUngated.runId())).isZero();
     }
 
     @Test
@@ -417,6 +417,31 @@ class PlacePilotRollbackOperationsIntegrationTest {
             String seed, int createdPlaces, boolean includeQuarantine, boolean passGate) {
         ObjectNode envelope = manifest(seed, createdPlaces, includeQuarantine);
         return importEnvelope(envelope, passGate);
+    }
+
+    private static PilotFixture seedExpiredUngatedRun(String seed) {
+        // Seed a historical terminal run in its original state, just like the gate
+        // reconciliation integration fixture. Never rewrite a completed run's deadline.
+        UUID runId = deterministicUuid("expired-run:" + seed);
+        String manifestHash = sha256(seed + ":manifest");
+        String authorization = "test-expired-authorization-" + seed;
+        jdbc.update("""
+                insert into place_provider_sync_runs (
+                    id, pilot_run_key, canary_stage, authorization_reference,
+                    provider, resolved_release, method_version, scope_name,
+                    scope_center_latitude, scope_center_longitude, scope_radius_meters,
+                    started_at, completed_at, gate_deadline, status, manifest_hash, plan_digest
+                ) values (?, ?, 'STAGE_1', ?, 'MULTI_SOURCE', 'fixture',
+                    'didim-autonomous-validation-v2', 'didim_core', 37.3751, 27.2678, 6000,
+                    clock_timestamp() - interval '2 hours',
+                    clock_timestamp() - interval '90 minutes',
+                    clock_timestamp() - interval '1 minute', 'SUCCEEDED', ?, ?)
+                """, runId, "didim-core-" + seed, authorization,
+                manifestHash, sha256(seed + ":plan"));
+        assertThat(jdbc.queryForObject("""
+                select gate_deadline < clock_timestamp() from place_provider_sync_runs where id = ?
+                """, Boolean.class, runId)).isTrue();
+        return new PilotFixture(runId, manifestHash, authorization, List.of());
     }
 
     private static PilotFixture importPilotWithLinkedExistingPlace(

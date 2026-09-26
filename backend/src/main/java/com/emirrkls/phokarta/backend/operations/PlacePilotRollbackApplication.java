@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.sql.init.SqlInitializationAutoConfiguration;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.JndiDataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
@@ -35,7 +36,8 @@ import java.io.PrintStream;
 @EnableAutoConfiguration(exclude = {
         FlywayAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
         JpaRepositoriesAutoConfiguration.class, SqlInitializationAutoConfiguration.class,
-        LiquibaseAutoConfiguration.class, SecurityAutoConfiguration.class,
+        LiquibaseAutoConfiguration.class, JndiDataSourceAutoConfiguration.class,
+        SecurityAutoConfiguration.class,
         SecurityFilterAutoConfiguration.class, UserDetailsServiceAutoConfiguration.class,
         ServletWebServerFactoryAutoConfiguration.class, WebMvcAutoConfiguration.class,
         ReactiveWebServerFactoryAutoConfiguration.class, WebFluxAutoConfiguration.class,

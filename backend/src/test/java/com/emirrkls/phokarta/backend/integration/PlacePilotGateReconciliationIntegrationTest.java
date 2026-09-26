@@ -4,6 +4,7 @@ import com.emirrkls.phokarta.backend.repository.PlaceGraphProtectionRepository;
 import com.emirrkls.phokarta.backend.service.PlacePilotCanaryGateService;
 import com.emirrkls.phokarta.backend.service.PlacePilotGateReconciliationService;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackService;
+import com.emirrkls.phokarta.backend.service.PlacePilotSourceAccounting;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Testcontainers
 class PlacePilotGateReconciliationIntegrationTest {
@@ -52,8 +55,13 @@ class PlacePilotGateReconciliationIntegrationTest {
                 "select clock_timestamp()", OffsetDateTime.class);
         UUID latePassRun = seedSuccessfulRun(
                 jdbc, 1, databaseNow.minusMinutes(1), databaseNow);
+        // This synthetic deadline fixture has no imported population. Bind the receipt identity
+        // only: the expired deadline must fail before source accounting or HTTP diagnostics run.
+        PlacePilotSourceAccounting.Approved approved = mock(PlacePilotSourceAccounting.Approved.class);
+        when(approved.runId()).thenReturn(latePassRun);
+        when(approved.manifestHash()).thenReturn(hash('1'));
         PlacePilotCanaryGateService.GateResult latePass = gates.record(
-                latePassRun, true, JsonNodeFactory.instance.objectNode(), null);
+                latePassRun, true, JsonNodeFactory.instance.objectNode(), null, approved);
         assertThat(latePass.status()).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("""
                 select diagnostics ->> 'gate_failure_reason'

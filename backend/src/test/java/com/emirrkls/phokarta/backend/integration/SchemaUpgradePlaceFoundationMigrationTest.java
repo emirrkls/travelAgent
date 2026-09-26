@@ -607,7 +607,7 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         orphanedSource.put("manifest_hash", importer.hashManifest(orphanedManifest));
         assertThatThrownBy(() -> importAuthorized(importer, orphanedSource))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("every source record");
+                .hasMessageContaining("every usable source record");
 
         ObjectNode wrongFrozenSelection = stageTwoManifest(mapper, importer,
                 UUID.fromString("60000000-0000-0000-0000-000000000523"),

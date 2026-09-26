@@ -1192,18 +1192,8 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                     "OVERTURE", "o-1", "o-2", successfulRun, now.plusNanos(1));
             return null;
         }));
-        assertThat(redirectCycleFailure).isNotNull();
-        Throwable redirectCycleRootCause = redirectCycleFailure;
-        while (redirectCycleRootCause.getCause() != null) {
-            redirectCycleRootCause = redirectCycleRootCause.getCause();
-        }
-        assertThat(redirectCycleRootCause)
-                .isInstanceOfSatisfying(SQLException.class, sqlFailure -> {
-                    assertThat(sqlFailure.getSQLState()).isEqualTo("23514");
-                    assertThat(sqlFailure.getMessage())
-                            .contains(
-                                    "external reference redirect cycle is not allowed");
-                });
+        assertPostgresCheckViolation(redirectCycleFailure,
+                "external reference redirect cycle is not allowed");
         assertThat(jdbc.queryForObject("""
                 select status from place_external_refs
                  where provider = 'OVERTURE' and external_id = 'o-1'
@@ -1226,11 +1216,11 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                         now.plusSeconds(1))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("payload collision");
-        assertThatThrownBy(() -> inTransaction(transactions, () ->
+        Throwable liveRedirectRemovalFailure = catchThrowable(() -> inTransaction(transactions, () ->
                 providerState.markRemoved(
-                        "OVERTURE", "o-1", successfulRun, now.plusSeconds(1))))
-                .isInstanceOf(DataAccessException.class)
-                .hasMessageContaining("merge redirects");
+                        "OVERTURE", "o-1", successfulRun, now.plusSeconds(1))));
+        assertPostgresCheckViolation(liveRedirectRemovalFailure,
+                "an external reference with live merge redirects cannot be inactivated");
         inTransaction(transactions, () -> providerState.markRemoved(
                 "OVERTURE", "o-2", successfulRun, now.plusSeconds(1)));
         inTransaction(transactions, () -> providerState.markRemoved(
@@ -1284,6 +1274,19 @@ class SchemaUpgradePlaceFoundationMigrationTest {
             Supplier<T> operation
     ) {
         return new TransactionTemplate(transactionManager).execute(status -> operation.get());
+    }
+
+    private void assertPostgresCheckViolation(Throwable failure, String expectedMessage) {
+        assertThat(failure).isNotNull();
+        Throwable rootCause = failure;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+        assertThat(rootCause)
+                .isInstanceOfSatisfying(SQLException.class, sqlFailure -> {
+                    assertThat(sqlFailure.getSQLState()).isEqualTo("23514");
+                    assertThat(sqlFailure.getMessage()).contains(expectedMessage);
+                });
     }
 
     private ObjectNode approvedManifest(
@@ -1890,10 +1893,10 @@ class SchemaUpgradePlaceFoundationMigrationTest {
             assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(competing.isDone()).isFalse();
             first.commit();
-            assertThatThrownBy(competing::get)
-                    .isInstanceOf(ExecutionException.class)
-                    .hasRootCauseInstanceOf(SQLException.class)
-                    .hasStackTraceContaining("redirect cycle");
+            Throwable competingFailure = catchThrowable(competing::get);
+            assertThat(competingFailure).isInstanceOf(ExecutionException.class);
+            assertPostgresCheckViolation(competingFailure,
+                    "external reference redirect cycle is not allowed");
             second.rollback();
         } finally {
             executor.shutdownNow();

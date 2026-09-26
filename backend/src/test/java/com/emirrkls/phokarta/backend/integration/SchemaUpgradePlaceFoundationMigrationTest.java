@@ -136,9 +136,15 @@ class SchemaUpgradePlaceFoundationMigrationTest {
         PlacePilotImportService.ImportResult first = importAuthorized(importer, envelope);
         PlacePilotImportService.ImportResult retry = importAuthorized(importer, envelope);
 
+        String collisionCandidateId = "source-identity-collision";
         ObjectNode mismatchedSource = approvedManifest(mapper, importer,
                 UUID.fromString("60000000-0000-0000-0000-000000000533"),
-                UUID.fromString("20000000-0000-0000-0000-000000000533"), false);
+                placeUuid(collisionCandidateId), false);
+        ObjectNode mismatchedCandidate = (ObjectNode) mismatchedSource.path("manifest")
+                .path("candidates").get(0);
+        mismatchedCandidate.put("candidate_id", collisionCandidateId);
+        mismatchedCandidate.put("canonical_place_id",
+                placeUuid(collisionCandidateId).toString());
         ObjectNode reusedSource = envelope.path("manifest").path("source_records").get(0).deepCopy();
         reusedSource.put("normalized_name", "Unauthorized replacement");
         ((ArrayNode) mismatchedSource.path("manifest").path("source_records")).set(0, reusedSource);

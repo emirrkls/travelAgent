@@ -59,3 +59,15 @@ jobs:
 
       - name: Build production image
         run: docker build --tag phokarta-backend:ci .
+
+      - name: Verify private rollback launcher fails closed without authorization
+        shell: bash
+        run: |
+          set +e
+          output=$(docker run --rm --network none \
+            --entrypoint /bin/sh phokarta-backend:ci -c \
+            'unset JAVA_TOOL_OPTIONS; exec java -Dloader.main=com.emirrkls.phokarta.backend.operations.PlacePilotRollbackApplication -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher' 2>&1)
+          status=$?
+          set -e
+          test "$status" -eq 1
+          test "$output" = 'PLACE_ROLLBACK_FAILED:STARTUP_OR_OPERATION_FAILED'

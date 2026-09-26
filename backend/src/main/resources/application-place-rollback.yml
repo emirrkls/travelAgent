@@ -1,0 +1,22 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+  flyway:
+    enabled: false
+  liquibase:
+    enabled: false
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: validate
+phokarta:
+  place-import:
+    enabled: false
+  place-canary-gate:
+    enabled: false
+logging:
+  level:
+    root: "OFF"

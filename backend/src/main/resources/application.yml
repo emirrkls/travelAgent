@@ -25,6 +25,15 @@ server:
 phokarta:
   environment: ${APP_ENVIRONMENT:local}
   demo-user-id: 11111111-1111-1111-1111-111111111111
+  place-rollback:
+    # Private isolated PropertiesLauncher entry point, never the normal web application.
+    # Inspection is default and execute requires dry-run=false AND execute=true.
+    enabled: ${PHOKARTA_PLACE_ROLLBACK_ENABLED:false}
+    sync-run-id: ${PHOKARTA_PLACE_ROLLBACK_SYNC_RUN_ID:}
+    expected-manifest-hash: ${PHOKARTA_PLACE_ROLLBACK_EXPECTED_MANIFEST_HASH:}
+    dry-run: ${PHOKARTA_PLACE_ROLLBACK_DRY_RUN:true}
+    execute: ${PHOKARTA_PLACE_ROLLBACK_EXECUTE:false}
+    reason-code: ${PHOKARTA_PLACE_ROLLBACK_REASON_CODE:}
   place-import:
     # Disabled-by-default private one-shot autonomous canary. The dedicated
     # place-import profile and this explicit switch are both required. The runner

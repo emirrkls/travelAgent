@@ -107,6 +107,7 @@ CREATE TABLE place_provider_sync_runs (
     manifest_hash CHAR(64),
     plan_digest CHAR(64),
     CONSTRAINT uq_place_sync_run_id_pilot UNIQUE (id, pilot_run_key),
+    CONSTRAINT uq_place_sync_run_id_manifest UNIQUE (id, manifest_hash),
     CONSTRAINT uq_place_sync_run_id_stage UNIQUE (id, canary_stage),
     CONSTRAINT uq_place_sync_run_id_pilot_stage UNIQUE (id, pilot_run_key, canary_stage),
     CONSTRAINT place_sync_run_reauthorization_fk
@@ -990,3 +991,75 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_place_pilot_canary_gates_immutable
 BEFORE UPDATE OR DELETE ON place_pilot_canary_gates
 FOR EACH ROW EXECUTE FUNCTION reject_place_pilot_canary_gate_mutation();
+
+-- A later product/operational acceptance failure is separate from an immutable automated
+-- gate outcome. These events audit the bounded rollback-only command without rewriting PASS.
+CREATE TABLE place_pilot_operational_events (
+    id UUID PRIMARY KEY,
+    sync_run_id UUID NOT NULL,
+    manifest_hash CHAR(64) NOT NULL CHECK (manifest_hash ~ '^[0-9a-f]{64}$'),
+    event_type VARCHAR(32) NOT NULL CHECK (event_type IN (
+        'PILOT_CONTAINMENT_REQUESTED', 'PILOT_ROLLBACK_STARTED', 'PILOT_ROLLBACK_COMPLETED'
+    )),
+    occurred_at TIMESTAMPTZ NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT place_pilot_operational_event_run_manifest_fk
+        FOREIGN KEY (sync_run_id, manifest_hash)
+        REFERENCES place_provider_sync_runs(id, manifest_hash) ON DELETE RESTRICT,
+    CONSTRAINT place_pilot_operational_event_unique_type UNIQUE (sync_run_id, event_type),
+    CONSTRAINT place_pilot_operational_event_details_valid CHECK (
+        jsonb_typeof(details) = 'object' AND octet_length(details::text) <= 16384
+    )
+);
+
+CREATE FUNCTION validate_place_pilot_operational_event()
+RETURNS TRIGGER AS $$
+DECLARE
+    run_completed_at TIMESTAMPTZ;
+    predecessor_at TIMESTAMPTZ;
+    predecessor_type VARCHAR(32);
+BEGIN
+    SELECT completed_at INTO run_completed_at
+      FROM place_provider_sync_runs
+     WHERE id = NEW.sync_run_id AND manifest_hash = NEW.manifest_hash
+       AND canary_stage <> 'DRY_RUN' AND status IN ('SUCCEEDED', 'FAILED');
+    IF run_completed_at IS NULL OR NEW.occurred_at < run_completed_at THEN
+        RAISE EXCEPTION 'operational rollback event requires its completed manifest-bound pilot run'
+            USING ERRCODE = '23514';
+    END IF;
+    IF NEW.occurred_at > clock_timestamp() + interval '5 minutes' THEN
+        RAISE EXCEPTION 'operational rollback event is materially in the future'
+            USING ERRCODE = '23514';
+    END IF;
+    predecessor_type := CASE NEW.event_type
+        WHEN 'PILOT_ROLLBACK_STARTED' THEN 'PILOT_CONTAINMENT_REQUESTED'
+        WHEN 'PILOT_ROLLBACK_COMPLETED' THEN 'PILOT_ROLLBACK_STARTED'
+        ELSE NULL
+    END;
+    IF predecessor_type IS NOT NULL THEN
+        SELECT occurred_at INTO predecessor_at FROM place_pilot_operational_events
+         WHERE sync_run_id = NEW.sync_run_id AND event_type = predecessor_type;
+        IF predecessor_at IS NULL OR NEW.occurred_at < predecessor_at THEN
+            RAISE EXCEPTION 'operational rollback events require ordered request/start/completion'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_place_pilot_operational_event_valid
+BEFORE INSERT ON place_pilot_operational_events
+FOR EACH ROW EXECUTE FUNCTION validate_place_pilot_operational_event();
+
+CREATE FUNCTION reject_place_pilot_operational_event_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'place_pilot_operational_events are append-only'
+        USING ERRCODE = '55000';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_place_pilot_operational_events_append_only
+BEFORE UPDATE OR DELETE ON place_pilot_operational_events
+FOR EACH ROW EXECUTE FUNCTION reject_place_pilot_operational_event_mutation();

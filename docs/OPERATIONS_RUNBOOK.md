@@ -156,6 +156,75 @@ Readiness includes the database but not object storage. If ordinary API reads pa
 
 ## Database and binary rollback
 
+### Private Place-pilot containment after a passing gate
+
+Use the dedicated `PlacePilotRollbackApplication` one-shot application for a later
+product-acceptance failure. Do not overwrite the original `PASSED` canary gate and
+do not use the emergency failure-gate runner to try to change that result. This
+command delegates to `PlacePilotRollbackService.retireRun`; it never hard-deletes
+canonical Places, Experiences, saves, Collection membership or other protected
+user graph.
+
+The rollback application has no component scan, web listener, API controller,
+scheduling, cleanup worker, gate reconciliation or Flyway migration execution.
+It is disabled by default and must run in a trusted operational environment using
+private database access and the existing `PHOKARTA_DB_*` environment configuration.
+The ordinary API application refuses the `place-rollback` profile before startup.
+Do not enable the import or failure-gate profiles alongside this command. Never
+put database passwords or provider tokens in command arguments or shared logs.
+Only the listed operational command options are accepted; database configuration
+comes from the trusted environment. The dedicated main suppresses framework output
+from the start of the process and emits only its bounded result or sanitized failure.
+
+Inspection is the default. The current sealed run's example is shown below;
+**these commands are documentation, not authorization to execute against beta**:
+
+```sh
+java -Dloader.main=com.emirrkls.phokarta.backend.operations.PlacePilotRollbackApplication \
+  -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher \
+  --spring.profiles.active=place-rollback \
+  --phokarta.place-rollback.enabled=true \
+  --phokarta.place-rollback.sync-run-id=d70adea5-6e3f-4c32-92c0-49695eeeb9ce \
+  --phokarta.place-rollback.expected-manifest-hash=73ae0685d0a53caea71ce4e4ea019d3deda0f86bffe437e6424c648d94addac0 \
+  --phokarta.place-rollback.dry-run=true \
+  --phokarta.place-rollback.execute=false
+```
+
+The read-only report distinguishes journaled canonical Places, preserved source
+observations, source lineage affected by reference containment, affected external
+references, protected user graph, retirement eligibility and the expected final
+state. Unknown runs, wrong manifest hashes, incompatible schema and inconsistent
+ownership/provenance fail closed. The command refuses a domain retirement plan
+that would affect another run; it does not silently narrow the authoritative plan.
+A run that does not yet exist is rejected without creating it.
+
+Only after an actual containment request is authorized, use the same command with
+these final options instead:
+
+```sh
+  --phokarta.place-rollback.dry-run=false \
+  --phokarta.place-rollback.execute=true \
+  --phokarta.place-rollback.reason-code=PRODUCT_ACCEPTANCE_FAILURE
+```
+
+Mutation is one transaction under the existing pilot and redirect locks. Separate
+append-only `PILOT_CONTAINMENT_REQUESTED`, `PILOT_ROLLBACK_STARTED` and
+`PILOT_ROLLBACK_COMPLETED` events bind the run and manifest. They preserve the
+historical truth that the earlier automated gate passed. Audit records and delegated
+retirement commit together, or neither commits. Repeated execution returns a stable
+already-contained/no-op outcome without duplicate events or additional data loss.
+Raw source observations and decision evidence remain preserved.
+
+Keep the V17-aware backend running during containment: the old V16 binary does not
+filter retired/provisional catalog rows and is not a safe visibility rollback after
+canary Places exist. Database restore is a separate data-loss incident action, not
+the pilot containment mechanism.
+
+The rollback-repair authorization is implementation/testing only. It does not
+authorize a beta backup, V17 deployment, import, quarantine promotion or scope
+expansion. Wait for restored SSH access and explicit continuation before resuming
+the 71-record canary.
+
 Binary rollback:
 
 ```sh

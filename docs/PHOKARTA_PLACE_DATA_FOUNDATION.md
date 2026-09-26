@@ -1046,3 +1046,50 @@ not deploy V17 or write beta Places before authorization, does not bulk scrape w
 sources, does not implement mobile community-edit UI, and does not expand to Didim
 12 km. After a successful pilot, the next decision is separately authorized: expand
 6 km → 12 km, tune rules, or implement Community Place Corrections.
+
+## 27. Bounded post-PASS rollback-only operational entry point
+
+The product owner authorized this safety repair separately from beta execution.
+The exact current canary selection remains 71 under
+`didim-autonomous-validation-v2`; no threshold, blocker, source grouping, quarantine
+decision, ranking or scope changes are part of the repair. The approved checkpoint
+and sealed Stage 1 manifest remain immutable.
+
+`PlacePilotRollbackApplication` is a private, disabled-by-default one-shot command,
+not a REST endpoint. It uses an isolated non-web Spring context containing only
+the JDBC transaction infrastructure, graph-protection repository, existing rollback
+domain service and operational inspection/audit adapter. It cannot start migrations,
+API controllers, background workers or gate reconciliation. A startup guard refuses
+to load the rollback profile into the ordinary API application or permit unsafe
+web/migration configuration.
+
+Both modes require one canonical run UUID and its exact expected internal manifest
+SHA-256. Inspection defaults to dry-run and uses a read-only repeatable-read
+transaction; execution additionally requires explicit mutually consistent mode
+flags and a bounded reason code. The command does not accept SQL predicates,
+geographic/provider wildcards or an all-imports option. An incompatible migration
+level, unknown/mismatched run, unsafe provenance or cross-run retirement plan is
+rejected before any mutation. Inspection and execution share the domain service's
+write-selection, reference-preservation and graph-protection rules.
+
+Execution delegates only to `PlacePilotRollbackService.retireRun`. It retires
+catalog exposure and run-owned provider references without deleting the canonical
+UUID, raw observations, decisions or user graph. Graph-protected Places remain
+physically present with their Experience/Visit, Saved/Want-to-Go, Collection and
+acknowledgement relationships intact. Pre-existing linked/enriched canonical rows
+are never treated as pilot-created catalog writes. Newer/redirect-dependent
+references retain the domain service's existing protection.
+
+V17 is still undeployed and gains one small append-only operational-event table.
+Separate requested, started and completed events record later containment; the
+original `PASSED` gate and completed import identity stay immutable. Events and
+retirement are atomic and idempotent. A second execution cannot create duplicate
+audit/alias rollback events or cause secondary loss.
+
+See [the private containment command](OPERATIONS_RUNBOOK.md#private-place-pilot-containment-after-a-passing-gate)
+for dry-run/execution syntax. The implementation gate requires the full backend
+suite, PostgreSQL/PostGIS Testcontainers, V17 in tests, dry-run zero-mutation and
+mutation scenarios, production image and no-public-endpoint audit. After that gate,
+stop again: no beta backup, V17 deployment, canonical beta write or Stage 1 execution
+is authorized by this repair request. SSH access and a fresh explicit continuation
+are still required.

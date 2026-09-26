@@ -2,6 +2,7 @@ package com.emirrkls.phokarta.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -35,6 +36,18 @@ class PlacePilotHttpProbeServiceTest {
     void productionClientDoesNotFollowRedirects() {
         assertThat(PlacePilotHttpProbeService.createHttpClient().followRedirects())
                 .isEqualTo(HttpClient.Redirect.NEVER);
+    }
+
+    @Test
+    void springUsesTheProductionConstructorWhenTheTestConstructorIsAlsoPresent() {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext()) {
+            context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
+            context.register(PlacePilotHttpProbeService.class);
+            context.refresh();
+
+            assertThat(context.getBean(PlacePilotHttpProbeService.class)).isNotNull();
+        }
     }
 
     @Test

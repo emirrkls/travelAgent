@@ -2300,7 +2300,7 @@ def _write_canary_runbook(path: Path, eligible_count: int, stage_one_count: int)
         "codes, result counts, and latency percentiles for fixed Didim queries. Record the "
         "catalog anomaly baseline and database row counts. Verify import manifest digest, "
         "validation method, source hashes, authorization token, rollback journal readiness, "
-        "and that only Stage 1 selected IDs are present.\n\n"
+        "and that only the intended Stage 1 IDs are marked selected_for_stage.\n\n"
         "## Automated post-stage gates\n\n"
         "Re-run the same search/map/detail probes; verify expected row-count deltas, no "
         "candidate/provider-ref collisions, no blocker-bearing imports, no public visibility "

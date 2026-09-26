@@ -44,6 +44,7 @@ import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 @Testcontainers
 class SchemaUpgradePlaceFoundationMigrationTest {
@@ -1186,13 +1187,23 @@ class SchemaUpgradePlaceFoundationMigrationTest {
                 select status from place_external_refs
                  where provider = 'OVERTURE' and external_id = 'o-2'
                 """, String.class)).isEqualTo("MERGED");
-        assertThatThrownBy(() -> inTransaction(transactions, () -> {
+        Throwable redirectCycleFailure = catchThrowable(() -> inTransaction(transactions, () -> {
             providerState.markMerged(
                     "OVERTURE", "o-1", "o-2", successfulRun, now.plusNanos(1));
             return null;
-        }))
-                .isInstanceOf(DataAccessException.class)
-                .hasMessageContaining("redirect cycle");
+        }));
+        assertThat(redirectCycleFailure).isNotNull();
+        Throwable redirectCycleRootCause = redirectCycleFailure;
+        while (redirectCycleRootCause.getCause() != null) {
+            redirectCycleRootCause = redirectCycleRootCause.getCause();
+        }
+        assertThat(redirectCycleRootCause)
+                .isInstanceOfSatisfying(SQLException.class, sqlFailure -> {
+                    assertThat(sqlFailure.getSQLState()).isEqualTo("23514");
+                    assertThat(sqlFailure.getMessage())
+                            .contains(
+                                    "external reference redirect cycle is not allowed");
+                });
         assertThat(jdbc.queryForObject("""
                 select status from place_external_refs
                  where provider = 'OVERTURE' and external_id = 'o-1'

@@ -1,4 +1,9 @@
 phokarta:
+  place-import:
+    # Integration-test application contexts outlive their per-class Testcontainers.
+    # Keep production reconciliation enabled at its normal cadence while preventing
+    # cached test contexts from polling PostgreSQL containers that have already stopped.
+    gate-reconciliation-interval: 24h
   features:
     profile-privacy-v2:
       enabled: true

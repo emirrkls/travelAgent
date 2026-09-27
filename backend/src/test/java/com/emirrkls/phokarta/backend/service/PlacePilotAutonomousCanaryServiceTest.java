@@ -96,6 +96,28 @@ class PlacePilotAutonomousCanaryServiceTest {
     }
 
     @Test
+    void baselineFailureEmitsSafeDiagnosticsAndNeverImportsOrPersistsGates() throws Exception {
+        Fixture fixture = fixture();
+        var healthy = probeSuite(100.0, false);
+        var surfaces = new LinkedHashMap<>(healthy.surfaces());
+        surfaces.put("health",new PlacePilotHttpProbeService.SurfaceResult(1,1,100,100,false,List.of("HTTP_503")));
+        var failed = new PlacePilotHttpProbeService.ProbeSuite(surfaces,5,1,false);
+        when(fixture.anomalies().captureDidimBaseline()).thenReturn(snapshot());
+        when(fixture.probes().captureBaseline(any(),any())).thenReturn(failed);
+        assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
+                .isInstanceOf(PlacePilotBaselineDiagnostics.BaselineFailure.class)
+                .satisfies(error -> {
+                    var diagnostics=((PlacePilotBaselineDiagnostics.BaselineFailure)error).diagnostics();
+                    assertThat(diagnostics.path("surfaces").size()).isEqualTo(5);
+                    assertThat(diagnostics.path("failing_surfaces").get(0).asText()).isEqualTo("health");
+                    assertThat(diagnostics.path("surfaces").path("search").path("passed").asBoolean()).isTrue();
+                });
+        verify(fixture.importer(),never()).importApproved(any(Path.class),anyString(),anyString());
+        verify(fixture.probes(),never()).captureAfter(any(),any());
+        verifyNoInteractions(fixture.gates(),fixture.reconciliation());
+    }
+
+    @Test
     void accountingFailureStopsBeforeBaselineAndImport() throws Exception {
         Fixture fixture = fixture();
         when(fixture.importer().validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION)))

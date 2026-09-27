@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.boot.availability.ApplicationAvailability;
+import org.springframework.boot.availability.ReadinessState;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -36,6 +38,7 @@ class PlacePilotImportRunnerTest {
         PlacePilotImportRunner runner = new PlacePilotImportRunner(canary, context);
 
         runner.run(new DefaultApplicationArguments(new String[0]));
+        runner.executeAfterReady();
 
         ArgumentCaptor<PlacePilotAutonomousCanaryService.Configuration> configuration =
                 ArgumentCaptor.forClass(PlacePilotAutonomousCanaryService.Configuration.class);
@@ -59,7 +62,8 @@ class PlacePilotImportRunnerTest {
         ConfigurableApplicationContext context = context();
         PlacePilotImportRunner runner = new PlacePilotImportRunner(canary, context);
 
-        assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments(new String[0])))
+        runner.run(new DefaultApplicationArguments(new String[0]));
+        assertThatThrownBy(runner::executeAfterReady)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("contained");
         verify(context, never()).close();
@@ -107,6 +111,7 @@ class PlacePilotImportRunnerTest {
         PlacePilotImportRunner runner = new PlacePilotImportRunner(canary, context);
 
         runner.run(new DefaultApplicationArguments(new String[0]));
+        runner.executeAfterReady();
 
         ArgumentCaptor<PlacePilotAutonomousCanaryService.Configuration> configuration =
                 ArgumentCaptor.forClass(PlacePilotAutonomousCanaryService.Configuration.class);
@@ -116,6 +121,51 @@ class PlacePilotImportRunnerTest {
         assertThat(configuration.getValue().healthBaseUrl().toString())
                 .isEqualTo("http://127.0.0.1:8281/management/ops");
         verify(context).close();
+    }
+
+
+    @Test
+    void preparationNeverExecutesBeforeReadinessAndUnreadyInvocationFailsClosed() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class);
+        var context = context();
+        when(context.getBean(ApplicationAvailability.class).getReadinessState())
+                .thenReturn(ReadinessState.REFUSING_TRAFFIC);
+        var runner = new PlacePilotImportRunner(canary, context);
+        runner.run(new DefaultApplicationArguments(new String[0]));
+        verify(canary, never()).run(any());
+        assertThatThrownBy(runner::executeAfterReady).hasMessage("PLACE_CANARY_LIFECYCLE_NOT_READY");
+        verify(canary, never()).run(any());
+    }
+
+    @Test
+    void lockedDefaultsAndExecutionOnceOnlyArePreserved() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class);
+        var context = context();
+        var environment = (MockEnvironment) context.getEnvironment();
+        environment.setProperty("phokarta.place-import.probe-samples", "5");
+        environment.setProperty("phokarta.place-import.probe-timeout", "5s");
+        when(canary.run(any())).thenReturn(execution("PASSED"));
+        var runner = new PlacePilotImportRunner(canary, context);
+        runner.run(new DefaultApplicationArguments(new String[0]));
+        runner.executeAfterReady();
+        runner.executeAfterReady();
+        var configuration = ArgumentCaptor.forClass(PlacePilotAutonomousCanaryService.Configuration.class);
+        verify(canary).run(configuration.capture());
+        assertThat(configuration.getValue().sampleCount()).isEqualTo(5);
+        assertThat(configuration.getValue().timeout()).isEqualTo(Duration.ofSeconds(5));
+        verify(context).close();
+    }
+
+    @Test
+    void unpreparedAndFailedExecutionsCannotBeRetried() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class);
+        var runner = new PlacePilotImportRunner(canary, context());
+        assertThatThrownBy(runner::executeAfterReady).hasMessage("PLACE_CANARY_NOT_PREPARED");
+        runner.run(new DefaultApplicationArguments(new String[0]));
+        when(canary.run(any())).thenThrow(new IllegalStateException("PREIMPORT_HTTP_BASELINE_UNHEALTHY"));
+        assertThatThrownBy(runner::executeAfterReady).hasMessage("PREIMPORT_HTTP_BASELINE_UNHEALTHY");
+        runner.executeAfterReady();
+        verify(canary).run(any());
     }
 
     private ConfigurableApplicationContext context() {
@@ -131,6 +181,9 @@ class PlacePilotImportRunnerTest {
                 .withProperty("phokarta.place-import.probe-timeout", "4s");
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
         when(context.getEnvironment()).thenReturn(environment);
+        ApplicationAvailability availability = mock(ApplicationAvailability.class);
+        when(context.getBean(ApplicationAvailability.class)).thenReturn(availability);
+        when(availability.getReadinessState()).thenReturn(ReadinessState.ACCEPTING_TRAFFIC);
         return context;
     }
 

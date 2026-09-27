@@ -3,6 +3,8 @@ package com.emirrkls.phokarta.backend.config;
 import com.emirrkls.phokarta.backend.service.PlacePilotAutonomousCanaryService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.availability.ApplicationAvailability;
+import org.springframework.boot.availability.ReadinessState;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -14,6 +16,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Disabled-by-default autonomous canary entry point. Import success is never returned without
@@ -25,6 +28,8 @@ import java.util.UUID;
 public class PlacePilotImportRunner implements ApplicationRunner {
     private final PlacePilotAutonomousCanaryService canary;
     private final ConfigurableApplicationContext applicationContext;
+    private final AtomicBoolean started = new AtomicBoolean();
+    private PlacePilotAutonomousCanaryService.Configuration configuration;
 
     public PlacePilotImportRunner(
             PlacePilotAutonomousCanaryService canary,
@@ -78,10 +83,32 @@ public class PlacePilotImportRunner implements ApplicationRunner {
         Duration timeout = DurationStyle.detectAndParse(
                 applicationContext.getEnvironment()
                         .getProperty("phokarta.place-import.probe-timeout", "5s"));
-        PlacePilotAutonomousCanaryService.CanaryExecution result = canary.run(
-                new PlacePilotAutonomousCanaryService.Configuration(
-                        Path.of(manifestPath), expectedManifestHash, authorizationReference,
-                        baseUri, healthBaseUri, baselinePlaceId, samples, timeout));
+        // ApplicationRunner precedes readiness. Probing root health here observes this
+        // process's REFUSING_TRAFFIC indicator and reliably returns 503 before any import.
+        // Prepare the exact same plan now, execute once only after the real readiness transition.
+        configuration = new PlacePilotAutonomousCanaryService.Configuration(
+                Path.of(manifestPath), expectedManifestHash, authorizationReference,
+                baseUri, healthBaseUri, baselinePlaceId, samples, timeout);
+    }
+
+    /** Called by the operational main only after SpringApplication.run has finished readiness.
+     * Even ApplicationReadyEvent listeners execute before the readiness indicator update;
+     * doing this after run returns avoids event-listener ordering races and fake readiness.
+     */
+    public void executeAfterReady() {
+        if (started.get()) return;
+        if (configuration == null) throw new IllegalStateException("PLACE_CANARY_NOT_PREPARED");
+        if (applicationContext.getBean(ApplicationAvailability.class).getReadinessState()
+                != ReadinessState.ACCEPTING_TRAFFIC) {
+            throw new IllegalStateException("PLACE_CANARY_LIFECYCLE_NOT_READY");
+        }
+        if (!started.compareAndSet(false,true)) return;
+        PlacePilotAutonomousCanaryService.CanaryExecution result;
+        try {
+            result = canary.run(configuration);
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("PLACE_CANARY_EXECUTION_FAILED", failure);
+        }
         System.out.printf(
                 "Place autonomous canary %s: run=%s created=%d eligible=%d quarantined=%d%n",
                 result.gateResult().status(), result.importResult().runId(),

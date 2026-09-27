@@ -88,8 +88,9 @@ public class PlacePilotAutonomousCanaryService {
         PlacePilotHttpProbeService.ProbeSuite baselineHttp =
                 probes.captureBaseline(probeConfiguration, selectedTargets.getFirst());
         if (!baselineHttp.passed()) {
-            throw new IllegalStateException(
-                    "pre-import HTTP baseline is unhealthy; no canary writes were attempted");
+            ObjectNode diagnostics = PlacePilotBaselineDiagnostics.document(baselineHttp, configuration.timeout());
+            PlacePilotBaselineDiagnostics.emit(diagnostics, null);
+            throw new PlacePilotBaselineDiagnostics.BaselineFailure(diagnostics);
         }
 
         PlacePilotImportService.ImportResult imported = null;

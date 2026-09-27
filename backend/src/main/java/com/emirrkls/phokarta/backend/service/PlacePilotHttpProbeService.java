@@ -14,8 +14,11 @@ import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.net.http.HttpConnectTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -24,7 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /** Executes bounded, real HTTP probes against the public Place surfaces. */
 @Service
@@ -59,16 +62,16 @@ public class PlacePilotHttpProbeService {
         configuration.validate();
         primary.validate();
         Map<String, SurfaceResult> surfaces = new LinkedHashMap<>();
-        surfaces.put("health", probeRepeated(configuration, configuration.healthBaseUrl(),
+        surfaces.put("health", probeRepeated("health", configuration, configuration.healthBaseUrl(),
                 "/health",
                 configuration.sampleCount(), this::validHealth));
-        surfaces.put("search", probeRepeated(configuration, searchPath(primary),
+        surfaces.put("search", probeRepeated("search", configuration, searchPath(primary),
                 configuration.sampleCount(), body -> validSearch(body, null)));
-        surfaces.put("map_nearby", probeRepeated(configuration, nearbyPath(primary),
+        surfaces.put("map_nearby", probeRepeated("map_nearby", configuration, nearbyPath(primary),
                 configuration.sampleCount(), body -> validNearby(body, primary, null)));
-        surfaces.put("map_bounds", probeRepeated(configuration, boundsPath(primary),
+        surfaces.put("map_bounds", probeRepeated("map_bounds", configuration, boundsPath(primary),
                 configuration.sampleCount(), body -> validBounds(body, primary, null)));
-        surfaces.put("place_detail", probeRepeated(configuration,
+        surfaces.put("place_detail", probeRepeated("place_detail", configuration,
                 "/api/v1/places/" + configuration.baselinePlaceId(),
                 configuration.sampleCount(),
                 body -> validDetail(body, configuration.baselinePlaceId())));
@@ -86,45 +89,49 @@ public class PlacePilotHttpProbeService {
         selectedTargets.forEach(ProbeTarget::validate);
         ProbeTarget primary = selectedTargets.getFirst();
         Map<String, SurfaceResult> surfaces = new LinkedHashMap<>();
-        surfaces.put("health", probeRepeated(configuration, configuration.healthBaseUrl(),
+        surfaces.put("health", probeRepeated("health", configuration, configuration.healthBaseUrl(),
                 "/health",
                 configuration.sampleCount(), this::validHealth));
-        surfaces.put("search", probeRepeated(configuration, searchPath(primary),
+        surfaces.put("search", probeRepeated("search", configuration, searchPath(primary),
                 configuration.sampleCount(), body -> validSearch(body, primary)));
-        surfaces.put("map_nearby", probeRepeated(configuration, nearbyPath(primary),
+        surfaces.put("map_nearby", probeRepeated("map_nearby", configuration, nearbyPath(primary),
                 configuration.sampleCount(), body -> validNearby(body, primary, primary)));
-        surfaces.put("map_bounds", probeRepeated(configuration, boundsPath(primary),
+        surfaces.put("map_bounds", probeRepeated("map_bounds", configuration, boundsPath(primary),
                 configuration.sampleCount(), body -> validBounds(body, primary, primary)));
         surfaces.put("place_detail", probeDetails(configuration, List.of(primary)));
-        surfaces.put("search_coverage", probeCoverage(selectedTargets, target ->
-                request(configuration, searchPath(target), body -> validSearch(body, target))));
-        surfaces.put("map_nearby_coverage", probeCoverage(selectedTargets, target ->
-                request(configuration, nearbyPath(target),
+        surfaces.put("search_coverage", probeCoverage(selectedTargets, (target, index) ->
+                request("search_coverage", index, configuration, searchPath(target), body -> validSearch(body, target))));
+        surfaces.put("map_nearby_coverage", probeCoverage(selectedTargets, (target, index) ->
+                request("map_nearby_coverage", index, configuration, nearbyPath(target),
                         body -> validNearby(body, target, target))));
-        surfaces.put("map_bounds_coverage", probeCoverage(selectedTargets, target ->
-                request(configuration, boundsPath(target),
+        surfaces.put("map_bounds_coverage", probeCoverage(selectedTargets, (target, index) ->
+                request("map_bounds_coverage", index, configuration, boundsPath(target),
                         body -> validBounds(body, target, target))));
-        surfaces.put("place_detail_coverage", probeCoverage(selectedTargets, target ->
-                request(configuration, "/api/v1/places/" + target.placeId(),
+        surfaces.put("place_detail_coverage", probeCoverage(selectedTargets, (target, index) ->
+                request("place_detail_coverage", index, configuration, "/api/v1/places/" + target.placeId(),
                         body -> validDetail(body, target))));
         return ProbeSuite.from(surfaces);
     }
 
     private SurfaceResult probeCoverage(
             List<ProbeTarget> targets,
-            Function<ProbeTarget, Observation> probe
+            BiFunction<ProbeTarget, Integer, ProbeDiagnostic> probe
     ) {
-        return SurfaceResult.from(targets.stream().map(probe).toList());
+        List<ProbeDiagnostic> observations = new ArrayList<>();
+        for (int index = 0; index < targets.size(); index++) {
+            observations.add(probe.apply(targets.get(index), index + 1));
+        }
+        return SurfaceResult.from(observations);
     }
 
     private SurfaceResult probeDetails(
             ProbeConfiguration configuration,
             List<ProbeTarget> targets
     ) {
-        List<Observation> observations = new ArrayList<>();
+        List<ProbeDiagnostic> observations = new ArrayList<>();
         for (int index = 0; index < configuration.sampleCount(); index++) {
             ProbeTarget target = targets.get(index % targets.size());
-            observations.add(request(configuration,
+            observations.add(request("place_detail", index + 1, configuration,
                     "/api/v1/places/" + target.placeId(),
                     body -> validDetail(body, target)));
         }
@@ -132,37 +139,43 @@ public class PlacePilotHttpProbeService {
     }
 
     private SurfaceResult probeRepeated(
+            String surface,
             ProbeConfiguration configuration,
             String path,
             int count,
             BodyValidator validator
     ) {
-        return probeRepeated(configuration, configuration.baseUrl(), path, count, validator);
+        return probeRepeated(surface, configuration, configuration.baseUrl(), path, count, validator);
     }
 
     private SurfaceResult probeRepeated(
+            String surface,
             ProbeConfiguration configuration,
             URI baseUrl,
             String path,
             int count,
             BodyValidator validator
     ) {
-        List<Observation> observations = new ArrayList<>();
+        List<ProbeDiagnostic> observations = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            observations.add(request(configuration, baseUrl, path, validator));
+            observations.add(request(surface, index + 1, configuration, baseUrl, path, validator));
         }
         return SurfaceResult.from(observations);
     }
 
-    private Observation request(
+    private ProbeDiagnostic request(
+            String surface,
+            int sampleIndex,
             ProbeConfiguration configuration,
             String path,
             BodyValidator validator
     ) {
-        return request(configuration, configuration.baseUrl(), path, validator);
+        return request(surface, sampleIndex, configuration, configuration.baseUrl(), path, validator);
     }
 
-    private Observation request(
+    private ProbeDiagnostic request(
+            String surface,
+            int sampleIndex,
             ProbeConfiguration configuration,
             URI baseUrl,
             String path,
@@ -175,32 +188,64 @@ public class PlacePilotHttpProbeService {
                 .header("Accept", "application/json")
                 .header("User-Agent", "phokarta-autonomous-canary/1")
                 .build();
+        Instant startedAt = Instant.now();
         long started = System.nanoTime();
+        Integer status = null;
         try {
             HttpResponse<String> response = httpClient.send(
                     request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             double elapsedMs = (System.nanoTime() - started) / 1_000_000.0;
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                return new Observation(elapsedMs, false,
-                        "HTTP_" + response.statusCode());
+            status = response.statusCode();
+            if (status < 200 || status >= 300) {
+                return diagnostic(surface, sampleIndex, startedAt, elapsedMs, status,
+                        false, "RESPONSE_RECEIVED", "NOT_EVALUATED", "HTTP_" + status);
             }
             JsonNode body;
             try {
                 body = objectMapper.readTree(response.body());
             } catch (IOException invalidJson) {
-                return new Observation(elapsedMs, false, "INVALID_JSON");
+                return diagnostic(surface, sampleIndex, startedAt, elapsedMs, status,
+                        false, "RESPONSE_RECEIVED", "INVALID_JSON", "INVALID_JSON");
             }
+            if (body == null) return diagnostic(surface, sampleIndex, startedAt, elapsedMs, status,
+                    false, "RESPONSE_RECEIVED", "EMPTY_RESPONSE", "EMPTY_RESPONSE");
             String validationError = validator.validate(body);
-            return new Observation(elapsedMs, validationError == null,
-                    validationError == null ? null : truncate(validationError));
+            return diagnostic(surface, sampleIndex, startedAt, elapsedMs, status,
+                    false, "RESPONSE_RECEIVED", validationError == null ? "VALID" : validationError,
+                    validationError);
+        } catch (HttpTimeoutException timeout) {
+            return diagnostic(surface, sampleIndex, startedAt, elapsed(started), status, true,
+                    "TIMEOUT", "NOT_EVALUATED", timeout instanceof HttpConnectTimeoutException
+                            ? "CONNECT_TIMEOUT" : "HTTP_TIMEOUT");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            return new Observation((System.nanoTime() - started) / 1_000_000.0,
-                    false, "INTERRUPTED");
-        } catch (IOException | RuntimeException failure) {
-            return new Observation((System.nanoTime() - started) / 1_000_000.0,
-                    false, truncate(failure.getClass().getSimpleName()));
+            return diagnostic(surface, sampleIndex, startedAt, elapsed(started), status, false,
+                    "INTERRUPTED", "NOT_EVALUATED", "INTERRUPTED");
+        } catch (IOException failure) {
+            return diagnostic(surface, sampleIndex, startedAt, elapsed(started), status, false,
+                    "IO_ERROR", "NOT_EVALUATED", "TRANSPORT_ERROR");
+        } catch (RuntimeException failure) {
+            return diagnostic(surface, sampleIndex, startedAt, elapsed(started), status, false,
+                    status == null ? "CLIENT_ERROR" : "RESPONSE_RECEIVED",
+                    "NOT_EVALUATED", status == null ? "CLIENT_ERROR" : "VALIDATION_ERROR");
         }
+    }
+
+    private double elapsed(long started) { return (System.nanoTime() - started) / 1_000_000.0; }
+
+    private ProbeDiagnostic diagnostic(String surface, int index, Instant started, double duration,
+            Integer status, boolean timeout, String transport, String validation, String failure) {
+        // Closed templates: never serialize URI/query/headers/body/exception text.
+        String template = switch (surface) {
+            case "health" -> "{management}/health";
+            case "search", "search_coverage" -> "/api/v1/places?search={query}&page=0&size=100&sort=name,asc";
+            case "map_nearby", "map_nearby_coverage" -> "/api/v1/places/nearby?lat={lat}&lon={lon}&radiusMeters=250&limit=200";
+            case "map_bounds", "map_bounds_coverage" -> "/api/v1/places/bounds?west={west}&south={south}&east={east}&north={north}&limit=200";
+            case "place_detail", "place_detail_coverage" -> "/api/v1/places/{canonical_uuid}";
+            default -> throw new IllegalArgumentException("unknown probe surface");
+        };
+        return new ProbeDiagnostic(surface, index, "GET", template, started, duration,
+                status, timeout, transport, validation, failure);
     }
 
     private String validHealth(JsonNode body) {
@@ -389,17 +434,26 @@ public class PlacePilotHttpProbeService {
         return URI.create(root + path);
     }
 
-    private String truncate(String value) {
-        if (value == null) return null;
-        return value.length() <= 160 ? value : value.substring(0, 160);
-    }
-
     @FunctionalInterface
     private interface BodyValidator {
         String validate(JsonNode body);
     }
 
-    private record Observation(double elapsedMs, boolean passed, String failure) {}
+    public record ProbeDiagnostic(String surface, int sampleIndex, String method, String pathTemplate,
+            Instant startedAt, double durationMs, Integer httpStatus, boolean timeout,
+            String transportResult, String responseValidation, String failureCategory) {
+        public boolean passed() { return failureCategory == null; }
+        ObjectNode toJson() {
+            ObjectNode value = JsonNodeFactory.instance.objectNode();
+            value.put("surface", surface).put("sample_index", sampleIndex).put("method", method)
+                    .put("path_template", pathTemplate).put("started_at", startedAt.toString())
+                    .put("duration_ms", durationMs).put("timeout", timeout)
+                    .put("transport_result", transportResult).put("response_validation", responseValidation);
+            if (httpStatus == null) value.putNull("http_status"); else value.put("http_status", httpStatus);
+            if (failureCategory == null) value.putNull("failure_category"); else value.put("failure_category", failureCategory);
+            return value;
+        }
+    }
 
     public record ProbeTarget(
             UUID placeId,
@@ -461,27 +515,50 @@ public class PlacePilotHttpProbeService {
             double averageMs,
             double p95Ms,
             boolean passed,
-            List<String> failures
+            List<String> failures,
+            List<ProbeDiagnostic> observations
     ) {
-        static SurfaceResult from(List<Observation> observations) {
+        public SurfaceResult { failures = List.copyOf(failures); observations = List.copyOf(observations); }
+        public SurfaceResult(int sampleCount, int errorCount, double averageMs, double p95Ms,
+                boolean passed, List<String> failures) {
+            this(sampleCount, errorCount, averageMs, p95Ms, passed, failures, List.of());
+        }
+        static SurfaceResult from(List<ProbeDiagnostic> observations) {
             List<Double> latencies = observations.stream()
-                    .map(Observation::elapsedMs).sorted(Comparator.naturalOrder()).toList();
+                    .map(ProbeDiagnostic::durationMs).sorted(Comparator.naturalOrder()).toList();
             double average = latencies.stream().mapToDouble(Double::doubleValue)
                     .average().orElse(0.0);
             int p95Index = Math.max(0,
                     (int) Math.ceil(latencies.size() * 0.95) - 1);
             double p95 = latencies.isEmpty() ? 0.0 : latencies.get(p95Index);
             List<String> failures = observations.stream()
-                    .filter(value -> !value.passed()).map(Observation::failure)
+                    .filter(value -> !value.passed()).map(ProbeDiagnostic::failureCategory)
                     .filter(value -> value != null).distinct().limit(10).toList();
             int errors = (int) observations.stream().filter(value -> !value.passed()).count();
             return new SurfaceResult(observations.size(), errors, average, p95,
-                    errors == 0, failures);
+                    !observations.isEmpty() && errors == 0, failures, observations);
         }
 
         ObjectNode toJson() {
             ObjectNode value = JsonNodeFactory.instance.objectNode();
             value.put("sample_count", sampleCount);
+            value.put("success_count", sampleCount - errorCount);
+            value.put("failure_count", errorCount);
+            value.put("timeout_count", observations.stream().filter(ProbeDiagnostic::timeout).count());
+            ObjectNode distribution = value.putObject("status_distribution");
+            observations.forEach(probe -> {
+                String key = probe.httpStatus() == null ? "NO_RESPONSE" : probe.httpStatus().toString();
+                distribution.put(key, distribution.path(key).asInt() + 1);
+            });
+            List<Double> latencies = observations.stream().map(ProbeDiagnostic::durationMs).sorted().toList();
+            value.put("min_ms", latencies.isEmpty() ? averageMs : latencies.getFirst());
+            int n = latencies.size();
+            value.put("median_ms", n == 0 ? averageMs : n % 2 == 1 ? latencies.get(n / 2)
+                    : (latencies.get(n / 2 - 1) + latencies.get(n / 2)) / 2.0);
+            value.put("max_ms", latencies.isEmpty() ? p95Ms : latencies.getLast());
+            value.put("surface_health", passed ? "PASS" : "FAIL");
+            if (failures.isEmpty()) value.putNull("first_failure_category");
+            else value.put("first_failure_category", failures.getFirst());
             value.put("error_count", errorCount);
             value.put("average_ms", averageMs);
             value.put("p95_ms", p95Ms);
@@ -498,6 +575,7 @@ public class PlacePilotHttpProbeService {
             int errorCount,
             boolean passed
     ) {
+        public ProbeSuite { surfaces = Map.copyOf(surfaces); }
         static ProbeSuite from(Map<String, SurfaceResult> surfaces) {
             int requests = surfaces.values().stream()
                     .mapToInt(SurfaceResult::sampleCount).sum();
@@ -525,6 +603,21 @@ public class PlacePilotHttpProbeService {
             ObjectNode surfaceJson = value.putObject("surfaces");
             surfaces.entrySet().stream().sorted(Map.Entry.comparingByKey())
                     .forEach(entry -> surfaceJson.set(entry.getKey(), entry.getValue().toJson()));
+            return value;
+        }
+
+        public ObjectNode toDiagnosticJson() {
+            ObjectNode value = toJson();
+            value.put("overall", passed ? "PASS" : "FAIL");
+            ArrayNode failing = value.putArray("failing_surfaces");
+            surfaces.entrySet().stream().filter(entry -> !entry.getValue().passed())
+                    .sorted(Map.Entry.comparingByKey()).forEach(entry -> failing.add(entry.getKey()));
+            surfaces.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
+                ArrayNode samples = ((ObjectNode)value.path("surfaces").path(entry.getKey())).putArray("probes");
+                // Every baseline sample is retained (maximum 20). Coverage summaries always count
+                // all selected Places; cap only optional detailed coverage output, never gate totals.
+                entry.getValue().observations().stream().limit(20).forEach(probe -> samples.add(probe.toJson()));
+            });
             return value;
         }
     }

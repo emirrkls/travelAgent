@@ -14,7 +14,8 @@ import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAut
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.context.TestComponent;
 import org.springframework.context.annotation.Import;
 import com.emirrkls.phokarta.backend.config.PlacePilotImportRunner;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -98,7 +99,7 @@ class PlacePilotBaselineLifecycleTest {
                 STABLE, 5, Duration.ofSeconds(5));
     }
 
-    @Configuration(proxyBeanMethods = false)
+    @TestConfiguration(proxyBeanMethods = false)
     @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
             JpaRepositoriesAutoConfiguration.class, FlywayAutoConfiguration.class, SecurityAutoConfiguration.class,
             SecurityFilterAutoConfiguration.class, UserDetailsServiceAutoConfiguration.class,
@@ -111,7 +112,7 @@ class PlacePilotBaselineLifecycleTest {
         }
     }
 
-    @Configuration(proxyBeanMethods=false)
+    @TestConfiguration(proxyBeanMethods=false)
     @Import(ProbeApplication.class)
     static class ReadyRunnerApplication {
         @Bean PlacePilotAutonomousCanaryService canary(Environment env) throws Exception {
@@ -150,6 +151,7 @@ class PlacePilotBaselineLifecycleTest {
         }
     }
 
+    @TestComponent
     @RestController
     static class ContractController {
         @GetMapping("/api/v1/places") Map<String,Object> search() { return Map.of("content", List.of()); }

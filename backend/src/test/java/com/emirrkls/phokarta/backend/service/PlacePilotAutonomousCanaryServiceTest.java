@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -12,6 +14,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.spy;
 
 class PlacePilotAutonomousCanaryServiceTest {
     private static final UUID RUN_ID =
@@ -72,7 +76,7 @@ class PlacePilotAutonomousCanaryServiceTest {
         assertThat(result.diagnostics().path("probe_mode").asText())
                 .isEqualTo("AUTONOMOUS_HTTP_AND_DATABASE_V1");
         assertThat(result.diagnostics().path("http_probes").path("before")
-                .path("request_count").asInt()).isEqualTo(5);
+                .path("request_count").asInt()).isEqualTo(25);
         assertThat(result.diagnostics().path("performance").path("search")
                 .path("relative_change").asDouble()).isEqualTo(0.05);
         assertThat(result.diagnostics().path("selected_place_count").asInt()).isEqualTo(1);
@@ -82,14 +86,15 @@ class PlacePilotAutonomousCanaryServiceTest {
                 .importApproved(fixture.manifestPath(), HASH, AUTHORIZATION);
 
         InOrder order = inOrder(fixture.anomalies(), fixture.probes(),
-                fixture.importer(), fixture.reconciliation(), fixture.gates());
+                fixture.artifacts(), fixture.importer(), fixture.reconciliation(), fixture.gates());
         order.verify(fixture.importer()).validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION));
         order.verify(fixture.anomalies()).captureDidimBaseline();
         order.verify(fixture.probes()).captureBaseline(any(), any());
+        order.verify(fixture.artifacts()).persistAndVerify(any(), any(), any(), any());
         order.verify(fixture.importer(), times(2)).importApproved(
                 fixture.manifestPath(), HASH, AUTHORIZATION);
         order.verify(fixture.reconciliation()).renewLeaseForProbes(
-                RUN_ID, 1, 1, Duration.ofSeconds(2));
+                RUN_ID, 1, 5, Duration.ofSeconds(5));
         order.verify(fixture.probes()).captureAfter(any(), any());
         order.verify(fixture.anomalies()).audit(eq(RUN_ID), any());
         order.verify(fixture.gates()).record(eq(RUN_ID), eq(true), any(), eq(null), any());
@@ -100,8 +105,12 @@ class PlacePilotAutonomousCanaryServiceTest {
         Fixture fixture = fixture();
         var healthy = probeSuite(100.0, false);
         var surfaces = new LinkedHashMap<>(healthy.surfaces());
-        surfaces.put("health",new PlacePilotHttpProbeService.SurfaceResult(1,1,100,100,false,List.of("HTTP_503")));
-        var failed = new PlacePilotHttpProbeService.ProbeSuite(surfaces,5,1,false);
+        surfaces.put("health", PlacePilotHttpProbeService.SurfaceResult.from(
+                java.util.stream.IntStream.rangeClosed(1, 5).mapToObj(index ->
+                        new PlacePilotHttpProbeService.ProbeDiagnostic("health", index, "GET",
+                                PlacePilotHttpProbeService.pathTemplate("health"), Instant.EPOCH, 100,
+                                503, false, "RESPONSE_RECEIVED", "NOT_EVALUATED", "HTTP_503")).toList()));
+        var failed = PlacePilotHttpProbeService.ProbeSuite.from(surfaces);
         when(fixture.anomalies().captureDidimBaseline()).thenReturn(snapshot());
         when(fixture.probes().captureBaseline(any(),any())).thenReturn(failed);
         assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
@@ -129,6 +138,31 @@ class PlacePilotAutonomousCanaryServiceTest {
     }
 
     @Test
+    void failedBaselineStillEmitsAllDetailedDiagnosticsWhenDurableWriteFails() throws Exception {
+        Fixture fixture = fixture(new BaselineArtifactTestSupport.FaultFiles("FORCE"));
+        when(fixture.anomalies().captureDidimBaseline()).thenReturn(snapshot());
+        when(fixture.probes().captureBaseline(any(), any())).thenReturn(BaselineArtifactTestSupport.suite(false));
+        var output = new java.io.ByteArrayOutputStream();
+        var original = System.out;
+        try {
+            System.setOut(new java.io.PrintStream(output, true, java.nio.charset.StandardCharsets.UTF_8));
+            assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
+                    .hasMessage("PREIMPORT_BASELINE_ARTIFACT_GATE_FAILED");
+        } finally {
+            System.setOut(original);
+        }
+        String line = output.toString(java.nio.charset.StandardCharsets.UTF_8).lines()
+                .filter(value -> value.startsWith("PREIMPORT_HTTP_BASELINE_DIAGNOSTICS=")).findFirst().orElseThrow();
+        var stored = new ObjectMapper().readTree(line.substring(line.indexOf('=') + 1));
+        assertThat(stored.path("overall").asText()).isEqualTo("FAIL");
+        assertThat(stored.path("request_count").asInt()).isEqualTo(25);
+        assertThat(stored.path("surfaces").size()).isEqualTo(5);
+        for (var surface : stored.path("surfaces")) assertThat(surface.path("probes").size()).isEqualTo(5);
+        verify(fixture.importer(), never()).importApproved(any(Path.class), anyString(), anyString());
+        verifyNoInteractions(fixture.gates(), fixture.reconciliation());
+    }
+
+    @Test
     void postImportProbeFailureRecordsFailedGateForContainment() throws Exception {
         Fixture fixture = fixture();
         when(fixture.importer().importApproved(
@@ -152,10 +186,31 @@ class PlacePilotAutonomousCanaryServiceTest {
     }
 
     private Fixture fixture() throws Exception {
+        return fixture(new PlacePilotBaselineArtifactService.FileAccess());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"CREATE","OPEN","WRITE","FORCE","CLOSE","FINALIZE","DIRECTORY_FORCE","REOPEN",
+            "MALFORMED","VERSION","RUN","EXECUTION","MANIFEST","ENVELOPE","METHOD","OVERALL","TIMESTAMP",
+            "SURFACE_MISSING","PROBE_MISSING","PROBE_DUPLICATE","SUMMARY","STATUS","TIMEOUT","DURATION",
+            "NONFINITE","UNSAFE_PATH","EXTRA_FIELD","HASH_ONLY","OVERSIZE","DUPLICATE_JSON_KEY"})
+    void everyArtifactGateFailurePreventsFirstImportAndCreatesNoDatabaseGate(String fault) throws Exception {
+        Fixture fixture = fixture(new BaselineArtifactTestSupport.FaultFiles(fault));
+        when(fixture.anomalies().captureDidimBaseline()).thenReturn(snapshot());
+        when(fixture.probes().captureBaseline(any(), any())).thenReturn(probeSuite(100, false));
+        assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
+                .hasMessage("PREIMPORT_BASELINE_ARTIFACT_GATE_FAILED").hasNoCause();
+        verify(fixture.importer(), never()).importApproved(any(Path.class), anyString(), anyString());
+        verify(fixture.probes(), never()).captureAfter(any(), any());
+        verifyNoInteractions(fixture.gates(), fixture.reconciliation());
+    }
+
+    private Fixture fixture(PlacePilotBaselineArtifactService.FileAccess fileAccess) throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         Path manifestPath = temporaryDirectory.resolve(UUID.randomUUID() + ".json");
         ObjectNode manifest = objectMapper.createObjectNode();
         manifest.put("run_id", RUN_ID.toString());
+        manifest.put("method_version", "didim-autonomous-validation-v2");
         manifest.put("authorization_reference", AUTHORIZATION);
         ObjectNode candidate = manifest.putArray("candidates").addObject();
         candidate.put("selected_for_stage", true);
@@ -183,16 +238,17 @@ class PlacePilotAutonomousCanaryServiceTest {
                 .thenReturn(mock(PlacePilotSourceAccounting.Approved.class));
         when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(BASELINE_ID)))
                 .thenReturn(1);
+        var artifacts = spy(new PlacePilotBaselineArtifactService(objectMapper, fileAccess));
         return new Fixture(new PlacePilotAutonomousCanaryService(
-                importer, gates, anomalies, probes, reconciliation, jdbc, objectMapper), importer,
-                gates, anomalies, probes, reconciliation, manifestPath);
+                importer, gates, anomalies, probes, reconciliation, jdbc, objectMapper, artifacts), importer,
+                gates, anomalies, probes, reconciliation, manifestPath, artifacts);
     }
 
     private PlacePilotAutonomousCanaryService.Configuration configuration(Path manifestPath) {
         return new PlacePilotAutonomousCanaryService.Configuration(
                 manifestPath, HASH, AUTHORIZATION, URI.create("http://127.0.0.1:8080"),
-                URI.create("http://127.0.0.1:8081/actuator"), BASELINE_ID, 1,
-                Duration.ofSeconds(2));
+                URI.create("http://127.0.0.1:8081/actuator"), BASELINE_ID, 5,
+                Duration.ofSeconds(5), temporaryDirectory);
     }
 
     private PlacePilotImportService.ImportResult importResult(boolean alreadyImported) {
@@ -209,8 +265,11 @@ class PlacePilotAutonomousCanaryServiceTest {
                 new LinkedHashMap<>();
         for (String name : List.of(
                 "health", "search", "map_nearby", "map_bounds", "place_detail")) {
-            surfaces.put(name, new PlacePilotHttpProbeService.SurfaceResult(
-                    1, 0, p95, p95, true, List.of()));
+            surfaces.put(name, PlacePilotHttpProbeService.SurfaceResult.from(
+                    java.util.stream.IntStream.rangeClosed(1, 5).mapToObj(index ->
+                            new PlacePilotHttpProbeService.ProbeDiagnostic(name, index, "GET",
+                                    PlacePilotHttpProbeService.pathTemplate(name), Instant.EPOCH,
+                                    p95, 200, false, "RESPONSE_RECEIVED", "VALID", null)).toList()));
         }
         if (withCoverage) {
             for (String name : List.of(
@@ -220,8 +279,7 @@ class PlacePilotAutonomousCanaryServiceTest {
                         1, 0, p95, p95, true, List.of()));
             }
         }
-        return new PlacePilotHttpProbeService.ProbeSuite(
-                Map.copyOf(surfaces), withCoverage ? 9 : 5, 0, true);
+        return PlacePilotHttpProbeService.ProbeSuite.from(surfaces);
     }
 
     private PlacePilotCatalogAnomalyService.CatalogSnapshot snapshot() {
@@ -243,6 +301,7 @@ class PlacePilotAutonomousCanaryServiceTest {
             PlacePilotCatalogAnomalyService anomalies,
             PlacePilotHttpProbeService probes,
             PlacePilotGateReconciliationService reconciliation,
-            Path manifestPath
+            Path manifestPath,
+            PlacePilotBaselineArtifactService artifacts
     ) {}
 }

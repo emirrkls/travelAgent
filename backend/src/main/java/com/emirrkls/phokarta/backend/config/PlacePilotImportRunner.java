@@ -47,6 +47,11 @@ public class PlacePilotImportRunner implements ApplicationRunner {
                 .getRequiredProperty("phokarta.place-import.expected-manifest-hash");
         String authorizationReference = applicationContext.getEnvironment()
                 .getRequiredProperty("phokarta.place-import.authorization-reference");
+        String diagnosticsDirectory = applicationContext.getEnvironment()
+                .getRequiredProperty("phokarta.place-import.diagnostics-directory");
+        if (diagnosticsDirectory.isBlank() || !Path.of(diagnosticsDirectory).isAbsolute()) {
+            throw new IllegalArgumentException("PRIVATE_BASELINE_DIAGNOSTICS_DIRECTORY_REQUIRED");
+        }
         String baseUrl = applicationContext.getEnvironment()
                 .getRequiredProperty("phokarta.place-import.base-url");
         URI baseUri = URI.create(baseUrl);
@@ -88,7 +93,7 @@ public class PlacePilotImportRunner implements ApplicationRunner {
         // Prepare the exact same plan now, execute once only after the real readiness transition.
         configuration = new PlacePilotAutonomousCanaryService.Configuration(
                 Path.of(manifestPath), expectedManifestHash, authorizationReference,
-                baseUri, healthBaseUri, baselinePlaceId, samples, timeout);
+                baseUri, healthBaseUri, baselinePlaceId, samples, timeout, Path.of(diagnosticsDirectory));
     }
 
     /** Called by the operational main only after SpringApplication.run has finished readiness.

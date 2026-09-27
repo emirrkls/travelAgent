@@ -171,6 +171,8 @@ class PlacePilotImportRunnerTest {
     private ConfigurableApplicationContext context() {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("phokarta.place-import.manifest-path", "canary.json")
+                .withProperty("phokarta.place-import.diagnostics-directory",
+                        java.nio.file.Path.of("private-test-diagnostics").toAbsolutePath().toString())
                 .withProperty("phokarta.place-import.expected-manifest-hash", HASH)
                 .withProperty("phokarta.place-import.authorization-reference", "AUTH-REF")
                 .withProperty("phokarta.place-import.base-url", "http://127.0.0.1:8181")
@@ -185,6 +187,17 @@ class PlacePilotImportRunnerTest {
         when(context.getBean(ApplicationAvailability.class)).thenReturn(availability);
         when(availability.getReadinessState()).thenReturn(ReadinessState.ACCEPTING_TRAFFIC);
         return context;
+    }
+
+    @Test
+    void missingPrivateDiagnosticsDirectoryFailsBeforeCanaryExecution() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class);
+        var context = context();
+        ((MockEnvironment) context.getEnvironment()).setProperty("phokarta.place-import.diagnostics-directory", "");
+        var runner = new PlacePilotImportRunner(canary, context);
+        assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments(new String[0])))
+                .hasMessage("PRIVATE_BASELINE_DIAGNOSTICS_DIRECTORY_REQUIRED");
+        verify(canary, never()).run(any());
     }
 
     private PlacePilotAutonomousCanaryService.CanaryExecution execution(String gateStatus) {

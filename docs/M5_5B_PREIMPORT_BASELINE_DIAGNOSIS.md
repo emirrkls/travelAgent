@@ -55,12 +55,54 @@ All five surfaces and all 25 samples survive a failure.
 Detailed baseline records are bounded to 20 per surface; production sampling remains five.
 Compact gate summaries preserve full coverage counts and the existing gate-size limit.
 
-Before baseline failure exits, a complete sanitized JSON operational record is written to
-stdout as `PREIMPORT_HTTP_BASELINE_DIAGNOSTICS=`. Retain the existing private job log.
-The typed failure also exposes a defensive copy for callers. No database gate/event is created.
+The normal canary now has a mandatory durable artifact/read-back gate for PASS and FAIL.
+All records use the shared `preimport-http-baseline-diagnostics-v1` diagnostic format;
+normal artifacts additionally bind a fresh baseline execution UUID, sealed run UUID,
+internal manifest hash, actual envelope SHA-256, validation method and start/completion UTC.
+No authorization reference, query values, provider IDs or secret-bearing paths enter the JSON.
+
+Configure `PHOKARTA_PLACE_IMPORT_DIAGNOSTICS_DIRECTORY` as an absolute path into the
+established private operational diagnostics mount, for example `/diagnostics`, backed by
+an operator-prepared directory under `/opt/phokarta/diagnostics`. It must already exist;
+the normal canary has no ephemeral/public/default fallback. Prepare it for the runtime UID
+(the production image uses 10001), owner-only mode 0700; mount it persistently and privately.
+No host ownership/permissions are changed automatically by this source repair.
+
+Final relative path:
+`<run-uuid>/<baseline-execution-uuid>/PREIMPORT_HTTP_BASELINE_DIAGNOSTICS.json`.
+Existing run directories must be private; execution directories are created exclusively.
+On Linux, directory/file creation uses 0700/0600. Windows unit tests inherit the private
+temporary-root owner ACL. There is no new HTTP route or public artifact exposure.
+
+Normal ordering is frozen:
+prepare sealed plan → actual readiness → exact 25 probes → persist → read-back verify
+→ only if baseline PASS, importApproved. The existing lifecycle repair remains unchanged.
+
+Write uses a private same-directory temporary file, full writes, force(true), successful
+close, ATOMIC_MOVE with no non-atomic fallback, then directory fsync on POSIX. Failures at
+any step stop before import; incomplete files cannot use the canonical final filename.
+An already finalized execution is never reused or overwritten.
+
+The final path is independently reopened with bounded reads (128 KiB), strict JSON
+duplicate/trailing-token rejection, and identity/schema/count validation. It verifies all
+five surfaces, all 25 unique ordered sample IDs (1–5), GET/closed templates, sane finite
+nonnegative durations, status/timeout/transport/semantic success, summary reconstruction,
+and exact persisted content equality/SHA-256. Required probe records are never truncated.
+
+The verified receipt reports SHA-256, byte count, run/execution association and a safe
+UUID-based relative path; it is emitted as `PREIMPORT_HTTP_BASELINE_ARTIFACT_VERIFIED=`
+and linked in the eventual private canary gate. It is not a pilot database write before import.
+Write, force/close, atomic move, reopen, parse, identity, sample, summary or hash failure
+always prevents both the first import and its replay.
+
+The full sanitized record is also retained in the private job log as
+`PREIMPORT_HTTP_BASELINE_DIAGNOSTICS=`. FAIL emits this fallback before any filesystem
+attempt, preserving detailed evidence even if durable publication fails.
+The typed HTTP failure exposes a defensive copy. No preimport database gate/event is created.
 Diagnosis-only can additionally write `PREIMPORT_HTTP_BASELINE_DIAGNOSTICS.json` with
-CREATE_NEW (no overwrite), a 128 KiB limit and forced durable file flush. Parents are not
-created; use an existing private operator-owned directory and restrictive umask.
+CREATE_NEW (no overwrite), a 128 KiB limit and forced durable file flush. Its existing
+read-only behavior and option contract are unchanged; it does not substitute for the
+normal canary's durable artifact gate.
 
 ## Diagnosis-only entry point
 
@@ -97,3 +139,10 @@ without authorized/configured input, with no network.
 
 No beta redeployment, backup, migration, canonical write or live rollback is part of this repair.
 Wait for separate explicit canary continuation authorization.
+
+## Final contract freeze
+
+CURRENT PREIMPORT CONTRACT = FROZEN for the sealed 71-candidate canary.
+No additional speculative preimport observability/safety requirement may block it unless
+an actual test fails, live preflight detects a concrete defect, or an existing locked gate
+cannot execute as specified. No canary continuation is implied by this source repair.

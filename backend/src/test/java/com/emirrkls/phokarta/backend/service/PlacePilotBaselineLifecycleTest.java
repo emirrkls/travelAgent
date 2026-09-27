@@ -139,6 +139,8 @@ class PlacePilotBaselineLifecycleTest {
                     var env=context.getEnvironment();
                     var properties=new java.util.HashMap<String,Object>();
                     properties.put("phokarta.place-import.manifest-path","unused-local-fixture.json");
+                    properties.put("phokarta.place-import.diagnostics-directory",
+                            java.nio.file.Path.of("unused-private-fixture").toAbsolutePath().toString());
                     properties.put("phokarta.place-import.expected-manifest-hash","a".repeat(64));
                     properties.put("phokarta.place-import.authorization-reference","local-lifecycle-only");
                     properties.put("phokarta.place-import.base-url","http://127.0.0.1:"+env.getRequiredProperty("local.server.port"));

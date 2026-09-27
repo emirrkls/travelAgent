@@ -13,6 +13,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -35,6 +36,7 @@ public class PlacePilotAutonomousCanaryService {
     private final PlacePilotGateReconciliationService gateReconciliation;
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final PlacePilotBaselineArtifactService baselineArtifacts;
 
     public PlacePilotAutonomousCanaryService(
             PlacePilotImportService importer,
@@ -43,7 +45,8 @@ public class PlacePilotAutonomousCanaryService {
             PlacePilotHttpProbeService probes,
             PlacePilotGateReconciliationService gateReconciliation,
             JdbcTemplate jdbc,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlacePilotBaselineArtifactService baselineArtifacts
     ) {
         this.importer = importer;
         this.gates = gates;
@@ -52,11 +55,13 @@ public class PlacePilotAutonomousCanaryService {
         this.gateReconciliation = gateReconciliation;
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.baselineArtifacts = baselineArtifacts;
     }
 
     public CanaryExecution run(Configuration configuration) throws IOException {
         configuration.validate();
-        JsonNode envelope = readEnvelope(configuration.manifestPath());
+        ReadEnvelope sealedEnvelope = readEnvelope(configuration.manifestPath());
+        JsonNode envelope = sealedEnvelope.document();
         JsonNode manifest = requireObject(envelope, "manifest");
         String envelopeHash = requiredText(envelope, "manifest_hash");
         if (!configuration.expectedManifestHash().equals(envelopeHash)
@@ -85,11 +90,20 @@ public class PlacePilotAutonomousCanaryService {
 
         PlacePilotCatalogAnomalyService.CatalogSnapshot baselineCatalog =
                 anomalies.captureDidimBaseline();
+        UUID baselineExecutionId = UUID.randomUUID();
+        Instant baselineStartedAt = Instant.now();
         PlacePilotHttpProbeService.ProbeSuite baselineHttp =
                 probes.captureBaseline(probeConfiguration, selectedTargets.getFirst());
+        var baselineIdentity = new PlacePilotBaselineArtifactService.Identity(
+                baselineExecutionId, runId, envelopeHash, sealedEnvelope.sha256(),
+                requiredText(manifest, "method_version"), baselineStartedAt, Instant.now());
+        // Mandatory filesystem gate for both outcomes. It forces/closes/finalizes, independently
+        // reopens and verifies all 25 persisted records. No importer call may precede its return.
+        var verifiedBaseline = baselineArtifacts.persistAndVerify(
+                configuration.diagnosticsDirectory(), baselineHttp, baselineIdentity, configuration.timeout());
         if (!baselineHttp.passed()) {
-            ObjectNode diagnostics = PlacePilotBaselineDiagnostics.document(baselineHttp, configuration.timeout());
-            PlacePilotBaselineDiagnostics.emit(diagnostics, null);
+            ObjectNode diagnostics = PlacePilotBaselineArtifactService.document(
+                    baselineHttp, baselineIdentity, configuration.timeout());
             throw new PlacePilotBaselineDiagnostics.BaselineFailure(diagnostics);
         }
 
@@ -128,6 +142,7 @@ public class PlacePilotAutonomousCanaryService {
             ObjectNode diagnostics = buildDiagnostics(
                     baselineHttp, afterHttp, audit, idempotent, idempotencyFailure,
                     baselinePlaceId, selectedTargets);
+            diagnostics.set("preimport_baseline_artifact", verifiedBaseline.toJson());
             boolean measuredPass = diagnostics.path("measured_pass").asBoolean(false);
             PlacePilotCanaryGateService.GateResult gate = gates.record(
                     imported.runId(), measuredPass, diagnostics, null, approved);
@@ -136,6 +151,7 @@ public class PlacePilotAutonomousCanaryService {
             if (importCommitted && imported != null) {
                 ObjectNode diagnostics = failureDiagnostics(
                         baselineHttp, baselineCatalog, baselinePlaceId, selectedTargets, failure);
+                diagnostics.set("preimport_baseline_artifact", verifiedBaseline.toJson());
                 try {
                     gates.record(imported.runId(), false, diagnostics, null);
                 } catch (RuntimeException containmentFailure) {
@@ -318,7 +334,7 @@ public class PlacePilotAutonomousCanaryService {
         return ranked.stream().map(RankedTarget::target).toList();
     }
 
-    private JsonNode readEnvelope(Path path) throws IOException {
+    private ReadEnvelope readEnvelope(Path path) throws IOException {
         Path resolved = path.toAbsolutePath().normalize();
         if (!Files.isRegularFile(resolved)
                 || !resolved.getFileName().toString().endsWith(".json")) {
@@ -329,7 +345,8 @@ public class PlacePilotAutonomousCanaryService {
             throw new IllegalArgumentException(
                     "authorized canary manifest exceeds the 128 MiB limit");
         }
-        return objectMapper.readTree(Files.readAllBytes(resolved));
+        byte[] bytes = Files.readAllBytes(resolved);
+        return new ReadEnvelope(objectMapper.readTree(bytes), PlacePilotBaselineArtifactService.sha256(bytes));
     }
 
     private JsonNode requireObject(JsonNode parent, String field) {
@@ -370,6 +387,8 @@ public class PlacePilotAutonomousCanaryService {
             PlacePilotHttpProbeService.ProbeTarget target
     ) {}
 
+    private record ReadEnvelope(JsonNode document, String sha256) {}
+
     public record Configuration(
             Path manifestPath,
             String expectedManifestHash,
@@ -378,7 +397,8 @@ public class PlacePilotAutonomousCanaryService {
             URI healthBaseUrl,
             UUID baselinePlaceId,
             int sampleCount,
-            Duration timeout
+            Duration timeout,
+            Path diagnosticsDirectory
     ) {
         void validate() {
             if (manifestPath == null
@@ -387,6 +407,12 @@ public class PlacePilotAutonomousCanaryService {
                     || authorizationReference == null || authorizationReference.isBlank()) {
                 throw new IllegalArgumentException(
                         "authorized manifest path, digest and authorization are required");
+            }
+            if (diagnosticsDirectory == null || !diagnosticsDirectory.isAbsolute()) {
+                throw new IllegalArgumentException("PRIVATE_BASELINE_DIAGNOSTICS_DIRECTORY_REQUIRED");
+            }
+            if (sampleCount != 5 || !Duration.ofSeconds(5).equals(timeout)) {
+                throw new IllegalArgumentException("LOCKED_PREIMPORT_BASELINE_REQUIRES_FIVE_SAMPLES_AND_FIVE_SECONDS");
             }
             new PlacePilotHttpProbeService.ProbeConfiguration(
                     baseUrl, healthBaseUrl,

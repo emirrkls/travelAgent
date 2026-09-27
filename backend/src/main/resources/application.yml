@@ -50,6 +50,9 @@ phokarta:
     baseline-place-id: ${PHOKARTA_PLACE_IMPORT_BASELINE_PLACE_ID:}
     probe-samples: ${PHOKARTA_PLACE_IMPORT_PROBE_SAMPLES:5}
     probe-timeout: ${PHOKARTA_PLACE_IMPORT_PROBE_TIMEOUT:5s}
+    # Existing private operational diagnostics directory, bind-mounted persistently for the one-shot.
+    # Required only when the disabled-by-default place-import workflow is explicitly enabled.
+    diagnostics-directory: ${PHOKARTA_PLACE_IMPORT_DIAGNOSTICS_DIRECTORY:}
     # Successful imports receive this initial durable deadline. Immediately before
     # post-import probing it is extended from the full selected-count/sample/timeout
     # request budget (plus margin, capped at 24h). The always-on startup/scheduled

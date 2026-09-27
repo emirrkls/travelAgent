@@ -236,7 +236,12 @@ public class PlacePilotHttpProbeService {
     private ProbeDiagnostic diagnostic(String surface, int index, Instant started, double duration,
             Integer status, boolean timeout, String transport, String validation, String failure) {
         // Closed templates: never serialize URI/query/headers/body/exception text.
-        String template = switch (surface) {
+        return new ProbeDiagnostic(surface, index, "GET", pathTemplate(surface), started, duration,
+                status, timeout, transport, validation, failure);
+    }
+
+    static String pathTemplate(String surface) {
+        return switch (surface) {
             case "health" -> "{management}/health";
             case "search", "search_coverage" -> "/api/v1/places?search={query}&page=0&size=100&sort=name,asc";
             case "map_nearby", "map_nearby_coverage" -> "/api/v1/places/nearby?lat={lat}&lon={lon}&radiusMeters=250&limit=200";
@@ -244,8 +249,6 @@ public class PlacePilotHttpProbeService {
             case "place_detail", "place_detail_coverage" -> "/api/v1/places/{canonical_uuid}";
             default -> throw new IllegalArgumentException("unknown probe surface");
         };
-        return new ProbeDiagnostic(surface, index, "GET", template, started, duration,
-                status, timeout, transport, validation, failure);
     }
 
     private String validHealth(JsonNode body) {

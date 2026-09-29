@@ -1,5 +1,7 @@
 package com.emirrkls.phokarta.backend.web;
 
+import com.emirrkls.phokarta.backend.observability.PlaceDetailObservation;
+import com.emirrkls.phokarta.backend.observability.PlaceDetailObservability;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -26,6 +29,12 @@ public class RequestIdFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(RequestIdFilter.class);
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+    private PlaceDetailObservability placeDetailObservability;
+
+    @Autowired
+    public void setPlaceDetailObservability(PlaceDetailObservability placeDetailObservability) {
+        this.placeDetailObservability = placeDetailObservability;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -36,11 +45,30 @@ public class RequestIdFilter extends OncePerRequestFilter {
         request.setAttribute(ATTRIBUTE, requestId);
         response.setHeader(HEADER, requestId);
         MDC.put(MDC_KEY, requestId);
+        PlaceDetailObservation observation = null;
+        if (placeDetailObservability != null) {
+            try {
+                observation = placeDetailObservability.begin(request, requestId, started);
+            } catch (RuntimeException ignored) {
+                // A diagnostic failure must never change the request contract.
+            }
+        }
         try {
             filterChain.doFilter(request, response);
+        } catch (IOException | ServletException | RuntimeException | Error failure) {
+            if (observation != null) observation.failure(failure);
+            throw failure;
         } finally {
             long durationMs = (System.nanoTime() - started) / 1_000_000;
             try {
+                if (observation != null) {
+                    try {
+                        observation.serializationEnd(); // fallback when MVC exits exceptionally
+                        placeDetailObservability.finish(observation, response.getStatus(), response.isCommitted());
+                    } catch (RuntimeException ignored) {
+                        // Diagnostic logging/metrics must not replace a product response or exception.
+                    }
+                }
                 log.atInfo()
                         .addKeyValue("http.request.method", request.getMethod())
                         .addKeyValue("url.path", request.getRequestURI())

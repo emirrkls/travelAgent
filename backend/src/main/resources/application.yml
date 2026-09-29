@@ -24,6 +24,10 @@ server:
 
 phokarta:
   environment: ${APP_ENVIRONMENT:local}
+  observability:
+    place-detail:
+      enabled: ${PHOKARTA_PLACE_DETAIL_OBSERVABILITY_ENABLED:false}
+      slow-threshold-ms: ${PHOKARTA_PLACE_DETAIL_SLOW_THRESHOLD_MS:350}
   demo-user-id: 11111111-1111-1111-1111-111111111111
   place-rollback:
     # Private isolated PropertiesLauncher entry point, never the normal web application.

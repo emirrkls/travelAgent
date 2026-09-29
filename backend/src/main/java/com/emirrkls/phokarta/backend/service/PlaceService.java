@@ -7,7 +7,9 @@ import com.emirrkls.phokarta.backend.api.dto.PlaceSummaryResponse;
 import com.emirrkls.phokarta.backend.api.error.ApiException;
 import com.emirrkls.phokarta.backend.api.mapper.PlaceMapper;
 import com.emirrkls.phokarta.backend.api.mapper.VisitMapper;
+import com.emirrkls.phokarta.backend.observability.PlaceDetailObservation;
 import com.emirrkls.phokarta.backend.domain.entity.Place;
+import com.emirrkls.phokarta.backend.domain.entity.Visit;
 import com.emirrkls.phokarta.backend.domain.model.PlaceCategory;
 import com.emirrkls.phokarta.backend.domain.model.Visibility;
 import com.emirrkls.phokarta.backend.repository.PlaceRepository;
@@ -59,25 +61,56 @@ public class PlaceService {
     }
 
     public PlaceDetailResponse detail(UUID id, UUID viewerId) {
-        Place place = require(id);
-        VisitRepository.ScoreAggregate aggregate = visits.aggregate(id);
-        long ratingCount = aggregate == null ? 0 : aggregate.getCount();
-        Double averageScore = ratingCount == 0 ? null : aggregate.getAverage();
-        var dimensions = dimensionScores.aggregateForPlace(id).stream()
-                .map(row -> new PlaceDetailResponse.DimensionAggregateResponse(
-                        row.getDimensionKey(), row.getAverage()))
-                .toList();
-        var recent = (viewerId == null
-                ? visits.findRecent(id, Visibility.PUBLIC, PageRequest.of(0, 5))
-                : visits.findPublicReviewsVisibleTo(id, viewerId, PageRequest.of(0, 5)).getContent())
-                .stream()
-                .map(visitMapper::toPublic).toList();
-        var point = place.getLocation();
-        return new PlaceDetailResponse(place.getId(), place.getName(), place.getDescription(),
-                place.getCategory(), place.getSubcategories(), point.getY(), point.getX(),
-                place.getCity(), place.getRegion(), place.getCountry(), place.getAddress(),
-                place.getCoverImage(), place.getPhotos(), place.getPriceLevel(), averageScore,
-                ratingCount, dimensions, recent);
+        PlaceDetailObservation trace = PlaceDetailObservation.current();
+        try (var serviceSpan = trace == null ? null
+                : trace.span(PlaceDetailObservation.Operation.SERVICE)) {
+            Place place;
+            try (var repositorySpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.PLACE_REPOSITORY)) {
+                place = require(id);
+                if (trace != null) trace.rows("place", 1);
+            }
+            VisitRepository.ScoreAggregate aggregate;
+            try (var repositorySpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.RATING_AGGREGATE)) {
+                aggregate = visits.aggregate(id);
+                if (trace != null) trace.rows("rating", aggregate == null ? 0 : 1);
+            }
+            long ratingCount = aggregate == null ? 0 : aggregate.getCount();
+            Double averageScore = ratingCount == 0 ? null : aggregate.getAverage();
+            List<VisitDimensionScoreRepository.DimensionAggregate> dimensionRows;
+            try (var repositorySpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.DIMENSION_AGGREGATE)) {
+                dimensionRows = dimensionScores.aggregateForPlace(id);
+                if (trace != null) trace.rows("dimensions", dimensionRows.size());
+            }
+            List<PlaceDetailResponse.DimensionAggregateResponse> dimensions;
+            try (var mappingSpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.DTO_MAPPING)) {
+                dimensions = dimensionRows.stream()
+                        .map(row -> new PlaceDetailResponse.DimensionAggregateResponse(
+                                row.getDimensionKey(), row.getAverage()))
+                        .toList();
+            }
+            List<Visit> recentRows;
+            try (var repositorySpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.RECENT_VISITS)) {
+                recentRows = viewerId == null
+                        ? visits.findRecent(id, Visibility.PUBLIC, PageRequest.of(0, 5))
+                        : visits.findPublicReviewsVisibleTo(id, viewerId, PageRequest.of(0, 5)).getContent();
+                if (trace != null) trace.rows("recent_visits", recentRows.size());
+            }
+            try (var mappingSpan = trace == null ? null
+                    : trace.span(PlaceDetailObservation.Operation.DTO_MAPPING)) {
+                var recent = recentRows.stream().map(visitMapper::toPublic).toList();
+                var point = place.getLocation();
+                return new PlaceDetailResponse(place.getId(), place.getName(), place.getDescription(),
+                        place.getCategory(), place.getSubcategories(), point.getY(), point.getX(),
+                        place.getCity(), place.getRegion(), place.getCountry(), place.getAddress(),
+                        place.getCoverImage(), place.getPhotos(), place.getPriceLevel(), averageScore,
+                        ratingCount, dimensions, recent);
+            }
+        }
     }
 
     public List<NearbyPlaceResponse> nearby(double lat, double lon, double radius,

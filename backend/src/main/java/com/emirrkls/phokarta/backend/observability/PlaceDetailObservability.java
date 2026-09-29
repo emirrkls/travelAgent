@@ -77,7 +77,9 @@ public class PlaceDetailObservability {
                 .tag("outcome", observation.exceptionObserved() ? "exception"
                         : status >= 500 ? "server_error" : status >= 400 ? "client_error" : "success")
                 .register(registry).record(total, TimeUnit.NANOSECONDS);
-        if (total >= slowThresholdNanos) {
+        // A fast failure is still diagnostically important; the threshold controls
+        // ordinary successful requests only, never the API response.
+        if (total >= slowThresholdNanos || observation.exceptionObserved() || status >= 500) {
             Map<String, Object> record = new LinkedHashMap<>(observation.summary(status));
             record.put("jvm", runtimeSnapshot());
             record.put("pool", poolSnapshot());

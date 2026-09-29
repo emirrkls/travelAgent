@@ -18,8 +18,10 @@ stored. Other endpoints and disabled Detail requests allocate no trace. When
 enabled, every traced Detail request records one bounded-cardinality Micrometer
 timer (`phokarta.place.detail.duration`, outcome success/client_error/
 server_error/exception). Requests slower than the emission threshold produce
-one structured `slow place detail` record. The threshold has no effect on HTTP
-status, timeout, returned DTO, or acceptance criteria.
+one structured `slow place detail` record. Exceptions and HTTP 5xx emit a
+sanitized record even below the ordinary successful-request threshold. The
+threshold has no effect on HTTP status, timeout, returned DTO, or acceptance
+criteria.
 
 ## Event and timing contract
 

@@ -298,6 +298,21 @@ class PlaceDetailObservabilityTest {
     }
 
     @Test
+    void fastFailureStillEmitsSanitizedSummaryAboveNormalLoggingThreshold() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        List<Map<String,Object>> logs = new ArrayList<>();
+        var observer = new PlaceDetailObservability(true, 100_000, registry, null, logs::add);
+        var trace = observer.begin(request(), REQUEST_ID, System.nanoTime());
+        trace.failure(new IllegalStateException(SECRET));
+        observer.finish(trace, 200, false);
+        assertThat(logs).hasSize(1);
+        assertThat(logs.getFirst().get("exception_observed")).isEqualTo(true);
+        assertThat(logs.getFirst().toString()).doesNotContain(SECRET);
+        assertThat(registry.get("phokarta.place.detail.duration").tag("outcome", "exception")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
     void fastPathAllocationAndTimingSmokeIsBoundedNotAnSlo() {
         var disabled = new PlaceDetailObservability(false, 350, new SimpleMeterRegistry(), null, r -> { });
         var enabled = new PlaceDetailObservability(true, 100_000, new SimpleMeterRegistry(), null, r -> { });

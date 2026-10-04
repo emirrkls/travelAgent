@@ -109,7 +109,9 @@ public final class PlacePilotPersistentProbe {
                 headersNanos.set(System.nanoTime()); responseStatus.set(info.statusCode());
                 return new BoundedBody(BODY_LIMIT);
             });
-            var response = pending.get(5, TimeUnit.SECONDS); // Covers headers AND body, no deadline extension.
+            long remaining = TimeUnit.SECONDS.toNanos(5) - (System.nanoTime() - started);
+            if (remaining <= 0) throw new TimeoutException();
+            var response = pending.get(remaining, TimeUnit.NANOSECONDS); // One deadline from start, including request setup + full body.
             long completed = System.nanoTime();
             record.put("body_ms", (completed - started) / 1_000_000.0);
             record.put("response_bytes", response.body().length);

@@ -256,7 +256,7 @@ class PlacePilotRollbackOperationsIntegrationTest {
             importer = new PlacePilotImportService(jdbc, mapper, transactions, rollback);
             gates = new PlacePilotCanaryGateService(jdbc, rollback, transactions);
             operations = new PlacePilotRollbackOperationsService(jdbc, transactions, rollback, mapper);
-            ObjectNode oldEnvelope = manifest("v3-hard-" + failure.toLowerCase(Locale.ROOT), 71, false);
+            ObjectNode oldEnvelope = manifest("v3-hard-" + failure.toLowerCase(Locale.ROOT).replace('_', '-'), 71, false);
             ObjectNode old = (ObjectNode) oldEnvelope.path("manifest");
             old.put("run_id", PlacePilotV3Policy.CONTAINED_RUN.toString());
             // Unique coordinates within the frozen 6 km scope.

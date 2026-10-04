@@ -28,8 +28,10 @@ public final class PlacePilotPersistentArtifacts {
         require(validTarget(document.path("target")) && approvedTarget.equals(document.path("target")));
         PlacePilotV3Policy.verifySnapshot(run, hash, role, document);
         Instant start = Instant.parse(document.path("started_at").asText()), end = Instant.parse(document.path("completed_at").asText());
+        require(!end.isAfter(Instant.now()));
         attestation(receipt.path("before"), approvedTarget, start.minusSeconds(30), start);
         attestation(receipt.path("after"), approvedTarget, end, end.plusSeconds(30));
+        require(!Instant.parse(receipt.path("after").path("observed_at").asText()).isAfter(Instant.now()));
         for (JsonNode record : document.path("requests")) requestFields(record, false);
         JsonNode checks = document.path("health_checks");
         require(checks.isArray() && checks.size() == 6);

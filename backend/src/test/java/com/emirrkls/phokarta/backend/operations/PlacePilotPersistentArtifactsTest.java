@@ -51,7 +51,7 @@ class PlacePilotPersistentArtifactsTest {
         receipt = MAPPER.createObjectNode().put("version", "persistent-telemetry-receipt-v1").put("run_id", RUN.toString())
                 .put("manifest_hash", HASH).put("role", role).put("artifact_sha256", artifact.sha256()).put("artifact_bytes", artifact.bytes());
         receipt.putObject("before").put("observed_at", Instant.parse(document.path("started_at").asText()).minusMillis(1).toString()).set("target", target);
-        receipt.putObject("after").put("observed_at", Instant.parse(document.path("completed_at").asText()).plusMillis(1).toString()).set("target", target);
+        receipt.putObject("after").put("observed_at", Instant.now().toString()).set("target", target);
         PlacePilotPrivateArtifacts.write(directory.resolve(role + "_RECEIPT.json"), receipt);
     }
     PlacePilotPersistentOperationsAdapter adapter() { return new PlacePilotPersistentOperationsAdapter(directory, planHash); }
@@ -148,6 +148,11 @@ class PlacePilotPersistentArtifactsTest {
         prepare(); var adapter = adapter(); adapter.preflight(RUN, HASH, targets);
         var post = snapshot.deepCopy(); post.put("role", "POST"); persist("POST", post);
         assertThatThrownBy(() -> adapter.capturePersistent("POST", RUN, HASH)).isInstanceOf(Exception.class);
+    }
+    @Test void futureSnapshotOrAttestationCannotBecomeValidEvidence() throws Exception {
+        prepare(); receipt.withObject("after").put("observed_at", Instant.now().plusSeconds(10).toString());
+        fresh("PRE_RECEIPT.json", receipt);
+        assertThatThrownBy(() -> adapter().preflight(RUN, HASH, targets)).isInstanceOf(Exception.class);
     }
     @Test void concreteAdapterPrePostAndProductArtifactsAreReadBackWithoutAutomaticLatencyPass() throws Exception {
         prepare(); var adapter = adapter(); adapter.preflight(RUN, HASH, targets);

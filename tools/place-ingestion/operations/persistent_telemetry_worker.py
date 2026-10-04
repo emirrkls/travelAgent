@@ -160,6 +160,8 @@ class Coordinator:
                 "--user", f"{os.getuid()}:{os.getgid()}", "--network", "container:" + self.plan["target"]["container_id"],
                 "--mount", f"type=bind,src={self.directory},dst=/evidence",
                 "--entrypoint", "java", "--env", "JAVA_TOOL_OPTIONS=", self.image,
+                "-Djdk.httpclient.disableRetryConnect=true", "-Djdk.httpclient.redirects.retrylimit=1",
+                "-Djdk.httpclient.enableAllMethodRetry=false",
                 "-Dloader.main=" + MAIN, "-cp", "/app/app.jar", "org.springframework.boot.loader.launch.PropertiesLauncher",
                 "--plan-path=/evidence/" + plan_path.name, "--plan-sha256=" + sha,
                 "--output-path=/evidence/" + role + ".json"]

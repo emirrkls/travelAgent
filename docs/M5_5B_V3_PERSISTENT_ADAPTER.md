@@ -68,7 +68,10 @@ DB-aware readiness and Prometheus process-start evidence before/after. They are 
 in latency statistics. All 180 measured/management GETs have the same five-second hard deadline.
 
 The end-to-end deadline includes headers and complete body, not just connection/headers.
-Redirects/retries are disabled; bodies are capped at 4 MiB. Actual response validation checks
+Redirects/retries are disabled; bodies are capped at 4 MiB.
+Java 21 transport retries are explicitly limited to one attempt using flags in the GET helper
+JVM only; the launcher requires these flags before any GET. Backend/importer JVM flags are unchanged.
+Actual response validation checks
 DTO field allow-lists, canonical UUID uniqueness, sentinel name/category/coordinates, Search
 pagination, limits (100 Search/200 Map), Nearby geometry/distance/order, Bounds geometry, Detail
 shape and provider-key isolation. No raw bodies, text, reviews or error messages are retained.

@@ -28,6 +28,11 @@ public final class PlacePilotPersistentTelemetryApplication {
             require(PlacePilotPersistentArtifacts.validTarget(plan.path("target")));
             UUID run = UUID.fromString(plan.path("run_id").asText());
             String hash = plan.path("manifest_hash").asText(), role = plan.path("role").asText();
+            // These flags belong ONLY to this external helper JVM, not beta/importer.
+            // Java 21 otherwise transparently retries idempotent requests on connection expiry.
+            require("true".equals(System.getProperty("jdk.httpclient.disableRetryConnect"))
+                    && "1".equals(System.getProperty("jdk.httpclient.redirects.retrylimit"))
+                    && "false".equals(System.getProperty("jdk.httpclient.enableAllMethodRetry")));
             Path output = Path.of(options.get("output-path"));
             var snapshot = new PlacePilotPersistentProbe(() -> java.nio.file.Files.exists(output.getParent().resolve("STOP_PROBE.json")))
                     .capture(run, hash, role, plan.path("target"));

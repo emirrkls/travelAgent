@@ -66,6 +66,11 @@ class AccountDeletionMinioIntegrationTest {
     private static final String SECRET_KEY = "phokarta-minio-dev-only";
     private static final String BUCKET = "phokarta-account-deletion-e2e";
     private static final byte[] JPEG = jpegPayload();
+    // This is the real presigned-URL fixture lifetime, not a production setting or API deadline.
+    // Full CI can spend >50 s deleting an account; an 8 s URL then expires before the late PUT
+    // scenario is exercised. Keep a bounded window and still wait for actual expiry + grace.
+    private static final Duration UPLOAD_TTL = Duration.ofMinutes(2);
+    private static final Duration VERIFY_GRACE = Duration.ofSeconds(2);
 
     @Container
     @ServiceConnection
@@ -89,8 +94,8 @@ class AccountDeletionMinioIntegrationTest {
         registry.add("phokarta.media.path-style", () -> "true");
         registry.add("phokarta.media.access-key", () -> ACCESS_KEY);
         registry.add("phokarta.media.secret-key", () -> SECRET_KEY);
-        registry.add("phokarta.media.upload-ttl", () -> "8s");
-        registry.add("phokarta.media.deletion-verify-grace", () -> "2s");
+        registry.add("phokarta.media.upload-ttl", UPLOAD_TTL::toString);
+        registry.add("phokarta.media.deletion-verify-grace", VERIFY_GRACE::toString);
         registry.add("phokarta.media.cleanup-interval", () -> "24h");
         registry.add("phokarta.media.cleanup-batch-size", () -> "100");
         ensureBucket();
@@ -153,6 +158,8 @@ class AccountDeletionMinioIntegrationTest {
 
         waitUntilFinalCleanup(upload.storageKey);
 
+        assertThat(Instant.now()).as("final cleanup follows the original URL expiry")
+                .isAfterOrEqualTo(upload.expiresAt);
         assertThat(storage.head(upload.storageKey)).isNull();
         assertThat(jobCount(upload.storageKey)).isZero();
     }
@@ -170,12 +177,16 @@ class AccountDeletionMinioIntegrationTest {
                 where storage_key = ?
                 """, String.class, upload.storageKey)).isEqualTo("awaiting_final");
 
+        assertThat(Instant.now()).as("late PUT must exercise a still-valid original URL")
+                .isBefore(upload.expiresAt);
         int lateStatus = putObject(upload.uploadUrl, upload.requiredHeaders);
         assertThat(lateStatus).isBetween(200, 299);
         assertThat(storage.head(upload.storageKey)).isNotNull();
 
         waitUntilFinalCleanup(upload.storageKey);
 
+        assertThat(Instant.now()).as("final cleanup follows the original URL expiry")
+                .isAfterOrEqualTo(upload.expiresAt);
         assertThat(storage.head(upload.storageKey)).isNull();
         assertThat(jobCount(upload.storageKey)).isZero();
         mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + user.access))
@@ -209,7 +220,8 @@ class AccountDeletionMinioIntegrationTest {
                         .header("Authorization", "Bearer " + user.access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("READY"));
-        return new Upload(mediaId, storageKey, uploadUrl, headers);
+        Instant expiresAt = Instant.parse(intent.get("expiresAt").asText());
+        return new Upload(mediaId, storageKey, uploadUrl, headers, expiresAt);
     }
 
     private void attachPublicVisit(Session user, UUID place, UUID mediaId) throws Exception {
@@ -229,7 +241,7 @@ class AccountDeletionMinioIntegrationTest {
     }
 
     private void waitUntilFinalCleanup(String storageKey) throws InterruptedException {
-        Instant deadline = Instant.now().plusSeconds(25);
+        Instant deadline = Instant.now().plus(UPLOAD_TTL).plus(VERIFY_GRACE).plusSeconds(15);
         while (Instant.now().isBefore(deadline)) {
             if (jobCount(storageKey) == 0) {
                 return;
@@ -351,6 +363,6 @@ class AccountDeletionMinioIntegrationTest {
     }
 
     private record Upload(UUID mediaId, String storageKey, URI uploadUrl,
-                          java.util.Map<String, String> requiredHeaders) {
+                          java.util.Map<String, String> requiredHeaders, Instant expiresAt) {
     }
 }

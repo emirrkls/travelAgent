@@ -107,4 +107,14 @@ class PlacePilotV3PolicyTest {
         receipt.summary().put("PERFORMANCE_ADVISORY", "NORMAL");
         assertThat(receipt.summary().path("PERFORMANCE_ADVISORY").asText()).isEqualTo("DEGRADED");
     }
+    @Test void oneShotTargetOrChangedInstrumentationIsHard() {
+        var after = after(); after.withObject("target").put("kind", "ONE_SHOT");
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, before(), after));
+        var changed = after(); changed.withObject("target").put("detail_slow_threshold_ms", 500);
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, before(), changed));
+    }
+    @Test void arbitraryTargetMetadataCannotLeakIntoSanitizedReceipt() {
+        var after = after(); after.withObject("target").put("unexpected_field", "not-for-report");
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, before(), after));
+    }
 }

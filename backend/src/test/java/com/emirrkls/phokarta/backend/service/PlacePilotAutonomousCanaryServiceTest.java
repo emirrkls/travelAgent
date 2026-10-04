@@ -60,6 +60,44 @@ class PlacePilotAutonomousCanaryServiceTest {
     }
 
     @Test
+    void explicitV3AdapterUsesPersistentTelemetryNotOneShotRelativeGate() throws Exception {
+        Fixture fixture = fixture();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode envelope = (ObjectNode) mapper.readTree(fixture.manifestPath().toFile());
+        ((ObjectNode) envelope.path("manifest")).put("method_version", PlacePilotV3Policy.V3);
+        Files.writeString(fixture.manifestPath(), mapper.writeValueAsString(envelope));
+        when(fixture.importer().importApproved(any(Path.class), eq(HASH), eq(AUTHORIZATION)))
+                .thenReturn(importResult(false), importResult(true));
+        when(fixture.probes().captureBaseline(any(), any())).thenReturn(probeSuite(100, false));
+        when(fixture.probes().captureAfter(any(), any())).thenReturn(probeSuite(900, true));
+        when(fixture.anomalies().captureDidimBaseline()).thenReturn(snapshot());
+        when(fixture.anomalies().audit(eq(RUN_ID), any())).thenReturn(passingAudit());
+        var adapter = mock(PlacePilotAutonomousCanaryService.V3Observations.class);
+        Instant start = Instant.now().minusSeconds(10);
+        when(adapter.capturePersistent("BASELINE", RUN_ID, HASH)).thenReturn(
+                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "BASELINE", start, 10));
+        when(adapter.capturePersistent("AFTER", RUN_ID, HASH)).thenReturn(
+                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "AFTER", start.plusSeconds(5), 40));
+        ObjectNode products = mapper.createObjectNode();
+        PlacePilotV3Policy.PRODUCT_CHECKS.forEach(check -> products.put(check, "PASS"));
+        when(adapter.productAcceptance(eq(RUN_ID), eq(HASH), any())).thenReturn(products);
+        var passed = new PlacePilotCanaryGateService.GateResult(UUID.randomUUID(), RUN_ID,
+                "didim-run", "STAGE_1", "PASSED", false);
+        when(fixture.gates().record(eq(RUN_ID), eq(true), any(), eq(null), any(), any())).thenReturn(passed);
+        var result = fixture.service().run(configuration(fixture.manifestPath()), adapter);
+        assertThat(result.gateResult()).isEqualTo(passed);
+        assertThat(result.diagnostics().path("measured_pass").asBoolean()).isTrue();
+        assertThat(result.diagnostics().has("performance")).isFalse();
+        assertThat(result.diagnostics().path("persistent_performance").path("PERFORMANCE_ADVISORY").asText()).isEqualTo("DEGRADED");
+        InOrder order = inOrder(adapter, fixture.importer());
+        order.verify(fixture.importer()).validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION));
+        order.verify(adapter).capturePersistent("BASELINE", RUN_ID, HASH);
+        order.verify(fixture.importer(), times(2)).importApproved(any(Path.class), eq(HASH), eq(AUTHORIZATION));
+        order.verify(adapter).capturePersistent("AFTER", RUN_ID, HASH);
+        order.verify(adapter).productAcceptance(eq(RUN_ID), eq(HASH), any());
+    }
+
+    @Test
     void capturesBaselineBeforeImportThenReplaysAuditsAndGatesMeasuredResults()
             throws Exception {
         Fixture fixture = fixture();

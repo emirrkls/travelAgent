@@ -211,6 +211,7 @@ public class PlacePilotBaselineArtifactService {
         public Identity {
             if (executionId == null || runId == null || manifestHash == null || envelopeSha256 == null
                     || !manifestHash.matches("[0-9a-f]{64}") || !envelopeSha256.matches("[0-9a-f]{64}")
+                    || validationMethod == null
                     || !java.util.Set.of(PlacePilotV3Policy.V2, PlacePilotV3Policy.V3).contains(validationMethod)
                     || startedAt == null || completedAt == null || startedAt.isAfter(completedAt)) {
                 throw new IllegalArgumentException("PREIMPORT_BASELINE_ARTIFACT_IDENTITY_INVALID");

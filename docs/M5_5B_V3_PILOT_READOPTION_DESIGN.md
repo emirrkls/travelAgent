@@ -77,6 +77,9 @@ preconditioning flag, monotonic `latency_ms`, HTTP status, semantic validation, 
 result count, canonical ID list and SHA-256 digest of sorted UUIDs joined with newline. The
 producer must validate actual HTTP body semantics (UUID/name/category/coordinates/bounds),
 then discard bodies. Counts/bytes are explanatory dimensions, never milliseconds/result.
+Target metadata is allow-listed and requires LONG_LIVED_PERSISTENT plus enabled 350 ms Detail
+observability. The operational adapter must confirm this identity against the actual backend;
+a JSON assertion alone is not evidence that a different application is the approved target.
 
 Report median/p90/count/median bytes/ID digest and relative delta separately for all four
 surfaces. Payload byte changes do not fabricate result equivalence. Result-set drift within a
@@ -159,6 +162,8 @@ Only the established run-aware rollback service is used, never direct SQL cleanu
 inactivates B-owned active refs and retires B-owned external catalog exposure while preserving
 canonical rows, all provenance and A/B history. User visits, Experiences, Collections and Want
 to Go remain intact; user graph alone does not require continued provider catalog exposure.
+The private rollback-only wrapper accepts v3 Stage 1 in addition to its unchanged v2 paths;
+unknown method versions and v3 expansion stages remain refused before mutation.
 
 Legitimate newer independent ref/redirect ownership is protected; containment can leave ACTIVE
 exposure under that newer owner and records CONTAINED_NEWER_REFERENCES. Replaying A containment

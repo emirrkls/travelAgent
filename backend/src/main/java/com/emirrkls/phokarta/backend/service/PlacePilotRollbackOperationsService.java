@@ -125,7 +125,8 @@ public class PlacePilotRollbackOperationsService {
         if (!Set.of("SUCCEEDED", "FAILED").contains(run.status())) {
             throw new OperationalFailure("RUN_NOT_COMPLETED");
         }
-        if (!"didim-autonomous-validation-v2".equals(run.methodVersion())
+        if (!(PlacePilotV3Policy.V2.equals(run.methodVersion())
+                || (PlacePilotV3Policy.V3.equals(run.methodVersion()) && "STAGE_1".equals(run.canaryStage())))
                 || !Set.of("STAGE_1", "STAGE_2", "STAGE_3").contains(run.canaryStage())
                 || !"didim_core".equals(run.scopeName())
                 || run.latitude() != 37.3751 || run.longitude() != 27.2678 || run.radius() != 6000) {

@@ -27,6 +27,8 @@ class PlacePilotRollbackOperationsServiceTest {
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
     private final PlacePilotRollbackService rollback = mock(PlacePilotRollbackService.class);
     private PlacePilotRollbackOperationsService operations;
+    private String methodVersion = PlacePilotV3Policy.V2;
+    private String canaryStage = "STAGE_1";
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -46,8 +48,8 @@ class PlacePilotRollbackOperationsServiceTest {
             when(rs.getString("pilot_run_key")).thenReturn("didim-core-ops-test");
             when(rs.getString("manifest_hash")).thenReturn(HASH);
             when(rs.getString("status")).thenReturn("SUCCEEDED");
-            when(rs.getString("method_version")).thenReturn("didim-autonomous-validation-v2");
-            when(rs.getString("canary_stage")).thenReturn("STAGE_1");
+            when(rs.getString("method_version")).thenReturn(methodVersion);
+            when(rs.getString("canary_stage")).thenReturn(canaryStage);
             when(rs.getString("scope_name")).thenReturn("didim_core");
             when(rs.getDouble("scope_center_latitude")).thenReturn(37.3751);
             when(rs.getDouble("scope_center_longitude")).thenReturn(27.2678);
@@ -66,6 +68,25 @@ class PlacePilotRollbackOperationsServiceTest {
         assertThat(result.result()).isEqualTo("INSPECTED");
         verify(transactions).getTransaction(argThat(definition -> definition.isReadOnly()
                 && definition.getIsolationLevel() == TransactionDefinition.ISOLATION_REPEATABLE_READ));
+        verify(rollback, never()).retireRun(any(), any());
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
+    }
+
+    @Test
+    void v3StageOneUsesTheSameReadOnlyInspectionAndRunAwareContainmentContract() {
+        methodVersion = PlacePilotV3Policy.V3;
+        assertThat(operations.inspect(RUN, HASH).result()).isEqualTo("INSPECTED");
+        verify(rollback, never()).retireRun(any(), any());
+    }
+
+    @Test
+    void v3ExpansionAndUnknownMethodsAreRejectedBeforeEventsOrMutation() {
+        methodVersion = PlacePilotV3Policy.V3;
+        canaryStage = "STAGE_2";
+        assertThatThrownBy(() -> operations.inspect(RUN, HASH)).hasMessage("RUN_IDENTITY_INVALID");
+        canaryStage = "STAGE_1";
+        methodVersion = "unapproved-method";
+        assertThatThrownBy(() -> operations.inspect(RUN, HASH)).hasMessage("RUN_IDENTITY_INVALID");
         verify(rollback, never()).retireRun(any(), any());
         verify(jdbc, never()).update(anyString(), any(Object[].class));
     }

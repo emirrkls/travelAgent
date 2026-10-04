@@ -13,7 +13,9 @@ public final class PlacePilotV3EvidenceFixture {
         value.put("version", "persistent-pilot-v3-v1").put("run_id", run.toString())
                 .put("manifest_hash", hash).put("role", role)
                 .put("started_at", start.toString()).put("completed_at", start.plusSeconds(1).toString());
-        value.putObject("target").put("origin", "http://persistent-backend:8080")
+        value.putObject("target").put("kind", "LONG_LIVED_PERSISTENT")
+                .put("detail_observability_enabled", true).put("detail_slow_threshold_ms", 350)
+                .put("origin", "http://persistent-backend:8080")
                 .put("route_id", "PRIVATE_DOCKER_HEALTH_ROUTE").put("container_id", "same-container")
                 .put("image_sha", "same-image").put("java_identity", "same-pid-and-start-ticks")
                 .put("container_started_at", "2026-09-29T15:14:33Z")

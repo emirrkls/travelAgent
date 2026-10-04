@@ -141,6 +141,16 @@ public final class PlacePilotV3Policy {
         Instant start = time(value, "started_at"), end = time(value, "completed_at");
         require(!end.isBefore(start) && end.minusSeconds(900).isBefore(start), "persistent block time invalid");
         JsonNode target = value.path("target");
+        require("LONG_LIVED_PERSISTENT".equals(target.path("kind").asText()), "persistent target kind invalid");
+        require(target.path("detail_observability_enabled").isBoolean()
+                && target.path("detail_observability_enabled").booleanValue()
+                && target.path("detail_slow_threshold_ms").isIntegralNumber()
+                && target.path("detail_slow_threshold_ms").intValue() == 350,
+                "persistent Detail observability contract changed");
+        java.util.Set<String> safeFields = java.util.Set.of("kind", "origin", "route_id", "container_id",
+                "image_sha", "java_identity", "container_started_at", "restart_count", "oom",
+                "backend_healthy", "database_healthy", "caddy_running", "detail_observability_enabled", "detail_slow_threshold_ms");
+        target.fieldNames().forEachRemaining(field -> require(safeFields.contains(field), "persistent unexpected target metadata"));
         for (String field : List.of("origin", "route_id", "container_id", "image_sha", "java_identity", "container_started_at")) {
             require(target.path(field).isTextual() && !target.path(field).asText().isBlank(), "persistent target lacks " + field);
         }

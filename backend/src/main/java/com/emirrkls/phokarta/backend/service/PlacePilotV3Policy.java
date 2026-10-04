@@ -29,6 +29,7 @@ public final class PlacePilotV3Policy {
             "bounds", "/api/v1/places/bounds?west=28.9684000&south=41.0120000&east=28.9884000&north=41.0320000&limit=200",
             "detail", "/api/v1/places/" + SENTINEL);
     public static final List<String> PRODUCT_CHECKS = List.of(
+            "search", "nearby", "bounds", "selected_place_coverage",
             "turkish_search", "zero_experience_detail", "want_to_go", "collections",
             "synthetic_v2_experience", "detail_after_publication", "experience_first_explore",
             "public_provider_id_isolation", "rollback_safety", "graph_safety");
@@ -166,7 +167,7 @@ public final class PlacePilotV3Policy {
                 "persistent Detail observability contract changed");
         java.util.Set<String> safeFields = java.util.Set.of("kind", "origin", "route_id", "container_id",
                 "image_sha", "java_identity", "container_started_at", "restart_count", "oom",
-                "backend_healthy", "database_healthy", "caddy_running", "detail_observability_enabled", "detail_slow_threshold_ms");
+                "backend_healthy", "database_healthy", "caddy_running", "detail_observability_enabled", "detail_slow_threshold_ms", "network_identity");
         target.fieldNames().forEachRemaining(field -> require(safeFields.contains(field), "persistent unexpected target metadata"));
         for (String field : List.of("origin", "route_id", "container_id", "image_sha", "java_identity", "container_started_at")) {
             require(target.path(field).isTextual() && !target.path(field).asText().isBlank(), "persistent target lacks " + field);

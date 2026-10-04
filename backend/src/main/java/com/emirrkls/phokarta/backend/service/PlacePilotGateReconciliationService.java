@@ -138,7 +138,14 @@ public class PlacePilotGateReconciliationService implements ApplicationRunner {
             for (ExpiredRun candidate : candidates) {
                 Boolean reconciled = transactions.execute(
                         transaction -> reconcileLocked(candidate));
-                if (Boolean.TRUE.equals(reconciled)) contained++;
+                if (Boolean.TRUE.equals(reconciled)) {
+                    String method=jdbc.queryForObject("SELECT method_version FROM place_provider_sync_runs WHERE id=?",String.class,candidate.syncRunId());
+                    if(PlacePilotV3Policy.V3.equals(method)) {
+                        String hash=jdbc.queryForObject("SELECT manifest_hash FROM place_provider_sync_runs WHERE id=?",String.class,candidate.syncRunId());
+                        gates.containV3(candidate.syncRunId(),hash); // only after FAILED has committed; inspection is mandatory.
+                    }
+                    contained++;
+                }
             }
             if (candidates.size() < RECONCILIATION_BATCH_SIZE) break;
         }

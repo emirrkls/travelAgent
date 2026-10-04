@@ -20,22 +20,30 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
     private JsonNode plan;
     private UUID run;
     private String hash;
+    private String authorization;
+    private JsonNode target;
+    private JsonNode executionAttestation;
+    private JsonNode productDocument;
     private Instant postRequested;
     private final ObjectNode receipts = new ObjectMapper().createObjectNode();
 
     public PlacePilotPersistentOperationsAdapter(Path directory, String approvedPlanSha256) {
         this.directory = directory; this.approvedPlanSha256 = approvedPlanSha256;
     }
+    public void bindAuthorization(String reference) { authorization = reference; }
 
     public void preflight(UUID runId, String manifestHash, List<PlacePilotHttpProbeService.ProbeTarget> targets) throws IOException {
         directory(directory);
         plan = read(directory.resolve("V3_OPERATIONS_PLAN.json"), approvedPlanSha256).document();
-        fields(plan, Set.of("version", "validation_method", "run_id", "manifest_hash", "target", "selected_canonical_ids", "product_checks"));
-        require("v3-private-operations-plan-v1".equals(plan.path("version").asText())
+        fields(plan, Set.of("version", "validation_method", "run_id", "manifest_hash", "authorization_reference", "target_policy", "selected_canonical_ids", "product_checks"));
+        require("v3-private-operations-plan-v2".equals(plan.path("version").asText())
                 && PlacePilotV3Policy.V3.equals(plan.path("validation_method").asText())
+                && authorization != null && authorization.equals(plan.path("authorization_reference").asText())
                 && runId.toString().equals(plan.path("run_id").asText()) && manifestHash.equals(plan.path("manifest_hash").asText())
                 && !runId.equals(PlacePilotV3Policy.CONTAINED_RUN));
-        require(PlacePilotPersistentArtifacts.validTarget(plan.path("target")));
+        JsonNode attested = PlacePilotExecutionTarget.read(directory, plan, approvedPlanSha256);
+        executionAttestation=attested.deepCopy();
+        target = attested.path("target");
         List<String> expected = targets.stream().map(t -> t.placeId().toString()).sorted().toList();
         require(expected.size() == 71 && new HashSet<>(expected).size() == 71 && strings(plan.path("selected_canonical_ids")).equals(expected));
         require(strings(plan.path("product_checks")).equals(PlacePilotV3Policy.PRODUCT_CHECKS.stream().sorted().toList()));
@@ -43,7 +51,8 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
         // No operational readiness is inferred merely from a plan. Both producer and product worker must be ready.
         ready("TELEMETRY_WORKER_READY.json", "persistent-telemetry-worker-v1");
         ready("PRODUCT_WORKER_READY.json", "v3-authorized-product-workflow-v1");
-        JsonNode before = PlacePilotPersistentArtifacts.read(directory, "PRE", run, hash, plan.path("target"));
+        JsonNode before = PlacePilotPersistentArtifacts.read(directory, "PRE", run, hash, target);
+        require(!Instant.parse(before.path("started_at").asText()).isBefore(Instant.parse(attested.path("observed_at").asText())));
         PlacePilotV3Policy.verifyFreshPre(run, hash, before, Instant.now());
         currentTarget();
     }
@@ -62,7 +71,7 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
             write(directory.resolve("POST_REQUEST.json"), request);
             await("POST_RECEIPT.json");
         }
-        JsonNode snapshot = PlacePilotPersistentArtifacts.read(directory, role, run, hash, plan.path("target"));
+        JsonNode snapshot = PlacePilotPersistentArtifacts.read(directory, role, run, hash, target);
         currentTarget();
         if (role.equals("PRE")) PlacePilotV3Policy.verifyFreshPre(run, hash, snapshot, Instant.now());
         else require(!Instant.parse(snapshot.path("started_at").asText()).isBefore(postRequested));
@@ -76,7 +85,10 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
         binding(runId, manifestHash);
         require(postRequested != null);
         Instant requested = Instant.now();
-        write(directory.resolve("PRODUCT_REQUEST.json"), request("v3-product-request-v1", requested));
+        ObjectNode productRequest = request("v3-product-request-v1", requested);
+        productRequest.put("authorization_reference", authorization).put("validation_method", PlacePilotV3Policy.V3)
+                .put("evidence_schema_version", "v3-product-evidence-v1");
+        write(directory.resolve("PRODUCT_REQUEST.json"), productRequest);
         await("PRODUCT_RECEIPT.json");
         JsonNode receipt = read(directory.resolve("PRODUCT_RECEIPT.json"), null).document();
         fields(receipt, Set.of("run_id", "manifest_hash", "artifact_sha256", "artifact_bytes"));
@@ -84,7 +96,7 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
         var artifact = read(directory.resolve("PRODUCT.json"), receipt.path("artifact_sha256").asText());
         require(receipt.path("artifact_bytes").isIntegralNumber() && artifact.bytes() == receipt.path("artifact_bytes").asLong());
         JsonNode product = artifact.document();
-        fields(product, Set.of("version", "run_id", "manifest_hash", "started_at", "completed_at", "selected_canonical_ids", "checks"));
+        fields(product, Set.of("version", "run_id", "manifest_hash", "started_at", "completed_at", "selected_canonical_ids", "checks", "health_checks"));
         require("v3-product-evidence-v1".equals(product.path("version").asText())
                 && run.toString().equals(product.path("run_id").asText()) && hash.equals(product.path("manifest_hash").asText())
                 && strings(product.path("selected_canonical_ids")).equals(strings(plan.path("selected_canonical_ids"))));
@@ -100,6 +112,9 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
             require(!at.isBefore(start) && !at.isAfter(end));
             List<String> ids = strings(check.path("canonical_place_ids"));
             require(!ids.isEmpty() && strings(plan.path("selected_canonical_ids")).containsAll(ids));
+            if (Set.of("search","turkish_search","nearby","bounds","selected_place_coverage","zero_experience_detail",
+                    "public_provider_id_isolation","rollback_safety","graph_safety").contains(name))
+                require(ids.equals(strings(plan.path("selected_canonical_ids"))));
             JsonNode evidence = check.path("evidence");
             require(evidence.isArray() && !evidence.isEmpty() && evidence.size() <= 1000);
             Set<String> operations = new HashSet<>();
@@ -119,9 +134,28 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
             result.put(name, "PASS");
         }
         currentTarget();
+        productDocument = product;
         receipts.putObject("PRODUCT").put("sha256", artifact.sha256()).put("bytes", artifact.bytes());
         result.set("verified_artifacts", receipts.deepCopy());
         return result;
+    }
+    public void productSafety(UUID runId, String manifestHash, ObjectNode proof) throws IOException {
+        binding(runId, manifestHash);
+        write(directory.resolve("PRODUCT_GRAPH_SAFETY.json"), proof);
+    }
+    public void finalHealth(UUID runId, String manifestHash) throws IOException {
+        binding(runId, manifestHash); currentTarget();
+        require(productDocument != null);
+        JsonNode checks = productDocument.path("health_checks");
+        require(checks.isArray() && checks.size() == 2);
+        for (int i=0;i<2;i++) {
+            JsonNode c = checks.get(i);
+            fields(c, Set.of("path","status","validation","latency_ms"));
+            require(List.of("/health/live","/health/ready").get(i).equals(c.path("path").asText())
+                    && c.path("status").asInt() == 200 && "VALID".equals(c.path("validation").asText())
+                    && c.path("latency_ms").isNumber() && Double.isFinite(c.path("latency_ms").asDouble())
+                    && c.path("latency_ms").asDouble() > 0 && c.path("latency_ms").asDouble() < 5000);
+        }
     }
 
     static Set<String> requiredProductOperations(String check) {
@@ -134,14 +168,19 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
 
     private void ready(String filename, String version) throws IOException {
         JsonNode ready = read(directory.resolve(filename), null).document();
-        fields(ready, Set.of("version", "run_id", "manifest_hash", "observed_at"));
+        Set<String> fields = new HashSet<>(Set.of("version", "run_id", "manifest_hash", "observed_at"));
+        if (filename.startsWith("PRODUCT")) { fields.add("validation_method"); fields.add("evidence_schema_version"); }
+        fields(ready, fields);
         require(version.equals(ready.path("version").asText()) && run.toString().equals(ready.path("run_id").asText())
                 && hash.equals(ready.path("manifest_hash").asText()));
+        if (filename.startsWith("PRODUCT")) require(PlacePilotV3Policy.V3.equals(ready.path("validation_method").asText())
+                && "v3-product-evidence-v1".equals(ready.path("evidence_schema_version").asText()));
         fresh(Instant.parse(ready.path("observed_at").asText()));
     }
     private void currentTarget() throws IOException {
         JsonNode observation = read(directory.resolve("CURRENT_TARGET.json"), null).document();
-        PlacePilotPersistentArtifacts.attestation(observation, plan.path("target"), Instant.now().minusSeconds(30), Instant.now());
+        require(executionAttestation.equals(PlacePilotExecutionTarget.read(directory, plan, approvedPlanSha256)));
+        PlacePilotPersistentArtifacts.attestation(observation, target, Instant.now().minusSeconds(30), Instant.now());
     }
     private void fresh(Instant at) throws IOException { require(!at.isAfter(Instant.now()) && !at.isBefore(Instant.now().minusSeconds(30))); }
     private ObjectNode request(String version, Instant at) {
@@ -153,7 +192,7 @@ public final class PlacePilotPersistentOperationsAdapter implements PlacePilotAu
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(9);
         // Filesystem IPC wait, not retries/probes/rebaseline. Bounded; abort is surfaced to run-aware containment.
         while (!Files.exists(directory.resolve(filename))) {
-            require(!Files.exists(directory.resolve("WORKER_FAILED.json")) && System.nanoTime() < deadline);
+            require(!Files.exists(directory.resolve("WORKER_FAILED.json")) && !Files.exists(directory.resolve("PRODUCT_FAILED.json")) && System.nanoTime() < deadline);
             try { Thread.sleep(100); } catch (InterruptedException stopped) { Thread.currentThread().interrupt(); throw new IOException("PRIVATE_WORKER_INTERRUPTED"); }
         }
     }

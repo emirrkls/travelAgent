@@ -54,6 +54,21 @@ jobs:
       - name: Pre-pull pinned MinIO test image
         run: docker pull bitnamilegacy/minio:2025.7.23-debian-12-r5
 
+      - name: Verify private product worker refuses unbound standalone execution
+        working-directory: tools/place-ingestion
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+          result = subprocess.run([sys.executable, "operations/product_evidence_worker.py"], capture_output=True, timeout=5)
+          assert result.returncode == 2
+          assert b"--authorization-reference" in result.stderr
+          assert b"--predecessor-sha256" in result.stderr
+          assert not result.stdout
+          print("PRODUCT_WORKER_UNBOUND_LAUNCH_REJECTED")
+          PY
+
       - name: Test and package backend
         run: mvn --batch-mode --no-transfer-progress verify
 

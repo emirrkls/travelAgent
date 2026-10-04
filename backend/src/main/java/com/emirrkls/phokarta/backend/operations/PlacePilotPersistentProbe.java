@@ -78,6 +78,26 @@ public final class PlacePilotPersistentProbe {
         return snapshot;
     }
 
+    /** Two real complete-response health GETs before immutable target attestation. No workload warmup. */
+    public ObjectNode captureAttestationHealth(UUID run, String hash, JsonNode target) throws IOException {
+        require(run != null && !run.equals(PlacePilotV3Policy.CONTAINED_RUN) && hash.matches("[0-9a-f]{64}"));
+        require(PlacePilotPersistentArtifacts.validTarget(target));
+        ObjectNode result=mapper.createObjectNode().put("version","execution-target-health-v1")
+                .put("run_id",run.toString()).put("manifest_hash",hash).put("started_at",Instant.now().toString());
+        result.set("target",target.deepCopy());
+        var checks=result.putArray("health_checks"); boolean passed=true;
+        for(String path:List.of("/actuator/health/liveness","/actuator/health/readiness")) {
+            var e=request(management,path,"health",false);
+            checks.addObject().put("path",path).set("status",e.path("status"));
+            var c=(ObjectNode)checks.get(checks.size()-1);
+            c.set("validation",e.path("validation")); c.set("latency_ms",e.path("latency_ms"));
+            passed &= "VALID".equals(e.path("validation").asText());
+            if(!passed) break;
+        }
+        result.put("completed_at",Instant.now().toString()).put("outcome",passed?"COMPLETE":"HARD_FAILURE");
+        return result;
+    }
+
     private double health(ArrayNode checks) throws IOException {
         for (String path : List.of("/actuator/health/liveness", "/actuator/health/readiness")) {
             require(!stopped.getAsBoolean());

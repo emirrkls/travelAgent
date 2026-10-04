@@ -24,19 +24,28 @@ class PersistentTelemetryWorkerTests(unittest.TestCase):
                 "container_id": "1" * 64, "image_sha": "sha256:" + "2" * 64, "java_identity": "7:12345",
                 "container_started_at": "2026-09-29T12:00:00Z", "restart_count": 0, "oom": False,
                 "backend_healthy": True, "database_healthy": True, "caddy_running": True,
-                "detail_observability_enabled": True, "detail_slow_threshold_ms": 350}
+                "detail_observability_enabled": True, "detail_slow_threshold_ms": 350,
+                "network_identity":hashlib.sha256(("6"*64).encode()).hexdigest()}
+
+    def policy(self):
+        return {"source_sha":"c"*40,"image_sha":"sha256:"+"2"*64,"image_ref":"phokarta-backend:"+"c"*40,
+                "origin":"http://127.0.0.1:8080","management_origin":"http://127.0.0.1:8081","route_id":worker.ROUTE,
+                "sentinel":"aa000000-0000-4000-8000-000000000001","samples":20,"preconditioning":1,"deadline_ms":5000,
+                "detail_slow_threshold_ms":350,"roles":["PRE","POST"]}
 
     def coordinator(self):
-        plan = {"version": "v3-private-operations-plan-v1", "validation_method": "didim-autonomous-validation-v3",
-                "run_id": "10000000-0000-4000-8000-000000000099", "manifest_hash": "a" * 64, "target": self.target()}
+        plan = {"version": "v3-private-operations-plan-v2", "validation_method": "didim-autonomous-validation-v3",
+                "run_id": "10000000-0000-4000-8000-000000000099", "manifest_hash": "a" * 64, "target_policy": self.policy()}
         worker.publish(self.directory / "V3_OPERATIONS_PLAN.json", plan)
         digest = hashlib.sha256((self.directory / "V3_OPERATIONS_PLAN.json").read_bytes()).hexdigest()
-        with patch.object(worker, "require_host"):
+        health=[{'path':p,'status':200,'validation':'VALID','latency_ms':10} for p in ('/actuator/health/liveness','/actuator/health/readiness')]
+        with patch.object(worker, "require_host"),patch.object(worker.Coordinator,"command",side_effect=self.responses()*2),patch.object(worker.Coordinator,'pre_attestation_health',return_value=health):
             return worker.Coordinator(self.directory, digest, "sha256:" + "3" * 64, "4" * 64, "5" * 64, True)
 
     def responses(self, *, restarts=0):
         return [json.dumps({"id": "1" * 64, "image": "sha256:" + "2" * 64, "start": "2026-09-29T12:00:00Z",
                             "restarts": restarts, "oom": False, "running": True, "healthy": "healthy", "enabled": True, "threshold": 350}),
+                "c"*40,"phokarta-backend:"+"c"*40,"6"*64,
                 "7:12345\n", "4" * 64 + " true false healthy\n", "5" * 64 + " true false\n"]
 
     def test_actual_read_only_identity_matches_pin_without_secrets(self):
@@ -45,7 +54,7 @@ class PersistentTelemetryWorkerTests(unittest.TestCase):
             observed = coordinator.observe()
         self.assertEqual(observed["target"], self.target())
         commands = [call.args[0] for call in command.call_args_list]
-        self.assertEqual([cmd[0] for cmd in commands], ["inspect", "exec", "inspect", "inspect"])
+        self.assertEqual([cmd[0] for cmd in commands], ["inspect", "exec", "inspect", "inspect", "exec", "inspect", "inspect"])
         self.assertNotIn("{{json .Config.Env}}", repr(commands))  # no complete environment dump; guarded equality projection is safe
         self.assertNotIn("environ", repr(commands))
         self.assertNotIn("cmdline", repr(commands))
@@ -55,15 +64,49 @@ class PersistentTelemetryWorkerTests(unittest.TestCase):
         with patch.object(coordinator, "command", side_effect=self.responses(restarts=1)):
             with self.assertRaises(ValueError): coordinator.observe()
 
+    def test_sealed_policy_has_no_imaginary_container_pid_or_start(self):
+        for key in ('container_id','java_identity','container_started_at','network_identity'):
+            p=self.policy(); p[key]='imaginary'
+            with self.subTest(key=key),self.assertRaises(ValueError): worker.policy(p)
+
+    def test_wrong_release_image_network_or_process_is_hard_failure(self):
+        c=self.coordinator()
+        for index,value in ((1,'d'*40),(2,'other:image'),(3,'7'*64),(4,'9:99999')):
+            responses=self.responses(); responses[index]=value
+            with self.subTest(index=index),patch.object(c,'command',side_effect=responses),self.assertRaises(ValueError): c.observe()
+
+    def test_execution_attestation_run_hash_plan_health_receipt_binding(self):
+        c=self.coordinator(); good=worker.execution_target(self.directory,c.plan,c.plan_hash)
+        self.assertEqual(good['target'],self.target()); worker.health_checks(good['health_checks'])
+        for field in ('run_id','manifest_hash','plan_sha256','source_sha','image_ref'):
+            a=dict(good); a[field]='wrong'
+            (self.directory/'EXECUTION_TARGET.json').unlink(); worker.publish(self.directory/'EXECUTION_TARGET.json',a)
+            receipt=worker.read(self.directory/'EXECUTION_TARGET_RECEIPT.json'); receipt['artifact_sha256']=hashlib.sha256((self.directory/'EXECUTION_TARGET.json').read_bytes()).hexdigest(); receipt['artifact_bytes']=(self.directory/'EXECUTION_TARGET.json').stat().st_size
+            (self.directory/'EXECUTION_TARGET_RECEIPT.json').unlink(); worker.publish(self.directory/'EXECUTION_TARGET_RECEIPT.json',receipt)
+            with self.subTest(field=field),self.assertRaises(ValueError): worker.execution_target(self.directory,c.plan,c.plan_hash)
+
+    def test_no_reattestation_after_pre_or_mutation_to_hide_restart(self):
+        c=self.coordinator()
+        (self.directory/'EXECUTION_TARGET.json').unlink(); (self.directory/'EXECUTION_TARGET_RECEIPT.json').unlink()
+        worker.publish(self.directory/'POST_REQUEST.json',{'fixture':True})
+        with patch.object(worker,'require_host'),patch.object(worker.Coordinator,'command') as command,self.assertRaises(ValueError):
+            worker.Coordinator(self.directory,c.plan_hash,c.image,c.db_id,c.caddy_id,True)
+        command.assert_not_called()
+
+    def test_liveness_readiness_and_full_body_deadline_required(self):
+        valid=[{'path':p,'status':200,'validation':'VALID','latency_ms':10} for p in ('/actuator/health/liveness','/actuator/health/readiness')]
+        for bad in (valid[:1],[],[dict(valid[0],latency_ms=5000),valid[1]],[dict(valid[0],status=503),valid[1]]):
+            with self.subTest(bad=bad),self.assertRaises(ValueError): worker.health_checks(bad)
+
     def test_unhealthy_db_stops(self):
         coordinator = self.coordinator()
-        responses = self.responses(); responses[2] = "4" * 64 + " true false unhealthy"
+        responses = self.responses(); responses[5] = "4" * 64 + " true false unhealthy"
         with patch.object(coordinator, "command", side_effect=responses):
             with self.assertRaises(ValueError): coordinator.observe()
 
     def test_wrong_java_identity_stops(self):
         coordinator = self.coordinator()
-        responses = self.responses(); responses[1] = "7:98765"
+        responses = self.responses(); responses[4] = "7:98765"
         with patch.object(coordinator, "command", side_effect=responses):
             with self.assertRaises(ValueError): coordinator.observe()
 

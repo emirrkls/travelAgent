@@ -34,11 +34,13 @@ public final class PlacePilotPersistentTelemetryApplication {
                     && "1".equals(System.getProperty("jdk.httpclient.redirects.retrylimit"))
                     && "false".equals(System.getProperty("jdk.httpclient.enableAllMethodRetry")));
             Path output = Path.of(options.get("output-path"));
-            var snapshot = new PlacePilotPersistentProbe(() -> java.nio.file.Files.exists(output.getParent().resolve("STOP_PROBE.json")))
-                    .capture(run, hash, role, plan.path("target"));
+            var probe = new PlacePilotPersistentProbe(() -> java.nio.file.Files.exists(output.getParent().resolve("STOP_PROBE.json")));
+            var snapshot = "HEALTH".equals(role) ? probe.captureAttestationHealth(run,hash,plan.path("target"))
+                    : probe.capture(run, hash, role, plan.path("target"));
             // Persist complete OR partial failure before validating it. Never drop a first slow/error request.
             var artifact = PlacePilotPrivateArtifacts.write(output, snapshot);
-            PlacePilotV3Policy.verifySnapshot(run, hash, role, artifact.document());
+            if ("HEALTH".equals(role)) PlacePilotExecutionTarget.health(snapshot.path("health_checks"));
+            else PlacePilotV3Policy.verifySnapshot(run, hash, role, artifact.document());
             require("COMPLETE".equals(snapshot.path("outcome").asText()));
             System.out.println("PERSISTENT_TELEMETRY_ARTIFACT_SHA256=" + artifact.sha256());
             return 0;

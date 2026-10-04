@@ -236,7 +236,7 @@ class PlacePilotRollbackOperationsIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"TIMEOUT", "PRODUCT", "PROVENANCE", "ACCOUNTING", "ANOMALY", "NEWER_OWNER",
-            "MANUAL", "ACTIVE_OWNER", "CANONICAL_DRIFT", "NONCONTAINED"})
+            "MANUAL", "ACTIVE_OWNER", "CANONICAL_DRIFT", "NONCONTAINED", "WRONG_UUID_SET", "WRONG_REFS", "GRAPH_UNSAFE", "WRONG_RUN", "WRONG_HASH"})
     void v3HardFailuresStillCommitFailedGateAndContainOnlyNewOwnership(String failure) {
         // Independent local DBs permit the exact historical UUID contract in each scenario.
         JdbcTemplate savedJdbc = jdbc;
@@ -305,6 +305,9 @@ class PlacePilotRollbackOperationsIntegrationTest {
                 return;
             }
             PilotFixture adopted = importEnvelope(envelope, false);
+            GraphFixture protectedGraph=addUserGraph(adopted);
+            UUID protectedManual=deterministicUuid("manual-not-owned:"+failure);
+            insertPlace(protectedManual,"Untouched community fixture","MANUAL_COMMUNITY");
             var evidence = PlacePilotV3Policy.verify(newRun, adopted.manifestHash(),
                     PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "PRE", before, 10),
                     PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "POST", Instant.now(), 20));
@@ -331,15 +334,68 @@ class PlacePilotRollbackOperationsIntegrationTest {
                                provenance, observed_at, retrieved_at
                           FROM place_source_records WHERE sync_run_id = ? ORDER BY id LIMIT 1
                         """, deterministicUuid("v3-extra-source"), newRun, a.runId());
+                case "WRONG_UUID_SET" -> {
+                    UUID alternate=deterministicUuid("wrong-v3-canonical-identity"); insertPlace(alternate,"Wrong external fixture identity","EXTERNAL_IMPORT");
+                    // This disposable database intentionally models a corrupt journal row.
+                    // Temporarily bypass both domain and FK triggers, then restore ALL guards
+                    // before exercising the production inspection (no schema/runtime change).
+                    jdbc.execute("alter table place_pilot_catalog_writes disable trigger all");
+                    try { jdbc.update("update place_pilot_catalog_writes set place_id=? where sync_run_id=? and place_id=?",alternate,newRun,adopted.placeIds().getFirst()); }
+                    finally {
+                        jdbc.execute("alter table place_pilot_catalog_writes enable trigger all");
+                    }
+                    product.put("graph_safety","FAIL");
+                }
+                case "WRONG_REFS" -> {
+                    jdbc.update("""
+                        update place_external_refs set status='INACTIVE' where last_sync_run_id=?
+                          and (provider,external_id)=(select provider,external_id from place_external_refs
+                            where last_sync_run_id=? order by provider,external_id limit 1)
+                        """,newRun,newRun);
+                    product.put("graph_safety","FAIL");
+                }
+                case "GRAPH_UNSAFE" -> {
+                    jdbc.execute("alter table place_external_refs disable trigger trg_place_external_ref_redirect_integrity");
+                    product.put("graph_safety","FAIL");
+                }
+                case "WRONG_RUN", "WRONG_HASH" -> product.put("graph_safety","FAIL");
                 default -> throw new AssertionError(failure);
             }
             assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).status()).isEqualTo("FAILED");
+            // The immutable FAILED gate is NOT permission to retire before exact-bound read-only inspection.
+            assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id=? and rollback_state='NONE'",newRun)).isEqualTo(71);
+            if(List.of("PROVENANCE","ACCOUNTING","WRONG_UUID_SET","WRONG_REFS","GRAPH_UNSAFE","WRONG_RUN","WRONG_HASH").contains(failure)) {
+                UUID suppliedRun=failure.equals("WRONG_RUN")?deterministicUuid("missing-v3-owner"):newRun;
+                String suppliedHash=failure.equals("WRONG_HASH")?"0".repeat(64):adopted.manifestHash();
+                long activeBefore=count("select count(*) from place_external_refs where last_sync_run_id=? and status='ACTIVE'",newRun);
+                assertThatThrownBy(()->gates.containV3(suppliedRun,suppliedHash)).isInstanceOf(RuntimeException.class);
+                assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id=? and rollback_state='NONE'",newRun)).isEqualTo(71);
+                assertThat(count("select count(*) from place_external_refs where last_sync_run_id=? and status='ACTIVE'",newRun)).isEqualTo(activeBefore);
+                assertThat(count("select count(*) from place_pilot_operational_events where sync_run_id=? and event_type='PILOT_ROLLBACK_STARTED'",newRun)).isZero();
+                if(!List.of("WRONG_RUN","WRONG_HASH").contains(failure))
+                    assertThat(count("select count(*) from place_pilot_operational_events where sync_run_id=? and event_type='PILOT_CONTAINMENT_REQUESTED'",newRun)).isOne();
+                assertThat(immutableRunHistory(a.runId())).isEqualTo(oldHistory);
+                assertUserGraphPreserved(protectedGraph);
+                assertThat(jdbc.queryForObject("select catalog_status from places where id=?",String.class,protectedManual)).isEqualTo("ACTIVE");
+                return;
+            }
+            DatabaseSnapshot preInspection=snapshot(adopted);
+            var proof=gates.inspectV3Containment(newRun,adopted.manifestHash());
+            assertThat(proof.path("exposure_count").asInt()).isEqualTo(71); assertThat(proof.path("ref_count").asInt()).isEqualTo(142);
+            assertThat(proof.path("already_contained").asBoolean()).isFalse(); assertThat(snapshot(adopted)).isEqualTo(preInspection);
+            gates.containV3(newRun,adopted.manifestHash());
             assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and rollback_state = 'NONE'", newRun)).isZero();
             assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isZero();
             assertThat(count("select count(*) from places where catalog_status = 'RETIRED' and origin = 'EXTERNAL_IMPORT'")).isEqualTo(failure.equals("NEWER_OWNER") ? 70 : 71);
             if (failure.equals("NEWER_OWNER"))
                 assertThat(jdbc.queryForObject("select catalog_status from places where id = ?", String.class, adopted.placeIds().getFirst())).isEqualTo("ACTIVE");
             assertThat(immutableRunHistory(a.runId())).isEqualTo(oldHistory);
+            assertUserGraphPreserved(protectedGraph);
+            assertThat(jdbc.queryForObject("select catalog_status from places where id=?",String.class,protectedManual)).isEqualTo("ACTIVE");
+            var completed=snapshot(adopted); var events=jdbc.queryForList("select to_jsonb(e)::text as row from place_pilot_operational_events e where sync_run_id=? order by event_type",newRun);
+            assertThat(gates.containV3(newRun,adopted.manifestHash()).path("already_contained").asBoolean()).isTrue();
+            assertThat(snapshot(adopted)).isEqualTo(completed);
+            assertThat(jdbc.queryForList("select to_jsonb(e)::text as row from place_pilot_operational_events e where sync_run_id=? order by event_type",newRun)).isEqualTo(events);
         } finally {
             jdbc = savedJdbc; transactions = savedTransactions; importer = savedImporter;
             gates = savedGates; operations = savedOperations;

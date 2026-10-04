@@ -29,6 +29,7 @@ public class PlacePilotCanaryGateService {
     private final JdbcTemplate jdbc;
     private final PlacePilotRollbackService rollback;
     private final TransactionTemplate transactions;
+    private final PlacePilotV3ContainmentService v3Containment;
 
     public PlacePilotCanaryGateService(
             JdbcTemplate jdbc,
@@ -38,6 +39,7 @@ public class PlacePilotCanaryGateService {
         this.jdbc = jdbc;
         this.rollback = rollback;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.v3Containment = new PlacePilotV3ContainmentService(jdbc,rollback,transactionManager);
     }
 
     /** Failure containment remains available without an approval receipt; PASS cannot bypass it. */
@@ -227,7 +229,7 @@ public class PlacePilotCanaryGateService {
         }
         GateResult result = new GateResult(gateId, syncRunId, run.pilotRunKey(),
                 run.canaryStage(), status, inserted == 0);
-        if (!effectivePassed) {
+        if (!effectivePassed && !PlacePilotV3Policy.V3.equals(run.methodVersion())) {
             try {
                 rollback.retireRun(syncRunId, effectiveCheckedAt);
             } catch (RuntimeException rollbackFailure) {
@@ -237,6 +239,32 @@ public class PlacePilotCanaryGateService {
             }
         }
         return result;
+    }
+
+    public ObjectNode inspectV3Containment(UUID run,String hash) {
+        long start=System.nanoTime(); ObjectNode p=v3Containment.inspect(run,hash);
+        double elapsed=(System.nanoTime()-start)/1_000_000.0;
+        if(elapsed>=5000) throw new IllegalStateException("V3_GRAPH_INSPECTION_DEADLINE_HARD_FAILURE");
+        p.put("latency_ms",elapsed)
+                .put("request_id","v3-inspect-"+p.path("ownership_hash").asText().substring(0,32));
+        return p;
+    }
+    public ObjectNode containV3(UUID run,String hash) { return v3Containment.contain(run,hash); }
+
+    public void verifyV3Provenance(UUID run) {
+        requireZero("provenance",scalarLong("""
+            SELECT count(*) FROM place_pilot_catalog_writes w JOIN place_validation_decisions d ON d.id=w.validation_decision_id
+            CROSS JOIN LATERAL unnest(d.source_record_ids) sid(id) LEFT JOIN place_source_records s ON s.id=sid.id
+            LEFT JOIN place_external_refs r ON r.provider=s.provider AND r.external_id=s.external_id AND r.place_id=w.place_id
+             AND r.current_source_record_id=s.id AND r.last_sync_run_id=w.sync_run_id AND r.status='ACTIVE'
+             AND r.source_hash=s.source_hash AND r.source_release=s.source_release AND r.snapshot_id IS NOT DISTINCT FROM s.snapshot_id
+            WHERE w.sync_run_id=? AND (s.id IS NULL OR r.provider IS NULL)
+            """,run));
+    }
+    public void verifyV3Accounting(UUID run,PlacePilotSourceAccounting.Approved approved,List<PlacePilotHttpProbeService.ProbeTarget> targets) {
+        ObjectNode d=JsonNodeFactory.instance.objectNode();
+        var ids=d.putArray("selected_place_ids"); targets.forEach(p->ids.add(p.placeId().toString()));
+        validateDatabaseSafety(attachDatabaseSafety(run,d,approved));
     }
 
     void validatePassingExternalDiagnostics(JsonNode diagnostics, boolean v3) {

@@ -77,13 +77,14 @@ public final class PlacePilotPersistentArtifacts {
     public static boolean validTarget(JsonNode value) throws IOException {
         fields(value, Set.of("kind", "origin", "route_id", "container_id", "image_sha", "java_identity", "container_started_at",
                 "restart_count", "oom", "backend_healthy", "database_healthy", "caddy_running",
-                "detail_observability_enabled", "detail_slow_threshold_ms"));
+                "detail_observability_enabled", "detail_slow_threshold_ms", "network_identity"));
         require("LONG_LIVED_PERSISTENT".equals(value.path("kind").asText())
                 && PlacePilotPersistentProbe.ROUTE.equals(value.path("route_id").asText())
                 && PlacePilotPersistentProbe.ORIGIN.equals(value.path("origin").asText())
                 && value.path("container_id").asText().matches("[0-9a-f]{64}")
                 && value.path("image_sha").asText().matches("sha256:[0-9a-f]{64}")
-                && value.path("java_identity").asText().matches("[1-9][0-9]*:[1-9][0-9]*"));
+                && value.path("java_identity").asText().matches("[1-9][0-9]*:[1-9][0-9]*")
+                && value.path("network_identity").asText().matches("[0-9a-f]{64}"));
         require(!Instant.parse(value.path("container_started_at").asText()).isAfter(Instant.now())
                 && value.path("restart_count").isIntegralNumber() && value.path("restart_count").asInt() == 0
                 && value.path("oom").isBoolean() && !value.path("oom").asBoolean()

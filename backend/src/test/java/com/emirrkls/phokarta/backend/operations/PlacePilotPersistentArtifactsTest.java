@@ -28,17 +28,30 @@ class PlacePilotPersistentArtifactsTest {
         persist("PRE", snapshot);
         targets = new ArrayList<>();
         for (int i = 0; i < 71; i++) targets.add(new PlacePilotHttpProbeService.ProbeTarget(new UUID(5, i), "Fixture", "CAFE", 37.38, 27.26));
-        ObjectNode plan = MAPPER.createObjectNode().put("version", "v3-private-operations-plan-v1")
+        ObjectNode plan = MAPPER.createObjectNode().put("version", "v3-private-operations-plan-v2")
                 .put("validation_method", PlacePilotV3Policy.V3).put("run_id", RUN.toString()).put("manifest_hash", HASH);
-        plan.set("target", target);
+        plan.put("authorization_reference","fixture-auth");
+        plan.set("target_policy",policy());
         var ids = plan.putArray("selected_canonical_ids"); targets.forEach(t -> ids.add(t.placeId().toString()));
         var checks = plan.putArray("product_checks"); PlacePilotV3Policy.PRODUCT_CHECKS.forEach(checks::add);
         planHash = PlacePilotPrivateArtifacts.write(directory.resolve("V3_OPERATIONS_PLAN.json"), plan).sha256();
+        var attestation=MAPPER.createObjectNode().put("version","v3-execution-target-v1").put("run_id",RUN.toString()).put("manifest_hash",HASH)
+                .put("plan_sha256",planHash).put("source_sha","c".repeat(40)).put("image_ref","phokarta-backend:"+"c".repeat(40))
+                .put("observed_at",Instant.parse(snapshot.path("started_at").asText()).minusMillis(1).toString());
+        attestation.set("target",target);
+        var attestationHealth=attestation.putArray("health_checks");
+        for(String path:List.of("/actuator/health/liveness","/actuator/health/readiness"))
+            attestationHealth.addObject().put("path",path).put("status",200).put("validation","VALID").put("latency_ms",10);
+        var attested=PlacePilotPrivateArtifacts.write(directory.resolve("EXECUTION_TARGET.json"),attestation);
+        fresh("EXECUTION_TARGET_RECEIPT.json",MAPPER.createObjectNode().put("run_id",RUN.toString()).put("manifest_hash",HASH)
+                .put("plan_sha256",planHash).put("artifact_sha256",attested.sha256()).put("artifact_bytes",attested.bytes()));
         fresh("CURRENT_TARGET.json", MAPPER.createObjectNode().put("observed_at", Instant.now().toString()).set("target", target));
         for (String worker : List.of("TELEMETRY", "PRODUCT")) {
-            fresh(worker + "_WORKER_READY.json", MAPPER.createObjectNode()
+            var ready=MAPPER.createObjectNode()
                     .put("version", worker.equals("TELEMETRY") ? "persistent-telemetry-worker-v1" : "v3-authorized-product-workflow-v1")
-                    .put("run_id", RUN.toString()).put("manifest_hash", HASH).put("observed_at", Instant.now().toString()));
+                    .put("run_id", RUN.toString()).put("manifest_hash", HASH).put("observed_at", Instant.now().toString());
+            if(worker.equals("PRODUCT")) ready.put("validation_method",PlacePilotV3Policy.V3).put("evidence_schema_version","v3-product-evidence-v1");
+            fresh(worker+"_WORKER_READY.json",ready);
         }
     }
     void fresh(String filename, JsonNode value) throws Exception {
@@ -54,7 +67,17 @@ class PlacePilotPersistentArtifactsTest {
         receipt.putObject("after").put("observed_at", Instant.now().toString()).set("target", target);
         PlacePilotPrivateArtifacts.write(directory.resolve(role + "_RECEIPT.json"), receipt);
     }
-    PlacePilotPersistentOperationsAdapter adapter() { return new PlacePilotPersistentOperationsAdapter(directory, planHash); }
+    static ObjectNode policy() {
+        var p=MAPPER.createObjectNode().put("source_sha","c".repeat(40)).put("image_sha","sha256:"+"2".repeat(64))
+                .put("image_ref","phokarta-backend:"+"c".repeat(40)).put("origin",PlacePilotPersistentProbe.ORIGIN)
+                .put("management_origin",PlacePilotPersistentProbe.HEALTH_ORIGIN).put("route_id",PlacePilotPersistentProbe.ROUTE)
+                .put("sentinel",PlacePilotV3Policy.SENTINEL).put("samples",20).put("preconditioning",1)
+                .put("deadline_ms",5000).put("detail_slow_threshold_ms",350);
+        p.putArray("roles").add("PRE").add("POST"); return p;
+    }
+    PlacePilotPersistentOperationsAdapter adapter() {
+        var a=new PlacePilotPersistentOperationsAdapter(directory,planHash); a.bindAuthorization("fixture-auth"); return a;
+    }
 
     @Test void finalizedBytesIndependentlyReopenedAndBoundBeforeAnyMutation() throws Exception {
         prepare();
@@ -64,7 +87,7 @@ class PlacePilotPersistentArtifactsTest {
         assertThat(Files.exists(directory.resolve("POST_REQUEST.json"))).isFalse();
         assertThat(Files.exists(directory.resolve("PRODUCT_REQUEST.json"))).isFalse();
     }
-    @ParameterizedTest @ValueSource(strings = {"PRE.json", "PRE_RECEIPT.json", "V3_OPERATIONS_PLAN.json", "TELEMETRY_WORKER_READY.json", "PRODUCT_WORKER_READY.json", "CURRENT_TARGET.json"})
+    @ParameterizedTest @ValueSource(strings = {"PRE.json", "PRE_RECEIPT.json", "V3_OPERATIONS_PLAN.json", "TELEMETRY_WORKER_READY.json", "PRODUCT_WORKER_READY.json", "CURRENT_TARGET.json", "EXECUTION_TARGET.json", "EXECUTION_TARGET_RECEIPT.json"})
     void everyMissingMandatoryEvidenceBlocksPreflight(String missing) throws Exception {
         prepare(); Files.delete(directory.resolve(missing));
         assertThatThrownBy(() -> adapter().preflight(RUN, HASH, targets)).isInstanceOf(Exception.class);
@@ -80,12 +103,46 @@ class PlacePilotPersistentArtifactsTest {
         Files.writeString(directory.resolve("PRE_RECEIPT.json"), "{\"role\":");
         assertThatThrownBy(() -> adapter().preflight(RUN, HASH, targets)).isInstanceOf(Exception.class);
     }
-    @ParameterizedTest @ValueSource(strings = {"container_id", "image_sha", "java_identity", "container_started_at", "origin", "route_id", "backend_healthy", "database_healthy", "oom", "restart_count"})
+    @ParameterizedTest @ValueSource(strings = {"container_id", "image_sha", "java_identity", "container_started_at", "origin", "route_id", "network_identity", "backend_healthy", "database_healthy", "oom", "restart_count"})
     void actualTargetAttestationChangesAreHardNotResultIncomparable(String field) throws Exception {
         prepare(); var observation = MAPPER.createObjectNode().put("observed_at", Instant.now().toString());
         var changed = target.deepCopy(); changed.put(field, "CHANGED"); observation.set("target", changed);
         fresh("CURRENT_TARGET.json", observation);
         assertThatThrownBy(() -> adapter().preflight(RUN, HASH, targets)).isInstanceOf(Exception.class);
+    }
+    @Test void sealedPolicyCannotContainImaginaryFutureProcess() throws Exception {
+        for(String field:List.of("container_id","java_identity","container_started_at","network_identity")) {
+            var p=policy(); p.put(field,"PLACEHOLDER");
+            assertThatThrownBy(()->PlacePilotExecutionTarget.policy(p)).isInstanceOf(Exception.class);
+        }
+    }
+    @ParameterizedTest @ValueSource(strings={"SOURCE","IMAGE","ROUTE","RUN","HASH","HEALTH","DEADLINE"})
+    void independentlyRehashedInvalidExecutionAttestationStillFails(String fault) throws Exception {
+        prepare(); var a=(ObjectNode)PlacePilotPrivateArtifacts.read(directory.resolve("EXECUTION_TARGET.json"),null).document();
+        switch(fault) {
+            case "SOURCE" -> a.put("source_sha","d".repeat(40));
+            case "IMAGE" -> ((ObjectNode)a.path("target")).put("image_sha","sha256:"+"8".repeat(64));
+            case "ROUTE" -> ((ObjectNode)a.path("target")).put("route_id","DIFFERENT_PATH");
+            case "RUN" -> a.put("run_id",PlacePilotV3Policy.CONTAINED_RUN.toString());
+            case "HASH" -> a.put("manifest_hash","0".repeat(64));
+            case "HEALTH" -> ((ObjectNode)a.path("health_checks").get(0)).put("status",503);
+            case "DEADLINE" -> ((ObjectNode)a.path("health_checks").get(0)).put("latency_ms",5000);
+        }
+        replaceAttestation(a);
+        assertThatThrownBy(()->adapter().preflight(RUN,HASH,targets)).isInstanceOf(Exception.class);
+    }
+    void replaceAttestation(ObjectNode a) throws Exception {
+        fresh("EXECUTION_TARGET.json",a);
+        var artifact=PlacePilotPrivateArtifacts.read(directory.resolve("EXECUTION_TARGET.json"),null);
+        fresh("EXECUTION_TARGET_RECEIPT.json",MAPPER.createObjectNode().put("run_id",RUN.toString()).put("manifest_hash",HASH)
+                .put("plan_sha256",planHash).put("artifact_sha256",artifact.sha256()).put("artifact_bytes",artifact.bytes()));
+    }
+    @Test void reattestationAfterVerifiedPreIsNeverAcceptedEvenWithFreshHashes() throws Exception {
+        prepare(); var adapter=adapter(); adapter.preflight(RUN,HASH,targets);
+        var a=(ObjectNode)PlacePilotPrivateArtifacts.read(directory.resolve("EXECUTION_TARGET.json"),null).document();
+        a.put("observed_at",Instant.now().toString()); replaceAttestation(a);
+        assertThatThrownBy(()->adapter.capturePersistent("PRE",RUN,HASH)).isInstanceOf(Exception.class);
+        assertThat(Files.exists(directory.resolve("POST_REQUEST.json"))).isFalse();
     }
     @Test void staleIdentityAttestationOrChangedPlanHashBlocksBeforeWrites() throws Exception {
         prepare(); fresh("CURRENT_TARGET.json", MAPPER.createObjectNode().put("observed_at", Instant.now().minusSeconds(31).toString()).set("target", target));
@@ -170,9 +227,11 @@ class PlacePilotPersistentArtifactsTest {
                         .put("manifest_hash", HASH).put("started_at", at.toString()).put("completed_at", at.toString());
                 var ids = document.putArray("selected_canonical_ids"); targets.forEach(t -> ids.add(t.placeId().toString()));
                 var checks = document.putObject("checks");
+                var health=document.putArray("health_checks");
+                for(String path:List.of("/health/live","/health/ready")) health.addObject().put("path",path).put("status",200).put("validation","VALID").put("latency_ms",10);
                 for (String name : PlacePilotV3Policy.PRODUCT_CHECKS) {
                     var check = checks.putObject(name).put("status", "PASS").put("observed_at", at.toString());
-                    check.putArray("canonical_place_ids").add(targets.getFirst().placeId().toString());
+                    var checkIds=check.putArray("canonical_place_ids"); targets.forEach(t->checkIds.add(t.placeId().toString()));
                     var observations = check.putArray("evidence");
                     for (String operation : PlacePilotPersistentOperationsAdapter.requiredProductOperations(name))
                         observations.addObject().put("operation", operation).put("status", 200)

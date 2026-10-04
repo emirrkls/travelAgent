@@ -27,7 +27,7 @@ class PlacePilotPersistentProbeTest {
                 .put("java_identity", "7:123456").put("container_started_at", Instant.now().minusSeconds(3600).toString())
                 .put("restart_count", 0).put("oom", false).put("backend_healthy", true)
                 .put("database_healthy", true).put("caddy_running", true)
-                .put("detail_observability_enabled", true).put("detail_slow_threshold_ms", 350);
+                .put("detail_observability_enabled", true).put("detail_slow_threshold_ms", 350).put("network_identity","9".repeat(64));
     }
     static ObjectNode place(boolean detail) {
         var value = MAPPER.createObjectNode().put("id", PlacePilotV3Policy.SENTINEL).put("name", "Staging Harbor Cafe")

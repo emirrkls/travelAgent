@@ -173,6 +173,13 @@ exposure under that newer owner and records CONTAINED_NEWER_REFERENCES. Replayin
 after B adoption is a no-op because A has a successor. Manual/community Places are untouched.
 Any graph/containment failure is a hard safety failure, never compensated by replacement rows.
 
+The V3 operational repair requires an immutable FAILED gate and committed containment request
+before a separate read-only exact-run/hash inspection. The inspection derives the 71 UUIDs and
+142 references from frozen predecessor decisions and persisted B ownership, validates schema and
+graph guards, and pins ownership/action digests. Only a matching locked revalidation may invoke
+retirement. Inspection failure leaves a durable requested-but-not-started state requiring owner
+intervention, not blind rollback. V2 automatic gate containment remains unchanged.
+
 ## Product acceptance and cold-path safety
 
 Unchanged mandatory product gates: Search and Turkish Search, bounded Nearby/Bounds Maps,
@@ -180,6 +187,13 @@ selected canonical identity/coverage, zero-Experience Detail, Planım/Want to Go
 synthetic V2 Experience publication against an imported canonical UUID, Detail after publication,
 and Experience-first Explore. Public provider-ID isolation, rollback/graph safety, accounting,
 provenance, anomalies and idempotency remain mandatory.
+
+V3 executes verified PRE → import → exact replay → POST → advisory → provenance → accounting
+→ anomaly → read-only functional/graph checks → real product worker → final health. Known hard
+failure prevents any remaining mutation-capable product acceptance. Valid DEGRADED/INCOMPARABLE
+telemetry remains advisory. The private worker binds readiness, actual evidence and atomically
+hashed/read-back receipt to the future exact run/manifest/method/schema; it cannot mutate in an
+unbound standalone mode. See the repaired [private adapter contract](M5_5B_V3_PERSISTENT_ADAPTER.md).
 
 The one-shot retains readiness/health/first Search/Nearby/Bounds/Detail and the mandatory durable
 25-record baseline artifact read-back. Cold correctness/deadline failures block/contain. Cold

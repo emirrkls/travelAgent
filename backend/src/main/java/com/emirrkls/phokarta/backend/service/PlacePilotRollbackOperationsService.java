@@ -136,6 +136,10 @@ public class PlacePilotRollbackOperationsService {
     }
 
     private void validateSchema() {
+        validateSchema(jdbc);
+    }
+
+    static void validateSchema(JdbcTemplate jdbc) {
         Boolean compatible = jdbc.queryForObject("""
                 SELECT current_schema() = 'public'
                    AND current_setting('session_replication_role') = 'origin'

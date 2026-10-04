@@ -38,13 +38,26 @@ plain GET helper and one-shot artifact reader (0700 directories, 0600 files, no 
 Do not mount Docker/DB credentials into the GET helper. The operations plan is independently
 SHA-256 pinned through the importer configuration and worker CLI, with exactly these fields:
 
-- `version: v3-private-operations-plan-v1`, `validation_method: didim-autonomous-validation-v3`.
+- `version: v3-private-operations-plan-v2`, `validation_method: didim-autonomous-validation-v3`.
 - New approved `run_id`, exact future sealed `manifest_hash` (neither created in this task).
-- `target`: LONG_LIVED_PERSISTENT kind, frozen origin/route, full container ID, actual image SHA,
-  Java `PID:start_ticks`, container start, restart count zero, OOM false, backend/DB healthy,
-  Caddy running, Detail observability enabled and threshold exactly 350 ms.
+- `authorization_reference`: exact future manifest authorization, supplied independently to the worker/reader.
+- `target_policy`: approved source SHA, locally built expected image SHA, release image reference,
+  frozen application/management origin and route, fixed sentinel, 20 samples, one preconditioning
+  request, 5000 ms deadline, 350 ms observability threshold and PRE/POST roles. No future container,
+  Java PID/start ticks, network ID or container-start placeholder is allowed in the sealed policy.
 - `selected_canonical_ids`: exactly the same 71 unique approved UUIDs, compared to the manifest.
-- `product_checks`: exactly the ten unchanged product/graph acceptance checks from V3 policy.
+- `product_checks`: all fourteen explicit product/coverage/graph checks from V3 policy.
+
+After the future approved deployment, the coordinator observes the actual source/release/image,
+container ID/start, Java PID/start ticks, network-ID digest, DB/Caddy health, restart/OOM state and
+350 ms instrumentation. It executes two actual five-second complete-response management health
+GETs in that container's namespace, independently reads their bounded artifact, and checks that
+the target did not change during health verification. Only then does it atomically finalize
+`EXECUTION_TARGET.json` and `EXECUTION_TARGET_RECEIPT.json`. The receipt binds exact bytes/hash,
+new run, manifest hash and sealed operations-plan SHA. Both Python and Java reopen and verify it.
+The attestation precedes PRE and catalog mutation; PRE/POST must match that same actual target.
+Missing attestation cannot be regenerated once PRE or a mutation IPC marker exists. A replaced
+attestation, restart, Java/image/container/route/network change is hard failure, not advisory.
 
 The worker also requires full frozen DB/Caddy container IDs and a pinned probe-image SHA. That
 image is a tool process; it does not replace the persistent backend image. The coordinator's
@@ -52,8 +65,9 @@ runtime is bounded at 65 minutes; no automatic extension or rebaseline. It produ
 then waits for the adapter's POST request. It keeps safe target/readiness attestations fresh every
 two seconds. This polling is separate from the uninterrupted measured GET stream.
 
-The separately authorized existing product workflow must publish fresh
-`PRODUCT_WORKER_READY.json` (version `v3-authorized-product-workflow-v1`, run/hash/observed_at)
+The separate `operations/product_evidence_worker.py` must publish fresh
+`PRODUCT_WORKER_READY.json` (version `v3-authorized-product-workflow-v1`, run/hash/observed_at,
+validation method and evidence schema)
 and fulfill the later product request. The telemetry worker **cannot** execute publication,
 Planım, Collections or graph checks, nor synthesize their PASS results. A missing product worker
 is a pre-write blocker, not a reason to bypass those gates. Operational preparation must bind
@@ -62,7 +76,8 @@ and verify that worker, including real observation evidence, before execution ap
 ## Snapshot and independent read-back
 
 PRE/POST each contain Search → Nearby → Bounds → Detail. Each surface has one recorded
-preconditioning GET, then 20 timed GETs: 84 measured requests per snapshot, 168 pre/post.
+preconditioning GET, then 20 timed GETs: 84 recorded requests per snapshot, 168 pre/post
+(80 timed per snapshot; the four preconditioning records are excluded from statistics).
 There are additionally six separately labelled management GETs per snapshot: liveness,
 DB-aware readiness and Prometheus process-start evidence before/after. They are never included
 in latency statistics. All 180 measured/management GETs have the same five-second hard deadline.
@@ -103,11 +118,35 @@ graph-safe containment. DB-derived V3 lease calculation includes both IPC budget
 
 ## Product evidence
 
-After POST, the adapter publishes `PRODUCT_REQUEST.json` with new run/hash/request time. The
-existing authorized workflow writes `PRODUCT.json` and a separately finalized
+After valid POST, provenance, accounting, anomaly and read-only graph safety, the adapter
+publishes `PRODUCT_REQUEST.json` with new run/hash/request time, exact authorization reference,
+method and schema. The product worker independently validates both future sealed manifest and
+its unchanged v2 predecessor, their pinned raw hashes, execution attestation, fresh current target,
+POST receipt, selected UUID set and graph proof. There is no standalone production mutation mode:
+registration/publication cannot start without this private, exact-bound authorization lifecycle.
+Its CLI requires predecessor path/hash as well as future manifest path/hash, plan SHA, private
+directory and authorization reference; there is no origin or deadline override.
+
+The actual product worker writes `PRODUCT.json` and a separately finalized
 `PRODUCT_RECEIPT.json` with run/hash/raw artifact SHA-256/bytes. No product credentials enter the
 telemetry worker or GET helper. The artifact contains version `v3-product-evidence-v1`, run/hash,
-start/end, exact selected UUIDs and all ten product checks.
+start/end, exact selected UUIDs, all fourteen product checks and final liveness/readiness evidence.
+
+It performs exact-name and Turkish Search for every selected UUID, bounded Didim Nearby/Bounds
+coverage/geometry/order/dense-marker checks, and zero-Experience v1/v2 Detail for every Place.
+Only after those read-only checks does it create its own synthetic account, verify Want-to-Go
+and Collections, publish/read a V2 Experience, verify Detail afterward and Experience-first
+Explore. It deletes only its own synthetic account/graph, verifies the zero-Experience state
+again and checks final health. Credentials/tokens/bodies remain only in memory and anonymous
+pipes. Each HTTP operation uses a disposable external client process, one parent monotonic
+five-second deadline from setup through full response, no redirects/retries and a 4 MiB body cap.
+Failed/slow observations remain sanitized evidence; uncertain synthetic cleanup requires owner
+intervention and never receives a success receipt. No private user content is persisted.
+
+`PRODUCT.json` is independently reopened, byte/schema/binding/coverage/status/semantics/deadline
+validated, then its exact hash and byte count are atomically finalized in `PRODUCT_RECEIPT.json`.
+The Java consumer independently validates these same bytes again. Neither READY nor PASS is
+manufactured by the telemetry coordinator.
 
 Each check retains status, timestamp, selected canonical UUIDs and sanitized individual evidence:
 operation, HTTP/inspection status, semantic validation, latency and safe request ID. PASS alone
@@ -125,6 +164,25 @@ and relative deltas are reported separately. Comparable/no increase is NORMAL; a
 median/p90 increase is DEGRADED; result identity/cardinality drift is INCOMPARABLE. None is latency
 PASS. Relative/advisory drift alone cannot contain V3; all absolute safety/correctness evidence
 remains hard. Detail 350 ms remains diagnostic only, and all historical timeout evidence remains.
+
+## V3 order and containment
+
+Actual V3 order is preconditions and cold safety → verified PRE → re-adoption import → exact
+idempotent replay → POST → advisory computation → provenance → accounting → anomaly → read-only
+functional/graph safety → product acceptance → final health → immutable final gate. V2 keeps its
+original order/policy. A known hard failure short-circuits before any remaining mutation-capable
+product step; valid DEGRADED or INCOMPARABLE advisory does not short-circuit.
+
+A V3 FAILED gate never directly retires catalog exposure. Failure records immutable gate evidence,
+commits `PILOT_CONTAINMENT_REQUESTED`, then performs a separate genuinely read-only repeatable-read
+inspection. It verifies persisted exact B run/hash/method/stage and frozen A lineage/decisions,
+the exact 71 UUIDs and 142 refs, source ownership, schema/graph guards, ownership/action digests,
+manual protection and newer legitimate references. Mismatch stops with owner intervention and
+leaves exposure untouched; there is no blind fallback. Under existing pilot/graph locks, the
+inspection is revalidated without silently replanning before the existing retirement-only domain
+service can execute. Existing STARTED/COMPLETED events carry the inspection and phase ordering.
+Retries and ALREADY_CONTAINED preserve history; user graph and both run histories remain intact.
+V17 and its existing event vocabulary are unchanged; no migration is introduced.
 
 Implementation tests use mock HTTP servers/synthetic files/isolated PostGIS Testcontainers only.
 CI builds the production image and verifies the private GET launcher fails closed without

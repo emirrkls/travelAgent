@@ -11,6 +11,7 @@ import org.mockito.InOrder;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.net.URI;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doThrow;
 
 class PlacePilotAutonomousCanaryServiceTest {
     private static final UUID RUN_ID =
@@ -89,12 +91,88 @@ class PlacePilotAutonomousCanaryServiceTest {
         assertThat(result.diagnostics().path("measured_pass").asBoolean()).isTrue();
         assertThat(result.diagnostics().has("performance")).isFalse();
         assertThat(result.diagnostics().path("persistent_performance").path("PERFORMANCE_ADVISORY").asText()).isEqualTo("DEGRADED");
-        InOrder order = inOrder(adapter, fixture.importer());
+        InOrder order = inOrder(adapter, fixture.importer(), fixture.gates(), fixture.anomalies(), fixture.probes());
         order.verify(fixture.importer()).validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION));
         order.verify(adapter).capturePersistent("PRE", RUN_ID, HASH);
         order.verify(fixture.importer(), times(2)).importApproved(any(Path.class), eq(HASH), eq(AUTHORIZATION));
         order.verify(adapter).capturePersistent("POST", RUN_ID, HASH);
+        order.verify(fixture.gates()).verifyV3Provenance(RUN_ID);
+        order.verify(fixture.gates()).verifyV3Accounting(eq(RUN_ID),any(),any());
+        order.verify(fixture.anomalies()).audit(eq(RUN_ID),any());
+        order.verify(fixture.probes()).captureAfter(any(),any());
+        order.verify(fixture.gates()).inspectV3Containment(RUN_ID,HASH);
+        order.verify(adapter).productSafety(eq(RUN_ID),eq(HASH),any());
         order.verify(adapter).productAcceptance(eq(RUN_ID), eq(HASH), any());
+        order.verify(adapter).finalHealth(RUN_ID,HASH);
+        order.verify(fixture.gates()).record(eq(RUN_ID),eq(true),any(),eq(null),any(),any());
+    }
+
+    private PlacePilotAutonomousCanaryService.V3Observations prepareV3(Fixture f) throws Exception {
+        var mapper=new ObjectMapper(); var envelope=(ObjectNode)mapper.readTree(f.manifestPath().toFile());
+        ((ObjectNode)envelope.path("manifest")).put("method_version",PlacePilotV3Policy.V3);
+        Files.writeString(f.manifestPath(),mapper.writeValueAsString(envelope));
+        when(f.importer().importApproved(any(Path.class),eq(HASH),eq(AUTHORIZATION))).thenReturn(importResult(false),importResult(true));
+        when(f.probes().captureBaseline(any(),any())).thenReturn(probeSuite(100,false));
+        when(f.probes().captureAfter(any(),any())).thenReturn(probeSuite(105,true));
+        when(f.anomalies().captureDidimBaseline()).thenReturn(snapshot());
+        when(f.anomalies().audit(eq(RUN_ID),any())).thenReturn(passingAudit());
+        var adapter=mock(PlacePilotAutonomousCanaryService.V3Observations.class); Instant start=Instant.now().minusSeconds(10);
+        when(adapter.capturePersistent("PRE",RUN_ID,HASH)).thenReturn(PlacePilotV3EvidenceFixture.snapshot(RUN_ID,HASH,"PRE",start,10));
+        when(adapter.capturePersistent("POST",RUN_ID,HASH)).thenReturn(PlacePilotV3EvidenceFixture.snapshot(RUN_ID,HASH,"POST",start.plusSeconds(5),40));
+        ObjectNode products=mapper.createObjectNode(); PlacePilotV3Policy.PRODUCT_CHECKS.forEach(k->products.put(k,"PASS"));
+        when(adapter.productAcceptance(eq(RUN_ID),eq(HASH),any())).thenReturn(products);
+        when(f.gates().inspectV3Containment(RUN_ID,HASH)).thenReturn(mapper.createObjectNode().put("valid",true));
+        when(f.gates().record(eq(RUN_ID),eq(false),any(),eq(null))).thenReturn(new PlacePilotCanaryGateService.GateResult(
+                UUID.randomUUID(),RUN_ID,"didim-run","STAGE_1","FAILED",false));
+        return adapter;
+    }
+
+    @ParameterizedTest @ValueSource(strings={"IDEMPOTENCY","INVALID_POST","POST_TIMEOUT","PROCESS_CHANGE","PROVENANCE","ACCOUNTING","ANOMALY","FUNCTIONAL","GRAPH"})
+    void everyKnownV3HardFailureShortCircuitsProductThenRecordsFailureBeforeContainment(String fault) throws Exception {
+        Fixture f=fixture(); var adapter=prepareV3(f);
+        switch(fault) {
+            case "IDEMPOTENCY" -> when(f.importer().importApproved(any(Path.class),eq(HASH),eq(AUTHORIZATION)))
+                    .thenReturn(importResult(false),importResult(false));
+            case "INVALID_POST" -> when(adapter.capturePersistent("POST",RUN_ID,HASH)).thenReturn(new ObjectMapper().createObjectNode());
+            case "POST_TIMEOUT" -> when(adapter.capturePersistent("POST",RUN_ID,HASH)).thenThrow(new IOException("FIXTURE_TIMEOUT"));
+            case "PROCESS_CHANGE" -> {
+                var post=PlacePilotV3EvidenceFixture.snapshot(RUN_ID,HASH,"POST",Instant.now().minusSeconds(5),40);
+                ((ObjectNode)post.path("target")).put("java_identity","7:99999"); when(adapter.capturePersistent("POST",RUN_ID,HASH)).thenReturn(post);
+            }
+            case "PROVENANCE" -> doThrow(new IllegalStateException("FIXTURE_PROVENANCE")).when(f.gates()).verifyV3Provenance(RUN_ID);
+            case "ACCOUNTING" -> doThrow(new IllegalStateException("FIXTURE_ACCOUNTING")).when(f.gates()).verifyV3Accounting(eq(RUN_ID),any(),any());
+            case "ANOMALY" -> when(f.anomalies().audit(eq(RUN_ID),any())).thenReturn(
+                    new PlacePilotCatalogAnomalyService.AuditResult(new ObjectMapper().createObjectNode(),false,1,0,0));
+            case "FUNCTIONAL" -> when(f.probes().captureAfter(any(),any())).thenThrow(new IllegalStateException("FIXTURE_5XX"));
+            case "GRAPH" -> when(f.gates().inspectV3Containment(RUN_ID,HASH)).thenThrow(new IllegalStateException("FIXTURE_GRAPH"));
+        }
+        assertThatThrownBy(()->f.service().run(configuration(f.manifestPath()),adapter)).isInstanceOf(Exception.class);
+        verify(adapter,never()).productAcceptance(any(),any(),any()); verify(adapter,never()).finalHealth(any(),any());
+        InOrder failureOrder=inOrder(f.gates());
+        failureOrder.verify(f.gates()).record(eq(RUN_ID),eq(false),any(),eq(null));
+        failureOrder.verify(f.gates()).containV3(RUN_ID,HASH);
+        if(fault.equals("IDEMPOTENCY")) verify(adapter,never()).capturePersistent("POST",RUN_ID,HASH);
+        if(List.of("INVALID_POST","POST_TIMEOUT","PROCESS_CHANGE","IDEMPOTENCY").contains(fault))
+            verify(f.gates(),never()).verifyV3Provenance(any());
+        if(fault.equals("PROVENANCE")) verify(f.gates(),never()).verifyV3Accounting(any(),any(),any());
+        if(List.of("PROVENANCE","ACCOUNTING").contains(fault)) verify(f.anomalies(),never()).audit(any(),any());
+    }
+
+    @Test void v3InvalidPreEvidenceNeverImportsOrCreatesContainment() throws Exception {
+        Fixture f=fixture(); var adapter=prepareV3(f);
+        when(adapter.capturePersistent("PRE",RUN_ID,HASH)).thenReturn(new ObjectMapper().createObjectNode());
+        assertThatThrownBy(()->f.service().run(configuration(f.manifestPath()),adapter)).isInstanceOf(Exception.class);
+        verify(f.importer(),never()).importApproved(any(Path.class),anyString(),anyString());
+        verifyNoInteractions(f.gates()); verify(adapter,never()).productAcceptance(any(),any(),any());
+    }
+
+    @Test void v3FinalHealthFailureContainedAndBadInspectionRequiresOwnerNoBlindFallback() throws Exception {
+        Fixture f=fixture(); var adapter=prepareV3(f);
+        doThrow(new IllegalStateException("FIXTURE_UNHEALTHY")).when(adapter).finalHealth(RUN_ID,HASH);
+        when(f.gates().containV3(RUN_ID,HASH)).thenThrow(new IllegalStateException("INSPECTION_INVALID"));
+        assertThatThrownBy(()->f.service().run(configuration(f.manifestPath()),adapter)).hasMessage("V3_CONTAINMENT_OWNER_INTERVENTION_REQUIRED");
+        verify(adapter).productAcceptance(eq(RUN_ID),eq(HASH),any());
+        verify(f.gates()).record(eq(RUN_ID),eq(false),any(),eq(null)); verify(f.gates()).containV3(RUN_ID,HASH);
     }
 
     @Test

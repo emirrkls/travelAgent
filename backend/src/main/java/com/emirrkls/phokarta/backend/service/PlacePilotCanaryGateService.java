@@ -52,11 +52,24 @@ public class PlacePilotCanaryGateService {
 
     public GateResult record(UUID syncRunId, boolean passed, JsonNode diagnostics,
                              OffsetDateTime checkedAt, PlacePilotSourceAccounting.Approved approved) {
+        return record(syncRunId, passed, diagnostics, checkedAt, approved, null);
+    }
+
+    public GateResult record(UUID syncRunId, boolean passed, JsonNode diagnostics,
+                             OffsetDateTime checkedAt, PlacePilotSourceAccounting.Approved approved,
+                             PlacePilotV3Policy.Evidence persistentEvidence) {
         if (passed && (approved == null || !syncRunId.equals(approved.runId()))) {
             throw new IllegalArgumentException("passing canary gate requires verified sealed accounting");
         }
+        JsonNode submitted = diagnostics;
+        if (persistentEvidence != null && diagnostics instanceof ObjectNode object) {
+            ObjectNode withReceipt = object.deepCopy();
+            withReceipt.set("persistent_performance", persistentEvidence.summary());
+            submitted = withReceipt;
+        }
+        JsonNode finalSubmitted = submitted;
         return transactions.execute(transaction ->
-                recordLocked(syncRunId, passed, diagnostics, checkedAt, approved));
+                recordLocked(syncRunId, passed, finalSubmitted, checkedAt, approved, persistentEvidence));
     }
 
     private GateResult recordLocked(
@@ -64,7 +77,8 @@ public class PlacePilotCanaryGateService {
             boolean passed,
             JsonNode diagnostics,
             OffsetDateTime checkedAt,
-            PlacePilotSourceAccounting.Approved approved
+            PlacePilotSourceAccounting.Approved approved,
+            PlacePilotV3Policy.Evidence persistentEvidence
     ) {
         List<String> pilotKeys = jdbc.query(
                 "SELECT pilot_run_key FROM place_provider_sync_runs WHERE id = ?",
@@ -83,12 +97,14 @@ public class PlacePilotCanaryGateService {
         jdbc.query("SELECT pg_advisory_xact_lock(5517, 917)",
                 (rs, rowNum) -> rs.getObject(1));
         List<RunIdentity> runs = jdbc.query("""
-                SELECT pilot_run_key, canary_stage, status, completed_at, gate_deadline, manifest_hash
+                SELECT pilot_run_key, canary_stage, status, completed_at, gate_deadline, manifest_hash,
+                       method_version, started_at
                   FROM place_provider_sync_runs WHERE id = ?
                 """, (rs, rowNum) -> new RunIdentity(
                 rs.getString("pilot_run_key"), rs.getString("canary_stage"),
                 rs.getString("status"), rs.getObject("completed_at", OffsetDateTime.class),
-                rs.getObject("gate_deadline", OffsetDateTime.class), rs.getString("manifest_hash")),
+                rs.getObject("gate_deadline", OffsetDateTime.class), rs.getString("manifest_hash"),
+                rs.getString("method_version"), rs.getObject("started_at", OffsetDateTime.class)),
                 syncRunId);
         if (runs.size() != 1 || !"SUCCEEDED".equals(runs.getFirst().status())) {
             throw new IllegalArgumentException("canary gate requires a successful import run");
@@ -166,7 +182,15 @@ public class PlacePilotCanaryGateService {
                     throw new IllegalArgumentException(
                             "canary gate diagnostics exceed the 48 KiB limit");
                 }
-                validatePassingExternalDiagnostics(submittedDiagnostics);
+                boolean v3 = PlacePilotV3Policy.V3.equals(run.methodVersion());
+                if (v3) {
+                    if (persistentEvidence == null) throw new IllegalArgumentException("v3 requires verified persistent telemetry");
+                    persistentEvidence.validateBinding(syncRunId, run.manifestHash(),
+                            run.startedAt().toInstant(), run.completedAt().toInstant());
+                } else if (!PlacePilotV3Policy.V2.equals(run.methodVersion())) {
+                    throw new IllegalArgumentException("unknown validation method cannot pass");
+                }
+                validatePassingExternalDiagnostics(submittedDiagnostics, v3);
                 verifiedDiagnostics = attachDatabaseSafety(syncRunId, submittedDiagnostics, approved);
                 validateDatabaseSafety(verifiedDiagnostics);
             } catch (IllegalArgumentException unsafeGate) {
@@ -215,8 +239,8 @@ public class PlacePilotCanaryGateService {
         return result;
     }
 
-    private void validatePassingExternalDiagnostics(JsonNode diagnostics) {
-        if (!"AUTONOMOUS_HTTP_AND_DATABASE_V1".equals(
+    void validatePassingExternalDiagnostics(JsonNode diagnostics, boolean v3) {
+        if (!(v3 ? "AUTONOMOUS_V3_PERSISTENT_ADVISORY" : "AUTONOMOUS_HTTP_AND_DATABASE_V1").equals(
                 diagnostics.path("probe_mode").asText())
                 || !diagnostics.path("baseline_captured_before_import").asBoolean(false)
                 || !diagnostics.path("measured_pass").asBoolean(false)
@@ -272,6 +296,24 @@ public class PlacePilotCanaryGateService {
                 throw new IllegalArgumentException(
                         "passing canary gate has incomplete " + surface + " Place coverage");
             }
+        }
+        if (v3) {
+            if (selectedPlaceIds.size() != PlacePilotV3Policy.PILOT_SIZE) {
+                throw new IllegalArgumentException("v3 selected coverage must be exactly 71");
+            }
+            for (String check : PlacePilotV3Policy.PRODUCT_CHECKS) {
+                if (!"PASS".equals(diagnostics.path("product_acceptance").path(check).asText())) {
+                    throw new IllegalArgumentException("v3 product acceptance lacks " + check);
+                }
+            }
+            for (String field : List.of("baseline_rate", "after_rate")) {
+                JsonNode rate = diagnostics.path("api_error_rate").path(field);
+                if (!rate.isNumber() || rate.doubleValue() != 0.0) {
+                    throw new IllegalArgumentException("v3 HTTP errors are hard failures");
+                }
+            }
+            // Relative delta and advisory classification are intentionally NOT safety predicates.
+            return;
         }
         JsonNode performance = diagnostics.path("performance");
         if (!performance.isObject()) {
@@ -686,7 +728,9 @@ public class PlacePilotCanaryGateService {
             String status,
             OffsetDateTime completedAt,
             OffsetDateTime gateDeadline,
-            String manifestHash
+            String manifestHash,
+            String methodVersion,
+            OffsetDateTime startedAt
     ) {}
 
     private record ExistingGate(

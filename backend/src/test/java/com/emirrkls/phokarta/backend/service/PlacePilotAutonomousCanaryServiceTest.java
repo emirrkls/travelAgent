@@ -48,6 +48,18 @@ class PlacePilotAutonomousCanaryServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void v3WithoutExplicitPersistentAdapterStopsBeforeAnyProbeOrWrite() throws Exception {
+        Fixture fixture = fixture();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode envelope = (ObjectNode) mapper.readTree(fixture.manifestPath().toFile());
+        ((ObjectNode) envelope.path("manifest")).put("method_version", PlacePilotV3Policy.V3);
+        Files.writeString(fixture.manifestPath(), mapper.writeValueAsString(envelope));
+        assertThatThrownBy(() -> fixture.service().run(configuration(fixture.manifestPath())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("no one-shot fallback");
+        verifyNoInteractions(fixture.importer(), fixture.probes(), fixture.gates(), fixture.anomalies(), fixture.artifacts());
+    }
+
+    @Test
     void capturesBaselineBeforeImportThenReplaysAuditsAndGatesMeasuredResults()
             throws Exception {
         Fixture fixture = fixture();

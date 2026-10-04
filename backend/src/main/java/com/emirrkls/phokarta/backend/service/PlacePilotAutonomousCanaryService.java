@@ -59,10 +59,27 @@ public class PlacePilotAutonomousCanaryService {
     }
 
     public CanaryExecution run(Configuration configuration) throws IOException {
+        return run(configuration, null);
+    }
+
+    /** Future private operations adapter; deliberately no CLI/public API wiring in this design task. */
+    public interface V3Observations {
+        /** GET-only external process against the persistent backend; sanitized artifact independently read back. */
+        JsonNode capturePersistent(String role, UUID runId, String manifestHash) throws IOException;
+        /** Existing authorized product workflow, not an attestation that relative latency passed. */
+        ObjectNode productAcceptance(UUID runId, String manifestHash,
+                                     List<PlacePilotHttpProbeService.ProbeTarget> targets) throws IOException;
+    }
+
+    public CanaryExecution run(Configuration configuration, V3Observations v3Observations) throws IOException {
         configuration.validate();
         ReadEnvelope sealedEnvelope = readEnvelope(configuration.manifestPath());
         JsonNode envelope = sealedEnvelope.document();
         JsonNode manifest = requireObject(envelope, "manifest");
+        boolean v3 = PlacePilotV3Policy.isV3(manifest);
+        if (v3 && v3Observations == null) {
+            throw new IllegalArgumentException("v3 requires an explicitly approved persistent/product operations adapter; no one-shot fallback");
+        }
         String envelopeHash = requiredText(envelope, "manifest_hash");
         if (!configuration.expectedManifestHash().equals(envelopeHash)
                 || !envelopeHash.equals(importer.hashManifest(manifest))) {
@@ -106,6 +123,8 @@ public class PlacePilotAutonomousCanaryService {
                     baselineHttp, baselineIdentity, configuration.timeout());
             throw new PlacePilotBaselineDiagnostics.BaselineFailure(diagnostics);
         }
+        JsonNode persistentBefore = v3 ? v3Observations.capturePersistent("BASELINE", runId, envelopeHash) : null;
+        if (v3) PlacePilotV3Policy.verifyBaseline(runId, envelopeHash, persistentBefore);
 
         PlacePilotImportService.ImportResult imported = null;
         boolean importCommitted = false;
@@ -143,9 +162,26 @@ public class PlacePilotAutonomousCanaryService {
                     baselineHttp, afterHttp, audit, idempotent, idempotencyFailure,
                     baselinePlaceId, selectedTargets);
             diagnostics.set("preimport_baseline_artifact", verifiedBaseline.toJson());
+            PlacePilotV3Policy.Evidence persistentEvidence = null;
+            if (v3) {
+                // Functional publication can change payload; telemetry deliberately brackets the
+                // activation before synthetic product graph mutation. Sentinel IDs must remain stable.
+                JsonNode persistentAfter = v3Observations.capturePersistent("AFTER", runId, envelopeHash);
+                persistentEvidence = PlacePilotV3Policy.verify(runId, envelopeHash, persistentBefore, persistentAfter);
+                ObjectNode product = v3Observations.productAcceptance(runId, envelopeHash, selectedTargets);
+                diagnostics.set("product_acceptance", product);
+                diagnostics.put("probe_mode", "AUTONOMOUS_V3_PERSISTENT_ADVISORY");
+                diagnostics.remove("performance"); // one-shot relative statistic is NOT authoritative in v3
+                diagnostics.set("persistent_performance", persistentEvidence.summary());
+                boolean productPassed = product != null && PlacePilotV3Policy.PRODUCT_CHECKS.stream()
+                        .allMatch(check -> "PASS".equals(product.path(check).asText()));
+                diagnostics.put("measured_pass", baselineHttp.passed() && afterHttp.passed()
+                        && audit.passed() && idempotent && productPassed);
+            }
             boolean measuredPass = diagnostics.path("measured_pass").asBoolean(false);
-            PlacePilotCanaryGateService.GateResult gate = gates.record(
-                    imported.runId(), measuredPass, diagnostics, null, approved);
+            PlacePilotCanaryGateService.GateResult gate = v3
+                    ? gates.record(imported.runId(), measuredPass, diagnostics, null, approved, persistentEvidence)
+                    : gates.record(imported.runId(), measuredPass, diagnostics, null, approved);
             return new CanaryExecution(imported, gate, diagnostics);
         } catch (RuntimeException | IOException failure) {
             if (importCommitted && imported != null) {

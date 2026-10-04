@@ -51,6 +51,8 @@ _VALID_STAGES = frozenset({"STAGE_1", "STAGE_2", "STAGE_3"})
 _PILOT_RUN_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{7,159}$")
 _DECISION_REASON = re.compile(r"^[A-Z][A-Z0-9_]{1,119}$")
 ACCOUNTING_SCHEMA_VERSION = "didim-autonomy-accounting-v1"
+V3_VALIDATION_METHOD = "didim-autonomous-validation-v3"
+CONTAINED_V2_RUN = "d70adea5-6e3f-4c32-92c0-49695eeeb9ce"
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -506,7 +508,9 @@ def _assemble_manifest(
     return manifest
 
 
-def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int]:
+def validate_canary_manifest_contract(
+    envelope: dict[str, Any], *, predecessor: dict[str, Any] | None = None,
+) -> dict[str, int]:
     """Mirror the backend's structural/cardinality gate for round-trip tests."""
 
     if not isinstance(envelope, dict) or not isinstance(envelope.get("manifest"), dict):
@@ -516,8 +520,10 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
         raise ValueError("manifest hash does not match canonical content")
     if manifest.get("status") != AUTHORIZED_STATUS:
         raise ValueError("manifest is not operationally authorized")
-    if manifest.get("method_version") != AUTONOMOUS_VALIDATION_METHOD_VERSION:
+    if manifest.get("method_version") not in {AUTONOMOUS_VALIDATION_METHOD_VERSION, V3_VALIDATION_METHOD}:
         raise ValueError("manifest method version is invalid")
+    if manifest.get("method_version") == V3_VALIDATION_METHOD:
+        _validate_v3_readoption(envelope, predecessor)
     if manifest.get("reporting_schema_version") != ACCOUNTING_SCHEMA_VERSION:
         raise ValueError("manifest accounting schema is invalid")
     if manifest.get("canary_stage") not in _VALID_STAGES:
@@ -743,6 +749,37 @@ def validate_canary_manifest_contract(envelope: dict[str, Any]) -> dict[str, int
         "eligible": eligible,
         "selected": len(selected),
     }
+
+
+def _validate_v3_readoption(envelope: dict[str, Any], predecessor: dict[str, Any] | None) -> None:
+    """Validation only. Does not mint a run UUID, authorize, build, seal or write a manifest."""
+    if predecessor is None:
+        raise ValueError("v3 requires the immutable sealed v2 predecessor")
+    validate_canary_manifest_contract(predecessor)
+    old = predecessor["manifest"]
+    new = envelope["manifest"]
+    if old["method_version"] != AUTONOMOUS_VALIDATION_METHOD_VERSION or old["run_id"] != CONTAINED_V2_RUN:
+        raise ValueError("v3 predecessor must be the historical v2 run")
+    if (
+        new.get("run_id") == old["run_id"]
+        or new.get("authorization_reference") == old["authorization_reference"]
+        or new.get("reauthorizes_run_id") != old["run_id"]
+        or new.get("predecessor_manifest_hash") != predecessor["manifest_hash"]
+        or new.get("canary_stage") != "STAGE_1"
+        or new.get("canonical_identity_method_version") != AUTONOMOUS_VALIDATION_METHOD_VERSION
+        or new.get("performance_policy") != "ADVISORY_ONLY"
+    ):
+        raise ValueError("v3 requires new authorization/run, exact predecessor, v2 UUID basis and advisory policy")
+    eligible = [c for c in new.get("candidates", []) if c.get("canary_eligible") is True]
+    selected = [c for c in new.get("candidates", []) if c.get("selected_for_stage") is True]
+    if len(eligible) != 71 or len(selected) != 71:
+        raise ValueError("v3 must re-adopt exactly 71 eligible Places")
+    permitted = {
+        "run_id", "method_version", "authorization_reference", "reauthorizes_run_id",
+        "predecessor_manifest_hash", "canonical_identity_method_version", "performance_policy",
+    }
+    if {k: v for k, v in old.items() if k not in permitted} != {k: v for k, v in new.items() if k not in permitted}:
+        raise ValueError("v3 may not change frozen candidates, source observations, UUIDs or scope")
 
 
 def build_canary_manifest(

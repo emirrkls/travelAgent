@@ -9,6 +9,8 @@ import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService.OperationalFailure;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService.Reason;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackService;
+import com.emirrkls.phokarta.backend.service.PlacePilotV3Policy;
+import com.emirrkls.phokarta.backend.service.PlacePilotV3EvidenceFixture;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -16,6 +18,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.boot.ApplicationArguments;
@@ -54,6 +58,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,6 +104,213 @@ class PlacePilotRollbackOperationsIntegrationTest {
         gates = new PlacePilotCanaryGateService(jdbc, rollback, transactions);
         operations = new PlacePilotRollbackOperationsService(
                 jdbc, transactions, rollback, mapper);
+    }
+
+    @Test
+    void v3ReadoptsExact71WithImmutableV2HistoryIdempotencyAndGraphSafeContainment() {
+        // Synthetic local fixtures only; the production run UUID is used as the frozen identity
+        // contract in an isolated Testcontainers database. No operational manifest is written.
+        ObjectNode oldEnvelope = manifest("v3-design", 71, true);
+        ObjectNode old = (ObjectNode) oldEnvelope.path("manifest");
+        old.put("run_id", PlacePilotV3Policy.CONTAINED_RUN.toString());
+        // The general fixture's monotonic grid exceeds 6 km at N=71. Keep this scenario in scope.
+        int index = 0;
+        for (JsonNode node : old.path("candidates")) {
+            if (!node.path("selected_for_stage").asBoolean()) continue;
+            double latitude = 37.370 + (index / 10) * 0.001;
+            double longitude = 27.260 + (index % 10) * 0.001;
+            ((ObjectNode) node.path("canonical")).put("latitude", latitude).put("longitude", longitude);
+            for (JsonNode sourceId : node.path("source_record_ids")) {
+                for (JsonNode source : old.path("source_records")) {
+                    if (sourceId.asText().equals(source.path("source_record_id").asText())) {
+                        ((ObjectNode) source).put("latitude", latitude).put("longitude", longitude);
+                    }
+                }
+            }
+            index++;
+        }
+        refreshAccountingAndHashes(old);
+        oldEnvelope.put("manifest_hash", importer.hashManifest(old));
+        PilotFixture a = importEnvelope(oldEnvelope, false);
+        gates.record(a.runId(), false, mapper.createObjectNode().put("historical_v2_failure", true), null);
+        operations.execute(a.runId(), a.manifestHash(), Reason.PRODUCT_ACCEPTANCE_FAILURE);
+        GraphFixture graph = addUserGraph(a);
+        UUID manual = deterministicUuid("v3-manual-protected");
+        insertPlace(manual, "Existing manual/community Place", "MANUAL_COMMUNITY");
+        List<Map<String, Object>> historyA = immutableRunHistory(a.runId());
+        List<Map<String, Object>> sourcesA = jdbc.queryForList("select to_jsonb(source)::text as row from place_source_records source where sync_run_id = ? order by id", a.runId());
+        List<Map<String, Object>> quarantineA = jdbc.queryForList("select to_jsonb(queue)::text as row from place_validation_recheck_queue queue where pilot_run_key = ?", old.path("pilot_run_key").asText());
+        long placeRows = count("select count(*) from places");
+
+        ObjectNode envelope = oldEnvelope.deepCopy();
+        ObjectNode b = (ObjectNode) envelope.path("manifest");
+        UUID newRun = deterministicUuid("v3-design-successor");
+        b.put("run_id", newRun.toString()).put("method_version", PlacePilotV3Policy.V3)
+                .put("authorization_reference", "test-v3-new-owner-authorization")
+                .put("reauthorizes_run_id", a.runId().toString())
+                .put("predecessor_manifest_hash", a.manifestHash())
+                .put("canonical_identity_method_version", PlacePilotV3Policy.V2)
+                .put("performance_policy", "ADVISORY_ONLY");
+        envelope.put("manifest_hash", importer.hashManifest(b));
+        ObjectNode changed = envelope.deepCopy();
+        ObjectNode changedCandidate = (ObjectNode) changed.path("manifest").path("candidates").get(0);
+        changedCandidate.put("decision_reason", "CHANGED_DECISION_REASON");
+        refreshAccountingAndHashes((ObjectNode) changed.path("manifest"));
+        changed.put("manifest_hash", importer.hashManifest(changed.path("manifest")));
+        assertThatThrownBy(() -> importer.importApproved(changed, changed.path("manifest_hash").asText(),
+                b.path("authorization_reference").asText())).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("predecessor candidate");
+        assertThat(count("select count(*) from place_provider_sync_runs where id = ?", newRun)).isZero();
+        ObjectNode fewer = envelope.deepCopy();
+        ((ObjectNode) fewer.path("manifest").path("candidates").get(0)).put("selected_for_stage", false);
+        fewer.put("manifest_hash", importer.hashManifest(fewer.path("manifest")));
+        assertThatThrownBy(() -> importer.importApproved(fewer, fewer.path("manifest_hash").asText(),
+                b.path("authorization_reference").asText())).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly 71");
+
+        Instant baselineTime = Instant.now().minusSeconds(5);
+        PilotFixture successor = importEnvelope(envelope, false);
+        assertThat(successor.placeIds()).containsExactlyElementsOf(a.placeIds());
+        assertThat(count("select count(*) from places")).isEqualTo(placeRows);
+        assertThat(count("select count(*) from place_source_records where sync_run_id = ?", newRun)).isZero();
+        assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and supersedes_write_id is not null and rollback_state = 'NONE'", newRun)).isEqualTo(71);
+        assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isEqualTo(142);
+        assertThat(count("select count(*) from place_external_ref_events where sync_run_id = ? and details ->> 'catalog_operation' = 'READOPT_RETIRED'", newRun)).isEqualTo(142);
+        assertThat(count("select count(*) from place_validation_decisions where sync_run_id = ? and supersedes_decision_id is not null", newRun)).isEqualTo(72);
+        assertThat(jdbc.queryForObject("select checkpoint_state ->> 'catalog_operation' from place_provider_sync_runs where id = ?", String.class, newRun)).isEqualTo("READOPT_RETIRED");
+        assertThat(immutableRunHistory(a.runId())).isEqualTo(historyA);
+        assertThat(jdbc.queryForList("select to_jsonb(source)::text as row from place_source_records source where sync_run_id = ? order by id", a.runId())).isEqualTo(sourcesA);
+        assertThat(jdbc.queryForList("select to_jsonb(queue)::text as row from place_validation_recheck_queue queue where pilot_run_key = ?", old.path("pilot_run_key").asText())).isEqualTo(quarantineA);
+
+        DatabaseSnapshot beforeReplay = snapshot(successor);
+        assertThat(importer.importApproved(envelope, successor.manifestHash(), successor.authorizationReference()).alreadyImported()).isTrue();
+        assertThat(snapshot(successor)).isEqualTo(beforeReplay);
+        ObjectNode diagnostics = passingGateDiagnostics(newRun);
+        diagnostics.put("probe_mode", "AUTONOMOUS_V3_PERSISTENT_ADVISORY");
+        ObjectNode products = diagnostics.putObject("product_acceptance");
+        PlacePilotV3Policy.PRODUCT_CHECKS.forEach(check -> products.put(check, "PASS"));
+        // Deliberately 100% worse relative latency. It cannot trigger v3 containment.
+        var evidence = PlacePilotV3Policy.verify(newRun, successor.manifestHash(),
+                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "BASELINE", baselineTime, 10),
+                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "AFTER", Instant.now(), 20));
+        assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).status()).isEqualTo("PASSED");
+        assertThat(jdbc.queryForObject("select diagnostics #>> '{persistent_performance,PERFORMANCE_ADVISORY}' from place_pilot_canary_gates where sync_run_id = ?", String.class, newRun)).isEqualTo("DEGRADED");
+        assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and rollback_state = 'NONE'", newRun)).isEqualTo(71);
+        assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).alreadyRecorded()).isTrue();
+        // Old containment replay is harmless after ownership transfers to B.
+        operations.execute(a.runId(), a.manifestHash(), Reason.PRODUCT_ACCEPTANCE_FAILURE);
+        assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isEqualTo(142);
+
+        var contained = operations.execute(newRun, successor.manifestHash(), Reason.PRODUCT_ACCEPTANCE_FAILURE);
+        assertThat(contained.rollbackResult().retiredCount()).isEqualTo(71);
+        assertThat(count("select count(*) from places where id = any (?::uuid[]) and catalog_status = 'RETIRED'",
+                "{" + String.join(",", a.placeIds().stream().map(UUID::toString).toList()) + "}")).isEqualTo(71);
+        assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'INACTIVE'", newRun)).isEqualTo(142);
+        assertUserGraphPreserved(graph);
+        assertThat(jdbc.queryForObject("select catalog_status from places where id = ?", String.class, manual)).isEqualTo("ACTIVE");
+        assertThat(immutableRunHistory(a.runId())).isEqualTo(historyA);
+        assertThat(jdbc.queryForList("select to_jsonb(source)::text as row from place_source_records source where sync_run_id = ? order by id", a.runId())).isEqualTo(sourcesA);
+        assertThat(count("select count(*) from place_pilot_operational_events where sync_run_id = ?", newRun)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select gate_status from place_pilot_canary_gates where sync_run_id = ?", String.class, a.runId())).isEqualTo("FAILED");
+        assertThat(count("select count(*) from places")).isEqualTo(placeRows);
+    }
+
+    private static List<Map<String, Object>> immutableRunHistory(UUID runId) {
+        return jdbc.queryForList("""
+                select 'run' as type, id::text as id, to_jsonb(run)::text as row from place_provider_sync_runs run where id = ?
+                union all select 'gate', id::text, to_jsonb(gate)::text from place_pilot_canary_gates gate where sync_run_id = ?
+                union all select 'write', id::text, to_jsonb(write)::text from place_pilot_catalog_writes write where sync_run_id = ?
+                union all select 'decision', id::text, to_jsonb(decision)::text from place_validation_decisions decision where sync_run_id = ?
+                union all select 'operational', id::text, to_jsonb(event)::text from place_pilot_operational_events event where sync_run_id = ?
+                union all select 'ref-event', id::text, to_jsonb(event)::text from place_external_ref_events event where sync_run_id = ?
+                order by type, id
+                """, runId, runId, runId, runId, runId, runId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"TIMEOUT", "PRODUCT", "PROVENANCE", "ACCOUNTING", "ANOMALY"})
+    void v3HardFailuresStillCommitFailedGateAndContainOnlyNewOwnership(String failure) {
+        // Independent local DBs permit the exact historical UUID contract in each scenario.
+        JdbcTemplate savedJdbc = jdbc;
+        DataSourceTransactionManager savedTransactions = transactions;
+        PlacePilotImportService savedImporter = importer;
+        PlacePilotCanaryGateService savedGates = gates;
+        PlacePilotRollbackOperationsService savedOperations = operations;
+        String name = "v3_safety_" + failure.toLowerCase(Locale.ROOT);
+        savedJdbc.execute("create database " + name);
+        String url = databaseUrl(name);
+        Flyway.configure().dataSource(url, POSTGIS.getUsername(), POSTGIS.getPassword())
+                .locations("classpath:db/migration/schema").load().migrate();
+        try {
+            jdbc = jdbc(url);
+            transactions = new DataSourceTransactionManager(jdbc.getDataSource());
+            var rollback = new PlacePilotRollbackService(jdbc, new PlaceGraphProtectionRepository(jdbc));
+            importer = new PlacePilotImportService(jdbc, mapper, transactions, rollback);
+            gates = new PlacePilotCanaryGateService(jdbc, rollback, transactions);
+            operations = new PlacePilotRollbackOperationsService(jdbc, transactions, rollback, mapper);
+            ObjectNode oldEnvelope = manifest("v3-hard-" + failure.toLowerCase(Locale.ROOT), 71, false);
+            ObjectNode old = (ObjectNode) oldEnvelope.path("manifest");
+            old.put("run_id", PlacePilotV3Policy.CONTAINED_RUN.toString());
+            // Unique coordinates within the frozen 6 km scope.
+            int i = 0;
+            for (JsonNode candidate : old.path("candidates")) {
+                double lat = 37.370 + (i / 10) * 0.001, lon = 27.260 + (i % 10) * 0.001;
+                ((ObjectNode) candidate.path("canonical")).put("latitude", lat).put("longitude", lon);
+                for (JsonNode sourceId : candidate.path("source_record_ids")) {
+                    for (JsonNode source : old.path("source_records")) {
+                        if (sourceId.asText().equals(source.path("source_record_id").asText())) {
+                            ((ObjectNode) source).put("latitude", lat).put("longitude", lon);
+                        }
+                    }
+                }
+                i++;
+            }
+            refreshAccountingAndHashes(old); oldEnvelope.put("manifest_hash", importer.hashManifest(old));
+            PilotFixture a = importEnvelope(oldEnvelope, false);
+            gates.record(a.runId(), false, mapper.createObjectNode().put("historical_failure", true), null);
+            List<Map<String, Object>> oldHistory = immutableRunHistory(a.runId());
+            ObjectNode envelope = oldEnvelope.deepCopy();
+            ObjectNode b = (ObjectNode) envelope.path("manifest");
+            UUID newRun = deterministicUuid("v3-hard-successor:" + failure);
+            b.put("run_id", newRun.toString()).put("method_version", PlacePilotV3Policy.V3)
+                    .put("authorization_reference", "test-new-v3-hard-authorization:" + failure)
+                    .put("reauthorizes_run_id", a.runId().toString()).put("predecessor_manifest_hash", a.manifestHash())
+                    .put("canonical_identity_method_version", PlacePilotV3Policy.V2).put("performance_policy", "ADVISORY_ONLY");
+            envelope.put("manifest_hash", importer.hashManifest(b));
+            Instant before = Instant.now().minusSeconds(5);
+            PilotFixture adopted = importEnvelope(envelope, false);
+            var evidence = PlacePilotV3Policy.verify(newRun, adopted.manifestHash(),
+                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "BASELINE", before, 10),
+                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "AFTER", Instant.now(), 20));
+            ObjectNode diagnostics = passingGateDiagnostics(newRun);
+            diagnostics.put("probe_mode", "AUTONOMOUS_V3_PERSISTENT_ADVISORY");
+            var product = diagnostics.putObject("product_acceptance");
+            PlacePilotV3Policy.PRODUCT_CHECKS.forEach(check -> product.put(check, "PASS"));
+            switch (failure) {
+                case "TIMEOUT" -> diagnostics.withObject("http_probes").withObject("after").put("passed", false);
+                case "PRODUCT" -> product.put("synthetic_v2_experience", "FAIL");
+                case "ANOMALY" -> diagnostics.withObject("catalog_anomaly_report").put("passed", false);
+                case "PROVENANCE" -> jdbc.update("update place_external_refs set status = 'INACTIVE' where last_sync_run_id = ?", newRun);
+                case "ACCOUNTING" -> jdbc.update("""
+                        INSERT INTO place_source_records (id, sync_run_id, provider, external_id,
+                            source_release, snapshot_id, method_version, provider_categories,
+                            source_hash, license_identifier, provenance, observed_at, retrieved_at)
+                        SELECT ?, ?, provider, 'extra-unsealed-source', source_release, snapshot_id,
+                               method_version, provider_categories, source_hash, license_identifier,
+                               provenance, observed_at, retrieved_at
+                          FROM place_source_records WHERE sync_run_id = ? ORDER BY id LIMIT 1
+                        """, deterministicUuid("v3-extra-source"), newRun, a.runId());
+                default -> throw new AssertionError(failure);
+            }
+            assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).status()).isEqualTo("FAILED");
+            assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and rollback_state = 'NONE'", newRun)).isZero();
+            assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isZero();
+            assertThat(count("select count(*) from places where catalog_status = 'RETIRED' and origin = 'EXTERNAL_IMPORT'")).isEqualTo(71);
+            assertThat(immutableRunHistory(a.runId())).isEqualTo(oldHistory);
+        } finally {
+            jdbc = savedJdbc; transactions = savedTransactions; importer = savedImporter;
+            gates = savedGates; operations = savedOperations;
+        }
     }
 
     @Test

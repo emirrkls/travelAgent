@@ -54,7 +54,8 @@ public class PlacePilotImportService {
     private static final String EXPECTED_OVERTURE_RELEASE = "2026-09-23.0";
     private static final String EXPECTED_FSQ_RELEASE = "2026-09-15 20:07:45.157000";
     private static final String EXPECTED_FSQ_SNAPSHOT = "2325979374271449319";
-    private static final String EXPECTED_METHOD_VERSION = "didim-autonomous-validation-v2";
+    // Durable UUID basis, NOT the policy version of a successor run. Never change this.
+    private static final String EXPECTED_METHOD_VERSION = PlacePilotV3Policy.V2;
     private static final String EXPECTED_ACCOUNTING_SCHEMA_VERSION = "didim-autonomy-accounting-v1";
     private static final Set<String> APPROVED_SOURCE_METHOD_VERSIONS = Set.of(
             "didim-canonicalization-v2", "didim-canonicalization-v3");
@@ -202,7 +203,9 @@ public class PlacePilotImportService {
                     case "QUARANTINE" -> {
                         executeClaimed(runId, claimToken, () -> {
                             UUID decisionId = insertValidationDecision(runId, manifest, candidate);
-                            queueQuarantineRecheck(decisionId, manifest, candidate, now);
+                            if (!PlacePilotV3Policy.isV3(manifest)) {
+                                queueQuarantineRecheck(decisionId, manifest, candidate, now);
+                            }
                         });
                         counters.quarantinedCount++;
                     }
@@ -297,9 +300,11 @@ public class PlacePilotImportService {
             throw new IllegalArgumentException(
                     "manifest requires the autonomous canary operational authorization");
         }
-        if (!EXPECTED_METHOD_VERSION.equals(requiredText(manifest, "method_version"))) {
+        if (!Set.of(EXPECTED_METHOD_VERSION, PlacePilotV3Policy.V3)
+                .contains(requiredText(manifest, "method_version"))) {
             throw new IllegalArgumentException("manifest validation method is not approved for this canary");
         }
+        PlacePilotV3Policy.validateEnvelopePolicy(manifest);
         if (!requiredText(manifest, "pilot_run_key")
                 .matches("^[a-z0-9][a-z0-9-]{7,159}$")) {
             throw new IllegalArgumentException(
@@ -853,11 +858,23 @@ public class PlacePilotImportService {
             if (inserted == 0) {
                 throw new IllegalArgumentException("run UUID is already bound to another manifest");
             }
+            if (PlacePilotV3Policy.isV3(manifest)) {
+                ObjectNode history = objectMapper.createObjectNode();
+                history.put("catalog_operation", "READOPT_RETIRED");
+                history.put("canonical_identity_method_version", EXPECTED_METHOD_VERSION);
+                history.put("source_observation_owner_run_id", PlacePilotV3Policy.CONTAINED_RUN.toString());
+                history.put("predecessor_manifest_hash", requiredText(manifest, "predecessor_manifest_hash"));
+                history.put("planned_re_adoptions", PlacePilotV3Policy.PILOT_SIZE);
+                history.put("planned_new_place_rows", 0);
+                jdbc.update("UPDATE place_provider_sync_runs SET checkpoint_state = ?::jsonb WHERE id = ?",
+                        history.toString(), runId);
+            }
         });
         return completed[0];
     }
 
     private void validateClaimedRunState(JsonNode manifest, String planDigest, UUID runId) {
+        if (PlacePilotV3Policy.isV3(manifest)) validateV3PredecessorContent(manifest);
         String pilotRunKey = requiredText(manifest, "pilot_run_key");
         String canaryStage = requiredCanaryStage(manifest);
         String authorizationReference = requiredText(manifest, "authorization_reference");
@@ -913,6 +930,53 @@ public class PlacePilotImportService {
             if (candidate.path("selected_for_stage").asBoolean(false)) {
                 validateSelectedTarget(pilotRunKey, runId, canaryStage, manifest, candidate);
             }
+        }
+    }
+
+    /** Policy change only: no selection, source, taxonomy, UUID or quarantine changes. */
+    private void validateV3PredecessorContent(JsonNode manifest) {
+        UUID prior = PlacePilotV3Policy.CONTAINED_RUN;
+        Integer valid = jdbc.queryForObject("""
+                SELECT count(*) FROM place_provider_sync_runs run
+                 WHERE run.id = ? AND run.method_version = ? AND run.status = 'SUCCEEDED'
+                   AND run.manifest_hash = ? AND run.pilot_run_key = ? AND run.canary_stage = 'STAGE_1'
+                   AND EXISTS (SELECT 1 FROM place_pilot_canary_gates gate
+                               WHERE gate.sync_run_id = run.id AND gate.gate_status = 'FAILED')
+                   AND (SELECT count(*) FROM place_pilot_catalog_writes write
+                         WHERE write.sync_run_id = run.id) = 71
+                   AND NOT EXISTS (SELECT 1 FROM place_pilot_catalog_writes write
+                         WHERE write.sync_run_id = run.id AND write.rollback_state NOT IN ('RETIRED','RETIRED_GRAPH_PROTECTED'))
+                """, Integer.class, prior, EXPECTED_METHOD_VERSION,
+                requiredText(manifest, "predecessor_manifest_hash"), requiredText(manifest, "pilot_run_key"));
+        if (!Integer.valueOf(1).equals(valid)) {
+            throw new IllegalArgumentException("v3 requires the exact contained successful-import/FAILED-gate v2 run");
+        }
+        Set<String> oldCandidates = new HashSet<>(jdbc.query("""
+                SELECT candidate_key, candidate_hash, decision_state, canonical_place_id,
+                       canary_eligible, selected_for_stage, selection_rank
+                  FROM place_validation_decisions WHERE sync_run_id = ?
+                """, (rs, row) -> rs.getString(1) + "|" + rs.getString(2) + "|" + rs.getString(3)
+                + "|" + rs.getString(4) + "|" + rs.getBoolean(5) + "|" + rs.getBoolean(6)
+                + "|" + rs.getString(7), prior));
+        Set<String> proposed = new HashSet<>();
+        for (JsonNode candidate : requiredArray(manifest, "candidates")) {
+            proposed.add(requiredText(candidate, "candidate_id") + "|" + requiredText(candidate, "candidate_hash")
+                    + "|" + requiredText(candidate, "decision") + "|" + textOrNull(candidate, "canonical_place_id")
+                    + "|" + candidate.path("canary_eligible").asBoolean(false)
+                    + "|" + candidate.path("selected_for_stage").asBoolean(false)
+                    + "|" + (candidate.path("selection_rank").isIntegralNumber() ? candidate.path("selection_rank").asText() : null));
+        }
+        if (!oldCandidates.equals(proposed)) {
+            throw new IllegalArgumentException("v3 cannot change any predecessor candidate/hash/selection");
+        }
+        Set<UUID> oldSources = new HashSet<>(jdbc.query("SELECT id FROM place_source_records WHERE sync_run_id = ?",
+                (rs, row) -> rs.getObject(1, UUID.class), prior));
+        Set<UUID> sources = new HashSet<>();
+        for (JsonNode source : requiredArray(manifest, "source_records")) {
+            sources.add(UUID.fromString(requiredText(source, "source_record_id")));
+        }
+        if (!oldSources.equals(sources)) {
+            throw new IllegalArgumentException("v3 source observation set must remain immutable and complete");
         }
     }
 
@@ -1163,6 +1227,10 @@ public class PlacePilotImportService {
         UUID placeId = UUID.fromString(requiredText(candidate, "canonical_place_id"));
         JsonNode canonical = requiredObject(candidate, "canonical");
         ReuseLineage reuse = insertCanonicalPlace(runId, placeId, decisionId, canonical);
+        // Stable per-run activation time supports crash recovery without duplicate event history.
+        OffsetDateTime activationAt = PlacePilotV3Policy.isV3(manifest)
+                ? jdbc.queryForObject("SELECT started_at FROM place_provider_sync_runs WHERE id = ?",
+                    OffsetDateTime.class, runId) : null;
 
         for (JsonNode sourceIdNode : requiredArray(candidate, "source_record_ids")) {
             UUID sourceId = UUID.fromString(sourceIdNode.asText());
@@ -1202,6 +1270,14 @@ public class PlacePilotImportService {
                     : "{\"reauthorizes_run_id\":\"" + reuse.predecessorRunId()
                             + "\",\"supersedes_write_id\":\""
                             + reuse.predecessorWriteId() + "\"}";
+            if (PlacePilotV3Policy.isV3(manifest)) {
+                ObjectNode details = objectMapper.createObjectNode();
+                details.put("reauthorizes_run_id", reuse.predecessorRunId().toString());
+                details.put("supersedes_write_id", reuse.predecessorWriteId().toString());
+                details.put("catalog_operation", "READOPT_RETIRED");
+                eventDetails = details.toString();
+            }
+            OffsetDateTime eventAt = activationAt == null ? source.retrievedAt() : activationAt;
             int eventInserted = jdbc.update("""
                     INSERT INTO place_external_ref_events (
                         id, provider, external_id, place_id, event_type, source_record_id,
@@ -1209,7 +1285,7 @@ public class PlacePilotImportService {
                     ) VALUES (?, ?, ?, ?, 'LINKED', ?, ?, ?, ?::jsonb)
                     ON CONFLICT (id) DO NOTHING
                     """, eventId, source.provider(), source.externalId(), placeId, sourceId,
-                    runId, source.retrievedAt(), eventDetails);
+                    runId, eventAt, eventDetails);
             if (eventInserted == 0) {
                 Integer sameEvent = jdbc.queryForObject("""
                         SELECT count(*) FROM place_external_ref_events
@@ -1219,7 +1295,7 @@ public class PlacePilotImportService {
                            AND redirected_external_id IS NULL AND occurred_at = ?
                            AND details = ?::jsonb
                         """, Integer.class, eventId, source.provider(), source.externalId(),
-                        placeId, sourceId, runId, source.retrievedAt(), eventDetails);
+                        placeId, sourceId, runId, eventAt, eventDetails);
                 if (!Integer.valueOf(1).equals(sameEvent)) {
                     throw new IllegalArgumentException("provider event UUID payload collision");
                 }

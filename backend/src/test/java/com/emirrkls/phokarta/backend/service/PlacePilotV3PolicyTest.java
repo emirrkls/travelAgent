@@ -13,8 +13,8 @@ class PlacePilotV3PolicyTest {
     private static final UUID RUN = UUID.fromString("12345678-1234-4234-8234-123456789012");
     private static final String HASH = "1".repeat(64);
     private static final Instant START = Instant.parse("2026-10-04T12:00:00Z");
-    private ObjectNode before() { return PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "BASELINE", START, 10); }
-    private ObjectNode after() { return PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "AFTER", START.plusSeconds(10), 20); }
+    private ObjectNode before() { return PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "PRE", START, 10); }
+    private ObjectNode after() { return PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "POST", START.plusSeconds(10), 20); }
     private ObjectNode first(ObjectNode value) { return (ObjectNode) value.path("requests").get(0); }
 
     @Test void largeRelativeIncreaseIsOnlyDegradedAdvisory() {
@@ -26,7 +26,7 @@ class PlacePilotV3PolicyTest {
         assertThat(evidence.summary().has("passed")).isFalse();
     }
     @Test void equalOrFasterIsNormalNotLatencyPass() {
-        var after = PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "AFTER", START.plusSeconds(10), 5);
+        var after = PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "POST", START.plusSeconds(10), 5);
         assertThat(PlacePilotV3Policy.verify(RUN, HASH, before(), after).summary().path("PERFORMANCE_ADVISORY").asText()).isEqualTo("NORMAL");
     }
     @Test void changedResultCardinalityIsIncomparableNotFabricatedEquivalence() {
@@ -116,5 +116,20 @@ class PlacePilotV3PolicyTest {
     @Test void arbitraryTargetMetadataCannotLeakIntoSanitizedReceipt() {
         var after = after(); after.withObject("target").put("unexpected_field", "not-for-report");
         assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, before(), after));
+    }
+    @Test void freshnessBindsPreCompletionNotBeginning() {
+        var pre = before();
+        PlacePilotV3Policy.verifyFreshPre(RUN, HASH, pre, START.plusSeconds(901)); // completion exactly 15 min ago
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verifyFreshPre(RUN, HASH, pre, START.plusSeconds(902)));
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verifyFreshPre(RUN, HASH, pre, START));
+        var post = PlacePilotV3EvidenceFixture.snapshot(RUN, HASH, "POST", START.plusSeconds(910), 10);
+        var receipt = PlacePilotV3Policy.verify(RUN, HASH, pre, post);
+        receipt.validateBinding(RUN, HASH, START.plusSeconds(901), START.plusSeconds(905));
+        assertThatIllegalArgumentException().isThrownBy(() -> receipt.validateBinding(RUN, HASH, START.plusSeconds(902), START.plusSeconds(905)));
+    }
+    @Test void actualPrometheusProcessStartCannotChangeBetweenSnapshots() {
+        var pre = before(); var post = after();
+        pre.put("process_start_time_seconds", 1000); post.put("process_start_time_seconds", 1001);
+        assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, pre, post));
     }
 }

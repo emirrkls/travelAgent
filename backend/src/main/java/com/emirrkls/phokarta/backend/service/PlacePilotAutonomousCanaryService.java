@@ -62,8 +62,10 @@ public class PlacePilotAutonomousCanaryService {
         return run(configuration, null);
     }
 
-    /** Future private operations adapter; deliberately no CLI/public API wiring in this design task. */
+    /** Private operations evidence boundary. Never exposed through a public API. */
     public interface V3Observations {
+        default void preflight(UUID runId, String manifestHash,
+                               List<PlacePilotHttpProbeService.ProbeTarget> targets) throws IOException {}
         /** GET-only external process against the persistent backend; sanitized artifact independently read back. */
         JsonNode capturePersistent(String role, UUID runId, String manifestHash) throws IOException;
         /** Existing authorized product workflow, not an attestation that relative latency passed. */
@@ -95,6 +97,7 @@ public class PlacePilotAutonomousCanaryService {
         PlacePilotSourceAccounting.Approved approved = importer.validateApprovedAccounting(
                 envelope, configuration.expectedManifestHash(), configuration.authorizationReference());
         List<PlacePilotHttpProbeService.ProbeTarget> selectedTargets = selectedTargets(manifest);
+        if (v3) v3Observations.preflight(runId, envelopeHash, selectedTargets);
         // Refuse an unfinishable probe plan before any canary write becomes public. The same
         // derived budget is persisted as a renewed deadline immediately before the probes.
         PlacePilotGateReconciliationService.requiredProbeLease(
@@ -123,8 +126,8 @@ public class PlacePilotAutonomousCanaryService {
                     baselineHttp, baselineIdentity, configuration.timeout());
             throw new PlacePilotBaselineDiagnostics.BaselineFailure(diagnostics);
         }
-        JsonNode persistentBefore = v3 ? v3Observations.capturePersistent("BASELINE", runId, envelopeHash) : null;
-        if (v3) PlacePilotV3Policy.verifyBaseline(runId, envelopeHash, persistentBefore);
+        JsonNode persistentBefore = v3 ? v3Observations.capturePersistent("PRE", runId, envelopeHash) : null;
+        if (v3) PlacePilotV3Policy.verifyFreshPre(runId, envelopeHash, persistentBefore, Instant.now());
 
         PlacePilotImportService.ImportResult imported = null;
         boolean importCommitted = false;
@@ -166,7 +169,7 @@ public class PlacePilotAutonomousCanaryService {
             if (v3) {
                 // Functional publication can change payload; telemetry deliberately brackets the
                 // activation before synthetic product graph mutation. Sentinel IDs must remain stable.
-                JsonNode persistentAfter = v3Observations.capturePersistent("AFTER", runId, envelopeHash);
+                JsonNode persistentAfter = v3Observations.capturePersistent("POST", runId, envelopeHash);
                 persistentEvidence = PlacePilotV3Policy.verify(runId, envelopeHash, persistentBefore, persistentAfter);
                 ObjectNode product = v3Observations.productAcceptance(runId, envelopeHash, selectedTargets);
                 diagnostics.set("product_acceptance", product);

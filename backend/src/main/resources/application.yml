@@ -57,6 +57,10 @@ phokarta:
     # Existing private operational diagnostics directory, bind-mounted persistently for the one-shot.
     # Required only when the disabled-by-default place-import workflow is explicitly enabled.
     diagnostics-directory: ${PHOKARTA_PLACE_IMPORT_DIAGNOSTICS_DIRECTORY:}
+    # Private V3 file IPC only. The sealed/persisted method still selects policy; these are NOT policy flags.
+    # GET-only worker and separately authorized product workflow must be ready before writes.
+    v3-evidence-directory: ${PHOKARTA_PLACE_IMPORT_V3_EVIDENCE_DIRECTORY:}
+    v3-operations-plan-sha256: ${PHOKARTA_PLACE_IMPORT_V3_OPERATIONS_PLAN_SHA256:}
     # Successful imports receive this initial durable deadline. Immediately before
     # post-import probing it is extended from the full selected-count/sample/timeout
     # request budget (plus margin, capped at 24h). The always-on startup/scheduled

@@ -86,10 +86,13 @@ surfaces. Payload byte changes do not fabricate result equivalence. Result-set d
 block also makes it incomparable. Search is limited to 100, Maps to 200, Detail to the sentinel.
 
 The external probe is GET-only: no datasource, Flyway, importer, rollback, canary state or write
-credentials. A private operations adapter supplies independently read-back sanitized probe
-artifacts and existing product workflow evidence. It is not wired to a public endpoint or CLI
-in this design task. The ordinary one-shot runner refuses v3 before any probe/write if this
-explicit adapter is absent; there is no one-shot relative fallback.
+credentials. The implementation closure adds a private plain-Java launcher and a filesystem IPC
+adapter to the disabled-by-default operational runner. There is no public endpoint. The separate
+read-only Docker coordinator pins the actual persistent container network namespace, image,
+Java PID/start ticks, health and instrumentation before and after each snapshot. Actual management
+GETs independently check readiness/liveness and JVM start time. The ordinary one-shot runner
+refuses v3 before writes without valid PRE artifacts and fresh telemetry/product worker readiness;
+there is no one-shot relative fallback. See [the private adapter contract](M5_5B_V3_PERSISTENT_ADAPTER.md).
 
 Didim workload/cardinality effects remain a distinct functional/operational lane. Fixed regional
 terms and geometries and all selected-place coverage remain bounded and semantically validated.
@@ -201,10 +204,11 @@ the completion report; do not infer CI success from local unit tests.
 ## Approval boundary / next step
 
 Await explicit product-owner approval before preparing a new operational run UUID and final
-sealed manifest. Preparation must also pin/review the private persistent/product adapter and its
-artifact producer/reader, preflight/backup/release and containment runbook. This source-level
-extension deliberately does not wire a v3 execution CLI or launch probes, synthetic publication,
-deployments, imports or rollback. Execution requires separate explicit authorization afterward.
+sealed manifest. Preparation must pin the operations plan, GET-only probe image, existing
+persistent/DB/Caddy identities, shared private artifact ownership and separately authorized
+product-workflow readiness/evidence. The implemented private entry points do not authorize their
+execution. No probes, synthetic publication, deployments, imports or rollback are launched by
+this source task. Execution requires separate explicit authorization afterward.
 
 The beta release/process/database, 350 ms instrumentation configuration, V17 and contained
 catalog remain untouched by this task. No performance calibration or other milestone is resumed.

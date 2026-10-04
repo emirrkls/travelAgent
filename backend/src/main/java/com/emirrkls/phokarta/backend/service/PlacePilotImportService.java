@@ -936,6 +936,13 @@ public class PlacePilotImportService {
     /** Policy change only: no selection, source, taxonomy, UUID or quarantine changes. */
     private void validateV3PredecessorContent(JsonNode manifest) {
         UUID prior = PlacePilotV3Policy.CONTAINED_RUN;
+        // Compare the entire frozen source/provider/scope/payload plan, not only the
+        // subset that is materialized in decisions. Reconstruct the V2 policy envelope
+        // without changing V2's historical digest algorithm or persisted history.
+        ObjectNode predecessorPlan = manifest.deepCopy();
+        predecessorPlan.put("method_version", EXPECTED_METHOD_VERSION);
+        predecessorPlan.remove(List.of("predecessor_manifest_hash", "canonical_identity_method_version", "performance_policy"));
+        String frozenPlanDigest = hashPlan(predecessorPlan);
         Integer valid = jdbc.queryForObject("""
                 SELECT count(*) FROM place_provider_sync_runs run
                  WHERE run.id = ? AND run.method_version = ? AND run.status = 'SUCCEEDED'
@@ -978,6 +985,9 @@ public class PlacePilotImportService {
         if (!oldSources.equals(sources)) {
             throw new IllegalArgumentException("v3 source observation set must remain immutable and complete");
         }
+        String storedPlan = jdbc.queryForObject("SELECT plan_digest FROM place_provider_sync_runs WHERE id = ?", String.class, prior);
+        if (!frozenPlanDigest.equals(storedPlan))
+            throw new IllegalArgumentException("v3 cannot change predecessor frozen source/provider/scope plan");
     }
 
     private void validateReauthorization(

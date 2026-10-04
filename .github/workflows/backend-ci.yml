@@ -84,6 +84,35 @@ jobs:
           test "$status" -eq 1
           test "$output" = 'PLACE_BASELINE_DIAGNOSIS_FAILED:INVALID_CONFIGURATION_OR_ARTIFACT'
 
+      - name: Verify private persistent telemetry launcher fails closed without configuration
+        shell: bash
+        run: |
+          set +e
+          output=$(docker run --rm --network none \
+            --entrypoint /bin/sh phokarta-backend:ci -c \
+            'unset JAVA_TOOL_OPTIONS; exec java -Dloader.main=com.emirrkls.phokarta.backend.operations.PlacePilotPersistentTelemetryApplication -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher' 2>&1)
+          status=$?
+          set -e
+          test "$status" -eq 1
+          test "$output" = 'PERSISTENT_TELEMETRY_FAILED:INVALID_CONFIGURATION_OR_EVIDENCE'
+
+      - name: Verify private persistent telemetry launcher rejects malformed independently hashed plan
+        shell: bash
+        run: |
+          set +e
+          output=$(docker run --rm --network none \
+            --entrypoint /bin/sh phokarta-backend:ci -c '
+              unset JAVA_TOOL_OPTIONS
+              mkdir -m 700 /tmp/private-probe
+              printf "{}" > /tmp/private-probe/plan.json
+              chmod 600 /tmp/private-probe/plan.json
+              digest=$(sha256sum /tmp/private-probe/plan.json | cut -d " " -f 1)
+              exec java -Dloader.main=com.emirrkls.phokarta.backend.operations.PlacePilotPersistentTelemetryApplication -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher --plan-path=/tmp/private-probe/plan.json --plan-sha256="$digest" --output-path=/tmp/private-probe/PRE.json' 2>&1)
+          status=$?
+          set -e
+          test "$status" -eq 1
+          test "$output" = 'PERSISTENT_TELEMETRY_FAILED:INVALID_CONFIGURATION_OR_EVIDENCE'
+
       - name: Preserve backend regression reports
         if: always()
         uses: actions/upload-artifact@v4

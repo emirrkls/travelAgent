@@ -45,9 +45,10 @@ class PlacePilotGateReconciliationServiceTest {
                 .hasMessageContaining("24-hour");
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {PlacePilotV3Policy.V2, PlacePilotV3Policy.V3})
     @SuppressWarnings("unchecked")
-    void renewsOnlyAnUnexpiredUngatedSuccessfulRun() throws Exception {
+    void renewsOnlyAnUnexpiredUngatedSuccessfulRun(String method) throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         PlacePilotCanaryGateService gates = mock(PlacePilotCanaryGateService.class);
         PlatformTransactionManager transactionManager = transactionManager();
@@ -57,12 +58,14 @@ class PlacePilotGateReconciliationServiceTest {
 
         ResultSet identity = mock(ResultSet.class);
         when(identity.getString("pilot_run_key")).thenReturn("didim-lease-test");
+        when(identity.getString("method_version")).thenReturn(method);
         when(jdbc.query(contains("SELECT pilot_run_key"), any(RowMapper.class), eq(RUN_ID)))
                 .thenAnswer(invocation -> List.of(
                         ((RowMapper<Object>) invocation.getArgument(1)).mapRow(identity, 0)));
         when(jdbc.query(contains("pg_advisory_xact_lock"), any(RowMapper.class),
                 eq("didim-lease-test"))).thenReturn(List.of());
         Duration derivedLease = Duration.ofSeconds(18).plusMinutes(5);
+        if (PlacePilotV3Policy.V3.equals(method)) derivedLease = derivedLease.plusMinutes(18);
         when(jdbc.update(contains("gate_deadline = GREATEST"),
                 eq(derivedLease.toMillis()), eq(RUN_ID))).thenReturn(1);
         when(jdbc.queryForObject(contains("SELECT gate_deadline"),

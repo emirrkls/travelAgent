@@ -161,6 +161,13 @@ class PlacePilotRollbackOperationsIntegrationTest {
                 b.path("authorization_reference").asText())).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("predecessor candidate");
         assertThat(count("select count(*) from place_provider_sync_runs where id = ?", newRun)).isZero();
+        ObjectNode providerDrift = envelope.deepCopy();
+        ((ObjectNode) providerDrift.path("manifest").path("providers").path("overture")).put("unapproved_snapshot_metadata", "changed");
+        providerDrift.put("manifest_hash", importer.hashManifest(providerDrift.path("manifest")));
+        assertThatThrownBy(() -> importer.importApproved(providerDrift, providerDrift.path("manifest_hash").asText(),
+                b.path("authorization_reference").asText())).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("frozen source/provider/scope plan");
+        assertThat(count("select count(*) from place_provider_sync_runs where id = ?", newRun)).isZero();
         ObjectNode fewer = envelope.deepCopy();
         ((ObjectNode) fewer.path("manifest").path("candidates").get(0)).put("selected_for_stage", false);
         fewer.put("manifest_hash", importer.hashManifest(fewer.path("manifest")));
@@ -191,8 +198,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
         PlacePilotV3Policy.PRODUCT_CHECKS.forEach(check -> products.put(check, "PASS"));
         // Deliberately 100% worse relative latency. It cannot trigger v3 containment.
         var evidence = PlacePilotV3Policy.verify(newRun, successor.manifestHash(),
-                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "BASELINE", baselineTime, 10),
-                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "AFTER", Instant.now(), 20));
+                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "PRE", baselineTime, 10),
+                PlacePilotV3EvidenceFixture.snapshot(newRun, successor.manifestHash(), "POST", Instant.now(), 20));
         assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).status()).isEqualTo("PASSED");
         assertThat(jdbc.queryForObject("select diagnostics #>> '{persistent_performance,PERFORMANCE_ADVISORY}' from place_pilot_canary_gates where sync_run_id = ?", String.class, newRun)).isEqualTo("DEGRADED");
         assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and rollback_state = 'NONE'", newRun)).isEqualTo(71);
@@ -228,7 +235,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"TIMEOUT", "PRODUCT", "PROVENANCE", "ACCOUNTING", "ANOMALY"})
+    @ValueSource(strings = {"TIMEOUT", "PRODUCT", "PROVENANCE", "ACCOUNTING", "ANOMALY", "NEWER_OWNER",
+            "MANUAL", "ACTIVE_OWNER", "CANONICAL_DRIFT", "NONCONTAINED"})
     void v3HardFailuresStillCommitFailedGateAndContainOnlyNewOwnership(String failure) {
         // Independent local DBs permit the exact historical UUID contract in each scenario.
         JdbcTemplate savedJdbc = jdbc;
@@ -267,7 +275,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
             }
             refreshAccountingAndHashes(old); oldEnvelope.put("manifest_hash", importer.hashManifest(old));
             PilotFixture a = importEnvelope(oldEnvelope, false);
-            gates.record(a.runId(), false, mapper.createObjectNode().put("historical_failure", true), null);
+            if (!failure.equals("NONCONTAINED"))
+                gates.record(a.runId(), false, mapper.createObjectNode().put("historical_failure", true), null);
             List<Map<String, Object>> oldHistory = immutableRunHistory(a.runId());
             ObjectNode envelope = oldEnvelope.deepCopy();
             ObjectNode b = (ObjectNode) envelope.path("manifest");
@@ -278,10 +287,27 @@ class PlacePilotRollbackOperationsIntegrationTest {
                     .put("canonical_identity_method_version", PlacePilotV3Policy.V2).put("performance_policy", "ADVISORY_ONLY");
             envelope.put("manifest_hash", importer.hashManifest(b));
             Instant before = Instant.now().minusSeconds(5);
+            if (List.of("MANUAL", "ACTIVE_OWNER", "CANONICAL_DRIFT", "NONCONTAINED").contains(failure)) {
+                UUID place = a.placeIds().getFirst();
+                switch (failure) {
+                    case "MANUAL" -> jdbc.update("update places set origin = 'MANUAL_COMMUNITY' where id = ?", place);
+                    case "ACTIVE_OWNER" -> jdbc.update("update places set catalog_status = 'ACTIVE' where id = ?", place);
+                    case "CANONICAL_DRIFT" -> jdbc.update("update places set name = 'Legitimate subsequent edit' where id = ?", place);
+                    default -> { }
+                }
+                long rows = count("select count(*) from places");
+                assertThatThrownBy(() -> importEnvelope(envelope, false)).isInstanceOf(RuntimeException.class);
+                assertThat(count("select count(*) from places")).isEqualTo(rows);
+                assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isZero();
+                assertThat(immutableRunHistory(a.runId())).isEqualTo(oldHistory);
+                if (failure.equals("MANUAL"))
+                    assertThat(jdbc.queryForObject("select origin from places where id = ?", String.class, place)).isEqualTo("MANUAL_COMMUNITY");
+                return;
+            }
             PilotFixture adopted = importEnvelope(envelope, false);
             var evidence = PlacePilotV3Policy.verify(newRun, adopted.manifestHash(),
-                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "BASELINE", before, 10),
-                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "AFTER", Instant.now(), 20));
+                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "PRE", before, 10),
+                    PlacePilotV3EvidenceFixture.snapshot(newRun, adopted.manifestHash(), "POST", Instant.now(), 20));
             ObjectNode diagnostics = passingGateDiagnostics(newRun);
             diagnostics.put("probe_mode", "AUTONOMOUS_V3_PERSISTENT_ADVISORY");
             var product = diagnostics.putObject("product_acceptance");
@@ -289,6 +315,11 @@ class PlacePilotRollbackOperationsIntegrationTest {
             switch (failure) {
                 case "TIMEOUT" -> diagnostics.withObject("http_probes").withObject("after").put("passed", false);
                 case "PRODUCT" -> product.put("synthetic_v2_experience", "FAIL");
+                case "NEWER_OWNER" -> {
+                    PilotFixture newer = importPilot("v3-newer-legitimate-owner", 1, false, true);
+                    addLaterAlias(newer.runId(), adopted.placeIds().getFirst(), "v3-newer-ref");
+                    product.put("synthetic_v2_experience", "FAIL");
+                }
                 case "ANOMALY" -> diagnostics.withObject("catalog_anomaly_report").put("passed", false);
                 case "PROVENANCE" -> jdbc.update("update place_external_refs set status = 'INACTIVE' where last_sync_run_id = ?", newRun);
                 case "ACCOUNTING" -> jdbc.update("""
@@ -305,7 +336,9 @@ class PlacePilotRollbackOperationsIntegrationTest {
             assertThat(gates.record(newRun, true, diagnostics, null, approvedAccounting.get(newRun), evidence).status()).isEqualTo("FAILED");
             assertThat(count("select count(*) from place_pilot_catalog_writes where sync_run_id = ? and rollback_state = 'NONE'", newRun)).isZero();
             assertThat(count("select count(*) from place_external_refs where last_sync_run_id = ? and status = 'ACTIVE'", newRun)).isZero();
-            assertThat(count("select count(*) from places where catalog_status = 'RETIRED' and origin = 'EXTERNAL_IMPORT'")).isEqualTo(71);
+            assertThat(count("select count(*) from places where catalog_status = 'RETIRED' and origin = 'EXTERNAL_IMPORT'")).isEqualTo(failure.equals("NEWER_OWNER") ? 70 : 71);
+            if (failure.equals("NEWER_OWNER"))
+                assertThat(jdbc.queryForObject("select catalog_status from places where id = ?", String.class, adopted.placeIds().getFirst())).isEqualTo("ACTIVE");
             assertThat(immutableRunHistory(a.runId())).isEqualTo(oldHistory);
         } finally {
             jdbc = savedJdbc; transactions = savedTransactions; importer = savedImporter;

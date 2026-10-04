@@ -81,7 +81,7 @@ public final class PlacePilotV3Policy {
             require(runId.equals(run) && manifestHash.equals(hash), "persistent evidence run/hash mismatch");
             require(!baselineEnd.isAfter(importStart) && !afterStart.isBefore(importEnd),
                     "persistent baseline/after does not bracket catalog mutation");
-            require(!baselineStart.isBefore(importStart.minusSeconds(900)), "persistent baseline is stale");
+            require(!baselineEnd.isBefore(importStart.minusSeconds(900)), "persistent PRE completion is stale");
             require(!afterEnd.isBefore(afterStart), "persistent observation time is invalid");
         }
     }
@@ -90,10 +90,16 @@ public final class PlacePilotV3Policy {
     public static Evidence verify(UUID runId, String manifestHash, JsonNode before, JsonNode after) {
         require(runId != null && !CONTAINED_RUN.equals(runId), "persistent evidence needs a new run");
         require(manifestHash != null && manifestHash.matches("[0-9a-f]{64}"), "persistent evidence hash invalid");
-        validateSnapshot(before, "BASELINE", runId, manifestHash);
-        validateSnapshot(after, "AFTER", runId, manifestHash);
+        validateSnapshot(before, "PRE", runId, manifestHash);
+        validateSnapshot(after, "POST", runId, manifestHash);
         require(before.path("target").equals(after.path("target")),
                 "persistent process/path/health identity changed");
+        if (before.has("process_start_time_seconds") || after.has("process_start_time_seconds")) {
+            require(before.path("process_start_time_seconds").isNumber()
+                    && after.path("process_start_time_seconds").isNumber()
+                    && before.path("process_start_time_seconds").equals(after.path("process_start_time_seconds")),
+                    "persistent JVM start changed");
+        }
         require(!time(before, "completed_at").isAfter(time(after, "started_at")),
                 "persistent observations out of order");
         ObjectNode summary = JsonNodeFactory.instance.objectNode();
@@ -130,7 +136,18 @@ public final class PlacePilotV3Policy {
     }
 
     public static void verifyBaseline(UUID runId, String manifestHash, JsonNode baseline) {
-        validateSnapshot(baseline, "BASELINE", runId, manifestHash);
+        validateSnapshot(baseline, "PRE", runId, manifestHash);
+    }
+
+    public static void verifySnapshot(UUID runId, String hash, String role, JsonNode snapshot) {
+        require(List.of("PRE", "POST").contains(role), "persistent role invalid");
+        validateSnapshot(snapshot, role, runId, hash);
+    }
+
+    public static void verifyFreshPre(UUID runId, String hash, JsonNode snapshot, Instant now) {
+        verifyBaseline(runId, hash, snapshot);
+        Instant end = time(snapshot, "completed_at");
+        require(!end.isAfter(now) && !end.isBefore(now.minusSeconds(900)), "persistent PRE completion is stale/future");
     }
 
     private static void validateSnapshot(JsonNode value, String role, UUID runId, String hash) {

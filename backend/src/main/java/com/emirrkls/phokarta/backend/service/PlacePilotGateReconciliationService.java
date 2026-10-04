@@ -64,18 +64,24 @@ public class PlacePilotGateReconciliationService implements ApplicationRunner {
                 selectedCount, sampleCount, requestTimeout);
         LeaseResult result = transactions.execute(transaction -> {
             List<LeaseIdentity> rows = jdbc.query("""
-                    SELECT pilot_run_key
+                    SELECT pilot_run_key, method_version
                       FROM place_provider_sync_runs
                      WHERE id = ? AND status = 'SUCCEEDED'
                        AND canary_stage <> 'DRY_RUN'
                     """, (rs, rowNum) -> new LeaseIdentity(
-                    rs.getString("pilot_run_key")), syncRunId);
+                    rs.getString("pilot_run_key"), rs.getString("method_version")), syncRunId);
             if (rows.size() != 1) {
                 throw new IllegalArgumentException(
                         "gate lease renewal requires a successful canary run");
             }
             jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 5517))",
                     (rs, rowNum) -> rs.getObject(1), rows.getFirst().pilotRunKey());
+            // Two bounded private IPC windows: POST telemetry and existing product acceptance.
+            // Routing is DB-derived, never a caller flag. V2's budget/behavior is unchanged.
+            Duration finalLease = PlacePilotV3Policy.V3.equals(rows.getFirst().methodVersion())
+                    ? requiredLease.plusMinutes(18) : requiredLease;
+            if (finalLease.compareTo(MAX_GATE_DEADLINE_LEASE) > 0)
+                throw new IllegalArgumentException("v3 evidence exceeds the 24-hour gate deadline limit");
             int updated = jdbc.update("""
                     UPDATE place_provider_sync_runs
                        SET gate_deadline = GREATEST(
@@ -88,7 +94,7 @@ public class PlacePilotGateReconciliationService implements ApplicationRunner {
                            SELECT 1 FROM place_pilot_canary_gates gate
                             WHERE gate.sync_run_id = place_provider_sync_runs.id
                        )
-                    """, requiredLease.toMillis(), syncRunId);
+                    """, finalLease.toMillis(), syncRunId);
             if (updated != 1) {
                 throw new IllegalStateException(
                         "gate lease cannot be renewed after expiry or final gate recording");
@@ -218,7 +224,7 @@ public class PlacePilotGateReconciliationService implements ApplicationRunner {
         }
     }
 
-    private record LeaseIdentity(String pilotRunKey) {}
+    private record LeaseIdentity(String pilotRunKey, String methodVersion) {}
 
     private record ExpiredRun(
             UUID syncRunId,

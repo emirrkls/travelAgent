@@ -200,6 +200,27 @@ class PlacePilotImportRunnerTest {
         verify(canary, never()).run(any());
     }
 
+    @Test void privateV3EvidenceConfigurationWiresTheConcreteAdapterNotAPolicyOverride() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class); var context = context();
+        var env = (MockEnvironment) context.getEnvironment();
+        env.setProperty("phokarta.place-import.v3-evidence-directory", java.nio.file.Path.of("private-v3-evidence").toAbsolutePath().toString());
+        env.setProperty("phokarta.place-import.v3-operations-plan-sha256", "1".repeat(64));
+        when(canary.run(any(), any())).thenReturn(execution("PASSED"));
+        var runner = new PlacePilotImportRunner(canary, context); runner.run(new DefaultApplicationArguments(new String[0])); runner.executeAfterReady();
+        var adapter = ArgumentCaptor.forClass(PlacePilotAutonomousCanaryService.V3Observations.class);
+        verify(canary).run(any(), adapter.capture());
+        assertThat(adapter.getValue()).isInstanceOf(com.emirrkls.phokarta.backend.operations.PlacePilotPersistentOperationsAdapter.class);
+        verify(canary, never()).run(any());
+    }
+    @Test void incompletePrivateV3ConfigurationFailsBeforeExecution() throws Exception {
+        var canary = mock(PlacePilotAutonomousCanaryService.class); var context = context();
+        ((MockEnvironment) context.getEnvironment()).setProperty("phokarta.place-import.v3-operations-plan-sha256", "1".repeat(64));
+        var runner = new PlacePilotImportRunner(canary, context);
+        assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments(new String[0]))).hasMessage("V3_PRIVATE_ADAPTER_CONFIGURATION_REQUIRED");
+        verify(canary, never()).run(any());
+        verify(canary, never()).run(any(), any());
+    }
+
     private PlacePilotAutonomousCanaryService.CanaryExecution execution(String gateStatus) {
         PlacePilotImportService.ImportResult importResult =
                 new PlacePilotImportService.ImportResult(

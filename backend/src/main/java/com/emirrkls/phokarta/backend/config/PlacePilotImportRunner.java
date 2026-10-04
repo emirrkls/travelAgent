@@ -30,6 +30,7 @@ public class PlacePilotImportRunner implements ApplicationRunner {
     private final ConfigurableApplicationContext applicationContext;
     private final AtomicBoolean started = new AtomicBoolean();
     private PlacePilotAutonomousCanaryService.Configuration configuration;
+    private PlacePilotAutonomousCanaryService.V3Observations persistentAdapter;
 
     public PlacePilotImportRunner(
             PlacePilotAutonomousCanaryService canary,
@@ -94,6 +95,17 @@ public class PlacePilotImportRunner implements ApplicationRunner {
         configuration = new PlacePilotAutonomousCanaryService.Configuration(
                 Path.of(manifestPath), expectedManifestHash, authorizationReference,
                 baseUri, healthBaseUri, baselinePlaceId, samples, timeout, Path.of(diagnosticsDirectory));
+        String evidenceDirectory = applicationContext.getEnvironment()
+                .getProperty("phokarta.place-import.v3-evidence-directory", "");
+        String planHash = applicationContext.getEnvironment()
+                .getProperty("phokarta.place-import.v3-operations-plan-sha256", "");
+        if (!evidenceDirectory.isBlank() || !planHash.isBlank()) {
+            if (evidenceDirectory.isBlank() || !Path.of(evidenceDirectory).isAbsolute()
+                    || !planHash.matches("[0-9a-f]{64}"))
+                throw new IllegalArgumentException("V3_PRIVATE_ADAPTER_CONFIGURATION_REQUIRED");
+            persistentAdapter = new com.emirrkls.phokarta.backend.operations.PlacePilotPersistentOperationsAdapter(
+                    Path.of(evidenceDirectory), planHash);
+        }
     }
 
     /** Called by the operational main only after SpringApplication.run has finished readiness.
@@ -110,7 +122,7 @@ public class PlacePilotImportRunner implements ApplicationRunner {
         if (!started.compareAndSet(false,true)) return;
         PlacePilotAutonomousCanaryService.CanaryExecution result;
         try {
-            result = canary.run(configuration);
+            result = persistentAdapter == null ? canary.run(configuration) : canary.run(configuration, persistentAdapter);
         } catch (java.io.IOException failure) {
             throw new IllegalStateException("PLACE_CANARY_EXECUTION_FAILED", failure);
         }

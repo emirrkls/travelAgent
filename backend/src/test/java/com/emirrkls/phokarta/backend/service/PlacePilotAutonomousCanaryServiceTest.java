@@ -74,10 +74,10 @@ class PlacePilotAutonomousCanaryServiceTest {
         when(fixture.anomalies().audit(eq(RUN_ID), any())).thenReturn(passingAudit());
         var adapter = mock(PlacePilotAutonomousCanaryService.V3Observations.class);
         Instant start = Instant.now().minusSeconds(10);
-        when(adapter.capturePersistent("BASELINE", RUN_ID, HASH)).thenReturn(
-                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "BASELINE", start, 10));
-        when(adapter.capturePersistent("AFTER", RUN_ID, HASH)).thenReturn(
-                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "AFTER", start.plusSeconds(5), 40));
+        when(adapter.capturePersistent("PRE", RUN_ID, HASH)).thenReturn(
+                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "PRE", start, 10));
+        when(adapter.capturePersistent("POST", RUN_ID, HASH)).thenReturn(
+                PlacePilotV3EvidenceFixture.snapshot(RUN_ID, HASH, "POST", start.plusSeconds(5), 40));
         ObjectNode products = mapper.createObjectNode();
         PlacePilotV3Policy.PRODUCT_CHECKS.forEach(check -> products.put(check, "PASS"));
         when(adapter.productAcceptance(eq(RUN_ID), eq(HASH), any())).thenReturn(products);
@@ -91,9 +91,9 @@ class PlacePilotAutonomousCanaryServiceTest {
         assertThat(result.diagnostics().path("persistent_performance").path("PERFORMANCE_ADVISORY").asText()).isEqualTo("DEGRADED");
         InOrder order = inOrder(adapter, fixture.importer());
         order.verify(fixture.importer()).validateApprovedAccounting(any(), eq(HASH), eq(AUTHORIZATION));
-        order.verify(adapter).capturePersistent("BASELINE", RUN_ID, HASH);
+        order.verify(adapter).capturePersistent("PRE", RUN_ID, HASH);
         order.verify(fixture.importer(), times(2)).importApproved(any(Path.class), eq(HASH), eq(AUTHORIZATION));
-        order.verify(adapter).capturePersistent("AFTER", RUN_ID, HASH);
+        order.verify(adapter).capturePersistent("POST", RUN_ID, HASH);
         order.verify(adapter).productAcceptance(eq(RUN_ID), eq(HASH), any());
     }
 

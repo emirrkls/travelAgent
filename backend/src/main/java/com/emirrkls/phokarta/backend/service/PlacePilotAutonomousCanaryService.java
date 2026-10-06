@@ -215,13 +215,14 @@ public class PlacePilotAutonomousCanaryService {
             if(!audit.passed()) throw new IllegalStateException("V3_ANOMALY_HARD_FAILURE");
             var after=probes.captureAfter(probeConfiguration,targets);
             if(!after.passed()) throw new IllegalStateException("V3_FUNCTIONAL_HTTP_HARD_FAILURE");
+            ObjectNode checkedCoverage=after.verifiedV3Coverage(targets); // before any mutation-capable product step.
             ObjectNode inspection=gates.inspectV3Containment(run,hash);
             observations.productSafety(run,hash,inspection);
             ObjectNode product=observations.productAcceptance(run,hash,targets);
             if(product==null || PlacePilotV3Policy.PRODUCT_CHECKS.stream().anyMatch(k->!"PASS".equals(product.path(k).asText())))
                 throw new IllegalStateException("V3_PRODUCT_HARD_FAILURE");
             observations.finalHealth(run,hash);
-            ObjectNode d=buildDiagnostics(baseline,after,audit,true,null,baselineId,targets);
+            ObjectNode d=buildDiagnostics(baseline,after,audit,true,null,baselineId,targets,checkedCoverage);
             d.set("preimport_baseline_artifact",verifiedBaseline.toJson());
             d.put("probe_mode","AUTONOMOUS_V3_PERSISTENT_ADVISORY"); d.remove("performance");
             d.set("persistent_performance",evidence.summary()); d.set("product_acceptance",product);
@@ -250,6 +251,14 @@ public class PlacePilotAutonomousCanaryService {
             String idempotencyFailure,
             UUID baselinePlaceId,
             List<PlacePilotHttpProbeService.ProbeTarget> targets
+    ) {
+        return buildDiagnostics(baseline,after,audit,idempotent,idempotencyFailure,baselinePlaceId,targets,null);
+    }
+
+    private ObjectNode buildDiagnostics(
+            PlacePilotHttpProbeService.ProbeSuite baseline, PlacePilotHttpProbeService.ProbeSuite after,
+            PlacePilotCatalogAnomalyService.AuditResult audit, boolean idempotent, String idempotencyFailure,
+            UUID baselinePlaceId, List<PlacePilotHttpProbeService.ProbeTarget> targets, ObjectNode checkedCoverage
     ) {
         ObjectNode diagnostics = JsonNodeFactory.instance.objectNode();
         diagnostics.put("probe_mode", "AUTONOMOUS_HTTP_AND_DATABASE_V1");
@@ -298,9 +307,13 @@ public class PlacePilotAutonomousCanaryService {
         http.set("before", baseline.toJson());
         http.set("after", after.toJson());
         diagnostics.set("catalog_anomaly_report", audit.report());
-        ArrayNode selectedIds = diagnostics.putArray("selected_place_ids_checked");
-        targets.stream().map(value -> value.placeId().toString())
-                .forEach(selectedIds::add);
+        if (checkedCoverage == null) { // Historical V2 serialization/behavior is unchanged.
+            ArrayNode selectedIds = diagnostics.putArray("selected_place_ids_checked");
+            targets.stream().map(value -> value.placeId().toString()).forEach(selectedIds::add);
+        } else {
+            diagnostics.set("selected_place_http_coverage",checkedCoverage.deepCopy());
+            diagnostics.set("selected_place_ids_checked",checkedCoverage.path("place_detail").deepCopy());
+        }
         diagnostics.put("selected_place_count", targets.size());
         ObjectNode coverage = diagnostics.putObject("selected_place_coverage");
         coverage.put("search", after.surface("search_coverage").sampleCount());

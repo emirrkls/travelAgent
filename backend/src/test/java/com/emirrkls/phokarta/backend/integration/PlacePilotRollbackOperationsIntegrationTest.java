@@ -5,6 +5,7 @@ import com.emirrkls.phokarta.backend.operations.PlacePilotRollbackApplication;
 import com.emirrkls.phokarta.backend.service.PlacePilotCanaryGateService;
 import com.emirrkls.phokarta.backend.service.PlacePilotGateReconciliationService;
 import com.emirrkls.phokarta.backend.service.PlacePilotImportService;
+import com.emirrkls.phokarta.backend.service.PlacePilotHttpProbeService;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService.OperationalFailure;
 import com.emirrkls.phokarta.backend.service.PlacePilotRollbackOperationsService.Reason;
@@ -192,6 +193,24 @@ class PlacePilotRollbackOperationsIntegrationTest {
         DatabaseSnapshot beforeReplay = snapshot(successor);
         assertThat(importer.importApproved(envelope, successor.manifestHash(), successor.authorizationReference()).alreadyImported()).isTrue();
         assertThat(snapshot(successor)).isEqualTo(beforeReplay);
+        List<PlacePilotHttpProbeService.ProbeTarget> accountingTargets=jdbc.query("""
+                SELECT p.id,p.name,p.category,ST_Y(p.location) AS lat,ST_X(p.location) AS lon
+                  FROM places p JOIN place_pilot_catalog_writes w ON w.place_id=p.id WHERE w.sync_run_id=?
+                """,(rs,n)->new PlacePilotHttpProbeService.ProbeTarget(rs.getObject("id",UUID.class),rs.getString("name"),
+                    rs.getString("category"),rs.getDouble("lat"),rs.getDouble("lon")),newRun);
+        ObjectNode accounting=gates.verifyV3Accounting(newRun,approvedAccounting.get(newRun),accountingTargets);
+        assertThat(accounting.path("selected_canonical_membership").asText()).isEqualTo("PASS");
+        assertThat(accounting.has("selected_place_ids_checked")).isFalse();
+        assertThat(accounting.has("selected_place_probe_coverage")).isFalse();
+        assertThat(accounting.has("selected_place_http_coverage")).isFalse();
+        assertThat(snapshot(successor)).isEqualTo(beforeReplay);
+        var wrong=new ArrayList<>(accountingTargets);
+        var first=wrong.getFirst(); wrong.set(0,new PlacePilotHttpProbeService.ProbeTarget(UUID.randomUUID(),first.name(),first.category(),first.latitude(),first.longitude()));
+        assertThatThrownBy(()->gates.verifyV3Accounting(newRun,approvedAccounting.get(newRun),wrong)).isInstanceOf(IllegalArgumentException.class);
+        var duplicate=new ArrayList<>(accountingTargets); duplicate.set(0,duplicate.get(1));
+        assertThatThrownBy(()->gates.verifyV3Accounting(newRun,approvedAccounting.get(newRun),duplicate)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()->gates.verifyV3Accounting(a.runId(),approvedAccounting.get(newRun),accountingTargets)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()->gates.verifyV3Accounting(newRun,approvedAccounting.get(a.runId()),accountingTargets)).isInstanceOf(IllegalArgumentException.class);
         ObjectNode diagnostics = passingGateDiagnostics(newRun);
         diagnostics.put("probe_mode", "AUTONOMOUS_V3_PERSISTENT_ADVISORY");
         ObjectNode products = diagnostics.putObject("product_acceptance");
@@ -1021,6 +1040,8 @@ class PlacePilotRollbackOperationsIntegrationTest {
                     .put("sample_count", selected.size())
                     .put("error_count", 0)
                     .put("passed", true);
+            // Explicit test-only HTTP fixture; real rehearsals use the observation producer.
+            diagnostics.withObject("selected_place_http_coverage").set(surface,checked.deepCopy());
         }
         diagnostics.putObject("catalog_anomaly_report").put("passed", true);
         diagnostics.put("search_correctness", "PASS");

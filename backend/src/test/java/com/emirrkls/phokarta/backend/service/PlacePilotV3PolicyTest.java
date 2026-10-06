@@ -107,6 +107,11 @@ class PlacePilotV3PolicyTest {
         receipt.summary().put("PERFORMANCE_ADVISORY", "NORMAL");
         assertThat(receipt.summary().path("PERFORMANCE_ADVISORY").asText()).isEqualTo("DEGRADED");
     }
+    @ParameterizedTest @ValueSource(strings={"run_id","manifest_hash"})
+    void wrongRunOrHashCannotBindCoverageToPersistentEvidence(String field) {
+        var post=after(); post.put(field,field.equals("run_id")?UUID.randomUUID().toString():"0".repeat(64));
+        assertThatIllegalArgumentException().isThrownBy(()->PlacePilotV3Policy.verify(RUN,HASH,before(),post));
+    }
     @Test void oneShotTargetOrChangedInstrumentationIsHard() {
         var after = after(); after.withObject("target").put("kind", "ONE_SHOT");
         assertThatIllegalArgumentException().isThrownBy(() -> PlacePilotV3Policy.verify(RUN, HASH, before(), after));

@@ -32,6 +32,7 @@ class PlacePilotV3GatePolicyTest {
         for (String surface : java.util.List.of("search", "map_nearby", "map_bounds", "place_detail")) {
             coverage.put(surface, 71);
             after.putObject(surface + "_coverage").put("sample_count", 71).put("error_count", 0).put("passed", true);
+            d.withObject("selected_place_http_coverage").set(surface,ids.deepCopy());
         }
         d.putObject("catalog_anomaly_report").put("passed", true);
         var product = d.putObject("product_acceptance");
@@ -66,5 +67,21 @@ class PlacePilotV3GatePolicyTest {
         assertThatIllegalArgumentException().isThrownBy(() -> gate.validatePassingExternalDiagnostics(http, true));
         var coverage = diagnostics(); coverage.withObject("selected_place_coverage").put("place_detail", 70);
         assertThatIllegalArgumentException().isThrownBy(() -> gate.validatePassingExternalDiagnostics(coverage, true));
+    }
+
+    @Test void plannedIdsOrCountsAloneCannotSatisfyTerminalHttpCoverage() {
+        var d=diagnostics(); d.remove("selected_place_http_coverage");
+        d.set("selected_place_ids",d.path("selected_place_ids_checked").deepCopy());
+        assertThatIllegalArgumentException().isThrownBy(() -> gate.validatePassingExternalDiagnostics(d,true));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"MISSING","DUPLICATE","WRONG"})
+    void terminalCoverageRejectsMissingDuplicateAndSameCountWrongIdentity(String fault) {
+        var d=diagnostics();
+        var ids=(com.fasterxml.jackson.databind.node.ArrayNode)d.path("selected_place_http_coverage").path("search");
+        if(fault.equals("MISSING")) ids.remove(70);
+        else ids.set(70,JsonNodeFactory.instance.textNode(fault.equals("DUPLICATE")?ids.get(0).asText():new UUID(2,999).toString()));
+        assertThatIllegalArgumentException().isThrownBy(() -> gate.validatePassingExternalDiagnostics(d,true));
     }
 }

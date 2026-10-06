@@ -1,0 +1,63 @@
+M5.5B V3 selected-identity evidence contract
+==========================================
+
+Scope: source/test correction only. No V17/schema/policy change; no live
+package or resource approval. Historical v2 remains failed/contained.
+
+Root cause
+----------
+runV3 verifies persisted accounting before its functional HTTP probes.
+verifyV3Accounting supplied selected_place_ids from the approved targets,
+but attachDatabaseSafety unconditionally used selectedProbeIds, which
+expects selected_place_ids_checked. Merely renaming that field would
+misrepresent a planned/database membership check as completed HTTP coverage.
+
+Accounting
+----------
+The verified sealed Approved receipt binds run/hash and complete source /
+candidate membership. Accounting compares the unique exact-71 planned
+canonical IDs with persisted selected decisions/catalog writes, along with
+all existing source/provenance/schema/rank/blocker checks. It returns
+selected_canonical_membership and its server-derived violation count, not
+selected_place_ids_checked or selected_place_probe_coverage.
+
+Actual HTTP coverage
+--------------------
+The existing captureAfter producer still requests every selected Place on
+Search, Nearby, Bounds and Detail. Each body validator checks the canonical
+identity/semantics. A diagnostic receives checkedPlaceId only after its
+completed GET is 2xx, VALID, non-timeout and below the unchanged 5 s deadline.
+V3 verifies every retained observation, not just a count/passed summary:
+all four surfaces must have exactly the complete expected unique identity
+set. Missing, repeated, wrong, failed or unlabeled observations fail closed.
+
+This verification happens before graph proof/product requests. V3 checked
+IDs and selected_place_http_coverage are serialized from verified response
+observations, never copied from planned IDs or manual sentinel PRE/POST.
+Terminal gate checks each surface's exact ID set and existing success/error
+counts, then independently compares checked identities against the committed
+database state. Existing run/hash/target bindings and product receipts remain
+mandatory. Historical V2 summary/validation behavior is unchanged.
+
+Execution order
+---------------
+PRE and cold baseline -> adoption/replay -> POST/advisory -> provenance /
+accounting/anomaly -> functional GETs and actual identity coverage -> read-only
+graph proof -> product workflow/owned synthetic cleanup -> final health ->
+immutable terminal gate. Hard failure still invokes the existing ordered,
+graph-safe containment path; relative performance remains advisory only.
+
+Validation and resource boundary
+-------------------------------
+Deterministic tests cover accounting without HTTP claims, real loopback
+coverage for 71 identities, absent/missing/duplicate/wrong identity evidence,
+HTTP/semantics/deadline failures, terminal refusal and normal-runner product
+short-circuit. Existing V17, protected-graph, V2 and runtime safety tests remain.
+
+Owner-authorized isolated trial: operational container 3072 MiB, heap 2048
+MiB and CPU 1.5. Preserve the old effective swap allowance and inherited
+swappiness; increasing the resident limit must not implicitly increase swap.
+No production resources/settings or sealed package pins are changed by this
+document. Full-volume SUCCESS and a separate predeclared HARD-FAILURE fixture,
+including complete-path memory evidence and full Linux CI, are required.
+An ordinary unit/CI pass or absence of OOM is not full-path acceptance.

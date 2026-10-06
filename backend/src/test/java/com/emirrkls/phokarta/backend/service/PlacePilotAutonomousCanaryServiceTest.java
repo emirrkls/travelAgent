@@ -127,7 +127,7 @@ class PlacePilotAutonomousCanaryServiceTest {
         return adapter;
     }
 
-    @ParameterizedTest @ValueSource(strings={"IDEMPOTENCY","INVALID_POST","POST_TIMEOUT","PROCESS_CHANGE","PROVENANCE","ACCOUNTING","ANOMALY","FUNCTIONAL","GRAPH"})
+    @ParameterizedTest @ValueSource(strings={"IDEMPOTENCY","INVALID_POST","POST_TIMEOUT","PROCESS_CHANGE","PROVENANCE","ACCOUNTING","ANOMALY","FUNCTIONAL","COVERAGE","GRAPH"})
     void everyKnownV3HardFailureShortCircuitsProductThenRecordsFailureBeforeContainment(String fault) throws Exception {
         Fixture f=fixture(); var adapter=prepareV3(f);
         switch(fault) {
@@ -144,6 +144,12 @@ class PlacePilotAutonomousCanaryServiceTest {
             case "ANOMALY" -> when(f.anomalies().audit(eq(RUN_ID),any())).thenReturn(
                     new PlacePilotCatalogAnomalyService.AuditResult(new ObjectMapper().createObjectNode(),false,1,0,0));
             case "FUNCTIONAL" -> when(f.probes().captureAfter(any(),any())).thenThrow(new IllegalStateException("FIXTURE_5XX"));
+            case "COVERAGE" -> {
+                var incomplete=probeSuite(105,true);
+                var surfaces=new LinkedHashMap<>(incomplete.surfaces());
+                surfaces.put("place_detail_coverage",new PlacePilotHttpProbeService.SurfaceResult(1,0,105,105,true,List.of()));
+                when(f.probes().captureAfter(any(),any())).thenReturn(PlacePilotHttpProbeService.ProbeSuite.from(surfaces));
+            }
             case "GRAPH" -> when(f.gates().inspectV3Containment(RUN_ID,HASH)).thenThrow(new IllegalStateException("FIXTURE_GRAPH"));
         }
         assertThatThrownBy(()->f.service().run(configuration(f.manifestPath()),adapter)).isInstanceOf(Exception.class);
@@ -403,8 +409,10 @@ class PlacePilotAutonomousCanaryServiceTest {
             for (String name : List.of(
                     "search_coverage", "map_nearby_coverage",
                     "map_bounds_coverage", "place_detail_coverage")) {
-                surfaces.put(name, new PlacePilotHttpProbeService.SurfaceResult(
-                        1, 0, p95, p95, true, List.of()));
+                surfaces.put(name, PlacePilotHttpProbeService.SurfaceResult.from(List.of(
+                        new PlacePilotHttpProbeService.ProbeDiagnostic(name,1,"GET",
+                            PlacePilotHttpProbeService.pathTemplate(name),Instant.EPOCH,p95,200,false,
+                            "RESPONSE_RECEIVED","VALID",null,SELECTED_ID))));
             }
         }
         return PlacePilotHttpProbeService.ProbeSuite.from(surfaces);

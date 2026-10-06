@@ -261,10 +261,23 @@ public class PlacePilotCanaryGateService {
             WHERE w.sync_run_id=? AND (s.id IS NULL OR r.provider IS NULL)
             """,run));
     }
-    public void verifyV3Accounting(UUID run,PlacePilotSourceAccounting.Approved approved,List<PlacePilotHttpProbeService.ProbeTarget> targets) {
+    public ObjectNode verifyV3Accounting(UUID run,PlacePilotSourceAccounting.Approved approved,List<PlacePilotHttpProbeService.ProbeTarget> targets) {
+        if (approved == null || !run.equals(approved.runId())
+                || scalarLong("SELECT count(*) FROM place_provider_sync_runs WHERE id=? AND manifest_hash=? AND method_version=?",
+                    run, approved.manifestHash(), PlacePilotV3Policy.V3) != 1)
+            throw new IllegalArgumentException("V3 accounting run/hash binding invalid");
+        Set<UUID> selected = new HashSet<>();
+        for (var target : targets) {
+            target.validate();
+            if (!selected.add(target.placeId())) throw new IllegalArgumentException("V3 duplicate accounting identity");
+        }
+        if (selected.size() != PlacePilotV3Policy.PILOT_SIZE)
+            throw new IllegalArgumentException("V3 accounting requires exact 71 selected identities");
         ObjectNode d=JsonNodeFactory.instance.objectNode();
         var ids=d.putArray("selected_place_ids"); targets.forEach(p->ids.add(p.placeId().toString()));
-        validateDatabaseSafety(attachDatabaseSafety(run,d,approved));
+        ObjectNode verified=attachDatabaseSafety(run,d,approved,selected,true);
+        validateDatabaseSafety(verified,true);
+        return verified; // persisted membership only, no HTTP assertion or checked-ID field.
     }
 
     void validatePassingExternalDiagnostics(JsonNode diagnostics, boolean v3) {
@@ -326,6 +339,13 @@ public class PlacePilotCanaryGateService {
             }
         }
         if (v3) {
+            JsonNode checked = diagnostics.path("selected_place_http_coverage");
+            if (!checked.isObject() || checked.size() != 4)
+                throw new IllegalArgumentException("v3 requires actual HTTP identity coverage");
+            for (String surface : List.of("search", "map_nearby", "map_bounds", "place_detail")) {
+                if (!selectedIdentityArray(checked.path(surface)).equals(selectedPlaceIds))
+                    throw new IllegalArgumentException("v3 incomplete HTTP identity coverage: " + surface);
+            }
             if (selectedPlaceIds.size() != PlacePilotV3Policy.PILOT_SIZE) {
                 throw new IllegalArgumentException("v3 selected coverage must be exactly 71");
             }
@@ -359,6 +379,12 @@ public class PlacePilotCanaryGateService {
      */
     private ObjectNode attachDatabaseSafety(UUID syncRunId, JsonNode diagnostics,
                                            PlacePilotSourceAccounting.Approved approved) {
+        return attachDatabaseSafety(syncRunId,diagnostics,approved,selectedProbeIds(diagnostics),false);
+    }
+
+    private ObjectNode attachDatabaseSafety(UUID syncRunId, JsonNode diagnostics,
+                                           PlacePilotSourceAccounting.Approved approved,
+                                           Set<UUID> comparedIdentities, boolean accountingOnly) {
         long missingOrUnvalidatedConstraints = scalarLong("""
                 SELECT count(*)
                   FROM (VALUES
@@ -539,10 +565,9 @@ public class PlacePilotCanaryGateService {
                 """, (rs, rowNum) -> rs.getObject("canonical_place_id", UUID.class),
                 syncRunId);
         Set<UUID> uniqueDatabasePlaceIds = new HashSet<>(selectedDatabasePlaceIds);
-        Set<UUID> probedPlaceIds = selectedProbeIds(diagnostics);
         long selectedProbeCoverageViolations =
                 selectedDatabasePlaceIds.size() != uniqueDatabasePlaceIds.size()
-                        || !uniqueDatabasePlaceIds.equals(probedPlaceIds) ? 1 : 0;
+                        || !uniqueDatabasePlaceIds.equals(comparedIdentities) ? 1 : 0;
         long currentWrites = scalarLong("""
                 SELECT count(*) FROM place_pilot_catalog_writes
                  WHERE sync_run_id = ? AND rollback_state = 'NONE'
@@ -605,7 +630,7 @@ public class PlacePilotCanaryGateService {
                 providerIsolationViolations == 0 ? "PASS" : "FAIL");
         verified.put("canonical_uuid_uniqueness",
                 duplicateCanonicalUuids == 0 ? "PASS" : "FAIL");
-        verified.put("selected_place_probe_coverage",
+        verified.put(accountingOnly ? "selected_canonical_membership" : "selected_place_probe_coverage",
                 selectedProbeCoverageViolations == 0 ? "PASS" : "FAIL");
         verified.put("provenance_linkage",
                 provenanceLinkageViolations == 0 ? "PASS" : "FAIL");
@@ -624,7 +649,7 @@ public class PlacePilotCanaryGateService {
         serverDerived.put("duplicate_external_ref_violations", duplicateExternalRefs);
         serverDerived.put("provider_isolation_violations", providerIsolationViolations);
         serverDerived.put("duplicate_canonical_uuid_violations", duplicateCanonicalUuids);
-        serverDerived.put("selected_probe_coverage_violations",
+        serverDerived.put(accountingOnly ? "selected_canonical_membership_violations" : "selected_probe_coverage_violations",
                 selectedProbeCoverageViolations);
         serverDerived.put("source_orphans", sourceOrphans);
         serverDerived.put("canonical_without_provenance", canonicalWithoutProvenance);
@@ -640,6 +665,9 @@ public class PlacePilotCanaryGateService {
     }
 
     private void validateDatabaseSafety(JsonNode verifiedDiagnostics) {
+        validateDatabaseSafety(verifiedDiagnostics,false);
+    }
+    private void validateDatabaseSafety(JsonNode verifiedDiagnostics, boolean accountingOnly) {
         JsonNode derived = verifiedDiagnostics.path("server_derived");
         requireZero("database_constraints",
                 derived.path("database_constraint_violations").longValue());
@@ -649,8 +677,8 @@ public class PlacePilotCanaryGateService {
                 derived.path("provider_isolation_violations").longValue());
         requireZero("canonical_uuid_uniqueness",
                 derived.path("duplicate_canonical_uuid_violations").longValue());
-        requireZero("selected_place_probe_coverage",
-                derived.path("selected_probe_coverage_violations").longValue());
+        requireZero(accountingOnly ? "selected_canonical_membership" : "selected_place_probe_coverage",
+                derived.path(accountingOnly ? "selected_canonical_membership_violations" : "selected_probe_coverage_violations").longValue());
         requireZero("provenance_linkage",
                 derived.path("provenance_linkage_violations").longValue());
         requireZero("quarantine_imported", derived.path("quarantine_imported").longValue());
@@ -723,7 +751,9 @@ public class PlacePilotCanaryGateService {
     }
 
     private Set<UUID> selectedProbeIds(JsonNode diagnostics) {
-        JsonNode values = diagnostics.path("selected_place_ids_checked");
+        return selectedIdentityArray(diagnostics.path("selected_place_ids_checked"));
+    }
+    private Set<UUID> selectedIdentityArray(JsonNode values) {
         if (!values.isArray() || values.isEmpty()) {
             throw new IllegalArgumentException(
                     "passing canary gate lacks selected Place probe identities");

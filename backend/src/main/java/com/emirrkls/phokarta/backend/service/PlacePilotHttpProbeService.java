@@ -119,7 +119,11 @@ public class PlacePilotHttpProbeService {
     ) {
         List<ProbeDiagnostic> observations = new ArrayList<>();
         for (int index = 0; index < targets.size(); index++) {
-            observations.add(probe.apply(targets.get(index), index + 1));
+            ProbeTarget target = targets.get(index);
+            ProbeDiagnostic observation = probe.apply(target, index + 1);
+            // The validator above checked THIS canonical identity in the received body.
+            // A planned target, failed response or summary count is not checked coverage.
+            observations.add(observation.withCheckedIdentity(target.placeId()));
         }
         return SurfaceResult.from(observations);
     }
@@ -444,8 +448,25 @@ public class PlacePilotHttpProbeService {
 
     public record ProbeDiagnostic(String surface, int sampleIndex, String method, String pathTemplate,
             Instant startedAt, double durationMs, Integer httpStatus, boolean timeout,
-            String transportResult, String responseValidation, String failureCategory) {
+            String transportResult, String responseValidation, String failureCategory, UUID checkedPlaceId) {
+        public ProbeDiagnostic(String surface, int sampleIndex, String method, String pathTemplate,
+                Instant startedAt, double durationMs, Integer httpStatus, boolean timeout,
+                String transportResult, String responseValidation, String failureCategory) {
+            this(surface, sampleIndex, method, pathTemplate, startedAt, durationMs, httpStatus, timeout,
+                    transportResult, responseValidation, failureCategory, null);
+        }
         public boolean passed() { return failureCategory == null; }
+        boolean validV3Response() {
+            return passed() && !timeout && httpStatus != null && httpStatus >= 200 && httpStatus < 300
+                    && "GET".equals(method) && "RESPONSE_RECEIVED".equals(transportResult)
+                    && "VALID".equals(responseValidation) && Double.isFinite(durationMs)
+                    && durationMs > 0 && durationMs < 5000;
+        }
+        private ProbeDiagnostic withCheckedIdentity(UUID id) {
+            return new ProbeDiagnostic(surface, sampleIndex, method, pathTemplate, startedAt, durationMs,
+                    httpStatus, timeout, transportResult, responseValidation, failureCategory,
+                    validV3Response() ? id : null);
+        }
         ObjectNode toJson() {
             ObjectNode value = JsonNodeFactory.instance.objectNode();
             value.put("surface", surface).put("sample_index", sampleIndex).put("method", method)
@@ -595,6 +616,35 @@ public class PlacePilotHttpProbeService {
 
         public double errorRate() {
             return requestCount == 0 ? 1.0 : (double) errorCount / requestCount;
+        }
+
+        /** V3 only. Derive identities from completed observations, never the requested plan. */
+        public ObjectNode verifiedV3Coverage(List<ProbeTarget> selected) {
+            Set<UUID> expected = new java.util.HashSet<>();
+            for (ProbeTarget target : selected) {
+                target.validate();
+                if (!expected.add(target.placeId())) throw new IllegalArgumentException("V3 duplicate selected identity");
+            }
+            if (expected.isEmpty()) throw new IllegalArgumentException("V3 selected identities missing");
+            ObjectNode coverage = JsonNodeFactory.instance.objectNode();
+            for (String name : List.of("search", "map_nearby", "map_bounds", "place_detail")) {
+                SurfaceResult result = surface(name + "_coverage");
+                Set<UUID> checked = new java.util.HashSet<>();
+                if (!result.passed() || result.errorCount() != 0 || result.sampleCount() != expected.size()
+                        || result.observations().size() != expected.size())
+                    throw new IllegalArgumentException("V3 incomplete actual HTTP coverage: " + name);
+                for (ProbeDiagnostic observation : result.observations()) {
+                    if (!observation.validV3Response() || observation.checkedPlaceId() == null
+                            || !(name + "_coverage").equals(observation.surface())
+                            || !pathTemplate(name).equals(observation.pathTemplate())
+                            || !checked.add(observation.checkedPlaceId()))
+                        throw new IllegalArgumentException("V3 invalid actual HTTP coverage: " + name);
+                }
+                if (!checked.equals(expected)) throw new IllegalArgumentException("V3 HTTP identity coverage differs: " + name);
+                ArrayNode ids = coverage.putArray(name);
+                checked.stream().map(UUID::toString).sorted().forEach(ids::add);
+            }
+            return coverage;
         }
 
         public ObjectNode toJson() {

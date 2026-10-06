@@ -1,0 +1,75 @@
+M5.5B V3 operational memory repair -- source validation, not execution authorization
+
+Evidence and boundary
+---------------------
+The approved 7709664 release exhausted a 2048 MiB operational child JVM heap
+after successful cold/baseline checks, before successor database mutations.
+Docker OOMKilled=false. Historical logs contain no allocation stack or dump.
+
+Private isolated Linux attribution used the exact 112,670,776-byte sealed V3
+envelope: 18,924 sources, 17,630 usable, 1,294 rejected; 16,135 groups, 71
+selected, 16,064 quarantine. It kept the original envelope/accounting receipt
+alive while invoking the real importApproved(Path) and pre-write claim path.
+JDBC/transactions were explicitly write-refusing diagnostic stubs, not a real
+database. This focused boundary is NOT a complete V17 execution rehearsal.
+
+Java was taken from the exact approved image (Temurin 21.0.12.1+1, Linux musl).
+Child: Xms256m/Xmx2048m/ExitOnOutOfMemoryError; Linux namespace with 2304 MiB
+MemoryMax and 150% CPUQuota, private network. No beta credentials or APIs.
+
+OOM reproduced. Completed stack metadata identifies StringBuilder.toString ->
+hashCanonical -> hashPlan -> validateV3PredecessorContent -> claimRun. The old
+code simultaneously held full parsed envelopes, full plan projections and a
+whole canonical builder, then allocated a whole String and UTF-8 byte array.
+Initial full-tree parsing used approximately 600 MiB. Cumulative allocation is
+not a leak or live-retention measurement. No dominator retained-size claim is
+made. Raw diagnostics remain private/outside Git. The retained partial dump
+contains completed stack metadata but cannot support a full heap graph audit.
+
+Correction
+----------
+PlacePilotImportService streams the same canonical character sequence through
+BufferedWriter/UTF-8/DigestOutputStream/SHA-256, without full output String or
+byte[]. Plan hashing uses shallow, read-only subtree sharing and separate root/
+candidate metadata projections, not deep copies of full source/evidence trees.
+The V2 predecessor projection remains complete and includes all source/provider/
+scope/candidate/evidence content. No original JSON node is modified.
+
+No hash field exclusions, sort order, escaping, numeric rendering, source-state
+accounting, identity/authorization/predecessor equality, transaction/claim,
+v2/v3 gate policy, B1/B2/B3/B4 ordering, graph safety or rollback semantics are
+changed. No OutOfMemoryError catch, forced GC or runtime-budget increase.
+
+Regression
+----------
+Existing Python-compatible Unicode/control/numeric canonical hash vectors stay
+unchanged. Added tests reject whole-payload deep copies, assert input identity/
+content preservation, include unselected/source payloads in predecessor hashes,
+retain invalid-Unicode/nonfinite rejection, and compute an approximately 112 MiB
+logical canonical payload in an explicitly bounded 96 MiB child JVM. This is a
+deterministic memory-amplification regression, NOT full-volume runner acceptance.
+
+Required closure
+----------------
+Run full Linux Maven/Testcontainers/Flyway/image/launcher/Python CI on the exact
+candidate SHA. Separately run actual full-volume V17 rehearsal, including real
+isolated predecessor state, runner cold/baseline/PRE, 71 re-adoptions, exact
+replay, POST, actual isolated data/graph/product gates and failure containment.
+Do not create synthetic PASS artifacts or equate tests with that rehearsal.
+The Windows Docker Desktop inference-socket startup failure currently blocks
+the local full-service rehearsal. The focused no-datasource diagnosis alone
+does not close this repair or authorize a master fast-forward/live execution.
+
+Package and live isolation
+--------------------------
+Reserved Run B 19994388-464c-4f0c-83db-44c41d8b67fa is unchanged. Historical Run A
+d70adea5-6e3f-4c32-92c0-49695eeeb9ce and all old sealed/failed-attempt evidence
+remain immutable. No reseal, manifest revision, live retry/deploy/backup/import/
+reactivation/rollback or beta data/schema/resource change is part of this repair.
+
+A repaired release requires reviewed revision of source/image/JAR pins, B2
+target/probe-image policy, operations plan, supporting source hashes, runbook
+release references and package seal/receipt as actually dependent. It does not
+by itself require changing immutable source/candidate/canonical manifest content
+or its existing content hash. Do not deploy a new release under the old seal.
+Future execution requires separate approval and fresh attestation/PRE/preflight.

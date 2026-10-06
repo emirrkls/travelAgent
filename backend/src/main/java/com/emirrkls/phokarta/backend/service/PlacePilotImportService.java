@@ -12,6 +12,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
+import java.io.BufferedWriter;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +23,7 @@ import java.text.Normalizer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.security.DigestOutputStream;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -271,26 +276,53 @@ public class PlacePilotImportService {
      */
     public String hashPlan(JsonNode manifest) {
         if (!manifest.isObject()) throw new IllegalArgumentException("manifest must be an object");
-        ObjectNode plan = manifest.deepCopy();
+        // Only root metadata and one candidate field differ. Sharing read-only payload
+        // subtrees avoids cloning the complete source/evidence graph for each digest.
+        ObjectNode plan = shallowObject((ObjectNode) manifest);
         plan.remove(List.of(
                 "run_id", "pilot_run_key", "canary_stage", "authorization_reference",
                 "reauthorizes_run_id", "status"));
         JsonNode candidates = plan.path("candidates");
         if (candidates.isArray()) {
+            ArrayNode projected = objectMapper.createArrayNode();
             for (JsonNode candidate : candidates) {
-                if (candidate.isObject()) ((ObjectNode) candidate).remove("selected_for_stage");
+                if (candidate.isObject()) {
+                    ObjectNode value = shallowObject((ObjectNode) candidate);
+                    value.remove("selected_for_stage");
+                    projected.add(value);
+                } else {
+                    projected.add(candidate);
+                }
             }
+            plan.set("candidates", projected);
         }
         return hashCanonical(plan);
     }
 
+    private ObjectNode shallowObject(ObjectNode value) {
+        return objectMapper.createObjectNode().setAll(value);
+    }
+
+    /** Complete V2 predecessor content projection; no source/candidate payload is omitted. */
+    String hashPredecessorPlan(JsonNode manifest) {
+        ObjectNode predecessorPlan = shallowObject((ObjectNode) manifest);
+        predecessorPlan.put("method_version", EXPECTED_METHOD_VERSION);
+        predecessorPlan.remove(List.of("predecessor_manifest_hash", "canonical_identity_method_version", "performance_policy"));
+        return hashPlan(predecessorPlan);
+    }
+
     private String hashCanonical(JsonNode value) {
         try {
-            StringBuilder canonical = new StringBuilder();
-            appendPythonCanonicalJson(value, canonical);
-            byte[] encoded = canonical.toString().getBytes(StandardCharsets.UTF_8);
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(encoded));
-        } catch (NoSuchAlgorithmException exception) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            // Same Python-compatible canonical character sequence and UTF-8 encoding,
+            // but never a whole-plan StringBuilder + String + encoded byte[] at once.
+            try (Writer canonical = new BufferedWriter(new OutputStreamWriter(
+                    new DigestOutputStream(OutputStream.nullOutputStream(), digest),
+                    StandardCharsets.UTF_8))) {
+                appendPythonCanonicalJson(value, canonical);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException | IOException exception) {
             throw new IllegalStateException("unable to hash import manifest", exception);
         }
     }
@@ -939,10 +971,7 @@ public class PlacePilotImportService {
         // Compare the entire frozen source/provider/scope/payload plan, not only the
         // subset that is materialized in decisions. Reconstruct the V2 policy envelope
         // without changing V2's historical digest algorithm or persisted history.
-        ObjectNode predecessorPlan = manifest.deepCopy();
-        predecessorPlan.put("method_version", EXPECTED_METHOD_VERSION);
-        predecessorPlan.remove(List.of("predecessor_manifest_hash", "canonical_identity_method_version", "performance_policy"));
-        String frozenPlanDigest = hashPlan(predecessorPlan);
+        String frozenPlanDigest = hashPredecessorPlan(manifest);
         Integer valid = jdbc.queryForObject("""
                 SELECT count(*) FROM place_provider_sync_runs run
                  WHERE run.id = ? AND run.method_version = ? AND run.status = 'SUCCEEDED'
@@ -1649,7 +1678,7 @@ public class PlacePilotImportService {
     }
 
     /** Mirrors Python json.dumps(..., ensure_ascii=False, sort_keys=True, separators=(",", ":")). */
-    private void appendPythonCanonicalJson(JsonNode node, StringBuilder output) {
+    private void appendPythonCanonicalJson(JsonNode node, Writer output) throws IOException {
         if (node.isObject()) {
             output.append('{');
             List<String> names = new ArrayList<>();
@@ -1679,7 +1708,7 @@ public class PlacePilotImportService {
             return;
         }
         if (node.isIntegralNumber()) {
-            output.append(node.bigIntegerValue());
+            output.append(node.bigIntegerValue().toString());
             return;
         }
         if (node.isFloatingPointNumber()) {
@@ -1734,7 +1763,7 @@ public class PlacePilotImportService {
         return Integer.compare(left.length() - leftIndex, right.length() - rightIndex);
     }
 
-    private void appendPythonJsonString(String value, StringBuilder output) {
+    private void appendPythonJsonString(String value, Writer output) throws IOException {
         output.append('"');
         for (int index = 0; index < value.length();) {
             char first = value.charAt(index);
@@ -1761,7 +1790,8 @@ public class PlacePilotImportService {
                         output.append(Character.forDigit((codePoint >>> 4) & 0xf, 16));
                         output.append(Character.forDigit(codePoint & 0xf, 16));
                     } else {
-                        output.appendCodePoint(codePoint);
+                        if (codePoint <= Character.MAX_VALUE) output.append((char) codePoint);
+                        else output.write(Character.toChars(codePoint));
                     }
                 }
             }

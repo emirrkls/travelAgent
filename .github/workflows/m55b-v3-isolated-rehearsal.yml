@@ -1,0 +1,61 @@
+name: M55B isolated integrated V3 rehearsal
+
+on:
+  push:
+    branches: [validation/m55b-v3-operational-repair]
+    paths:
+      - .github/workflows/m55b-v3-isolated-rehearsal.yml
+      - tooling/validation/m55b-v3/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m55b-isolated-v3-validation
+  cancel-in-progress: false
+
+jobs:
+  isolated-success:
+    if: github.repository == 'emirrkls/travelAgent' && github.ref == 'refs/heads/validation/m55b-v3-operational-repair'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout validation infrastructure
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          path: harness
+
+      - name: Measure actual capacity before heavy work
+        run: python3 harness/tooling/validation/m55b-v3/capacity.py --output "$RUNNER_TEMP/m55b-sanitized"
+
+      - name: Checkout approved application separately
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: e93cae3028b44ba47f407ce19f7001b8b2983011
+          persist-credentials: false
+          path: application
+
+      - name: Java 21 for isolated fixture helper
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Validate harness without replaying accepted backend CI
+        run: python3 -m unittest discover -s harness/tooling/validation/m55b-v3 -p test_harness.py -v
+
+      - name: Real integrated full-volume SUCCESS rehearsal
+        run: >-
+          python3 harness/tooling/validation/m55b-v3/linux_rehearsal.py
+          --application "$GITHUB_WORKSPACE/application"
+          --output "$RUNNER_TEMP/m55b-sanitized"
+
+      - name: Upload only explicitly sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: m55b-sanitized-integrated-v3-${{ github.sha }}
+          path: ${{ runner.temp }}/m55b-sanitized/*.json
+          if-no-files-found: error
+          retention-days: 7

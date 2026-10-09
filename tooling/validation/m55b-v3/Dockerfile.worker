@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+# Only the ephemeral TEST CA's PUBLIC certificate enters this image.
+COPY root.crt /usr/local/share/ca-certificates/m55b-isolated.crt
+RUN update-ca-certificates
+ENV PYTHONDONTWRITEBYTECODE=1
+USER 1001:1001
+ENTRYPOINT ["python3"]

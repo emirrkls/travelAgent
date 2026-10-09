@@ -1,0 +1,22 @@
+{
+    admin off
+    auto_https disable_redirects
+}
+https://m55b-api:8443 {
+    tls internal
+    handle /health/live {
+        rewrite * /actuator/health/liveness
+        reverse_proxy phokarta-backend-1:8081
+    }
+    handle /health/ready {
+        rewrite * /actuator/health/readiness
+        reverse_proxy phokarta-backend-1:8081
+    }
+    handle {
+        reverse_proxy phokarta-backend-1:8080
+    }
+}
+https://m55b-minio:9443 {
+    tls internal
+    reverse_proxy m55b-minio-store:9000
+}

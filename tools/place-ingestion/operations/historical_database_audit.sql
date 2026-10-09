@@ -1,0 +1,42 @@
+
+SELECT jsonb_build_object(
+ 'transaction_read_only',current_setting('transaction_read_only'),
+ 'places',jsonb_build_object('total',(SELECT count(*) FROM places),'manual',(SELECT count(*) FROM places WHERE origin='MANUAL_COMMUNITY'),
+   'manual_fingerprint',(SELECT md5(string_agg(to_jsonb(p)::text,'|' ORDER BY id)) FROM places p WHERE origin='MANUAL_COMMUNITY'),
+   'active',(SELECT count(*) FROM places WHERE origin='EXTERNAL_IMPORT' AND catalog_status='ACTIVE'),
+   'retired',(SELECT count(*) FROM places WHERE origin='EXTERNAL_IMPORT' AND catalog_status='RETIRED'),
+   'provisional',(SELECT count(*) FROM places WHERE origin='EXTERNAL_IMPORT' AND catalog_status='PROVISIONAL'),
+   'canonical_ids',(SELECT jsonb_agg(id::text ORDER BY id) FROM places WHERE origin='EXTERNAL_IMPORT')),
+ 'refs',jsonb_build_object('total',(SELECT count(*) FROM place_external_refs),'active',(SELECT count(*) FROM place_external_refs WHERE status='ACTIVE'),
+   'inactive',(SELECT count(*) FROM place_external_refs WHERE status='INACTIVE'),'b_owned',(SELECT count(*) FROM place_external_refs WHERE last_sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+   'b_active',(SELECT count(*) FROM place_external_refs WHERE last_sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa' AND status='ACTIVE')),
+ 'sources',jsonb_build_object('total',(SELECT count(*) FROM place_source_records),'a_owned',(SELECT count(*) FROM place_source_records WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'b_owned',(SELECT count(*) FROM place_source_records WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+   'a_fingerprint',(SELECT md5(string_agg(to_jsonb(s)::text,'|' ORDER BY id)) FROM place_source_records s WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce')),
+ 'historical_a',jsonb_build_object(
+   'run_fingerprint',(SELECT md5(to_jsonb(t)::text) FROM place_provider_sync_runs t WHERE id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'decisions_fingerprint',(SELECT md5(string_agg(to_jsonb(d)::text,'|' ORDER BY id)) FROM place_validation_decisions d WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'writes_fingerprint',(SELECT md5(string_agg(to_jsonb(w)::text,'|' ORDER BY to_jsonb(w)::text)) FROM place_pilot_catalog_writes w WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'events_fingerprint',(SELECT md5(string_agg(to_jsonb(e)::text,'|' ORDER BY to_jsonb(e)::text)) FROM place_pilot_operational_events e WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'gate_fingerprint',(SELECT md5(string_agg(to_jsonb(g)::text,'|' ORDER BY id)) FROM place_pilot_canary_gates g WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce'),
+   'gate',(SELECT gate_status FROM place_pilot_canary_gates WHERE sync_run_id='d70adea5-6e3f-4c32-92c0-49695eeeb9ce')),
+ 'b_run',(SELECT jsonb_build_object('status',status,'method',method_version,'manifest_hash',manifest_hash,'predecessor',reauthorizes_run_id,
+   'legacy_created_count',created_count,'source_count',source_count,'usable_count',usable_count,'source_rejected_count',source_rejected_count,
+   'quarantined_count',quarantined_count,'checkpoint_state',checkpoint_state,'started_at',started_at,'completed_at',completed_at)
+   FROM place_provider_sync_runs WHERE id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+ 'b_gate',(SELECT jsonb_build_object('status',gate_status,'diagnostics',diagnostics) FROM place_pilot_canary_gates WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+ 'b_decisions',(SELECT jsonb_object_agg(decision_state,n) FROM (SELECT decision_state,count(*) n FROM place_validation_decisions WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa' GROUP BY decision_state) x),
+ 'b_candidate_count',(SELECT count(*) FROM place_validation_decisions WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+ 'b_selected',(SELECT count(*) FROM place_validation_decisions WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa' AND selected_for_stage),
+ 'b_quarantine_selected',(SELECT count(*) FROM place_validation_decisions WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa' AND selected_for_stage AND decision_state='QUARANTINE'),
+ 'b_blocker_selected',(SELECT count(*) FROM place_validation_decisions WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa' AND selected_for_stage AND jsonb_array_length(hard_blockers)>0),
+ 'b_writes',(SELECT jsonb_agg(jsonb_build_object('place_id',place_id,'rollback_state',rollback_state,'supersedes_write_id',supersedes_write_id) ORDER BY place_id) FROM place_pilot_catalog_writes WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+ 'b_events',(SELECT jsonb_agg(jsonb_build_object('type',event_type,'details',details) ORDER BY occurred_at) FROM place_pilot_operational_events WHERE sync_run_id='19994388-464c-4f0c-83db-44c41d8b67fa'),
+ 'flyway',(SELECT jsonb_build_object('max_version',max(version::integer),'failed',count(*) FILTER(WHERE NOT success),'v17_checksum',max(checksum) FILTER(WHERE version='17'),'v17_success',bool_and(success) FILTER(WHERE version='17')) FROM flyway_schema_history WHERE version IS NOT NULL),
+ 'user_graph',jsonb_build_object(
+   'users',(SELECT jsonb_build_object('count',count(*),'fingerprint',md5(coalesce(string_agg(to_jsonb(t)::text,'|' ORDER BY id),''))) FROM users t),
+   'visits',(SELECT jsonb_build_object('count',count(*),'fingerprint',md5(coalesce(string_agg(to_jsonb(t)::text,'|' ORDER BY id),''))) FROM visits t),
+   'collections',(SELECT jsonb_build_object('count',count(*),'fingerprint',md5(coalesce(string_agg(to_jsonb(t)::text,'|' ORDER BY id),''))) FROM collections t),
+   'saved_places',(SELECT jsonb_build_object('count',count(*),'fingerprint',md5(coalesce(string_agg(to_jsonb(t)::text,'|' ORDER BY to_jsonb(t)::text),''))) FROM saved_places t),
+   'collection_places',(SELECT jsonb_build_object('count',count(*),'fingerprint',md5(coalesce(string_agg(to_jsonb(t)::text,'|' ORDER BY to_jsonb(t)::text),''))) FROM collection_places t))
+);

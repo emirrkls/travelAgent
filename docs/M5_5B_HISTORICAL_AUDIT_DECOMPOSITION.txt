@@ -1,0 +1,86 @@
+M5.5B Historical Database Audit Decomposition
+===========================================
+
+Scope and causality
+-------------------
+This operational tooling change hardens resilience and observability. The
+historical production SQLSTATE 57014 timeout remains UNRESOLVED. Local
+equivalence or faster execution does not establish its historical cause.
+No runtime endpoint, query/index, HTTP deadline, Flyway migration, importer,
+rollback policy, canonical identity or historical run policy is changed.
+
+Pinned semantics
+----------------
+operations/historical_database_audit.sql is the exact original SQL, SHA-256:
+afa3d485de1c28d5293fbc71cfe44b8e2a5aeb0ef4ba57d479cf7a9ccfd91866
+Its 38 leaf expressions are extracted without rewriting expressions. All
+original full-row to_jsonb fingerprints, md5 aggregates, ordering, NULL/empty
+semantics, UUIDs, lineage, source/candidate/write/event/gate checks survive.
+The SQL is LF-pinned in .gitattributes so Windows checkout cannot change its
+byte digest. No raw provider dump or database contents are committed.
+
+Session, snapshot and budgets
+----------------------------
+One psql process/connection executes BEGIN TRANSACTION ISOLATION LEVEL
+REPEATABLE READ READ ONLY, a header, all 38 expressions, a footer and COMMIT.
+Every record must prove the same backend PID and pg_current_snapshot(),
+repeatable-read isolation, read-only status and statement_timeout=5000 ms.
+Native psql per-statement timing is recorded; it is not inferred SQL phase
+timing. A completion marker is required in addition to successful process exit.
+
+The aggregate SQL subprocess budget is one monotonic 30-second deadline,
+starting before subprocess launch. It is NOT reset per expression. A Docker
+in-container timeout independently bounds the psql process to 30 seconds.
+This explicitly approved audit-specific policy allows more total audit time
+than the old single 5-second statement; it is NOT unchanged total latency
+behavior. Every individual statement retains the original 5-second bound.
+The surrounding SSH envelope remains separately bounded at 180 seconds.
+HTTP complete-response safety remains 5 seconds and is not modified.
+
+Fail-closed evidence contract
+----------------------------
+The independent expected JSON artifact must have its trusted SHA-256 checked
+before launch. All 38 identities and values, the transaction, snapshot,
+completion, timings and complete reconstructed JSON must validate before
+returning audit PASS. Missing/duplicate/extra/malformed output, snapshot
+changes, SQL failures, either timeout or fingerprint differences stop
+preflight. preflight() does not invoke its downstream callback on failure.
+Failure diagnostics may retain completed-prefix timings only, explicitly
+labelled NOT_AUDIT_PASS; partial values/fingerprints and raw stderr are never
+published. CLI PASS artifacts are exclusive-create and are never overwritten.
+
+Invocation for a FUTURE separately approved operational package
+-------------------------------------------------------------
+python operations/historical_database_audit.py
+  --db-container <established-database-container> --sudo
+  --expected-json <independent-expected-audit.json>
+  --expected-sha256 <trusted-independent-artifact-sha256>
+  --output <new-private-complete-evidence.json>
+No credentials are arguments; the established container environment provides
+database connection identity. This invocation is not execution authorization.
+
+Required future package integration (NOT performed by this repair)
+----------------------------------------------------------------
+The failed historical producer lived outside tracked source, in the sealed
+operational preparation/orchestration artifacts. Preserve those historical
+files and their evidence. A future reviewed package revision must include
+this producer and pinned SQL, bind their hashes and the independent expected
+audit artifact, and replace ONLY its historical db=sql(QUERY) call with this
+complete checked producer. All subsequent preflight identity/accounting and
+mutation barriers remain. The current package/seal must not be edited in place.
+A fresh package revision, offline validation and explicit owner approval are
+required before any live audit retry or canary. Master promotion is separate.
+
+Validation
+----------
+Unit tests cover all 38 expressions, exact JSON equality, NULL/empty/escaping/
+ordering, every leaf changing, malformed/duplicate/missing output, transaction
+and snapshot identity, fixed total budget and no partial/downstream PASS.
+Docker PostgreSQL integration tests are mandatory, not silently skipped:
+real original/decomposed equivalence, concurrent writes, historical record
+change, 5000 ms statement_timeout, one 30-second aggregate timeout, and SQL
+failure after an already completed expression. These use disposable local
+network-none fixtures; no beta connection is made. Full-volume fixture and
+real V3 SUCCESS runner/worker rehearsal evidence is kept outside source.
+Standard CI runs the entire Python suite, full Maven/Testcontainers verify,
+production-image build and existing private launcher fail-closed checks.

@@ -1,1 +1,2 @@
 ios/ci_scripts/*.sh text eol=lf
+tools/place-ingestion/operations/historical_database_audit.sql text eol=lf

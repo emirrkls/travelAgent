@@ -17,6 +17,7 @@ import zipfile
 
 from capacity import gate, snapshot
 from fixture import APP_SHA, A, B, IDENTITY_DIGEST, sha, write
+from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER
 
 HERE = Path(__file__).resolve().parent
 IMAGE = 'phokarta-backend:' + APP_SHA
@@ -52,6 +53,9 @@ class Rehearsal:
         self.result = {'assessment': 'BLOCKED', 'application_sha': APP_SHA,
                        'harness_sha': os.environ['GITHUB_SHA'], 'started_at': now(),
                        'production_connections': 0, 'existing_operational_package_changed': False}
+        self.dependencies = Dependencies(self.publish)
+        self.capability_volume = None
+        self.network_id = None
 
     def publish(self, name, data):
         write(self.public / name, data)
@@ -74,7 +78,18 @@ class Rehearsal:
         return json.loads(self.docker('inspect', cid))[0]
 
     def run(self, name, args):
-        cid = self.docker('run', '-d', '--name', name, '--label', 'm55b.isolated=true', *args)
+        refs = {IMAGE, WORKER} | {ref for _, ref in SERVICES}
+        matching = [str(x) for x in args if str(x) in refs]
+        require(len(matching) == 1, 'APPROVED_CONTAINER_IMAGE_REQUIRED')
+        def project(raw):
+            value = raw.decode().strip()
+            if not re.fullmatch(r'[0-9a-f]{64}', value):
+                raise ValueError('CONTAINER_ID_INVALID')
+            return {'container_id': value}
+        result, observation = self.dependencies.operation(name + '-create', 'CREATE', matching[0],
+            ['run', '-d', '--name', name, '--label', 'm55b.isolated=true', *map(str, args)],
+            timeout=60, project=project)
+        cid = observation['container_id']
         self.containers.append(cid)
         return cid
 
@@ -110,12 +125,15 @@ class Rehearsal:
         self.phase = 'BUILD_PINNED_APPLICATION'
         require(self.command(['git', '-C', self.app, 'rev-parse', 'HEAD']) == APP_SHA, 'APP_SHA_NOT_PINNED')
         require(not self.command(['git', '-C', self.app, 'status', '--porcelain']), 'APP_CHECKOUT_DIRTY')
-        self.docker('build', '--label', 'org.opencontainers.image.revision=' + APP_SHA,
-                    '-t', IMAGE, self.app / 'backend', timeout=1500)
-        self.image_id = self.docker('image', 'inspect', '--format', '{{.Id}}', IMAGE)
+        self.dependencies.operation('application-build', 'CREATE', IMAGE,
+            ['build', '--label', 'org.opencontainers.image.revision=' + APP_SHA,
+             '-t', IMAGE, str(self.app / 'backend')], timeout=1500)
+        self.image_id = self.dependencies.local('application-built', IMAGE)[1]['verified_image_id']
         require(re.fullmatch(r'sha256:[0-9a-f]{64}', self.image_id), 'IMAGE_ID_INVALID')
         # Extract, compile and run the separate fixture helper; never edit/package it into app.jar.
-        cid = self.docker('create', IMAGE)
+        result, _ = self.dependencies.operation('application-extract-create', 'CREATE', IMAGE, ['create', IMAGE])
+        cid = result.stdout.decode().strip()
+        require(re.fullmatch(r'[0-9a-f]{64}', cid), 'EXTRACT_CONTAINER_ID_INVALID')
         self.containers.append(cid)
         self.docker('cp', cid + ':/app/app.jar', self.root / 'app.jar')
         self.docker('cp', cid + ':/opt/java/openjdk/lib/security/cacerts', self.root / 'cacerts')
@@ -132,20 +150,40 @@ class Rehearsal:
         self.publish('image_identity.json', {'application_sha': APP_SHA, 'image_sha': self.image_id,
                                            'jar_sha256': sha(self.root / 'app.jar')})
 
-    def services(self):
-        self.phase = 'ISOLATED_SERVICES'
-        images = ['postgis/postgis:16-3.5', 'minio/minio:RELEASE.2025-07-23T15-54-02Z',
-                  'minio/mc:RELEASE.2025-07-21T05-28-08Z', 'caddy:2.10-alpine', 'python:3.12-slim']
-        identities = {}
-        for image in images:
-            self.docker('pull', image, timeout=300)
-            identities[image] = json.loads(self.docker('image', 'inspect', '--format', '{{json .RepoDigests}}', image))
-        self.publish('fixture_image_digests.json', identities)
-        self.docker('network', 'create', '--internal', '--label', 'm55b.isolated=true', NETWORK)
+    def dependency_preflight(self):
+        self.phase = 'DOCKER_DEPENDENCY_PREFLIGHT'
+        self.publish('dependency_inventory.json', {'expected_platform': 'linux/amd64', 'application': IMAGE,
+            'worker_built_after_ephemeral_ca': WORKER, 'external_services': dict(SERVICES),
+            'image_references_changed': False, 'automatic_retries': 0})
+        self.dependencies.before_fixture(self.prepare_network)
+        self.publish('fixture_image_digests.json', {ref: {k: v[k] for k in ['verified_image_id', 'verified_digests', 'observed_platform']}
+                                                   for ref, v in self.dependencies.verified.items()})
+
+    def prepare_network(self):
+        self.dependencies.operation('isolated-network-create', 'CREATE', NETWORK,
+            ['network', 'create', '--internal', '--label', 'm55b.isolated=true', NETWORK])
         network = json.loads(self.docker('network', 'inspect', NETWORK))[0]
         require(network['Internal'] is True and network['Driver'] == 'bridge', 'INTERNAL_NETWORK_REQUIRED')
+        require(network['Labels'].get('m55b.isolated') == 'true', 'OWNED_NETWORK_REQUIRED')
+        self.network_id = network['Id']
         self.publish('isolated_network.json', {'id': network['Id'], 'internal': network['Internal'],
                                              'driver': network['Driver'], 'published_ports': 0})
+        volume = NETWORK + '-capability'
+        self.dependencies.operation('volume-capability-create', 'CREATE', volume,
+            ['volume', 'create', '--label', 'm55b.isolated=true', volume])
+        self.capability_volume = volume
+        def verify_volume(raw):
+            v = json.loads(raw)
+            if v != {'name': volume, 'driver': 'local', 'scope': 'local', 'label': 'true'}:
+                raise ValueError('VOLUME_CAPABILITY_INVALID')
+            return {'volume_driver': 'local', 'volume_scope': 'local', 'owned_test_volume': True}
+        self.dependencies.operation('volume-capability-inspect', 'INSPECT', volume,
+            ['volume', 'inspect', '--format', '{"name":{{json .Name}},"driver":{{json .Driver}},"scope":{{json .Scope}},"label":{{json (index .Labels "m55b.isolated")}}}', volume],
+            project=verify_volume)
+
+    def services(self):
+        self.phase = 'ISOLATED_SERVICES'
+        images = [ref for _, ref in SERVICES]
         pw, media_pw = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         self.envfile('db.env', {'POSTGRES_USER': 'phokarta', 'POSTGRES_PASSWORD': pw, 'POSTGRES_DB': DBNAME})
         self.envfile('media.env', {'MINIO_ROOT_USER': 'isolatedtest', 'MINIO_ROOT_PASSWORD': media_pw})
@@ -183,7 +221,9 @@ class Rehearsal:
         context.mkdir(mode=0o700)
         shutil.copyfile(HERE / 'Dockerfile.worker', context / 'Dockerfile')
         shutil.copyfile(self.root / 'root.crt', context / 'root.crt')
-        self.docker('build', '-t', 'm55b-isolated-b1:validation', context, timeout=300)
+        self.dependencies.operation('b1-worker-build', 'CREATE', WORKER,
+                                    ['build', '-t', WORKER, str(context)], timeout=300)
+        self.dependencies.local('b1-worker-built', WORKER)
         self.envfile('mc.env', {'MC_USER': 'isolatedtest', 'MC_PASSWORD': media_pw})
         mc = self.run('m55b-isolated-mc', ['--network', NETWORK, '--env-file', self.root / 'mc.env',
             '--mount', f'type=bind,src={self.root / "root.crt"},dst=/root/.mc/certs/CAs/m55b.crt,readonly',
@@ -476,7 +516,10 @@ class Rehearsal:
         c = gate(self.root)
         self.publish('capacity_harness.json', c)
         require(c['status'] == 'PASS', 'INITIAL_CAPACITY_BLOCKED')
+        self.phase = 'DOCKER_ENGINE_PREFLIGHT'
+        self.dependencies.engine()
         self.build()
+        self.dependency_preflight()
         self.phase = 'DETERMINISTIC_FULL_VOLUME_FIXTURE'
         self.command([sys.executable, HERE / 'fixture.py', '--application', self.app, '--output', self.root / 'sealed'], timeout=180)
         self.config = json.loads((self.root / 'fixture.json').read_bytes())
@@ -510,7 +553,10 @@ class Rehearsal:
         # Stop/remove ONLY exact IDs created by this harness on the ephemeral CI runner.
         for cid in reversed(self.containers):
             subprocess.run(['docker', 'rm', '-f', '-v', cid], capture_output=True, timeout=35)
-        subprocess.run(['docker', 'network', 'rm', NETWORK], capture_output=True, timeout=10)
+        if self.network_id:
+            subprocess.run(['docker', 'network', 'rm', self.network_id], capture_output=True, timeout=10)
+        if self.capability_volume:
+            subprocess.run(['docker', 'volume', 'rm', self.capability_volume], capture_output=True, timeout=10)
 
 
 def main():
@@ -522,9 +568,11 @@ def main():
     try:
         trial.execute()
     except Exception as e:
-        code = str(e) if isinstance(e, Failure) else 'HARNESS_' + type(e).__name__.upper()
+        code = str(e) if isinstance(e, (Failure, DependencyFailure)) else 'HARNESS_' + type(e).__name__.upper()
         trial.result.update(assessment='FAILED' if hasattr(trial, 'operational_cid') else 'BLOCKED',
                             failure_phase=trial.phase, failure_category=code, completed_at=now())
+        if isinstance(e, DependencyFailure):
+            trial.result['dependency_failure'] = e.observation
         trial.capture_failure_evidence()
     finally:
         trial.publish('result.json', trial.result)

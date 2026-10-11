@@ -48,3 +48,34 @@ hashes, safe identities, statuses/latencies, producer timings, resource samples.
 No manifests, raw provider records, HTTP bodies, private logs/env, tokens or keys.
 Finally remove only exact created container IDs and network on the isolated runner.
 Failures require owner review; this workflow never promotes master or reseals.
+
+Docker dependency repair (validation infrastructure only)
+
+The old ISOLATED_SERVICES artifact did not preserve the failed Docker operation.
+Its exact historical daemon/registry cause remains unresolved. New observations
+must not be retroactively represented as retained evidence from that old job.
+No service image reference, version, registry or application SHA is changed.
+
+Before full fixture generation, dependency_preflight verifies the Linux/amd64
+engine, built application ID/platform, and every exact approved external image.
+It independently inspects registry manifest/platform metadata, acquires missing
+images once, and re-inspects actual loaded image IDs/digests. No retries, TLS
+bypass, alternative registry, credentials acquisition or image substitution.
+Unknown/malformed output and unavailable auth/platform stop before DB creation.
+Internal network ownership and local volume capability are verified afterward.
+
+dependency-NNN-operation.json artifacts contain only explicit fields: stable ID,
+PULL/INSPECT/LOAD/CREATE type, approved public image or private-reference hash,
+platform, timestamps, elapsed/deadline, exit/status/category, safe presence flags,
+verified IDs/digests. stderr is classified only in ephemeral process memory.
+No stderr snippet, arbitrary URL, Docker environment, certificate or raw daemon
+output is published. REGISTRY_AUTH means an observed access/authentication denial;
+it does not prove whether a repository is private, missing or inaccessible.
+
+Initial missing local-image INSPECT evidence is retained as FAIL/IMAGE_NOT_FOUND
+and may be followed by exactly one approved acquisition. Any subsequent failed
+remote verification, pull or independent inspect is terminal, not a partial PASS.
+Container CREATE operations also use sanitized dependency observations. Synthetic
+selection, audit producer, transport/deadlines and all import/product assertions
+remain unchanged. One owner-authorized branch-push validation run is permitted;
+another dependency failure requires stopping, not another publication/retry.

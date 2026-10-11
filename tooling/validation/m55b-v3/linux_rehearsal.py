@@ -17,7 +17,8 @@ import zipfile
 
 from capacity import gate, snapshot
 from fixture import APP_SHA, A, B, IDENTITY_DIGEST, sha, write
-from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER, QUAY
+from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER, ASSEMBLED
+from release_assets import OfficialReleases, ReleaseFailure, verify_image, verify_smoke
 
 HERE = Path(__file__).resolve().parent
 IMAGE = 'phokarta-backend:' + APP_SHA
@@ -90,7 +91,7 @@ class Rehearsal:
                 raise ValueError('CONTAINER_ID_INVALID')
             return {'container_id': value}
         result, observation = self.dependencies.operation(name + '-create', 'CREATE', matching[0],
-            ['run', '-d', '--name', name, '--label', 'm55b.isolated=true', *map(str, args)],
+            ['run', '-d', '--pull=never', '--name', name, '--label', 'm55b.isolated=true', *map(str, args)],
             timeout=60, project=project)
         cid = observation['container_id']
         self.containers.append(cid)
@@ -101,6 +102,12 @@ class Rehearsal:
         while time.monotonic() < end:
             s = self.inspect(cid)['State']
             if not s['Running']:
+                if s['ExitCode'] != 0 or s['OOMKilled']:
+                    r = subprocess.run(['docker', 'logs', cid], capture_output=True, timeout=10)
+                    markers = sorted(set(re.findall(rb'M55B_SMOKE_[A-Z_]{1,40}', r.stdout)))
+                    self.publish('isolated_process_failure.json', {'phase': self.phase, 'container_id': cid,
+                        'exit_code': s['ExitCode'], 'oom_killed': s['OOMKilled'],
+                        'completed_smoke_phases': [x.decode() for x in markers], 'raw_logs_not_published': True})
                 require(s['ExitCode'] == 0 and not s['OOMKilled'], 'ISOLATED_PROCESS_FAILED')
                 return s
             time.sleep(1)  # IPC/readiness polling, never request warmup or retries.
@@ -160,20 +167,56 @@ class Rehearsal:
         self.publish('dependency_inventory.json', {'expected_platform': 'linux/amd64', 'application': IMAGE,
             'worker_built_after_ephemeral_ca': WORKER, 'external_services': dict(SERVICES),
             'image_references_changed': True, 'changed_images_only': ['minio', 'mc'],
-            'quay_anonymous_empty_cli_config': True, 'automatic_retries': 0})
+            'minio_acquisition': 'EXACT_OFFICIAL_GITHUB_RELEASE_BINARY_ASSEMBLY',
+            'anonymous_empty_cli_config': True, 'automatic_retries': 0})
         def ready():
+            self.assemble_minio()
             self.verify_minio_contracts()
             self.prepare_network()
         self.dependencies.before_fixture(ready)
         self.publish('fixture_image_digests.json', {ref: {k: v[k] for k in ['verified_image_id', 'verified_digests', 'observed_platform']}
                                                    for ref, v in self.dependencies.verified.items()})
 
+    def assemble_minio(self):
+        self.phase = 'OFFICIAL_RELEASE_ASSEMBLY'
+        releases = OfficialReleases(self.root / 'official-releases', self.publish)
+        base_ref = dict(SERVICES)['python']
+        base = self.dependencies.verified[base_ref]
+        require(len(base['verified_digests']) == 1, 'EXACT_BASE_DIGEST_REQUIRED')
+        digest = base['verified_digests'][0]
+        base_layers = self.inspect(base_ref)['RootFS']['Layers']
+        self.release_provenance = {}
+        for identity, ref in SERVICES:
+            if ref not in ASSEMBLED:
+                continue
+            binary, provenance = releases.acquire(identity)
+            context = self.root / ('assembly-' + identity)
+            context.mkdir(mode=0o700)
+            shutil.copyfile(binary, context / 'binary')
+            recipe = (HERE / 'Dockerfile.release-binary').read_text() + '\nENTRYPOINT ["' + identity + '"]\n'
+            (context / 'Dockerfile').write_text(recipe)
+            iid = context / 'image-id'
+            self.dependencies.operation(identity + '-assembly-build', 'CREATE', ref,
+                ['build', '--platform', 'linux/amd64', '--iidfile', str(iid), '-t', ref,
+                 '--build-arg', 'BASE=python@' + digest, '--build-arg', 'EXECUTABLE=' + identity,
+                 '--build-arg', 'RELEASE=' + provenance['release_tag'],
+                 '--build-arg', 'BINARY_SHA=' + provenance['sha256'],
+                 '--build-arg', 'SOURCE_COMMIT=' + provenance['resolved_release_commit'],
+                 '--build-arg', 'BASE_DIGEST=' + digest, str(context)], timeout=300, anonymous=True)
+            expected_id = iid.read_text().strip()
+            independent = verify_image(self.inspect(ref), identity=identity, expected_id=expected_id,
+                base_digest=digest, base_layers=base_layers, binary_sha=provenance['sha256'])
+            self.dependencies.local(identity + '-assembled', ref)
+            independent['image_reference'] = ref
+            self.publish(identity + '-assembled-image.json', independent)
+            self.release_provenance[identity] = provenance
+
     def verify_minio_contracts(self):
         for identity, ref in SERVICES:
-            if ref not in QUAY:
+            if ref not in ASSEMBLED:
                 continue
             contracts = ['server'] if identity == 'minio' else ['alias', 'mb', 'stat', 'ready']
-            script = identity + ' --version || exit 1\n'
+            script = identity + ' --version || exit 1\nsha256sum /usr/local/bin/' + identity + '\n'
             for command in contracts:
                 invocation = 'alias set' if command == 'alias' else command
                 script += f'{identity} {invocation} --help >/dev/null || exit 1\nprintf "M55B_CONTRACT_{command}\\n"\n'
@@ -182,8 +225,14 @@ class Rehearsal:
                 '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m', '--env', 'MC_CONFIG_DIR=/tmp/.mc',
                 '--entrypoint', '/bin/sh', ref, '-c', script])
             self.wait(cid, 30)
-            self.dependencies.operation(identity + '-release-contract', 'INSPECT', ref, ['logs', cid],
-                project=lambda raw, identity=identity: Dependencies.release_projection(identity, raw))
+            def verified(raw):
+                result = Dependencies.release_projection(identity, raw)
+                hashes = re.findall(rb'(?m)^([0-9a-f]{64})  /usr/local/bin/' + identity.encode() + rb'$', raw)
+                if hashes != [self.release_provenance[identity]['sha256'].encode()]:
+                    raise ValueError('IMAGE_BINARY_DIGEST_MISMATCH')
+                result['in_image_binary_sha256'] = hashes[0].decode()
+                return result
+            self.dependencies.operation(identity + '-release-contract', 'INSPECT', ref, ['logs', cid], project=verified)
 
     def prepare_network(self):
         self.dependencies.operation('isolated-network-create', 'CREATE', NETWORK,
@@ -251,16 +300,28 @@ class Rehearsal:
                                     ['build', '-t', WORKER, str(context)], timeout=300)
         self.dependencies.local('b1-worker-built', WORKER)
         self.envfile('mc.env', {'MC_USER': 'isolatedtest', 'MC_PASSWORD': media_pw})
+        self.phase = 'S3_DEPENDENCY_SMOKE'
+        smoke = self.root / 's3-smoke'
+        smoke.mkdir(mode=0o700)
+        (smoke / 'input.bin').write_bytes(b'M55B_ISOLATED_STORAGE_SMOKE\x00' * 8)
         mc = self.run('m55b-isolated-mc', ['--network', NETWORK, '--env-file', self.root / 'mc.env',
             '--mount', f'type=bind,src={self.root / "root.crt"},dst=/root/.mc/certs/CAs/m55b.crt,readonly',
+            '--mount', f'type=bind,src={smoke},dst=/smoke',
             '--entrypoint', '/bin/sh', images[2], '-c',
-            'mc alias set fixture https://m55b-minio:9443 "$MC_USER" "$MC_PASSWORD" >/dev/null && '
-            'mc ready fixture >/dev/null && mc mb fixture/m55b-isolated-media >/dev/null && '
-            'mc stat --json fixture/m55b-isolated-media'])
+            'set -e\nmc alias set fixture https://m55b-minio:9443 "$MC_USER" "$MC_PASSWORD" >/dev/null\n'
+            'mc ready fixture >/dev/null\nprintf "M55B_SMOKE_READY\\n"\n'
+            'mc mb fixture/m55b-isolated-media >/dev/null\n'
+            'mc stat --json fixture/m55b-isolated-media > /smoke/bucket.json\nprintf "M55B_SMOKE_BUCKET\\n"\n'
+            'mc cp /smoke/input.bin fixture/m55b-isolated-media/m55b-dependency-smoke.bin >/dev/null\nprintf "M55B_SMOKE_UPLOAD\\n"\n'
+            'mc cp fixture/m55b-isolated-media/m55b-dependency-smoke.bin /smoke/readback.bin >/dev/null\nprintf "M55B_SMOKE_READBACK\\n"\n'
+            'cmp /smoke/input.bin /smoke/readback.bin\n'
+            'sha256sum /smoke/input.bin > /smoke/input.sha256\nsha256sum /smoke/readback.bin > /smoke/readback.sha256\n'
+            'read input_hash rest < /smoke/input.sha256\nread readback_hash rest < /smoke/readback.sha256\n'
+            'test "$input_hash" = "$readback_hash"\nprintf "M55B_SMOKE_VERIFY\\n"\n'
+            'mc rm fixture/m55b-isolated-media/m55b-dependency-smoke.bin >/dev/null\nprintf "M55B_SMOKE_REMOVE\\n"\n'
+            'mc ls --json fixture/m55b-isolated-media > /smoke/remaining.json'])
         self.wait(mc, 30)
-        # Raw command output remains private; expose only explicit bucket/health facts.
-        stat = json.loads(self.docker('logs', mc))
-        require(stat.get('status') == 'success', 'BUCKET_READBACK_INVALID')
+        self.publish('s3_smoke.json', verify_smoke(smoke))
         for cid in [self.db, self.media, self.caddy]:
             x = self.inspect(cid)
             require(x['State']['Running'] and not x['State']['OOMKilled'] and x['RestartCount'] == 0, 'INITIAL_SERVICE_HEALTH_FAILURE')
@@ -617,7 +678,7 @@ def main():
     try:
         trial.execute()
     except Exception as e:
-        code = str(e) if isinstance(e, (Failure, DependencyFailure)) else 'HARNESS_' + type(e).__name__.upper()
+        code = str(e) if isinstance(e, (Failure, DependencyFailure, ReleaseFailure)) else 'HARNESS_' + type(e).__name__.upper()
         trial.result.update(assessment='FAILED' if hasattr(trial, 'operational_cid') else 'BLOCKED',
                             failure_phase=trial.phase, failure_category=code, completed_at=now())
         if isinstance(e, DependencyFailure):

@@ -43,7 +43,7 @@ jobs:
           java-version: '21'
 
       - name: Validate harness without replaying accepted backend CI
-        run: python3 -m unittest discover -s harness/tooling/validation/m55b-v3 -p test_harness.py -v
+        run: python3 -m unittest discover -s harness/tooling/validation/m55b-v3 -p 'test_*.py' -v
 
       - name: Real integrated full-volume SUCCESS rehearsal
         run: >-

@@ -1,0 +1,17 @@
+# Validation-only; BASE is the independently inspected approved Python digest.
+ARG BASE
+FROM ${BASE}
+ARG EXECUTABLE
+ARG RELEASE
+ARG BINARY_SHA
+ARG SOURCE_COMMIT
+ARG BASE_DIGEST
+LABEL m55b.release="${RELEASE}" m55b.binary.sha256="${BINARY_SHA}" \
+      m55b.upstream.commit="${SOURCE_COMMIT}" m55b.base.digest="${BASE_DIGEST}" \
+      m55b.isolated="true"
+COPY --chmod=0755 binary /usr/local/bin/${EXECUTABLE}
+# The server needs only server /data on port 9000. MC uses the same CA convention
+# as the existing harness. ENTRYPOINT is set explicitly at assembly time.
+ENV MC_CONFIG_DIR=/root/.mc
+EXPOSE 9000
+VOLUME ["/data"]

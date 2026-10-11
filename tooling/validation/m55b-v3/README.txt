@@ -49,31 +49,52 @@ No manifests, raw provider records, HTTP bodies, private logs/env, tokens or key
 Finally remove only exact created container IDs and network on the isolated runner.
 Failures require owner review; this workflow never promotes master or reseals.
 
-Docker dependency repair (validation infrastructure only)
+Pinned release image assembly (validation infrastructure only)
 
 The old ISOLATED_SERVICES artifact did not preserve the failed Docker operation.
 Its exact historical daemon/registry cause remains unresolved. New observations
 must not be retroactively represented as retained evidence from that old job.
-Application source and all upstream release versions remain unchanged. The only
-registry migrations are the owner-approved exact references:
-minio/minio:RELEASE.2025-07-23T15-54-02Z ->
-quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
-minio/mc:RELEASE.2025-07-21T05-28-08Z ->
-quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z
-PostGIS, Caddy and Python references are unchanged. No latest/substitute images.
+Docker Hub and Quay MinIO acquisition failed in previous controlled runs. Do not
+repeat either path. Application source and all upstream release versions remain
+unchanged. Only test-local identities are assembled, never pushed to a registry:
+phokarta-test-minio:RELEASE.2025-07-23T15-54-02Z
+phokarta-test-mc:RELEASE.2025-07-21T05-28-08Z
+PostGIS, Caddy and Python references are unchanged. No latest/substitute releases.
 
 Before full fixture generation, dependency_preflight verifies the Linux/amd64
 engine, built application ID/platform, and every exact approved external image.
-It independently inspects registry manifest/platform metadata, acquires missing
-images once, and re-inspects actual loaded image IDs/digests. Both Quay images
-require an actual pull even if already cached, using an explicit empty Docker
-CLI auth configuration (no credentials/helpers). Their RepoDigests must identify
-the exact Quay repository; no expected digest or cross-registry byte equivalence
-is invented. Embedded releases and executable/shell/subcommand contracts are
-checked in bounded network-none containers before network or DB initialization.
-No retries, TLS bypass, credentials acquisition or further image substitution.
-Unknown/malformed output and unavailable auth/platform stop before DB creation.
-Internal network ownership and local volume capability are verified afterward.
+It acquires/inspects only PostGIS, Caddy and Python from their previous registries,
+using an explicit empty Docker CLI auth configuration. MinIO and MC are acquired
+from their exact official GitHub Release binary, checksum and minisig assets.
+The tag object and resolved source commit are pinned. GitHub must report a valid
+signed tag. Downloads enforce HTTPS/allowlisted redirects, finite total and socket
+deadlines, size bounds, exact release/asset names and SHA-256 matching both the
+published checksum and independently retained prepublication hash. ELF headers
+must be 64-bit little-endian x86-64. No file is executed before verification.
+
+Minisign requires the ED prehash format, matching key ID and both detached and
+trusted-comment Ed25519 signatures. Existing OpenSSL verifies the signatures;
+Python only performs Blake2b-512, packet framing and public-key DER encoding.
+The public key is independently selected from the exact signed upstream MinIO
+commit's Dockerfile.release, whose SHA-256 is also pinned. Trust still depends
+on HTTPS/GitHub upstream source, not an owner-provided out-of-band key. Same-origin
+checksum matching alone is explicitly NOT independent authenticity evidence.
+Regression tests use a freshly generated disposable test key, never committed.
+
+Both exact assets were actually downloadable and signature-valid during local
+prepublication checks, so source-build fallback is unnecessary and not used.
+Missing/unavailable release assets fail closed without trying another binary,
+registry, release, community mirror or automatically switching acquisition route.
+The owner's conditional exact-tag source-build authority is not exercised.
+
+The trusted runtime base is the already approved Python Linux/amd64 image, pinned
+by its actual independently inspected immutable registry digest in FROM. Local
+assembly IDs are checked against Docker's iidfile; labels, entrypoint and inherited
+base layers are independently inspected. Binary hashes INSIDE both assembled
+images, actual runtime releases and shell/subcommand contracts must also match.
+No historical upstream Docker byte equivalence is claimed. Containers use
+--pull=never. Any failed download/integrity/identity/version/contract is terminal.
+Network-none contract checks precede internal network or DB initialization.
 
 dependency-NNN-operation.json artifacts contain only explicit fields: stable ID,
 PULL/INSPECT/LOAD/CREATE type, approved public image or private-reference hash,
@@ -84,13 +105,8 @@ output is published. REGISTRY_AUTH means an observed access/authentication denia
 it does not prove whether a repository is private, missing or inaccessible.
 
 Initial missing local-image INSPECT evidence is retained as FAIL/IMAGE_NOT_FOUND
-and may be followed by exactly one approved acquisition. For the two Quay images
-ONLY, an unavailable remote manifest inspection remains recorded FAIL, distinct
-from the actual anonymous pull and independent local identity inspection. It is
-not represented as a successful remote inspection. An explicit remote platform
-conflict, daemon/storage failure, failed pull, failed local identity inspection,
-missing registry digest or release/command mismatch is terminal. For other image
-dependencies the previous terminal remote-inspection policy remains unchanged.
+and may be followed by exactly one approved external acquisition. All subsequent
+external verification failures are terminal. No MinIO registry call is allowed.
 Container CREATE operations also use sanitized dependency observations. Synthetic
 selection, audit producer, transport/deadlines and all import/product assertions
 remain unchanged. One owner-authorized branch-push validation run is permitted;
@@ -98,7 +114,9 @@ another dependency failure requires stopping, not another publication/retry.
 
 Initialization order for this authorized run: all image acquisitions/identities
 and MinIO executable contracts -> internal network/volume capability -> isolated
-DB/media/Caddy -> MC ready/bucket creation/JSON stat readback -> separately compiled
+DB/media/Caddy -> MC ready/bucket creation/JSON stat readback -> disposable small
+object upload/readback -> byte/SHA-256 equality -> remove only that smoke object
+and independently list the empty bucket -> separately compiled
 helper's V17 and two manual sentinels ONLY -> persistent backend and unchanged B1
 verified HTTPS -> capacity recheck -> full synthetic manifest -> real predecessor
 import/containment via seed-import -> actual decomposed historical audit preflight

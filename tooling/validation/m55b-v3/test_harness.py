@@ -81,7 +81,7 @@ class DependencyTest(unittest.TestCase):
         self.runner.side_effect = [self.result(1, error=b'Error: No such image: test'), self.result(value=self.REMOTE),
                                    self.result(), self.result(value=self.IMAGE)]
         self.d.acquire('postgis', self.REF)
-        pulls = [c for c in self.runner.call_args_list if c.args[0][1] == 'pull']
+        pulls = [c for c in self.runner.call_args_list if 'pull' in c.args[0]]
         self.assertEqual(len(pulls), 1)
         self.assertEqual(self.records[-1]['verified_image_id'], self.IMAGE['id'])
         self.assertEqual(self.records[-1]['status'], 'PASS')
@@ -214,61 +214,32 @@ class DependencyTest(unittest.TestCase):
 
     def test_no_unapproved_image_or_gate_changes(self):
         self.assertEqual(dep.SERVICES, (('postgis', 'postgis/postgis:16-3.5'),
-            ('minio', 'quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z'), ('mc', 'quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z'),
+            ('minio', 'phokarta-test-minio:RELEASE.2025-07-23T15-54-02Z'), ('mc', 'phokarta-test-mc:RELEASE.2025-07-21T05-28-08Z'),
             ('caddy', 'caddy:2.10-alpine'), ('python', 'python:3.12-slim')))
         self.assertEqual(dep.APPLICATION, 'phokarta-backend:' + fixture.APP_SHA)
         self.assertEqual(dep.PLATFORM, 'linux/amd64')
 
-    def quay_image(self, identity='minio'):
-        ref = dict(dep.SERVICES)[identity]
-        return ref, dict(self.IMAGE, digests=[ref.rsplit(':', 1)[0] + '@sha256:' + '4' * 64])
+    def test_no_minio_registry_acquisition_is_allowed(self):
+        for identity in ['minio', 'mc']:
+            for ref in [dict(dep.SERVICES)[identity], 'minio/' + identity + ':' + dep.RELEASES[identity],
+                        'quay.io/minio/' + identity + ':' + dep.RELEASES[identity]]:
+                with self.subTest(ref=ref), self.assertRaisesRegex(ValueError, 'UNAPPROVED_EXTERNAL_DEPENDENCY'):
+                    self.d.acquire(identity, ref)
+        self.runner.assert_not_called()
 
-    def test_quay_remote_error_is_not_pull_error_or_false_inspect_pass(self):
-        ref, image = self.quay_image()
-        self.runner.side_effect = [self.result(1, error=b'No such image: test'),
-            self.result(1, error=b'authentication required'), self.result(), self.result(value=image)]
-        self.d.acquire('minio', ref)
-        remote = [v for v in self.records if v.get('operation_id') == 'minio-remote'][0]
-        self.assertEqual((remote['status'], remote['error_category']), ('FAIL', 'REGISTRY_AUTH'))
-        self.assertEqual(self.records[-1]['remote_inspection_status'], 'FAIL')
-        self.assertEqual(self.records[-1]['verified_digests'], ['sha256:' + '4' * 64])
-        self.assertFalse(self.records[-1]['cross_registry_byte_equivalence_claimed'])
-        self.assertEqual(self.runner.call_count, 4)
-        for call in self.runner.call_args_list[1:3]:
-            self.assertEqual(call.args[0][:3], ['docker', '--config', str(self.anonymous)])
-
-    def test_quay_requires_actual_pull_even_when_already_loaded(self):
-        ref, image = self.quay_image('mc')
-        self.runner.side_effect = [self.result(value=image), self.result(value=self.REMOTE),
-                                   self.result(), self.result(value=image)]
-        self.d.acquire('mc', ref)
-        self.assertEqual(sum('pull' in c.args[0] for c in self.runner.call_args_list), 1)
-        self.assertTrue(self.records[-1]['actual_pull_required'])
-
-    def test_quay_failed_pull_stops_without_retry_or_downstream_inspect(self):
-        ref, _ = self.quay_image()
-        self.runner.side_effect = [self.result(1, error=b'No such image: test'),
-            self.result(1, error=b'manifest unknown'), self.result(1, error=b'unauthorized: access denied')]
-        with self.assertRaises(dep.DependencyFailure) as failure:
-            self.d.acquire('minio', ref)
-        self.assertEqual(failure.exception.observation['operation_type'], 'PULL')
-        self.assertEqual(self.runner.call_count, 3)
-        self.assertNotIn(ref, self.d.verified)
-
-    def test_quay_never_inherits_populated_registry_config(self):
-        ref, _ = self.quay_image()
+    def test_external_pulls_never_inherit_populated_registry_config(self):
+        ref = self.REF
         (self.anonymous / 'config.json').write_text('{"auths":{"quay.io":{"auth":"SECRET_TEST"}}}')
         with self.assertRaisesRegex(ValueError, 'ANONYMOUS_CONFIG_REQUIRED'):
-            self.d.operation('minio-pull', 'PULL', ref, ['pull', ref], anonymous=True)
+            self.d.operation('postgis-pull', 'PULL', ref, ['pull', ref], anonymous=True)
         self.runner.assert_not_called()
         self.assertNotIn('SECRET_TEST', json.dumps(self.records))
 
-    def test_quay_local_identity_requires_own_registry_digest(self):
-        ref, _ = self.quay_image()
-        for image in [dict(self.IMAGE, digests=[]), self.IMAGE]:
-            self.runner.return_value = self.result(value=image)
-            with self.subTest(image=image), self.assertRaises(dep.DependencyFailure):
-                self.d.local('minio-verified', ref)
+    def test_external_image_requires_actual_registry_digest(self):
+        self.runner.side_effect = [self.result(value=self.IMAGE), self.result(value=self.REMOTE),
+                                   self.result(value=dict(self.IMAGE, digests=[]))]
+        with self.assertRaises(dep.DependencyFailure):
+            self.d.acquire('postgis', self.REF)
 
     def test_release_and_executable_contracts_are_exact_and_sanitized(self):
         for identity, commands in [('minio', ['server']), ('mc', ['alias', 'mb', 'stat', 'ready'])]:
@@ -289,7 +260,7 @@ class DependencyTest(unittest.TestCase):
              mock.patch.object(self.d, 'local', side_effect=lambda *a: events.append('app')), \
              mock.patch.object(self.d, 'acquire', side_effect=lambda identity, ref: events.append(identity)):
             self.d.before_fixture(lambda: events.append('network'))
-        self.assertEqual(events, ['engine', 'app', *[name for name, _ in dep.SERVICES], 'network'])
+        self.assertEqual(events, ['engine', 'app', *[name for name, _ in dep.EXTERNAL], 'network'])
 
     def trial(self):
         trial = mock.Mock()
@@ -334,7 +305,7 @@ class DependencyTest(unittest.TestCase):
         import linux_rehearsal as h
         code = (HERE / 'linux_rehearsal.py').read_text()
         self.assertIn('mc stat --json fixture/m55b-isolated-media', code)
-        self.assertIn("require(stat.get('status') == 'success'", code)
+        self.assertIn("self.publish('s3_smoke.json', verify_smoke(smoke))", code)
         self.assertIn('self.verify_minio_contracts()', code)
         self.assertIn('Dependencies.release_projection(identity, raw)', code)
         self.assertIn("*self.common(sealed=False)", code)

@@ -17,7 +17,7 @@ import zipfile
 
 from capacity import gate, snapshot
 from fixture import APP_SHA, A, B, IDENTITY_DIGEST, sha, write
-from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER
+from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER, QUAY
 
 HERE = Path(__file__).resolve().parent
 IMAGE = 'phokarta-backend:' + APP_SHA
@@ -53,7 +53,10 @@ class Rehearsal:
         self.result = {'assessment': 'BLOCKED', 'application_sha': APP_SHA,
                        'harness_sha': os.environ['GITHUB_SHA'], 'started_at': now(),
                        'production_connections': 0, 'existing_operational_package_changed': False}
-        self.dependencies = Dependencies(self.publish)
+        anonymous = self.root / 'anonymous-docker'
+        anonymous.mkdir(mode=0o700)
+        write(anonymous / 'config.json', {'auths': {}})
+        self.dependencies = Dependencies(self.publish, anonymous_config=anonymous)
         self.capability_volume = None
         self.network_id = None
 
@@ -103,12 +106,14 @@ class Rehearsal:
             time.sleep(1)  # IPC/readiness polling, never request warmup or retries.
         raise Failure('ISOLATED_PROCESS_DEADLINE')
 
-    def common(self):
-        return ['--user', self.uid, '--env-file', self.root / 'app.env', '--env', 'JAVA_TOOL_OPTIONS=',
+    def common(self, *, sealed=True):
+        args = ['--user', self.uid, '--env-file', self.root / 'app.env', '--env', 'JAVA_TOOL_OPTIONS=',
                 '--mount', f'type=bind,src={self.root},dst=/fixture',
-                '--mount', f'type=bind,src={self.root / "sealed"},dst=/sealed,readonly',
                 '--mount', f'type=bind,src={self.root / "classes"},dst=/harness,readonly',
                 '--mount', f'type=bind,src={self.root / "cacerts"},dst=/trust,readonly']
+        if sealed:
+            args += ['--mount', f'type=bind,src={self.root / "sealed"},dst=/sealed,readonly']
+        return args
 
     @staticmethod
     def trust():
@@ -154,10 +159,31 @@ class Rehearsal:
         self.phase = 'DOCKER_DEPENDENCY_PREFLIGHT'
         self.publish('dependency_inventory.json', {'expected_platform': 'linux/amd64', 'application': IMAGE,
             'worker_built_after_ephemeral_ca': WORKER, 'external_services': dict(SERVICES),
-            'image_references_changed': False, 'automatic_retries': 0})
-        self.dependencies.before_fixture(self.prepare_network)
+            'image_references_changed': True, 'changed_images_only': ['minio', 'mc'],
+            'quay_anonymous_empty_cli_config': True, 'automatic_retries': 0})
+        def ready():
+            self.verify_minio_contracts()
+            self.prepare_network()
+        self.dependencies.before_fixture(ready)
         self.publish('fixture_image_digests.json', {ref: {k: v[k] for k in ['verified_image_id', 'verified_digests', 'observed_platform']}
                                                    for ref, v in self.dependencies.verified.items()})
+
+    def verify_minio_contracts(self):
+        for identity, ref in SERVICES:
+            if ref not in QUAY:
+                continue
+            contracts = ['server'] if identity == 'minio' else ['alias', 'mb', 'stat', 'ready']
+            script = identity + ' --version || exit 1\n'
+            for command in contracts:
+                invocation = 'alias set' if command == 'alias' else command
+                script += f'{identity} {invocation} --help >/dev/null || exit 1\nprintf "M55B_CONTRACT_{command}\\n"\n'
+            cid = self.run('m55b-' + identity + '-contract', ['--network', 'none', '--memory', '128m',
+                '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+                '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m', '--env', 'MC_CONFIG_DIR=/tmp/.mc',
+                '--entrypoint', '/bin/sh', ref, '-c', script])
+            self.wait(cid, 30)
+            self.dependencies.operation(identity + '-release-contract', 'INSPECT', ref, ['logs', cid],
+                project=lambda raw, identity=identity: Dependencies.release_projection(identity, raw))
 
     def prepare_network(self):
         self.dependencies.operation('isolated-network-create', 'CREATE', NETWORK,
@@ -228,15 +254,29 @@ class Rehearsal:
         mc = self.run('m55b-isolated-mc', ['--network', NETWORK, '--env-file', self.root / 'mc.env',
             '--mount', f'type=bind,src={self.root / "root.crt"},dst=/root/.mc/certs/CAs/m55b.crt,readonly',
             '--entrypoint', '/bin/sh', images[2], '-c',
-            'mc alias set fixture https://m55b-minio:9443 "$MC_USER" "$MC_PASSWORD" >/dev/null && mc mb fixture/m55b-isolated-media >/dev/null'])
+            'mc alias set fixture https://m55b-minio:9443 "$MC_USER" "$MC_PASSWORD" >/dev/null && '
+            'mc ready fixture >/dev/null && mc mb fixture/m55b-isolated-media >/dev/null && '
+            'mc stat --json fixture/m55b-isolated-media'])
         self.wait(mc, 30)
+        # Raw command output remains private; expose only explicit bucket/health facts.
+        stat = json.loads(self.docker('logs', mc))
+        require(stat.get('status') == 'success', 'BUCKET_READBACK_INVALID')
+        for cid in [self.db, self.media, self.caddy]:
+            x = self.inspect(cid)
+            require(x['State']['Running'] and not x['State']['OOMKilled'] and x['RestartCount'] == 0, 'INITIAL_SERVICE_HEALTH_FAILURE')
+            require(not any((x['NetworkSettings']['Ports'] or {}).values()), 'INITIAL_PORT_EXPOSURE')
+        self.publish('isolated_services.json', {'status': 'PASS', 'postgres_health': 'healthy',
+            'minio_ready': True, 'bucket_created': True, 'bucket_stat_readback': True,
+            'bucket': 'm55b-isolated-media', 'client_image': images[2], 'caddy_running': True,
+            'internal_network': True, 'published_ports': 0})
 
     def helper(self, mode):
+        manual = mode == 'manual'
         cid = self.run('m55b-helper-' + mode, ['--network', NETWORK, '--memory', '3072m', '--memory-swap', '5376m',
-                       '--cpus', '1.5', *self.common(), '--env', 'REHEARSAL_MODE=' + mode,
+                       '--cpus', '1.5', *self.common(sealed=not manual), '--env', 'REHEARSAL_MODE=' + mode,
                        '--env', 'REHEARSAL_OUTPUT=/fixture/state-' + mode + '.json',
-                       '--env', 'REHEARSAL_A_HASH=' + self.config['predecessor_manifest_hash'],
-                       '--env', 'REHEARSAL_A_AUTH=' + self.config['predecessor_authorization'],
+                       '--env', 'REHEARSAL_A_HASH=' + ('' if manual else self.config['predecessor_manifest_hash']),
+                       '--env', 'REHEARSAL_A_AUTH=' + ('' if manual else self.config['predecessor_authorization']),
                        '--entrypoint', 'java', IMAGE, '-Xms256m', '-Xmx2048m', '-XX:+ExitOnOutOfMemoryError',
                        *self.trust(), '-Dloader.path=/harness', '-Dloader.main=RehearsalSeed', '-cp', '/app/app.jar',
                        'org.springframework.boot.loader.launch.PropertiesLauncher'])
@@ -286,7 +326,7 @@ class Rehearsal:
     def persistent(self):
         self.phase = 'PERSISTENT_TARGET_AND_TLS'
         self.target = self.run('phokarta-backend-1', ['--network', NETWORK, '--memory', '1536m', '--cpus', '1.5',
-            *self.common(), '--health-cmd', 'wget -q -T 5 -O /dev/null http://127.0.0.1:8081/actuator/health/readiness',
+            *self.common(sealed=False), '--health-cmd', 'wget -q -T 5 -O /dev/null http://127.0.0.1:8081/actuator/health/readiness',
             '--health-interval', '2s', '--health-timeout', '5s', '--health-retries', '60',
             '--entrypoint', 'java', IMAGE, '-Xms256m', '-Xmx1024m', '-XX:+ExitOnOutOfMemoryError', *self.trust(), '-jar', '/app/app.jar'])
         end = time.monotonic() + 180
@@ -520,13 +560,23 @@ class Rehearsal:
         self.dependencies.engine()
         self.build()
         self.dependency_preflight()
+        self.services()
+        self.phase = 'REAL_V17_AND_MANUAL_SENTINELS'
+        manual = self.helper('manual')
+        require(all(manual[k] == v for k, v in {'places': 2, 'manual': 2, 'sources': 0,
+                'refs': 0, 'v17': 1, 'b_writes': 0, 'b_sources': 0}.items()), 'MANUAL_V17_BOOTSTRAP_INVALID')
+        self.publish('manual_v17_bootstrap.json', manual)
+        # Same long-lived target for TLS, later PRE and POST. No Detail warmup.
+        self.persistent()
+        c = gate(self.root, operational=True)
+        self.publish('capacity_pre_fixture.json', c)
+        require(c['status'] == 'PASS', 'PRE_FIXTURE_CAPACITY_BLOCKED')
         self.phase = 'DETERMINISTIC_FULL_VOLUME_FIXTURE'
         self.command([sys.executable, HERE / 'fixture.py', '--application', self.app, '--output', self.root / 'sealed'], timeout=180)
         self.config = json.loads((self.root / 'fixture.json').read_bytes())
         self.publish('fixture.json', self.config)
-        self.services()
         self.phase = 'REAL_V17_AND_PREDECESSOR_LINEAGE'
-        self.before = self.helper('seed')
+        self.before = self.helper('seed-import')
         require(all(self.before[k] == v for k, v in {'places': 73, 'manual': 2, 'retired': 71, 'sources': 18924,
                'refs': 142, 'inactive_refs': 142, 'quarantine': 16064, 'b_writes': 0, 'b_sources': 0, 'b_decisions': 0, 'v17': 1}.items()), 'FULL_VOLUME_SEED_INVALID')
         require(self.before['canonical_uuid_digest'] == IDENTITY_DIGEST and self.before['b_gate'] == 'NONE', 'FROZEN_IDENTITY_FAILED')
@@ -534,7 +584,6 @@ class Rehearsal:
         self.publish('seed_state.json', self.before)
         self.extra_before = self.extra()
         def continuation():
-            self.persistent()
             self.operational()
             self.validate()
         self.historical_preflight(continuation)

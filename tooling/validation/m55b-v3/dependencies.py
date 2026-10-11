@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+from pathlib import Path
 import re
 import subprocess
 import time
@@ -9,14 +10,16 @@ import time
 PLATFORM = 'linux/amd64'
 SERVICES = (
     ('postgis', 'postgis/postgis:16-3.5'),
-    ('minio', 'minio/minio:RELEASE.2025-07-23T15-54-02Z'),
-    ('mc', 'minio/mc:RELEASE.2025-07-21T05-28-08Z'),
+    ('minio', 'quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z'),
+    ('mc', 'quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z'),
     ('caddy', 'caddy:2.10-alpine'),
     ('python', 'python:3.12-slim'),
 )
 APPLICATION = 'phokarta-backend:e93cae3028b44ba47f407ce19f7001b8b2983011'
 WORKER = 'm55b-isolated-b1:validation'
 PUBLIC = {ref for _, ref in SERVICES} | {APPLICATION, WORKER}
+QUAY = {ref for name, ref in SERVICES if name in {'minio', 'mc'}}
+RELEASES = {name: ref.rsplit(':', 1)[1] for name, ref in SERVICES if ref in QUAY}
 IMAGE_FORMAT = '{"id":{{json .Id}},"digests":{{json .RepoDigests}},"os":{{json .Os}},"architecture":{{json .Architecture}}}'
 CATEGORIES = {'IMAGE_NOT_FOUND', 'REGISTRY_AUTH', 'REGISTRY_RATE_LIMIT', 'NETWORK_DNS',
               'NETWORK_TIMEOUT', 'TLS_CERTIFICATE', 'PLATFORM_MISMATCH', 'DOCKER_DAEMON',
@@ -79,12 +82,13 @@ class DependencyFailure(RuntimeError):
 
 
 class Dependencies:
-    def __init__(self, publish, *, runner=subprocess.run):
+    def __init__(self, publish, *, runner=subprocess.run, anonymous_config=None):
         self.publish, self.runner = publish, runner
+        self.anonymous_config = Path(anonymous_config) if anonymous_config is not None else None
         self.sequence = 0
         self.verified = {}
 
-    def operation(self, identity, kind, ref, args, *, timeout=30, project=None, allow_missing=False):
+    def operation(self, identity, kind, ref, args, *, timeout=30, project=None, allow_missing=False, anonymous=False):
         if kind not in {'PULL', 'INSPECT', 'LOAD', 'CREATE'} or not re.fullmatch(r'[a-z0-9_-]{1,80}', identity):
             raise ValueError('DEPENDENCY_OPERATION_SCHEMA_INVALID')
         self.sequence += 1
@@ -95,7 +99,15 @@ class Dependencies:
         tick = time.monotonic()
         result = None
         try:
-            result = self.runner(['docker', *args], stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout)
+            prefix = ['docker']
+            if anonymous:
+                # Explicit empty CLI config; never inherit registry auth/credential helpers.
+                if (self.anonymous_config is None or
+                        json.loads((self.anonymous_config / 'config.json').read_bytes()) != {'auths': {}}):
+                    raise ValueError('ANONYMOUS_CONFIG_REQUIRED')
+                prefix += ['--config', str(self.anonymous_config)]
+                o['registry_authentication'] = 'ANONYMOUS_EXPLICIT_EMPTY_CONFIG'
+            result = self.runner([*prefix, *args], stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout)
             o['exit_code'] = result.returncode
             if result.returncode:
                 o['error_category'] = classify(result.stderr)
@@ -156,12 +168,21 @@ class Dependencies:
             if digest and re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
                 digests.add(digest)
         if PLATFORM not in platforms:
+            if not platforms:
+                raise ValueError('REMOTE_PLATFORM_EVIDENCE_MISSING')
             raise DependencyFailure({'error_category': 'PLATFORM_MISMATCH'})
         return {'observed_platforms': sorted(platforms), 'verified_digests': sorted(digests)}
 
     def local(self, identity, ref, *, allow_missing=False):
+        def project(raw):
+            result = self.image_projection(raw)
+            if ref in QUAY:
+                prefix = ref.rsplit(':', 1)[0] + '@sha256:'
+                if not any(d.startswith(prefix) for d in json.loads(raw)['digests'] or []):
+                    raise ValueError('QUAY_REPOSITORY_DIGEST_REQUIRED')
+            return result
         observed = self.operation(identity + '-local', 'INSPECT', ref,
-            ['image', 'inspect', '--format', IMAGE_FORMAT, ref], project=self.image_projection,
+            ['image', 'inspect', '--format', IMAGE_FORMAT, ref], project=project,
             allow_missing=allow_missing)
         if observed:
             self.verified[ref] = observed[1]
@@ -171,12 +192,42 @@ class Dependencies:
         if (identity, ref) not in SERVICES:
             raise ValueError('UNAPPROVED_EXTERNAL_DEPENDENCY')
         existing = self.local(identity, ref, allow_missing=True)
-        self.operation(identity + '-remote', 'INSPECT', ref, ['manifest', 'inspect', '--verbose', ref],
-                       timeout=60, project=self.remote_projection)
-        if existing is None:
-            self.operation(identity + '-pull', 'PULL', ref, ['pull', '--platform', PLATFORM, ref], timeout=300)
+        quay = ref in QUAY
+        try:
+            _, remote = self.operation(identity + '-remote', 'INSPECT', ref, ['manifest', 'inspect', '--verbose', ref],
+                                      timeout=60, project=self.remote_projection, anonymous=quay)
+        except DependencyFailure as e:
+            # Owner-authorized Quay policy only. Failed inspection stays FAIL; actual
+            # anonymous acquisition + independent local identity are still mandatory.
+            if not quay or e.observation['error_category'] in {'DOCKER_DAEMON', 'DISK_OR_STORAGE', 'PLATFORM_MISMATCH'}:
+                raise
+            remote = e.observation
+        if existing is None or quay:
+            self.operation(identity + '-pull', 'PULL', ref, ['pull', '--platform', PLATFORM, ref],
+                           timeout=300, anonymous=quay)
         # Independently inspect after remote verification/acquisition; never infer loaded identity from exit=0.
-        self.local(identity + '-verified', ref)
+        verified = self.local(identity + '-verified', ref)[1]
+        if quay and not verified['verified_digests']:
+            raise DependencyFailure({'operation_id': identity + '-digest', 'error_category': 'UNKNOWN'})
+        self.publish(identity + '-acquisition.json', {'image_reference': ref, 'status': 'PASS',
+            'remote_inspection_status': remote['status'], 'remote_inspection_error': remote['error_category'],
+            'actual_pull_required': quay or existing is None, 'anonymous': quay,
+            'verified_image_id': verified['verified_image_id'], 'verified_digests': verified['verified_digests'],
+            'cross_registry_byte_equivalence_claimed': False})
+
+    @staticmethod
+    def release_projection(identity, raw):
+        if identity not in RELEASES or len(raw) > 16384:
+            raise ValueError('RELEASE_CONTRACT_INVALID')
+        text = raw.decode('utf-8')
+        releases = re.findall(r'(?m)^' + identity + r' version (RELEASE\.[0-9TZ-]+)(?:\s|$)', text)
+        if releases != [RELEASES[identity]]:
+            raise ValueError('EMBEDDED_RELEASE_MISMATCH')
+        contracts = ['server'] if identity == 'minio' else ['alias', 'mb', 'stat', 'ready']
+        if any(text.splitlines().count('M55B_CONTRACT_' + x) != 1 for x in contracts):
+            raise ValueError('EXECUTABLE_CONTRACT_MISSING')
+        return {'embedded_release': releases[0], 'executable': identity,
+                'invocation_contracts': contracts, 'shell_available': True}
 
     def engine(self):
         def projection(raw):

@@ -54,13 +54,24 @@ Docker dependency repair (validation infrastructure only)
 The old ISOLATED_SERVICES artifact did not preserve the failed Docker operation.
 Its exact historical daemon/registry cause remains unresolved. New observations
 must not be retroactively represented as retained evidence from that old job.
-No service image reference, version, registry or application SHA is changed.
+Application source and all upstream release versions remain unchanged. The only
+registry migrations are the owner-approved exact references:
+minio/minio:RELEASE.2025-07-23T15-54-02Z ->
+quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+minio/mc:RELEASE.2025-07-21T05-28-08Z ->
+quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z
+PostGIS, Caddy and Python references are unchanged. No latest/substitute images.
 
 Before full fixture generation, dependency_preflight verifies the Linux/amd64
 engine, built application ID/platform, and every exact approved external image.
 It independently inspects registry manifest/platform metadata, acquires missing
-images once, and re-inspects actual loaded image IDs/digests. No retries, TLS
-bypass, alternative registry, credentials acquisition or image substitution.
+images once, and re-inspects actual loaded image IDs/digests. Both Quay images
+require an actual pull even if already cached, using an explicit empty Docker
+CLI auth configuration (no credentials/helpers). Their RepoDigests must identify
+the exact Quay repository; no expected digest or cross-registry byte equivalence
+is invented. Embedded releases and executable/shell/subcommand contracts are
+checked in bounded network-none containers before network or DB initialization.
+No retries, TLS bypass, credentials acquisition or further image substitution.
 Unknown/malformed output and unavailable auth/platform stop before DB creation.
 Internal network ownership and local volume capability are verified afterward.
 
@@ -73,9 +84,26 @@ output is published. REGISTRY_AUTH means an observed access/authentication denia
 it does not prove whether a repository is private, missing or inaccessible.
 
 Initial missing local-image INSPECT evidence is retained as FAIL/IMAGE_NOT_FOUND
-and may be followed by exactly one approved acquisition. Any subsequent failed
-remote verification, pull or independent inspect is terminal, not a partial PASS.
+and may be followed by exactly one approved acquisition. For the two Quay images
+ONLY, an unavailable remote manifest inspection remains recorded FAIL, distinct
+from the actual anonymous pull and independent local identity inspection. It is
+not represented as a successful remote inspection. An explicit remote platform
+conflict, daemon/storage failure, failed pull, failed local identity inspection,
+missing registry digest or release/command mismatch is terminal. For other image
+dependencies the previous terminal remote-inspection policy remains unchanged.
 Container CREATE operations also use sanitized dependency observations. Synthetic
 selection, audit producer, transport/deadlines and all import/product assertions
 remain unchanged. One owner-authorized branch-push validation run is permitted;
 another dependency failure requires stopping, not another publication/retry.
+
+Initialization order for this authorized run: all image acquisitions/identities
+and MinIO executable contracts -> internal network/volume capability -> isolated
+DB/media/Caddy -> MC ready/bucket creation/JSON stat readback -> separately compiled
+helper's V17 and two manual sentinels ONLY -> persistent backend and unchanged B1
+verified HTTPS -> capacity recheck -> full synthetic manifest -> real predecessor
+import/containment via seed-import -> actual decomposed historical audit preflight
+-> unchanged real V3 coordinator/worker/runner. The tiny manual-only helper mode
+does not create users or run rows. It enables semantic HTTPS checks before heavy
+fixture work; the existing manual UUIDs/data and seed-import guard are preserved.
+The persistent backend is not restarted after fixture import. No TLS check calls
+Detail or substitutes for its first measured PRE preconditioning request.

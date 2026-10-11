@@ -66,7 +66,12 @@ class DependencyTest(unittest.TestCase):
     def setUp(self):
         self.records = []
         self.runner = mock.Mock()
-        self.d = dep.Dependencies(lambda name, value: self.records.append(value), runner=self.runner)
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.anonymous = Path(self.temporary.name)
+        (self.anonymous / 'config.json').write_text('{"auths":{}}')
+        self.d = dep.Dependencies(lambda name, value: self.records.append(value), runner=self.runner,
+                                  anonymous_config=self.anonymous)
 
     @staticmethod
     def result(code=0, value=None, error=b''):
@@ -209,10 +214,130 @@ class DependencyTest(unittest.TestCase):
 
     def test_no_unapproved_image_or_gate_changes(self):
         self.assertEqual(dep.SERVICES, (('postgis', 'postgis/postgis:16-3.5'),
-            ('minio', 'minio/minio:RELEASE.2025-07-23T15-54-02Z'), ('mc', 'minio/mc:RELEASE.2025-07-21T05-28-08Z'),
+            ('minio', 'quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z'), ('mc', 'quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z'),
             ('caddy', 'caddy:2.10-alpine'), ('python', 'python:3.12-slim')))
         self.assertEqual(dep.APPLICATION, 'phokarta-backend:' + fixture.APP_SHA)
         self.assertEqual(dep.PLATFORM, 'linux/amd64')
+
+    def quay_image(self, identity='minio'):
+        ref = dict(dep.SERVICES)[identity]
+        return ref, dict(self.IMAGE, digests=[ref.rsplit(':', 1)[0] + '@sha256:' + '4' * 64])
+
+    def test_quay_remote_error_is_not_pull_error_or_false_inspect_pass(self):
+        ref, image = self.quay_image()
+        self.runner.side_effect = [self.result(1, error=b'No such image: test'),
+            self.result(1, error=b'authentication required'), self.result(), self.result(value=image)]
+        self.d.acquire('minio', ref)
+        remote = [v for v in self.records if v.get('operation_id') == 'minio-remote'][0]
+        self.assertEqual((remote['status'], remote['error_category']), ('FAIL', 'REGISTRY_AUTH'))
+        self.assertEqual(self.records[-1]['remote_inspection_status'], 'FAIL')
+        self.assertEqual(self.records[-1]['verified_digests'], ['sha256:' + '4' * 64])
+        self.assertFalse(self.records[-1]['cross_registry_byte_equivalence_claimed'])
+        self.assertEqual(self.runner.call_count, 4)
+        for call in self.runner.call_args_list[1:3]:
+            self.assertEqual(call.args[0][:3], ['docker', '--config', str(self.anonymous)])
+
+    def test_quay_requires_actual_pull_even_when_already_loaded(self):
+        ref, image = self.quay_image('mc')
+        self.runner.side_effect = [self.result(value=image), self.result(value=self.REMOTE),
+                                   self.result(), self.result(value=image)]
+        self.d.acquire('mc', ref)
+        self.assertEqual(sum('pull' in c.args[0] for c in self.runner.call_args_list), 1)
+        self.assertTrue(self.records[-1]['actual_pull_required'])
+
+    def test_quay_failed_pull_stops_without_retry_or_downstream_inspect(self):
+        ref, _ = self.quay_image()
+        self.runner.side_effect = [self.result(1, error=b'No such image: test'),
+            self.result(1, error=b'manifest unknown'), self.result(1, error=b'unauthorized: access denied')]
+        with self.assertRaises(dep.DependencyFailure) as failure:
+            self.d.acquire('minio', ref)
+        self.assertEqual(failure.exception.observation['operation_type'], 'PULL')
+        self.assertEqual(self.runner.call_count, 3)
+        self.assertNotIn(ref, self.d.verified)
+
+    def test_quay_never_inherits_populated_registry_config(self):
+        ref, _ = self.quay_image()
+        (self.anonymous / 'config.json').write_text('{"auths":{"quay.io":{"auth":"SECRET_TEST"}}}')
+        with self.assertRaisesRegex(ValueError, 'ANONYMOUS_CONFIG_REQUIRED'):
+            self.d.operation('minio-pull', 'PULL', ref, ['pull', ref], anonymous=True)
+        self.runner.assert_not_called()
+        self.assertNotIn('SECRET_TEST', json.dumps(self.records))
+
+    def test_quay_local_identity_requires_own_registry_digest(self):
+        ref, _ = self.quay_image()
+        for image in [dict(self.IMAGE, digests=[]), self.IMAGE]:
+            self.runner.return_value = self.result(value=image)
+            with self.subTest(image=image), self.assertRaises(dep.DependencyFailure):
+                self.d.local('minio-verified', ref)
+
+    def test_release_and_executable_contracts_are_exact_and_sanitized(self):
+        for identity, commands in [('minio', ['server']), ('mc', ['alias', 'mb', 'stat', 'ready'])]:
+            raw = (identity + ' version ' + dep.RELEASES[identity] + ' (commit-id=test)\n' +
+                   '\n'.join('M55B_CONTRACT_' + c for c in commands) + '\nPRIVATE_TEST_DATA\n').encode()
+            observed = dep.Dependencies.release_projection(identity, raw)
+            self.assertEqual(observed['embedded_release'], dep.RELEASES[identity])
+            self.assertEqual(observed['invocation_contracts'], commands)
+            self.assertNotIn('PRIVATE_TEST_DATA', json.dumps(observed))
+            for invalid in [raw.replace(dep.RELEASES[identity].encode(), b'RELEASE.2025-01-01T00-00-00Z'),
+                            raw.replace(b'M55B_CONTRACT_' + commands[0].encode(), b'MISSING')]:
+                with self.assertRaises(ValueError):
+                    dep.Dependencies.release_projection(identity, invalid)
+
+    def test_all_dependencies_precede_network_or_fixture(self):
+        events = []
+        with mock.patch.object(self.d, 'engine', side_effect=lambda: events.append('engine')), \
+             mock.patch.object(self.d, 'local', side_effect=lambda *a: events.append('app')), \
+             mock.patch.object(self.d, 'acquire', side_effect=lambda identity, ref: events.append(identity)):
+            self.d.before_fixture(lambda: events.append('network'))
+        self.assertEqual(events, ['engine', 'app', *[name for name, _ in dep.SERVICES], 'network'])
+
+    def trial(self):
+        trial = mock.Mock()
+        trial.root = self.anonymous
+        (trial.root / 'fixture.json').write_text('{}')
+        manual = {'places': 2, 'manual': 2, 'sources': 0, 'refs': 0, 'v17': 1, 'b_writes': 0, 'b_sources': 0}
+        seeded = {'places': 73, 'manual': 2, 'retired': 71, 'sources': 18924, 'refs': 142, 'inactive_refs': 142,
+                  'quarantine': 16064, 'b_writes': 0, 'b_sources': 0, 'b_decisions': 0, 'v17': 1,
+                  'canonical_uuid_digest': fixture.IDENTITY_DIGEST, 'b_gate': 'NONE'}
+        trial.helper.side_effect = [manual, seeded]
+        trial.sql.return_value = {'b_runs': 0}
+        trial.historical_preflight.side_effect = lambda callback: callback()
+        return trial
+
+    def test_services_v17_and_unchanged_https_precede_full_fixture(self):
+        import linux_rehearsal as h
+        trial = self.trial()
+        with mock.patch.object(h, 'gate', return_value={'status': 'PASS'}):
+            h.Rehearsal.execute(trial)
+        names = [(c[0], c.args) for c in trial.mock_calls]
+        keys = [c[0] for c in names]
+        self.assertLess(keys.index('dependency_preflight'), keys.index('services'))
+        self.assertLess(keys.index('services'), keys.index('helper'))
+        self.assertLess(keys.index('persistent'), keys.index('command'))
+        self.assertEqual([c.args[0] for c in trial.helper.call_args_list], ['manual', 'seed-import'])
+        trial.persistent.assert_called_once()
+        trial.historical_preflight.assert_called_once()
+        trial.operational.assert_called_once()
+        trial.validate.assert_called_once()
+
+    def test_failed_https_stops_before_full_fixture_or_product(self):
+        import linux_rehearsal as h
+        trial = self.trial()
+        trial.persistent.side_effect = h.Failure('TEST_TLS_FAILURE')
+        with mock.patch.object(h, 'gate', return_value={'status': 'PASS'}), self.assertRaises(h.Failure):
+            h.Rehearsal.execute(trial)
+        trial.command.assert_not_called()
+        trial.operational.assert_not_called()
+        trial.historical_preflight.assert_not_called()
+
+    def test_contract_and_bucket_readback_are_not_skipped(self):
+        import linux_rehearsal as h
+        code = (HERE / 'linux_rehearsal.py').read_text()
+        self.assertIn('mc stat --json fixture/m55b-isolated-media', code)
+        self.assertIn("require(stat.get('status') == 'success'", code)
+        self.assertIn('self.verify_minio_contracts()', code)
+        self.assertIn('Dependencies.release_projection(identity, raw)', code)
+        self.assertIn("*self.common(sealed=False)", code)
 
 
 if __name__ == '__main__':

@@ -23,24 +23,21 @@ public class RehearsalSeed {
                 "--server.port=0", "--management.server.port=0", "--phokarta.place-import.enabled=false")) {
             var jdbc = c.getBean(JdbcTemplate.class);
             String mode=System.getenv("REHEARSAL_MODE");
-            if ("seed".equals(mode) || "seed-import".equals(mode)) {
-                if ("seed".equals(mode) && jdbc.queryForObject("select count(*) from places", Long.class) != 0)
+            if (!Set.of("manual","seed","seed-import","audit").contains(mode))
+                throw new IllegalStateException("EXACT_FIXTURE_MODE_REQUIRED");
+            if ("manual".equals(mode) || "seed".equals(mode)) {
+                if (jdbc.queryForObject("select count(*) from places",Long.class)!=0
+                        || jdbc.queryForObject("select count(*) from users",Long.class)!=0
+                        || jdbc.queryForObject("select count(*) from place_provider_sync_runs",Long.class)!=0)
                     throw new IllegalStateException("EMPTY_ISOLATED_FIXTURE_REQUIRED");
+                seedManual(jdbc);
+            }
+            if ("seed".equals(mode) || "seed-import".equals(mode)) {
                 if ("seed-import".equals(mode) && (jdbc.queryForObject("select count(*) from places where origin='MANUAL_COMMUNITY'",Long.class)!=2
                         || jdbc.queryForObject("select count(*) from places",Long.class)!=2
                         || jdbc.queryForObject("select count(*) from users",Long.class)!=0
                         || jdbc.queryForObject("select count(*) from place_provider_sync_runs",Long.class)!=0))
                     throw new IllegalStateException("EXACT_PARTIAL_MANUAL_FIXTURE_REQUIRED");
-                for (int n=1;"seed".equals(mode) && n<=2;n++) {
-                    UUID id=UUID.fromString("aa000000-0000-4000-8000-00000000000"+n);
-                    jdbc.update("""
-                        INSERT INTO places(id,name,description,category,subcategories,location,city,region,country,address,
-                            cover_image,photos,price_level,created_at,updated_at)
-                        VALUES (?,?,'Isolated manual fixture','CAFE',array[]::text[],
-                            ST_SetSRID(ST_MakePoint(?,?),4326),'Istanbul','Istanbul','TR','Isolated fixture','',
-                            array[]::text[],0,now(),now())
-                        """, id,n==1?"Staging Harbor Cafe":"Staging Courtyard Kitchen",28.9784+(n-1)*0.001,41.022+(n-1)*0.001);
-                }
                 jdbc.update("insert into users(id,username,display_name,email,created_at,updated_at) values (?,'isolated_existing_owner','Isolated existing owner','existing_owner@example.invalid',now(),now())", U);
                 jdbc.update("insert into saved_places(user_id,place_id,saved_at) values (?,?::uuid,now())",U,"aa000000-0000-4000-8000-000000000002");
                 var imported=c.getBean(PlacePilotImportService.class).importApproved(
@@ -58,6 +55,18 @@ public class RehearsalSeed {
             if (Files.exists(output)) throw new IllegalStateException("AUDIT_OVERWRITE_REFUSED");
             Files.write(output,M.writerWithDefaultPrettyPrinter().writeValueAsBytes(state),StandardOpenOption.CREATE_NEW);
             System.out.println("ISOLATED_FIXTURE_AUDIT:"+state.toString());
+        }
+    }
+    static void seedManual(JdbcTemplate jdbc) {
+        for (int n=1;n<=2;n++) {
+            UUID id=UUID.fromString("aa000000-0000-4000-8000-00000000000"+n);
+            jdbc.update("""
+                INSERT INTO places(id,name,description,category,subcategories,location,city,region,country,address,
+                    cover_image,photos,price_level,created_at,updated_at)
+                VALUES (?,?,'Isolated manual fixture','CAFE',array[]::text[],
+                    ST_SetSRID(ST_MakePoint(?,?),4326),'Istanbul','Istanbul','TR','Isolated fixture','',
+                    array[]::text[],0,now(),now())
+                """, id,n==1?"Staging Harbor Cafe":"Staging Courtyard Kitchen",28.9784+(n-1)*0.001,41.022+(n-1)*0.001);
         }
     }
     static ObjectNode snapshot(JdbcTemplate jdbc) throws Exception {

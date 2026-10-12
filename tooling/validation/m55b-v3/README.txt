@@ -192,3 +192,48 @@ https://docs.openssl.org/3.0/man1/openssl-s_client/
 https://docs.openssl.org/3.0/man3/X509_STORE_CTX_get_error/
 One additional owner-authorized controlled Linux run is permitted for this repair;
 the prior failed run is not retried or rewritten. All full V3 gates remain intact.
+
+Operational runner postmortem (separately authorized bounded diagnosis)
+
+Existing run 38216350583 passed infrastructure, complete synthetic fixture and
+38-expression audit, then its operational JVM exited 1 (OOMKilled=false).
+The retained PREIMPORT_HTTP_BASELINE and runV3 class/method markers cannot
+identify the failed gate. Exact Actions job logs contain only the harness error
+OPERATIONAL_RUNNER_FAILED, not the privately captured application log. Previous
+nonzero-exit propagation bypassed validate()/artifact readback and cleanup then
+destroyed the fixture. Its final re-adoption, replay, POST, product and
+containment outcomes cannot be reconstructed from the retained artifacts.
+This is evidence loss, NOT a confirmed application root-cause correction.
+
+runner_postmortem.py now independently reads safe evidence after the operational
+container has exited and before nonzero propagation or fixture teardown. It
+never invokes a Spring helper, importer, product mutation, retry, rollback or
+cleanup. Existing runner ordering and all success assertions are unchanged.
+A 90-second best-effort diagnostic envelope contains a SINGLE existing read-only
+REPEATABLE READ SQL subprocess (5000ms statement timeout, 30s total). This is
+not an extension of any historical-audit/HTTP/worker deadline. Other reads are
+bounded logs and container inspection only. If the runner is still running,
+postmortem is NOT_VERIFIED; it is not interrupted by the diagnostic collector.
+
+runner_postmortem.json contains the original exit/OOM state, fixed artifact
+inventory and digest/byte readback, all safe PRE/POST/cold request measurements,
+first persistent Detail preconditioning, actual aggregate run/gate/catalog/ref/
+source/candidate/graph state, containment event sequence, safe service identity,
+and allowlisted exception/static-message digests and approved internal frames.
+Physical INSERT delta requires the same relation/statistics epoch. Planned
+accounting identities are reported separately and are NEVER HTTP coverage.
+PRE/POST diagnostic validity explicitly describes readback/count/HTTP scope; it
+does not replace the unchanged complete Java acceptance contract. Product PASS
+requires the real producer's existing validate_evidence and matching receipt.
+Missing receipts never imply PASS. A source-verified runV3 call-site can locate
+the thrown operation; an arbitrary marker or generic IOException cannot prove
+an internal failed assertion. Source literals that are not fixed reason codes
+are represented by SHA-256 only, never raw error text.
+
+Arbitrary JSON keys/strings, payloads, environment, credentials, private user/
+source records and raw stacks/logs are not published. Partial/failed diagnostic
+reads remain UNKNOWN/NOT_VERIFIED and cannot mask the runner's authoritative
+exit or change FAILED to PASS. No second containment is performed. Production
+and application source remain immutable. One normal validation-branch push and
+one controlled Linux run are authorized; any newly evidenced failure is reported
+without another repair/rerun or promotion.

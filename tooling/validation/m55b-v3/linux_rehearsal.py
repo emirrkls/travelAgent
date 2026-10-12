@@ -20,6 +20,7 @@ from fixture import APP_SHA, A, B, IDENTITY_DIGEST, sha, write
 from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER, ASSEMBLED
 from release_assets import OfficialReleases, ReleaseFailure, verify_image, verify_smoke
 from target_diagnostics import from_logs
+from runner_postmortem import collect as collect_postmortem
 
 HERE = Path(__file__).resolve().parent
 IMAGE = 'phokarta-backend:' + APP_SHA
@@ -544,6 +545,7 @@ class Rehearsal:
                    'route_id': 'PRIVATE_PERSISTENT_CONTAINER_NETNS', 'sentinel': 'aa000000-0000-4000-8000-000000000001',
                    'samples': 20, 'preconditioning': 1, 'deadline_ms': 5000, 'detail_slow_threshold_ms': 350, 'roles': ['PRE', 'POST']}}
         write(self.evidence / 'V3_OPERATIONS_PLAN.json', plan)
+        self.plan = plan  # Needed for independent failure readback too, never a PASS receipt.
         self.launch_coordinator()
         self.await_files(['EXECUTION_TARGET_RECEIPT.json', 'CURRENT_TARGET.json'])
         self.product_cid = self.run('m55b-real-product-worker', self.worker_args('product'))
@@ -587,7 +589,7 @@ class Rehearsal:
             raise Failure('OPERATIONAL_REHEARSAL_DEADLINE')
         self.publish('resource_samples.json', samples)
         self.publish('operational_exit.json', {k: state[k] for k in ['ExitCode', 'OOMKilled', 'StartedAt', 'FinishedAt']})
-        self.capture_failure_evidence()
+        self.capture_runner_postmortem(state)  # Runner already exited; its containment has returned.
         require(state['ExitCode'] == 0 and not state['OOMKilled'], 'OPERATIONAL_RUNNER_FAILED')
         require(samples and not any(s['cgroup'].get('memory.events', {}).get('oom_kill', 0) for s in samples), 'OOM_EVIDENCE')
         for p in self.children:
@@ -597,25 +599,37 @@ class Rehearsal:
         self.samples = samples
         self.plan = plan
 
-    def capture_failure_evidence(self):
-        # Only existing workers' deliberately sanitized schemas, with explicit projections.
-        for name in ['PRODUCT_FAILED.json', 'WORKER_FAILED.json']:
-            p = self.evidence / name
-            if p.exists():
-                v = json.loads(p.read_bytes())
-                self.publish(name, {k: v[k] for k in ['version', 'reason', 'failure_code', 'cleanup', 'observations'] if k in v})
-        if hasattr(self, 'operational_cid'):
-            r = subprocess.run(['docker', 'logs', self.operational_cid], capture_output=True, timeout=20)
-            text = (r.stdout + r.stderr).decode(errors='replace')
-            # Retain exceptions/categories, never complete unredacted application log messages.
-            classes = sorted(set(re.findall(r'(?:com\.emirrkls[\w.$]+|java\.lang\.\w+Exception|org\.[\w.$]+Exception)', text)))
-            categories = [x for x in ['PREIMPORT_HTTP_BASELINE', 'HTTP_TIMEOUT', 'OutOfMemoryError', 'PRODUCT',
-                                      'HISTORICAL_DATABASE_AUDIT', 'persistent telemetry', 'readoption'] if x in text]
-            self.publish('safe_log_classification.json', {'exception_classes': classes[:80], 'categories': categories,
-                                                       'raw_logs_not_published': True})
+    def capture_runner_postmortem(self, state=None):
+        if getattr(self, 'postmortem_attempted', False) or not hasattr(self, 'operational_cid'):
+            return
+        self.postmortem_attempted = True
+        try:
+            def inspect(cid, timeout):
+                # Full inspect stays in memory; collector projects only explicit safe state.
+                return json.loads(self.command(['docker', 'inspect', cid], timeout=timeout))[0]
+            if state is None:
+                state = inspect(self.operational_cid, 5)['State']
+            if state['Running']:
+                self.publish('runner_postmortem.json', {'collection_status': 'NOT_VERIFIED',
+                    'reason': 'RUNNER_STILL_RUNNING', 'runner_result_authoritative': True})
+                return  # Never interrupt the runner or replace its containment mechanism.
+            # docker logs may emit the uncaught Java exception on stderr too. Keep both
+            # privately in memory; only source-allowlisted codes/methods can leave it.
+            def combined_logs():
+                r = subprocess.run(['docker', 'logs', '--tail', '600', self.operational_cid],
+                                   capture_output=True, timeout=10)
+                require(r.returncode == 0, 'POSTMORTEM_LOG_UNAVAILABLE')
+                return r.stdout + r.stderr
+            evidence = collect_postmortem(self, state, combined_logs, inspect)
+            self.publish('runner_postmortem.json', evidence)
+        except Exception:
+            # Best effort only: diagnostic problems must never replace the operational error.
+            self.result['postmortem_status'] = 'UNAVAILABLE'
 
     def extra(self):
         return self.sql("SELECT jsonb_build_object('physical_inserts',(SELECT n_tup_ins FROM pg_stat_all_tables WHERE relname='places'),"
+            "'stats_reset',(SELECT stats_reset::text FROM pg_stat_database WHERE datname=current_database()),"
+            "'place_relid',(SELECT relid::bigint FROM pg_stat_all_tables WHERE relname='places'),"
             "'readoption_writes',(SELECT count(*) FROM place_pilot_catalog_writes WHERE sync_run_id='" + B + "' AND supersedes_write_id IS NOT NULL),"
             "'users',(SELECT count(*) FROM users),'saved',(SELECT count(*) FROM saved_places),'experiences',(SELECT count(*) FROM visits),"
             "'gate',(SELECT jsonb_build_object('status',gate_status,'diagnostics',diagnostics) FROM place_pilot_canary_gates WHERE sync_run_id='" + B + "'))")
@@ -740,7 +754,7 @@ def main():
                             failure_phase=trial.phase, failure_category=code, completed_at=now())
         if isinstance(e, DependencyFailure):
             trial.result['dependency_failure'] = e.observation
-        trial.capture_failure_evidence()
+        trial.capture_runner_postmortem()
     finally:
         trial.publish('result.json', trial.result)
         trial.cleanup()

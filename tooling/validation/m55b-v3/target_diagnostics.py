@@ -15,12 +15,15 @@ PHASES = ('APPLICATION_IMPORT', 'DNS', 'TLS_CONTEXT', 'TCP', 'TLS_CHAIN_HOSTNAME
 CATEGORIES = {'DNS_RESOLUTION', 'ISOLATED_DNS_REQUIRED', 'TLS_CERTIFICATE_VALIDATION', 'TLS_PROTOCOL',
     'VERIFIED_TLS_REQUIRED', 'HOSTNAME_MISMATCH_NOT_REJECTED', 'TCP_REFUSED', 'NETWORK_DEADLINE',
     'FILESYSTEM_ACCESS', 'APPLICATION_IMPORT', 'B1_TIMEOUT', 'B1_TRANSPORT_FAILURE',
-    'B1_HTTP_STATUS', 'B1_SEMANTICS', 'VALIDATION_ERROR', 'OS_ERROR', 'UNCLASSIFIED'}
+    'B1_HTTP_STATUS', 'B1_SEMANTICS', 'VALIDATION_ERROR', 'OS_ERROR', 'UNCLASSIFIED',
+    'HOSTNAME_REFERENCE_FAILED', 'HOSTNAME_CONTROL_UNCLASSIFIED',
+    'HOSTNAME_CONTROL_TOOL_UNAVAILABLE', 'HOSTNAME_CONTROL_OUTPUT_LIMIT'}
 CLASSES = {'DiagnosticFailure', 'gaierror', 'SSLCertVerificationError', 'SSLError', 'ConnectionRefusedError',
            'TimeoutError', 'PermissionError', 'ModuleNotFoundError', 'ImportError', 'RequestFailure',
            'ValueError', 'OSError', 'FileNotFoundError', 'TypeError', 'KeyError', 'AttributeError'}
 FIELDS = {'address_count', 'all_private', 'cert_required', 'check_hostname', 'tls_version',
-          'negative_control_rejected', 'status', 'latency_ms', 'request_id', 'semantic_valid'}
+          'negative_control_rejected', 'status', 'latency_ms', 'request_id', 'semantic_valid',
+          'sni_preserved', 'positive_reference_verified', 'mismatch_verify_code', 'hostname_control_elapsed_ms'}
 
 
 class DiagnosticFailure(ValueError):
@@ -100,7 +103,8 @@ def validate(record):
         if not isinstance(details, dict) or not set(details) <= FIELDS:
             raise ValueError('DIAGNOSTIC_DETAILS')
         for key, value in details.items():
-            if key in {'all_private', 'cert_required', 'check_hostname', 'negative_control_rejected', 'semantic_valid'}:
+            if key in {'all_private', 'cert_required', 'check_hostname', 'negative_control_rejected', 'semantic_valid',
+                       'sni_preserved', 'positive_reference_verified'}:
                 valid = type(value) is bool
             elif key == 'request_id':
                 valid = isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,100}', value)
@@ -110,6 +114,8 @@ def validate(record):
                 valid = type(value) is int and 100 <= value <= 599
             elif key == 'address_count':
                 valid = type(value) is int and 0 <= value <= 32
+            elif key == 'mismatch_verify_code':
+                valid = type(value) is int and value == 62
             else:
                 valid = finite(value)
             if not valid:

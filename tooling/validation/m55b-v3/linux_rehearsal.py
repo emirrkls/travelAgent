@@ -435,6 +435,8 @@ class Rehearsal:
             verified = json.loads((self.root / 'tls-output/tls.json').read_bytes())
             require(verified.get('status') == 'PASS' and verified.get('chain_verified') is True
                     and verified.get('hostname_verified') is True and verified.get('hostname_negative_control') is True
+                    and verified.get('negative_control_sni_preserved') is True
+                    and verified.get('negative_control_verify_code') == 62
                     and len(verified.get('requests', [])) == 3
                     and all(r['status'] == 200 and r['validation'] == 'VALID' for r in verified['requests']),
                     'TLS_ARTIFACT_INCOMPLETE')

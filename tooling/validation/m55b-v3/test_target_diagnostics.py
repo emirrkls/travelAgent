@@ -36,7 +36,7 @@ class TargetTest(unittest.TestCase):
         self.tls = mock.MagicMock()
         self.tls.__enter__.return_value = self.tls
         self.tls.version.return_value = 'TLSv1.3'
-        self.ctx.wrap_socket.side_effect = [self.tls, ssl.SSLCertVerificationError('PRIVATE_TEST_SECRET')]
+        self.ctx.wrap_socket.return_value = self.tls
         self.sock = mock.MagicMock()
         self.sock.__enter__.return_value = self.sock
         self.transport = mock.Mock()
@@ -53,6 +53,9 @@ class TargetTest(unittest.TestCase):
             return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('172.18.0.2', 8443))]))
         self.tcp = self.stack.enter_context(mock.patch.object(worker.socket, 'create_connection', return_value=self.sock))
         self.context = self.stack.enter_context(mock.patch.object(worker.ssl, 'create_default_context', return_value=self.ctx))
+        self.hostname = self.stack.enter_context(mock.patch.object(worker, 'verify_hostname_control', return_value={
+            'negative_control_rejected': True, 'sni_preserved': True, 'positive_reference_verified': True,
+            'mismatch_verify_code': 62, 'hostname_control_elapsed_ms': 5}))
 
     def run_probe(self):
         result = worker.tls_probe(self.root / 'application', self.root)
@@ -81,6 +84,10 @@ class TargetTest(unittest.TestCase):
         self.assertEqual(value['status'], 'PASS')
         self.assertTrue(value['chain_verified'] and value['hostname_verified'] and value['hostname_negative_control'])
         self.assertEqual(len(value['requests']), 3)
+        self.assertTrue(value['negative_control_sni_preserved'])
+        self.assertEqual(value['negative_control_verify_code'], 62)
+        self.ctx.wrap_socket.assert_called_once_with(self.sock, server_hostname='m55b-api')
+        self.hostname.assert_called_once_with()
         self.assertTrue(all(call.kwargs['timeout'] == 5 for call in self.tcp.call_args_list))
         self.assertTrue(all(0 < call.args[0] <= 5 for call in self.sock.settimeout.call_args_list))
 
@@ -116,14 +123,14 @@ class TargetTest(unittest.TestCase):
         self.transport.request.assert_not_called()
 
     def test_negative_sni_alert_is_not_a_positive_tls_failure_or_a_pass(self):
-        self.ctx.wrap_socket.side_effect = [self.tls, ssl.SSLError('PRIVATE_TEST_SECRET')]
+        self.hostname.side_effect = ssl.SSLError('PRIVATE_TEST_SECRET')
         evidence = self.assert_failure('TLS_NEGATIVE_HOSTNAME', 'TLS_PROTOCOL')
         self.assertEqual(evidence['events'][-2]['status'], 'PASS')
         self.transport.request.assert_not_called()
 
     def test_missing_negative_rejection_stops_before_b1(self):
-        self.ctx.wrap_socket.side_effect = [self.tls, self.tls]
-        self.assert_failure('TLS_NEGATIVE_HOSTNAME', 'HOSTNAME_MISMATCH_NOT_REJECTED')
+        self.hostname.side_effect = d.DiagnosticFailure('HOSTNAME_CONTROL_UNCLASSIFIED')
+        self.assert_failure('TLS_NEGATIVE_HOSTNAME', 'HOSTNAME_CONTROL_UNCLASSIFIED')
         self.transport.request.assert_not_called()
 
     def test_http_status_retained_without_error_body_or_retry(self):

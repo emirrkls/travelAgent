@@ -156,3 +156,39 @@ five seconds per connection. No Detail warmup or additional GET/retry is added.
 The existing approved MinIO acquisition/smoke/fixture/audit/import/product gates
 and resource policy are unchanged. One controlled branch-push run is authorized;
 if it yields a newly identified failure, stop and report rather than patch/rerun.
+
+Independent negative hostname control (subsequent owner-authorized correction)
+
+Run 38215138980 reproduced positive TLSv1.3 chain/hostname verification PASS,
+then TLS_NEGATIVE_HOSTNAME failed with generic SSLError/TLS_PROTOCOL. The old
+negative connection changed SNI as well as expected hostname, so it could fail
+certificate selection before reaching the intended client identity assertion.
+This does not establish any production TLS defect or the precise server alert.
+
+hostname_control.py now uses the already installed OpenSSL test CLI to separate
+these concepts. Both positive and negative references connect to the same test
+endpoint and send -servername m55b-api. Only -verify_hostname changes from
+m55b-api to wrong-host.example.invalid. Both use explicit ephemeral public CA,
+-verify_return_error and disabled default CApath/CAstore, never disabled chain or
+name validation. Positive reference MUST return zero with Verification: OK;
+negative MUST return nonzero with ONLY verification error 62, hostname mismatch.
+Generic alert/nonzero/unknown issuer/expired certificate/tool failure is NOT PASS.
+The pair shares a single non-resetting five-second subprocess budget. Captured
+OpenSSL output is bounded and classified in memory only, never published raw.
+The image build checks that its existing OpenSSL executable is available; no
+package installation, new registry, application image or Caddy config is added.
+
+This CLI is ONLY a TLS identity assertion, sends no HTTP, and never substitutes
+for the unchanged actual B1 Transport or its three GET contracts. The existing
+Python positive TLS check, CA trust and check_hostname remain enabled. There are
+no retries, Detail warmups, HTTP deadline increases or acceptance relaxations.
+Parent readback requires SNI-preserved and exact mismatch-code evidence as well.
+Real ephemeral loopback regression tests model a server rejecting wrong SNI,
+demonstrate the old generic-alert behavior, verify both new SNI values stay valid,
+and prove an untrusted chain cannot pass. Test private keys are temporary only.
+
+OpenSSL primary API semantics:
+https://docs.openssl.org/3.0/man1/openssl-s_client/
+https://docs.openssl.org/3.0/man3/X509_STORE_CTX_get_error/
+One additional owner-authorized controlled Linux run is permitted for this repair;
+the prior failed run is not retried or rewritten. All full V3 gates remain intact.

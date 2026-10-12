@@ -8,6 +8,7 @@ import sys
 import time
 
 from target_diagnostics import DiagnosticFailure, Recorder
+from hostname_control import verify_hostname_control
 
 ORIGIN = 'https://m55b-api:8443'
 
@@ -55,21 +56,7 @@ def tls_probe(application, root):
             if sock is not None:
                 sock.close()
         with record.step('TLS_NEGATIVE_HOSTNAME') as details:
-            refused = False
-            connection_start = time.monotonic()
-            try:
-                with socket.create_connection(('m55b-api', 8443), timeout=5) as sock:
-                    remaining = 5 - (time.monotonic() - connection_start)
-                    if remaining <= 0:
-                        raise TimeoutError()
-                    sock.settimeout(remaining)
-                    with ctx.wrap_socket(sock, server_hostname='wrong-host.example.invalid'):
-                        pass
-            except ssl.SSLCertVerificationError:
-                refused = True
-            details['negative_control_rejected'] = refused
-            if not refused:
-                raise DiagnosticFailure('HOSTNAME_MISMATCH_NOT_REJECTED')
+            details.update(verify_hostname_control())
         results = []
         transport = b1.Transport(ORIGIN)
         for phase, path in [('B1_HEALTH_LIVE', '/health/live'), ('B1_HEALTH_READY', '/health/ready'),
@@ -93,6 +80,7 @@ def tls_probe(application, root):
         with record.step('ARTIFACT_WRITE'):
             write(root / 'tls.json', {'status': 'PASS', 'origin': ORIGIN, 'private_addresses': addresses,
                 'chain_verified': True, 'hostname_verified': True, 'hostname_negative_control': True,
+                'negative_control_sni_preserved': True, 'negative_control_verify_code': 62,
                 'tls_version': tls_version, 'requests': results, 'production_connections': 0})
         record.finish()
         return 0

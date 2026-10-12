@@ -237,3 +237,33 @@ exit or change FAILED to PASS. No second containment is performed. Production
 and application source remain immutable. One normal validation-branch push and
 one controlled Linux run are authorized; any newly evidenced failure is reported
 without another repair/rerun or promotion.
+
+Synthetic SUCCESS fixture category correction (separately owner-authorized)
+
+Run 38219829201 reached the real V3_ANOMALY_HARD_FAILURE. The old generator
+made all 71 selected synthetic Places CAFE, conflicting with the unchanged
+category-growth hard gate (>90% of >=20 new Places, category growth >=20).
+This is a synthetic fixture defect, not a production mapping or historical
+timeout root cause. No application code, anomaly threshold or gate is changed.
+
+Selected test data now alternates 36 CAFE / 35 RESTAURANT, keeping the exact
+71 candidate/canonical identities, geometry, source volume and selection intact.
+Candidate names/categories, both provider names and exact provider taxonomy
+values, source proposals and recomputed source/decision/manifest hashes agree.
+The existing production mapper and decision validator verify these test inputs.
+Only ephemeral synthetic hashes change, never the existing production seal.
+
+Before historical A containment, the separate fixture helper verifies the real
+anomaly service accepts the balanced data. A negative isolated transaction
+temporarily sets exactly the 71 test Places to CAFE and requires the SAME real
+SQL/service to report passed=false and category_spikes=1. This transaction always
+rolls back, including on assertion failure; restored snapshot equality and a
+fresh balanced PASS are required. It writes no negative gate or operational
+history and never overrides an application bean or operational decision.
+The published category_policy_regression.json is aggregate test evidence only.
+Parent readback rejects missing negative/restoration evidence before the audit
+or operational runner. This is not a second full rehearsal or a fabricated
+operational containment success. The real V3 runner retains every hard gate.
+
+Exactly one new validation-branch push run is authorized for the correction.
+Any newly observed failure requires reporting and stopping, not another retry.

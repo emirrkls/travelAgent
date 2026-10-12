@@ -1,6 +1,7 @@
 """Deterministic TEST-ONLY fixture; no provider downloads or production inputs."""
 import argparse
 import copy
+from collections import Counter
 from dataclasses import replace
 import hashlib
 import json
@@ -11,6 +12,52 @@ APP_SHA = 'e93cae3028b44ba47f407ce19f7001b8b2983011'
 A = 'd70adea5-6e3f-4c32-92c0-49695eeeb9ce'
 B = '19994388-464c-4f0c-83db-44c41d8b67fa'
 IDENTITY_DIGEST = 'fd5c67b0ab2a80b994e0c574a0d49d9fff241f3991c17bef67cda9e958c02321'
+SELECTED_TAXONOMY = {
+    'CAFE': ('Kafe', 'cafe', '4bf58dd8d48988d16d941735'),
+    'RESTAURANT': ('Restoran', 'restaurant', '4bf58dd8d48988d1c4941735'),
+}
+SELECTED_CATEGORY_COUNTS = {'CAFE': 36, 'RESTAURANT': 35}
+
+
+def validate_category_regression(evidence):
+    """Require real Java service evidence, not a copied Python anomaly formula."""
+    try:
+        if (evidence['classification'] != 'ISOLATED_CATEGORY_REGRESSION_ONLY'
+                or evidence['negative_transaction_rolled_back'] is not True
+                or evidence['restored_snapshot_equal'] is not True
+                or evidence['balanced_recheck_passed'] is not True):
+            raise ValueError
+        for label, passed, growth, spikes in [
+            ('balanced', True, SELECTED_CATEGORY_COUNTS, 0),
+            ('homogeneous', False, {'CAFE': 71}, 1),
+        ]:
+            report = evidence[label]
+            if (report['version'] != 'didim-catalog-anomaly-v1'
+                    or report['passed'] is not passed
+                    or report['before']['active_places'] != 0
+                    or report['before']['category_counts'] != {}
+                    or report['after']['active_places'] != 71
+                    or report['after']['category_counts'] != growth
+                    or report['deltas']['category_growth'] != growth
+                    or report['deltas']['category_spikes'] != spikes):
+                raise ValueError
+            if any(report['deltas'][key] != 0 for key in [
+                'same_coordinate_anomalies', 'same_name_category_near_duplicate_pairs', 'dense_marker_excess',
+            ]) or any(report[key] != 0 for key in [
+                'invalid_or_out_of_scope_coordinates', 'invalid_categories', 'provider_reference_collisions',
+                'source_orphans', 'canonical_without_provenance', 'duplicate_canonical_assignments',
+            ]):
+                raise ValueError
+    except (KeyError, TypeError, ValueError):
+        raise ValueError('SYNTHETIC_CATEGORY_REGRESSION_NOT_VERIFIED') from None
+
+
+def selected_profile(index):
+    if type(index) is not int or not 0 <= index < 71:
+        raise ValueError('EXACT_SELECTED_INDEX_REQUIRED')
+    category = 'CAFE' if index % 2 == 0 else 'RESTAURANT'
+    label, overture, fsq = SELECTED_TAXONOMY[category]
+    return category, f'İnci {label} {index}', {'overture': overture, 'fsq': fsq}
 
 
 def sha(path):
@@ -32,6 +79,7 @@ def generate(app, root, *, quarantine=16064, rejected=1294, dual_quarantine=1424
     sys.path[:0] = [str(app / 'tools/place-ingestion/src'), str(app / 'tools/place-ingestion/tests')]
     from test_canary_manifest import _fixture
     from phokarta_place_ingestion.autonomous_validation import decide_candidate
+    from phokarta_place_ingestion.production_categories import ProductionCategoryMapper
     from phokarta_place_ingestion.canary_manifest import (
         _assemble_manifest, _sha256_json, _place_uuid, validate_canary_manifest_contract,
     )
@@ -42,6 +90,7 @@ def generate(app, root, *, quarantine=16064, rejected=1294, dual_quarantine=1424
     v, _, _ = _fixture(71)
     context = v['reproducible']['source_context']
     candidates, decisions = [], []
+    mapper = ProductionCategoryMapper()
     # An explicit synthetic byte-volume dimension, not copied provider metadata.
     pad = 'SYNTHETIC_TEST_ONLY_' + 'x' * padding
     def synthetic(row):
@@ -51,14 +100,24 @@ def generate(app, root, *, quarantine=16064, rejected=1294, dual_quarantine=1424
         row['source_hash'] = _sha256_json(row)
         return row
     for index, base in enumerate(v['candidates']):
+        category, name, taxonomy = selected_profile(index)
+        for provider, value in taxonomy.items():
+            mapped = mapper.map(provider, (value,))
+            if (mapped.category != category or mapped.rule != 'exact'
+                    or mapper.mapped_categories(provider, (value,)) != (category,)
+                    or mapper.unmapped_non_ignored_values(provider, (value,))):
+                raise ValueError('SYNTHETIC_CATEGORY_TAXONOMY_MISMATCH')
         c = replace(base, candidate_id=bindings[index]['candidate_id'],
+                    proposed_category=category, proposed_name=name, overture_name=name, fsq_name=name,
+                    provider_categories=tuple(f'{provider}:{value}' for provider, value in taxonomy.items()),
                     latitude=37.36 + (index // 9) * 0.003,
                     longitude=27.25 + (index % 9) * 0.003)
         if _place_uuid(c.candidate_id) != bindings[index]['canonical_place_id']:
             raise ValueError('CANONICAL_UUID_BASIS_MISMATCH')
         rows = []
         for provider, ext in [('overture', c.overture_id), ('fsq', c.fsq_id)]:
-            row = synthetic(dict(context[provider, ext], latitude=c.latitude, longitude=c.longitude))
+            row = synthetic(dict(context[provider, ext], latitude=c.latitude, longitude=c.longitude,
+                                 name=name, proposed_place_category=category, provider_categories=[taxonomy[provider]]))
             context[provider, ext] = row
             rows.append(row)
         c = replace(c, source_hashes=tuple(r['source_hash'] for r in rows))
@@ -67,6 +126,9 @@ def generate(app, root, *, quarantine=16064, rejected=1294, dual_quarantine=1424
             raise ValueError('SYNTHETIC_ELIGIBLE_POLICY_FAILED')
         candidates.append(c)
         decisions.append(d)
+    category_counts = dict(Counter(c.proposed_category for c in candidates))
+    if category_counts != SELECTED_CATEGORY_COUNTS:
+        raise ValueError('SYNTHETIC_SELECTED_CATEGORY_DISTRIBUTION_FAILED')
     template = v['candidates'][0]
     source_template = context['overture', template.overture_id]
     for index in range(quarantine):
@@ -125,6 +187,7 @@ def generate(app, root, *, quarantine=16064, rejected=1294, dual_quarantine=1424
             'production_fingerprint_equivalence_claimed': False, 'counts': result,
             'source_states': new['source_record_states'], 'candidate_decisions': new['candidate_decisions'],
             'canonical_uuid_digest': IDENTITY_DIGEST, 'selected_canonical_ids': ids,
+            'selected_category_counts': category_counts,
             'manifest_hash': envelope['manifest_hash'], 'envelope_sha256': sha(new_path),
             'predecessor_manifest_hash': old_envelope['manifest_hash'], 'predecessor_sha256': sha(old_path),
             'manifest_bytes': new_path.stat().st_size, 'predecessor_bytes': old_path.stat().st_size,

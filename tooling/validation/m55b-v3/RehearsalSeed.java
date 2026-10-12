@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.boot.SpringApplication;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.file.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +25,7 @@ public class RehearsalSeed {
                 "--server.port=0", "--management.server.port=0", "--phokarta.place-import.enabled=false")) {
             var jdbc = c.getBean(JdbcTemplate.class);
             String mode=System.getenv("REHEARSAL_MODE");
+            ObjectNode categoryRegression=null;
             if (!Set.of("manual","seed","seed-import","audit").contains(mode))
                 throw new IllegalStateException("EXACT_FIXTURE_MODE_REQUIRED");
             if ("manual".equals(mode) || "seed".equals(mode)) {
@@ -40,22 +43,65 @@ public class RehearsalSeed {
                     throw new IllegalStateException("EXACT_PARTIAL_MANUAL_FIXTURE_REQUIRED");
                 jdbc.update("insert into users(id,username,display_name,email,created_at,updated_at) values (?,'isolated_existing_owner','Isolated existing owner','existing_owner@example.invalid',now(),now())", U);
                 jdbc.update("insert into saved_places(user_id,place_id,saved_at) values (?,?::uuid,now())",U,"aa000000-0000-4000-8000-000000000002");
+                var anomaly=c.getBean(PlacePilotCatalogAnomalyService.class);
+                var before=anomaly.captureDidimBaseline();
                 var imported=c.getBean(PlacePilotImportService.class).importApproved(
                         Path.of("/sealed/predecessor/stage_1_import_manifest.json"),
                         System.getenv("REHEARSAL_A_HASH"),System.getenv("REHEARSAL_A_AUTH"));
                 if (!A.equals(imported.runId()) || imported.createdCount()!=71 || imported.alreadyImported())
                     throw new IllegalStateException("EXACT_PREDECESSOR_IMPORT_REQUIRED");
+                categoryRegression=verifyCategoryPolicy(jdbc,anomaly,
+                        new TransactionTemplate(c.getBean(PlatformTransactionManager.class)),before);
                 c.getBean(PlacePilotCanaryGateService.class).record(A,false,
                         M.createObjectNode().put("isolated_fixture_failure",true),null);
                 c.getBean(PlacePilotRollbackOperationsService.class).execute(A,System.getenv("REHEARSAL_A_HASH"),
                         PlacePilotRollbackOperationsService.Reason.PRODUCT_ACCEPTANCE_FAILURE);
             }
             ObjectNode state=snapshot(jdbc);
+            if (categoryRegression!=null) state.set("category_policy_regression",categoryRegression);
             Path output=Path.of(System.getenv("REHEARSAL_OUTPUT"));
             if (Files.exists(output)) throw new IllegalStateException("AUDIT_OVERWRITE_REFUSED");
             Files.write(output,M.writerWithDefaultPrettyPrinter().writeValueAsBytes(state),StandardOpenOption.CREATE_NEW);
             System.out.println("ISOLATED_FIXTURE_AUDIT:"+state.toString());
         }
+    }
+    static ObjectNode verifyCategoryPolicy(JdbcTemplate jdbc,PlacePilotCatalogAnomalyService anomaly,
+            TransactionTemplate transaction,PlacePilotCatalogAnomalyService.CatalogSnapshot before) {
+        var balanced=anomaly.audit(A,before);
+        var restored=anomaly.captureDidimBaseline();
+        if (before.activePlaces()!=0 || !before.categoryCounts().isEmpty() || !balanced.passed()
+                || restored.activePlaces()!=71
+                || !restored.categoryCounts().equals(Map.of("CAFE",36L,"RESTAURANT",35L)))
+            throw new IllegalStateException("BALANCED_SYNTHETIC_CATEGORY_AUDIT_REQUIRED");
+        // Negative TEST ONLY: real SQL and unchanged anomaly service, never an operational override.
+        // Roll back even on assertion failure. No gate/history records are written by this test.
+        var homogeneous=transaction.execute(status -> {
+            try {
+                int changed=jdbc.update("""
+                    UPDATE places SET category='CAFE' WHERE id IN
+                    (SELECT place_id FROM place_pilot_catalog_writes
+                     WHERE sync_run_id=? AND rollback_state='NONE')
+                    """,A);
+                var result=anomaly.audit(A,before);
+                if (changed!=71 || result.passed()
+                        || result.report().path("deltas").path("category_spikes").asLong()!=1)
+                    throw new IllegalStateException("HOMOGENEOUS_CATEGORY_HARD_FAIL_REQUIRED");
+                return result;
+            } finally {
+                status.setRollbackOnly();
+            }
+        });
+        if (homogeneous==null || !anomaly.captureDidimBaseline().equals(restored)
+                || !anomaly.audit(A,before).passed())
+            throw new IllegalStateException("CATEGORY_NEGATIVE_FIXTURE_ROLLBACK_FAILED");
+        ObjectNode evidence=M.createObjectNode();
+        evidence.put("classification","ISOLATED_CATEGORY_REGRESSION_ONLY");
+        evidence.set("balanced",balanced.report());
+        evidence.set("homogeneous",homogeneous.report());
+        evidence.put("negative_transaction_rolled_back",true);
+        evidence.put("restored_snapshot_equal",true);
+        evidence.put("balanced_recheck_passed",true);
+        return evidence;
     }
     static void seedManual(JdbcTemplate jdbc) {
         for (int n=1;n<=2;n++) {

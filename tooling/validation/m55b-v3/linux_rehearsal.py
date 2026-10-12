@@ -709,6 +709,9 @@ class Rehearsal:
         self.publish('fixture.json', self.config)
         self.phase = 'REAL_V17_AND_PREDECESSOR_LINEAGE'
         self.before = self.helper('seed-import')
+        from fixture import validate_category_regression
+        validate_category_regression(self.before.get('category_policy_regression'))
+        self.publish('category_policy_regression.json', self.before['category_policy_regression'])
         require(all(self.before[k] == v for k, v in {'places': 73, 'manual': 2, 'retired': 71, 'sources': 18924,
                'refs': 142, 'inactive_refs': 142, 'quarantine': 16064, 'b_writes': 0, 'b_sources': 0, 'b_decisions': 0, 'v17': 1}.items()), 'FULL_VOLUME_SEED_INVALID')
         require(self.before['canonical_uuid_digest'] == IDENTITY_DIGEST and self.before['b_gate'] == 'NONE', 'FROZEN_IDENTITY_FAILED')

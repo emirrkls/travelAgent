@@ -1,5 +1,7 @@
 """Small infrastructure checks. NOT substitutes for full-volume rehearsal."""
 import ast
+import copy
+from collections import Counter
 import hashlib
 import json
 import os
@@ -14,6 +16,25 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import fixture
 import dependencies as dep
+
+
+def category_regression_evidence():
+    """Mock readback for infrastructure unit tests; never operational evidence."""
+    def report(passed, categories, spikes):
+        return {'version': 'didim-catalog-anomaly-v1', 'passed': passed,
+                'before': {'active_places': 0, 'category_counts': {}},
+                'after': {'active_places': 71, 'category_counts': categories},
+                'deltas': {'category_growth': categories, 'category_spikes': spikes,
+                           'same_coordinate_anomalies': 0, 'same_name_category_near_duplicate_pairs': 0,
+                           'dense_marker_excess': 0},
+                **{key: 0 for key in ['invalid_or_out_of_scope_coordinates', 'invalid_categories',
+                     'provider_reference_collisions', 'source_orphans', 'canonical_without_provenance',
+                     'duplicate_canonical_assignments']}}
+    return {'classification': 'ISOLATED_CATEGORY_REGRESSION_ONLY',
+            'balanced': report(True, {'CAFE': 36, 'RESTAURANT': 35}, 0),
+            'homogeneous': report(False, {'CAFE': 71}, 1),
+            'negative_transaction_rolled_back': True, 'restored_snapshot_equal': True,
+            'balanced_recheck_passed': True}
 
 
 class HarnessTest(unittest.TestCase):
@@ -34,6 +55,72 @@ class HarnessTest(unittest.TestCase):
             self.assertEqual(info['source_states']['usable'], 145)
             self.assertEqual(info['candidate_decisions']['QUARANTINE'], 2)
             self.assertFalse(info['production_fingerprint_equivalence_claimed'])
+            self.assertEqual(info['selected_category_counts'], {'CAFE': 36, 'RESTAURANT': 35})
+            manifest = json.loads((Path(temporary) / 'sealed/stage_1_import_manifest.json').read_bytes())['manifest']
+            sources = {row['source_record_id']: row for row in manifest['source_records']}
+            selected = [row for row in manifest['candidates'] if row['selected_for_stage']]
+            self.assertEqual(Counter(row['canonical']['category'] for row in selected), {'CAFE': 36, 'RESTAURANT': 35})
+            self.assertEqual(sorted(row['canonical_place_id'] for row in selected), info['selected_canonical_ids'])
+            from phokarta_place_ingestion.production_categories import ProductionCategoryMapper
+            mapper = ProductionCategoryMapper()
+            for candidate in selected:
+                category = candidate['canonical']['category']
+                self.assertEqual(candidate['decision'], 'AUTO_CREATE')
+                self.assertTrue(candidate['canary_eligible'])
+                self.assertEqual(candidate['hard_blockers'], [])
+                self.assertEqual(len(candidate['source_record_ids']), 2)
+                for source_id in candidate['source_record_ids']:
+                    source = sources[source_id]
+                    self.assertEqual(source['proposed_place_category'], category)
+                    self.assertEqual(source['normalized_name'], candidate['canonical']['name'])
+                    self.assertEqual(mapper.mapped_categories(source['provider'].lower(), source['provider_categories']), (category,))
+                    self.assertEqual(mapper.map(source['provider'].lower(), source['provider_categories']).rule, 'exact')
+
+    def test_profile_is_deterministic_and_index_bounded(self):
+        self.assertEqual(Counter(fixture.selected_profile(i)[0] for i in range(71)), {'CAFE': 36, 'RESTAURANT': 35})
+        self.assertEqual(fixture.selected_profile(1), ('RESTAURANT', 'İnci Restoran 1',
+            {'overture': 'restaurant', 'fsq': '4bf58dd8d48988d1c4941735'}))
+        for invalid in [-1, 71, True, 1.0]:
+            with self.subTest(index=invalid), self.assertRaises(ValueError):
+                fixture.selected_profile(invalid)
+
+    def test_taxonomy_mismatch_fails_before_manifest_write(self):
+        app = Path(os.environ.get('GITHUB_WORKSPACE', HERE.parents[2])) / 'application'
+        if not app.is_dir():
+            app = HERE.parents[2]
+        taxonomy = dict(fixture.SELECTED_TAXONOMY, RESTAURANT=('Restoran', 'restaurant', '4bf58dd8d48988d16d941735'))
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(fixture, 'SELECTED_TAXONOMY', taxonomy):
+            root = Path(temporary) / 'sealed'
+            with self.assertRaisesRegex(ValueError, 'SYNTHETIC_CATEGORY_TAXONOMY_MISMATCH'):
+                fixture.generate(app, root, quarantine=2, rejected=2, dual_quarantine=1, padding=0)
+            self.assertFalse(root.exists())
+
+    def test_real_category_regression_contract_requires_homogeneous_failure_and_restoration(self):
+        evidence = category_regression_evidence()
+        fixture.validate_category_regression(evidence)
+        for path, value in [
+            (('homogeneous', 'passed'), True), (('homogeneous', 'deltas', 'category_spikes'), 0),
+            (('balanced', 'passed'), False), (('negative_transaction_rolled_back',), False),
+            (('restored_snapshot_equal',), False), (('balanced_recheck_passed',), False),
+            (('balanced', 'source_orphans'), 1),
+        ]:
+            broken = copy.deepcopy(evidence)
+            target = broken
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, 'CATEGORY_REGRESSION_NOT_VERIFIED'):
+                fixture.validate_category_regression(broken)
+        for broken in [None, {}, {'balanced': evidence['balanced']}]:
+            with self.subTest(missing=broken), self.assertRaises(ValueError):
+                fixture.validate_category_regression(broken)
+
+    def test_category_negative_control_uses_unchanged_service_and_transaction_rollback(self):
+        code = (HERE / 'RehearsalSeed.java').read_text()
+        self.assertIn('var result=anomaly.audit(A,before);', code)
+        self.assertIn('status.setRollbackOnly();', code)
+        self.assertIn('!anomaly.captureDidimBaseline().equals(restored)', code)
+        self.assertNotIn('extends PlacePilotCatalogAnomalyService', code)
 
     def test_no_live_connection_or_credential_inputs(self):
         code = (HERE / 'linux_rehearsal.py').read_text()
@@ -269,7 +356,8 @@ class DependencyTest(unittest.TestCase):
         manual = {'places': 2, 'manual': 2, 'sources': 0, 'refs': 0, 'v17': 1, 'b_writes': 0, 'b_sources': 0}
         seeded = {'places': 73, 'manual': 2, 'retired': 71, 'sources': 18924, 'refs': 142, 'inactive_refs': 142,
                   'quarantine': 16064, 'b_writes': 0, 'b_sources': 0, 'b_decisions': 0, 'v17': 1,
-                  'canonical_uuid_digest': fixture.IDENTITY_DIGEST, 'b_gate': 'NONE'}
+                  'canonical_uuid_digest': fixture.IDENTITY_DIGEST, 'b_gate': 'NONE',
+                  'category_policy_regression': category_regression_evidence()}
         trial.helper.side_effect = [manual, seeded]
         trial.sql.return_value = {'b_runs': 0}
         trial.historical_preflight.side_effect = lambda callback: callback()
@@ -300,6 +388,18 @@ class DependencyTest(unittest.TestCase):
         trial.command.assert_not_called()
         trial.operational.assert_not_called()
         trial.historical_preflight.assert_not_called()
+
+    def test_missing_category_negative_evidence_blocks_before_audit_or_runner(self):
+        import linux_rehearsal as h
+        trial = self.trial()
+        states = trial.helper.side_effect
+        manual, seeded = list(states)
+        seeded.pop('category_policy_regression')
+        trial.helper.side_effect = [manual, seeded]
+        with mock.patch.object(h, 'gate', return_value={'status': 'PASS'}), self.assertRaisesRegex(ValueError, 'CATEGORY_REGRESSION_NOT_VERIFIED'):
+            h.Rehearsal.execute(trial)
+        trial.historical_preflight.assert_not_called()
+        trial.operational.assert_not_called()
 
     def test_contract_and_bucket_readback_are_not_skipped(self):
         import linux_rehearsal as h

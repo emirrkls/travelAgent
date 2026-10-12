@@ -19,6 +19,7 @@ from capacity import gate, snapshot
 from fixture import APP_SHA, A, B, IDENTITY_DIGEST, sha, write
 from dependencies import Dependencies, DependencyFailure, SERVICES, WORKER, ASSEMBLED
 from release_assets import OfficialReleases, ReleaseFailure, verify_image, verify_smoke
+from target_diagnostics import from_logs
 
 HERE = Path(__file__).resolve().parent
 IMAGE = 'phokarta-backend:' + APP_SHA
@@ -386,22 +387,76 @@ class Rehearsal:
 
     def persistent(self):
         self.phase = 'PERSISTENT_TARGET_AND_TLS'
-        self.target = self.run('phokarta-backend-1', ['--network', NETWORK, '--memory', '1536m', '--cpus', '1.5',
-            *self.common(sealed=False), '--health-cmd', 'wget -q -T 5 -O /dev/null http://127.0.0.1:8081/actuator/health/readiness',
-            '--health-interval', '2s', '--health-timeout', '5s', '--health-retries', '60',
-            '--entrypoint', 'java', IMAGE, '-Xms256m', '-Xmx1024m', '-XX:+ExitOnOutOfMemoryError', *self.trust(), '-jar', '/app/app.jar'])
-        end = time.monotonic() + 180
-        while time.monotonic() < end:
-            s = self.inspect(self.target)['State']
-            require(s['Running'] and not s['OOMKilled'], 'PERSISTENT_TARGET_FAILED')
-            if s.get('Health', {}).get('Status') == 'healthy':
-                break
-            time.sleep(2)
-        else:
-            raise Failure('PERSISTENT_READINESS_DEADLINE')
-        tls = self.run('m55b-tls-verification', self.worker_args('tls'))
-        self.wait(tls, 30)
-        self.publish('tls.json', json.loads((self.root / 'tls-output/tls.json').read_bytes()))
+        diagnostic = {'version': 'm55b-persistent-startup-v1', 'status': 'RUNNING',
+                      'phase': 'BACKEND_STARTUP', 'started_at': now(), 'production_connections': 0}
+        started = time.monotonic()
+        try:
+            self.target = self.run('phokarta-backend-1', ['--network', NETWORK, '--memory', '1536m', '--cpus', '1.5',
+                *self.common(sealed=False), '--health-cmd', 'wget -q -T 5 -O /dev/null http://127.0.0.1:8081/actuator/health/readiness',
+                '--health-interval', '2s', '--health-timeout', '5s', '--health-retries', '60',
+                '--entrypoint', 'java', IMAGE, '-Xms256m', '-Xmx1024m', '-XX:+ExitOnOutOfMemoryError', *self.trust(), '-jar', '/app/app.jar'])
+            diagnostic.update(phase='CONTAINER_IDENTITY', container_id=self.target)
+            identity = self.inspect(self.target)
+            diagnostic.update(image_id=identity['Image'], expected_image_id=self.image_id,
+                              restart_count=identity['RestartCount'])
+            require(identity['Image'] == self.image_id and identity['RestartCount'] == 0, 'PERSISTENT_IDENTITY_FAILED')
+            diagnostic['phase'] = 'BACKEND_READINESS'
+            end = time.monotonic() + 180
+            while time.monotonic() < end:
+                observed = self.inspect(self.target)
+                s = observed['State']
+                health = s.get('Health', {}).get('Status', 'none')
+                require(health in {'healthy', 'unhealthy', 'starting', 'none'}, 'PERSISTENT_HEALTH_STATE_INVALID')
+                diagnostic.update(health=health, running=s['Running'], oom_killed=s['OOMKilled'],
+                                  restart_count=observed['RestartCount'], process_pid=s['Pid'],
+                                  container_started_at=s['StartedAt'])
+                require(s['Running'] and not s['OOMKilled'] and observed['RestartCount'] == 0, 'PERSISTENT_TARGET_FAILED')
+                if health == 'healthy':
+                    break
+                time.sleep(2)
+            else:
+                raise Failure('PERSISTENT_READINESS_DEADLINE')
+            diagnostic.update(phase='TLS_WORKER', readiness_elapsed_ms=(time.monotonic() - started) * 1000)
+            tls = self.run('m55b-tls-verification', self.worker_args('tls'))
+            wait_error = None
+            try:
+                self.wait(tls, 30)
+            except Failure as error:
+                wait_error = error
+            # Read the strict safe stdout contract BEFORE propagating exit failure.
+            # This also works when the worker cannot write its mounted artifact.
+            evidence = self.target_worker_evidence(tls)
+            if wait_error is not None:
+                if evidence and evidence['status'] == 'FAIL':
+                    failed = evidence['events'][-1]
+                    raise Failure('PERSISTENT_' + failed['phase'] + '_' + failed['failure_category']) from None
+                raise wait_error
+            require(evidence is not None and evidence['status'] == 'PASS', 'TLS_DIAGNOSTICS_INCOMPLETE')
+            verified = json.loads((self.root / 'tls-output/tls.json').read_bytes())
+            require(verified.get('status') == 'PASS' and verified.get('chain_verified') is True
+                    and verified.get('hostname_verified') is True and verified.get('hostname_negative_control') is True
+                    and len(verified.get('requests', [])) == 3
+                    and all(r['status'] == 200 and r['validation'] == 'VALID' for r in verified['requests']),
+                    'TLS_ARTIFACT_INCOMPLETE')
+            self.publish('tls.json', verified)
+            diagnostic['status'] = 'PASS'
+        finally:
+            if diagnostic['status'] != 'PASS':
+                diagnostic['status'] = 'FAIL'
+            diagnostic.update(completed_at=now(), elapsed_ms=(time.monotonic() - started) * 1000)
+            self.publish('persistent_target.json', diagnostic)
+
+    def target_worker_evidence(self, cid):
+        try:
+            r = subprocess.run(['docker', 'logs', cid], capture_output=True, timeout=10)
+            require(r.returncode == 0, 'TLS_DIAGNOSTIC_LOG_READ_FAILED')
+            evidence = from_logs(r.stdout)  # stderr and arbitrary lines NEVER published.
+        except Exception:
+            self.publish('tls_diagnostic_gap.json', {'status': 'UNAVAILABLE_OR_INVALID',
+                'raw_logs_not_published': True, 'worker_container_id': cid})
+            return None
+        self.publish('tls_worker_diagnostics.json', evidence)
+        return evidence
 
     def worker_args(self, mode):
         args = ['--network', NETWORK, '--memory', '1536m', '--memory-swap', '1536m',

@@ -125,3 +125,34 @@ does not create users or run rows. It enables semantic HTTPS checks before heavy
 fixture work; the existing manual UUIDs/data and seed-import guard are preserved.
 The persistent backend is not restarted after fixture import. No TLS check calls
 Detail or substitutes for its first measured PRE preconditioning request.
+
+Persistent target / HTTPS diagnostics
+
+The prior harness 8f4467ca82c38c2da3afc725df4ce3a50aab4874 worker exited 1
+at PERSISTENT_TARGET_AND_TLS. Its retained evidence does not establish an internal
+failure phase. Caddy running and exit code 1 do NOT establish HTTPS readiness or a
+TLS root cause. No speculative TLS/routing/application correction is made here.
+The evidenced infrastructure defect is loss of substep diagnostics: wait() raised
+before tls.json readback, and earlier worker failures emitted no safe phase data.
+
+The parent now publishes backend creation/identity/readiness state, exact image
+and process/container identity, restart/OOM state and measured startup duration.
+The worker emits an ordered, bounded, schema-validated stdout contract, including
+APPLICATION_IMPORT, DNS, TLS_CONTEXT, TCP, TLS_CHAIN_HOSTNAME,
+TLS_NEGATIVE_HOSTNAME, B1_HEALTH_LIVE, B1_HEALTH_READY, B1_SEARCH, ARTIFACT_WRITE.
+Every substep carries UTC/monotonic timing and explicit status. Failures contain
+only fixed categories and allowlisted exception classes, never exception messages,
+tracebacks, response bodies, arbitrary headers/URLs, environment or credentials.
+Only fixed safe fields (HTTP status/latency/request ID/semantic result, TLS version,
+verification booleans, private-DNS count) are permitted. Malformed/duplicate/extra
+fields or partial PASS evidence are rejected. Unknown failures remain unclassified.
+
+The parent reads the safe worker contract BEFORE propagating a nonzero exit, so
+an artifact permission error also remains visible. Missing/invalid diagnostic
+evidence cannot authorize continuation even if the worker exits zero. Original
+B1 Transport, requests, TLS verification, negative hostname assertion and five-
+second complete-response deadlines are unchanged. TCP+handshake share at most
+five seconds per connection. No Detail warmup or additional GET/retry is added.
+The existing approved MinIO acquisition/smoke/fixture/audit/import/product gates
+and resource policy are unchanged. One controlled branch-push run is authorized;
+if it yields a newly identified failure, stop and report rather than patch/rerun.
